@@ -1,0 +1,94 @@
+{
+    "name": "react-berry-admin-template",
+    "version": "0.0.4",
+    "private": true,
+    "homepage": "https://berrydashboard.io",
+    "build": {
+        "yarn": "v14.0.0,v16.0.0",
+        "npm": "v14.0.0,v16.0.0"
+    },
+    "dependencies": {
+        "@babel/plugin-transform-class-properties": "^7.25.9",
+        "@babel/plugin-transform-private-methods": "^7.25.9",
+        "@emotion/react": "^11.4.0",
+        "@emotion/styled": "^11.3.0",
+        "@mui/base": "^5.0.0-beta.69",
+        "@mui/icons-material": "^6.4.5",
+        "@mui/lab": "^6.0.0-beta.28",
+        "@mui/material": "^6.4.5",
+        "@mui/styles": "^6.4.5",
+        "@mui/x-data-grid": "^7.27.0",
+        "@rollup/plugin-terser": "^0.4.4",
+        "@tabler/icons": "^1.39.1",
+        "@testing-library/jest-dom": "^5.11.10",
+        "@testing-library/react": "^11.2.6",
+        "@testing-library/user-event": "^12.8.3",
+        "apexcharts": "^4.5.0",
+        "axios": "^1.7.9",
+        "clsx": "^1.1.1",
+        "formik": "^2.2.6",
+        "framer-motion": "^4.1.13",
+        "material-ui-popup-state": "^1.8.0",
+        "nth-check": "^2.0.1",
+        "postcss": "^8.4.31",
+        "react": "^17.0.2",
+        "react-apexcharts": "^1.7.0",
+        "react-device-detect": "^1.17.0",
+        "react-dom": "^17.0.2",
+        "react-perfect-scrollbar": "^1.5.8",
+        "react-redux": "^7.2.3",
+        "react-router": "^5.2.0",
+        "react-router-dom": "^5.2.0",
+        "react-scripts": "^5.0.1",
+        "redux": "^4.0.5",
+        "redux-persist": "^6.0.0",
+        "serialize-javascript": "^6.0.2",
+        "svgo": "^2.0.0",
+        "yup": "^0.32.9"
+    },
+    "scripts": {
+        "start": "react-scripts start",
+        "build": "react-scripts build",
+        "test": "react-scripts test --passWithNoTests",
+        "eject": "react-scripts eject"
+    },
+    "eslintConfig": {
+        "extends": [
+            "react-app",
+            "react-app/jest"
+        ]
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
+    },
+    "devDependencies": {
+        "@babel/core": "^7.22.0",
+        "@babel/plugin-transform-optional-chaining": "^7.25.9",
+        "@babel/preset-env": "^7.26.9",
+        "@babel/preset-react": "^7.26.3",
+        "babel-loader": "^8.3.0",
+        "eslint-config-react-app": "^7.0.1",
+        "eslint-plugin-testing-library": "^7.1.1",
+        "sass": "^1.85.0",
+        "sass-loader": "^16.0.5"
+    },
+    "overrides": {
+        "nth-check": "^2.0.1",
+        "postcss": "^8.4.31",
+        "serialize-javascript": "^6.0.2",
+        "eslint": "8.57.0",
+        "@typescript-eslint/utils": "5.62.0",
+        "@typescript-eslint/eslint-plugin": "5.62.0",
+        "@typescript-eslint/experimental-utils": "5.62.0",
+        "@typescript-eslint/type-utils": "5.62.0"
+    }
+}
