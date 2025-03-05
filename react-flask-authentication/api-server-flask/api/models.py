@@ -157,5 +157,46 @@ class OrderLinesView(db.Model):
         return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
 
 
+class Mattresses(db.Model):
+    __tablename__ = 'mattresses'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    mattress = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    fabric_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    fabric_code = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    fabric_color = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    dye_lot = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    item_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    spreading_method = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def __repr__(self):
+        return f"<Mattress {self.mattress}, Order {self.order_commessa}>"
+
+    def save(self):
+        """Save the mattress record to the database."""
+        db.session.add(self)
+        db.session.commit()
+
+    def to_dict(self):
+        """Convert model instance to dictionary for easy JSON serialization."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+    @classmethod
+    def get_by_id(cls, id):
+        """Fetch a mattress by its ID."""
+        return cls.query.get_or_404(id)
+
+    @classmethod
+    def get_all(cls):
+        """Retrieve all mattress records."""
+        return cls.query.all()
+
+    @classmethod
+    def get_by_order(cls, order_commessa):
+        """Fetch mattresses by order_commessa."""
+        return cls.query.filter_by(order_commessa=order_commessa).all()
 
 
