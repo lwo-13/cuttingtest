@@ -4,6 +4,14 @@ import { AddCircleOutline, DeleteOutline, Save } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
 
+
+// Sample Data
+const sampleOrders = [
+    { id: 1, name: "25IE341346", sizes: [{ size: "S", qty: 100 }, { size: "M", qty: 150 }, { size: "L", qty: 200 }] },
+    { id: 2, name: "25IC344190", sizes: [{ size: "XS", qty: 120 }, { size: "S", qty: 140 }, { size: "M", qty: 160 }, { size: "L", qty: 180 }] },
+    { id: 3, name: "25IP5800332715", sizes: [{ size: "S", qty: 50 }, { size: "M", qty: 70 }, { size: "L", qty: 90 }, { size: "XL", qty: 110 }, { size: "XXL", qty: 130 }, { size: "XXXL", qty: 150 }] }
+];
+
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
     { id: "VEN001", name: "DELITSIYA FASHION LTD" },
