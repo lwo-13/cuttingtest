@@ -50,7 +50,7 @@ const MarkerDB = () => {
 
     // Fetch data from Flask API
     useEffect(() => {
-        axios.get('http://127.0.0.1:5000/api/marker_headers') // Adjust URL if needed
+        axios.get('http://127.0.0.1:5000/api/markers/marker_headers') // Adjust URL if needed
             .then((response) => {
                 if (response.data.success) {
                     setMarkers(response.data.data);

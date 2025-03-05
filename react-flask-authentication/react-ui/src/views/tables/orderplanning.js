@@ -4,14 +4,6 @@ import { AddCircleOutline, DeleteOutline, Save } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
 
-
-// Sample Data
-const sampleOrders = [
-    { id: 1, name: "25IE341346", sizes: [{ size: "S", qty: 100 }, { size: "M", qty: 150 }, { size: "L", qty: 200 }] },
-    { id: 2, name: "25IC344190", sizes: [{ size: "XS", qty: 120 }, { size: "S", qty: 140 }, { size: "M", qty: 160 }, { size: "L", qty: 180 }] },
-    { id: 3, name: "25IP5800332715", sizes: [{ size: "S", qty: 50 }, { size: "M", qty: 70 }, { size: "L", qty: 90 }, { size: "XL", qty: 110 }, { size: "XXL", qty: 130 }, { size: "XXXL", qty: 150 }] }
-];
-
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
     { id: "VEN001", name: "DELITSIYA FASHION LTD" },
@@ -24,14 +16,15 @@ const sampleLaboratorio = [
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
 
-// Sample Fabric Types
-const markerNames = ["BOD2573-1-341346", "BOD2573-1-341346-1.34", "BODXYZ-2-123456"];
-
 const ALLOWANCE = 0.02;
 
 const OrderPlanning = () => {
+    const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [selectedLaboratorio, setSelectedLaboratorio] = useState(null);
+    const [selectedStyle, setSelectedStyle] = useState("");
+    const [selectedSeason, setSelectedSeason] = useState("");
+    const [selectedColorCode, setSelectedColorCode] = useState("");
     const [orderSizes, setOrderSizes] = useState([]); // ✅ Stores full objects (for qty display)
     const [orderSizeNames, setOrderSizeNames] = useState([]); // ✅ Stores only size names (for table columns)
     const [fabricType, setFabricType] = useState(null);
@@ -77,13 +70,49 @@ const OrderPlanning = () => {
         setTables(prevTables => prevTables.filter(table => table.id !== id));
     };
 
-    // Fetch data from Flask API
+    // Fetch order data from Flask API 
+    useEffect(() => {
+        axios.get('http://127.0.0.1:5000/api/orders/order_lines')
+            .then(response => {
+                if (response.data.success) {
+                    const ordersMap = new Map();
+    
+                    response.data.data.forEach(row => {
+                        if (row.status === 3) {  // ✅ Only include status = 3
+                            if (!ordersMap.has(row.order_commessa)) {
+                                ordersMap.set(row.order_commessa, {
+                                    id: row.order_commessa,  // ✅ Use only id
+                                    style: row.style,  // ✅ Unique style per order
+                                    season: row.season,  // ✅ Unique season per order
+                                    colorCode: row.color_code,  // ✅ Unique color code per order
+                                    sizes: []  // ✅ Initialize array for sizes
+                                });
+                            }
+    
+                            // Append sizes dynamically
+                            ordersMap.get(row.order_commessa).sizes.push({
+                                size: row.size,
+                                qty: parseFloat(row.quantity.toString().replace(",", "")) || 0 // ✅ Convert quantity to number
+                            });
+                        }
+                    });
+    
+                    setOrderOptions(Array.from(ordersMap.values()));  // ✅ Convert map to array
+                } else {
+                    console.error("Failed to fetch orders");
+                }
+            })
+            .catch(error => console.error("Error fetching order data:", error));
+    }, []);
+    
+
+    // Fetch marker data from Flask API 
     useEffect(() => {
         if (!selectedOrder) return;  // ✅ Do nothing if no order is selected
     
         console.log("Fetching marker headers...");  // ✅ Debugging
     
-        axios.get('http://127.0.0.1:5000/api/marker_headers_planning')  // ✅ Fetch only when order changes
+        axios.get('http://127.0.0.1:5000/api/markers/marker_headers_planning')  // ✅ Fetch only when order changes
             .then((response) => {
                 console.log("API Response:", response.data);  // ✅ Debugging
                 if (response.data.success) {
@@ -98,9 +127,12 @@ const OrderPlanning = () => {
     // Handle Order Selection
     const handleOrderChange = (event, newValue) => {
         if (newValue) {
-            setSelectedOrder(newValue.name); // Ensure correct order name is set
+            setSelectedOrder(newValue.id); //
             setOrderSizes(newValue.sizes || []); // Update size details dynamically
             setOrderSizeNames(newValue.sizes ? newValue.sizes.map(size => size.size) : []); // Store only size names
+            setSelectedStyle(newValue.style);
+            setSelectedSeason(newValue.season);
+            setSelectedColorCode(newValue.colorCode);
             
             // ✅ Reset all tables when switching orders
             setTables([
@@ -129,6 +161,9 @@ const OrderPlanning = () => {
             setTables([]);  // ✅ Reset all tables
             setFabricType(null);
             setSpreadingMethod(null);
+            setSelectedStyle("");
+            setSelectedSeason("");
+            setSelectedColorCode("");
         }
     };
     
@@ -275,9 +310,9 @@ const OrderPlanning = () => {
                     {/* Order Selection (Searchable) */}
                     <Grid item xs={6} sm={4} md={2.5}>
                         <Autocomplete
-                            options={sampleOrders}
-                            getOptionLabel={(option) => option.name}
-                            value={sampleOrders.find(order => order.name === selectedOrder) || null}
+                            options={orderOptions}
+                            getOptionLabel={(option) => option.id}
+                            value={orderOptions.find(order => order.id === selectedOrder) || null}
                             onChange={handleOrderChange}
                             renderInput={(params) => (
                                 <TextField {...params} label="Order/Commessa" variant="outlined" />
@@ -307,13 +342,17 @@ const OrderPlanning = () => {
                     </Grid>
 
                     {/* Read-Only Fields for Line, Style, Season */}
-                    <Grid item xs={6} sm={4} md={2.5}>
+                    <Grid item xs={3} sm={2} md={1.5}>
                         <TextField
-                            label="Line"
+                            label="Season"
                             variant="outlined"
-                            value="" // Placeholder, will be filled with DB data
+                            value={selectedSeason || ""}
                             slotProps={{ input: { readOnly: true } }}
-                            sx={{ width: '100%' }}
+                            sx={{ 
+                                width: '100%', 
+                                minWidth: '60px', 
+                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
+                            }}      
                         />
                     </Grid>
 
@@ -321,19 +360,27 @@ const OrderPlanning = () => {
                         <TextField
                             label="Style"
                             variant="outlined"
-                            value="" // Placeholder, will be filled with DB data
+                            value={selectedStyle || ""}
                             slotProps={{ input: { readOnly: true } }}
-                            sx={{ width: '100%', minWidth: '60px' }}
+                            sx={{ 
+                                width: '100%', 
+                                minWidth: '60px', 
+                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
+                            }}       
                         />
                     </Grid>
 
                     <Grid item xs={3} sm={2} md={1.5}> 
                         <TextField
-                            label="Season"
+                            label="Color"
                             variant="outlined"
-                            value="" // Placeholder, will be filled with DB data
+                            value={selectedColorCode || ""}
                             slotProps={{ input: { readOnly: true } }}
-                            sx={{ width: '100%', minWidth: '60px' }} 
+                            sx={{ 
+                                width: '100%', 
+                                minWidth: '60px', 
+                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
+                            }}                            
                         />
                     </Grid>
                 </Grid>
@@ -685,7 +732,7 @@ const OrderPlanning = () => {
                     startIcon={<AddCircleOutline />}
                     onClick={handleAddTable}
                 >
-                    Add Mattress Table
+                    Add Mattress
                 </Button>
 
                 <Button
@@ -704,6 +751,15 @@ const OrderPlanning = () => {
                     onClick={() => {}} // 🔹 Placeholder for future functionality
                 >
                     Add Collaretto Weft
+                </Button>
+
+                <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<AddCircleOutline />}
+                    onClick={() => {}} // 🔹 Placeholder for future functionality
+                >
+                    Add Collaretto Bias
                 </Button>
             </Box>
         </>
