@@ -85,3 +85,13 @@ class DeleteMattressResource(Resource):
 
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+        
+@ mattress_api.route('/all')
+class GetAllMattressesResource(Resource):
+    def get(self):
+        """Fetch all mattress records from the database."""
+        try:
+            mattresses = Mattresses.get_all()  # Retrieve all mattresses
+            return {"success": True, "data": [m.to_dict() for m in mattresses]}, 200
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
