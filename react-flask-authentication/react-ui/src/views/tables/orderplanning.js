@@ -38,6 +38,10 @@ const OrderPlanning = () => {
     const [tables, setTables] = useState([
         {
             id: 1, // Unique ID for tracking
+            fabricType: "",
+            fabricCode: "",
+            fabricColor: "",
+            spreadingMethod: "",
             rows: [{
                 markerName: "",
                 piecesPerSize: {},
@@ -47,6 +51,25 @@ const OrderPlanning = () => {
                 expectedConsumption: "",
                 bagno: ""
             }]
+        }
+    ]);
+
+    const [collarettoTables, setCollarettoTables] = useState([
+        {
+            id: 1, // Unique ID for tracking
+            fabricType: "",
+            fabricCode: "",
+            fabricColor: "",
+            rows: [
+                {
+                    markerName: "",
+                    width: "",
+                    markerLength: "",
+                    layers: "",
+                    expectedConsumption: "",
+                    bagno: ""
+                }
+            ]
         }
     ]);
 
@@ -68,8 +91,34 @@ const OrderPlanning = () => {
         ]);
     };
 
+    const handleAddCollaretto = () => {
+        setCollarettoTables(prevTables => [
+            ...prevTables, 
+            {
+                id: Date.now(), // Unique ID
+                fabricType: "",
+                fabricCode: "",
+                fabricColor: "",
+                rows: [
+                    {
+                        markerName: "",
+                        width: "",
+                        markerLength: "",
+                        layers: "",
+                        expectedConsumption: "",
+                        bagno: ""
+                    }
+                ]
+            }
+        ]);
+    };
+
     const handleRemoveTable = (id) => {
         setTables(prevTables => prevTables.filter(table => table.id !== id));
+    };
+
+    const handleRemoveCollaretto = (id) => {
+        setCollarettoTables(prevTables => prevTables.filter(table => table.id !== id));
     };
 
     // Fetch order data from Flask API 
@@ -265,6 +314,7 @@ const OrderPlanning = () => {
                 return table; // Keep other tables unchanged
             });
         });
+        setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
     };
     
 
@@ -323,8 +373,19 @@ const OrderPlanning = () => {
             return updatedTables;
         });
     };
-    
 
+    const handleCollarettoRowChange = (tableIndex, rowIndex, field, value) => {
+        setCollarettoTables(prevTables => {
+            const updatedTables = [...prevTables];
+            const updatedRows = [...updatedTables[tableIndex].rows];
+    
+            updatedRows[rowIndex] = { ...updatedRows[rowIndex], [field]: value };
+    
+            updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
+            return updatedTables;
+        });
+    };
+    
     // ✅ New function to handle delayed calculation
     const updateExpectedConsumption = (tableIndex, rowIndex) => {
         setTables(prevTables => {
@@ -538,11 +599,12 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
+            {/* Mattress Group Section */}
             {tables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before every table except the first one */}
                    {tableIndex > 0 && <Box mt={2} />} 
-                    <MainCard key={table.id} title={`Table ${tableIndex + 1}`}>
+                    <MainCard key={table.id} title={`Mattress Group ${tableIndex + 1}`}>
                     <Box p={1}>
                             <Grid container spacing={2}>
                                 {/* Fabric Type (Dropdown) */}
@@ -576,7 +638,7 @@ const OrderPlanning = () => {
                                         variant="outlined"
                                         value={tables[tableIndex].fabricCode || ""}
                                         onChange={(e) => {
-                                            const value = e.target.value;
+                                            const value = e.target.value.slice(0, 8);
                                             setTables(prevTables => {
                                                 const updatedTables = [...prevTables];
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
@@ -860,6 +922,182 @@ const OrderPlanning = () => {
                     </MainCard>
                     </React.Fragment>
             ))}
+
+             {/* Collaretto Tables Section */}
+            {collarettoTables.map((table, tableIndex) => (
+                <React.Fragment key={table.id}>
+                    <Box mt={2} />
+                    <MainCard title={`Collaretto Group ${tableIndex + 1}`}>
+
+                        <Box p={1}>
+                            <Grid container spacing={2}>
+                                {/* Fabric Type (Dropdown) */}
+                                <Grid item xs={3} sm={2} md={1.5}>
+                                    <Autocomplete
+                                        options={fabricTypeOptions}
+                                        getOptionLabel={(option) => option}
+                                        value={table.fabricType || null}
+                                        onChange={(event, newValue) => {
+                                            setCollarettoTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
+                                                return updatedTables;
+                                            });
+                                        }}
+                                        renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Fabric Code (Text Input) */}
+                                <Grid item xs={3} sm={2} md={2}>
+                                    <TextField
+                                        label="Fabric Code"
+                                        variant="outlined"
+                                        value={table.fabricCode || ""}
+                                        onChange={(e) => {
+                                            const value = e.target.value.slice(0, 8);
+                                            setCollarettoTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
+                                                return updatedTables;
+                                            });
+                                        }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Fabric Description (Read-Only) */}
+                                <Grid item xs={3} sm={2} md={2}>
+                                    <TextField
+                                        label="Fabric Description"
+                                        variant="outlined"
+                                        value="" // Placeholder, will be filled with DB data
+                                        slotProps={{ input: { readOnly: true } }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Fabric Color (Text Input) */}
+                                <Grid item xs={3} sm={2} md={1.5}>
+                                    <TextField
+                                        label="Fabric Color"
+                                        variant="outlined"
+                                        value={table.fabricColor || ""}
+                                        onChange={(e) => {
+                                            const value = e.target.value.slice(0, 4);
+                                            setCollarettoTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
+                                                return updatedTables;
+                                            });
+                                        }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Collaretto Type (Dropdown) */}
+                                <Grid item xs={3} sm={2} md={2}>
+                                    <Autocomplete
+                                        options={["ALONG THE GRAIN", "IN WEFT", "ON THE BIAS"]} // ✅ Defined options
+                                        getOptionLabel={(option) => option} 
+                                        value={tables[tableIndex].collarettoType || null} // ✅ Table-specific value
+                                        onChange={(event, newValue) => {
+                                            setTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], collarettoType: newValue };
+                                                return updatedTables;
+                                            });
+                                        }} // ✅ Update table-specific state
+                                        renderInput={(params) => (
+                                            <TextField {...params} label="Collaretto Type" variant="outlined" />
+                                        )}
+                                        sx={{
+                                            width: '100%',
+                                            minWidth: '60px',
+                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+                                        }}
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Box>
+
+                        {/* Table Section */}
+                        <Box>
+                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Marker Name</TableCell>
+                                            <TableCell align="center">Width</TableCell>
+                                            <TableCell align="center">Marker Length</TableCell>
+                                            <TableCell align="center">Layers</TableCell>
+                                            <TableCell align="center">Expected Consumption</TableCell>
+                                            <TableCell align="center">Bagno</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {table.rows.map((row, rowIndex) => (
+                                            <TableRow key={rowIndex}>
+                                                <TableCell>
+                                                    <Autocomplete
+                                                        options={markerOptions}
+                                                        getOptionLabel={(option) => option.marker_name}
+                                                        value={markerOptions.find(m => m.marker_name === row.markerName) || null}
+                                                        onChange={(_, newValue) => {
+                                                            handleCollarettoRowChange(tableIndex, rowIndex, "markerName", newValue ? newValue.marker_name : "");
+                                                        }}
+                                                        renderInput={(params) => <TextField {...params} variant="outlined" />}
+                                                    />
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography>{row.width}</Typography>
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography>{row.markerLength}</Typography>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.layers || ""}
+                                                        onChange={(e) => handleCollarettoRowChange(tableIndex, rowIndex, "layers", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        sx={{ width: '100%', minWidth: '65px', maxWidth: '80px', textAlign: 'center' }}
+                                                    />
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography>{row.expectedConsumption}</Typography>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.bagno || ""}
+                                                        onChange={(e) => handleCollarettoRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
+                                                        sx={{ width: '100%', minWidth: '90px', maxWidth: '120px', textAlign: 'center' }}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+
+                        {/* Remove Collaretto Table Button */}
+                        <Box mt={2} display="flex" justifyContent="flex-end">
+                            <Button variant="outlined" color="error" onClick={() => handleRemoveCollaretto(table.id)}>
+                                Remove Collaretto
+                            </Button>
+                        </Box>
+
+                    </MainCard>
+                </React.Fragment>
+            ))}
+
             <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
                 <Button
                     variant="contained"
@@ -874,7 +1112,7 @@ const OrderPlanning = () => {
                     variant="contained"
                     color="secondary" // ✅ Different color to distinguish it
                     startIcon={<AddCircleOutline />}
-                    onClick={() => {}} // 🔹 Placeholder for future functionality
+                    onClick={handleAddCollaretto}
                 >
                     Add Collaretto
                 </Button>
