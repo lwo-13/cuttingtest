@@ -72,7 +72,7 @@ const OrderPlanning = () => {
 
     // Fetch order data from Flask API 
     useEffect(() => {
-        axios.get('http://127.0.0.1:5000/api/order_lines')
+        axios.get('http://127.0.0.1:5000/api/orders/order_lines')
             .then(response => {
                 if (response.data.success) {
                     const ordersMap = new Map();
@@ -112,7 +112,7 @@ const OrderPlanning = () => {
     
         console.log("Fetching marker headers...");  // ✅ Debugging
     
-        axios.get('http://127.0.0.1:5000/api/marker_headers_planning')  // ✅ Fetch only when order changes
+        axios.get('http://127.0.0.1:5000/api/markers/marker_headers_planning')  // ✅ Fetch only when order changes
             .then((response) => {
                 console.log("API Response:", response.data);  // ✅ Debugging
                 if (response.data.success) {
@@ -264,29 +264,60 @@ const OrderPlanning = () => {
     };
 
     const handleSave = () => {
+        if (!selectedOrder || !tables.length) {
+            alert("Please select an order and enter at least one mattress entry.");
+            return;
+        }
+    
+        // ✅ Extract Data for API
+        const fabricType = tables[0]?.fabricType || "";
+        const fabricCode = tables[0]?.fabricCode || "";
+        const fabricColor = tables[0]?.fabricColor || "";
+        const dyeLot = tables[0]?.rows[0]?.bagno || "";  // ✅ Use the first row's Bagno as the dye lot
+        const spreadingMethodValue = spreadingMethod || "";
+    
+        if (!fabricType || !fabricCode || !fabricColor || !dyeLot) {
+            alert("Fabric Type, Fabric Code, Fabric Color, and Dye Lot are required.");
+            return;
+        }
+    
+        // ✅ Track how many mattresses for this order already exist
+        let mattressIndex = 1;  // Start at 001
+        const existingMattresses = tables.map((_, idx) => idx + 1);  // Existing indexes
+    
+        if (existingMattresses.length > 0) {
+            mattressIndex = Math.max(...existingMattresses) + 1;
+        }
+    
+        // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, ORDER-AS-FABRICTYPE-002, ...)
+        const mattressName = `${selectedOrder}-AS-${fabricType}-${String(mattressIndex).padStart(3, '0')}`;
+    
         const payload = {
-            order: selectedOrder,  // ✅ Selected Order
-            laboratorio: selectedLaboratorio,  // ✅ Selected Laboratory
-            fabricCode: tables.map(table => table.fabricCode),  // ✅ Fabric Codes per table
-            fabricColor: tables.map(table => table.fabricColor),  // ✅ Fabric Colors per table
-            fabricType: tables.map(table => table.fabricType),  // ✅ Fabric Types per table
-            tables: tables.map(table => ({
-                id: table.id,
-                rows: table.rows.map(row => ({
-                    markerName: row.markerName,
-                    piecesPerSize: row.piecesPerSize,
-                    width: row.width,
-                    markerLength: row.markerLength,
-                    layers: row.layers,
-                    expectedConsumption: row.expectedConsumption,
-                    bagno: row.bagno
-                }))
-            }))
+            mattress: mattressName,  
+            order_commessa: selectedOrder,
+            fabric_type: fabricType,
+            fabric_code: fabricCode,
+            fabric_color: fabricColor,
+            dye_lot: dyeLot,
+            item_type: "Mattress",
+            spreading_method: spreadingMethodValue
         };
     
-        console.log("Saving Data:", payload);
-        
-        // Next step: Send this to your database via an API
+        console.log("Sending Data:", payload);  // ✅ Debugging
+    
+        // ✅ Send Data to API
+        axios.post('http://127.0.0.1:5000/api/mattress/add_mattress_row', payload)
+            .then(response => {
+                if (response.data.success) {
+                    alert(`Mattress ${mattressName} added successfully!`);
+                } else {
+                    alert("Error: " + response.data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error sending mattress data:", error);
+                alert("Failed to add mattress. Check the console for details.");
+            });
     };
     
 
@@ -500,8 +531,14 @@ const OrderPlanning = () => {
                                     <Autocomplete
                                         options={["FACE UP", "FACE DOWN", "FACE TO FACE"]} // ✅ Defined options
                                         getOptionLabel={(option) => option} 
-                                        value={spreadingMethod || null} // ✅ Controlled component
-                                        onChange={(event, newValue) => setSpreadingMethod(newValue)} // ✅ Update state
+                                        value={tables[tableIndex].spreadingMethod || null} // ✅ Table-specific value
+                                        onChange={(event, newValue) => {
+                                            setTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], spreadingMethod: newValue };
+                                                return updatedTables;
+                                            });
+                                        }} // ✅ Update table-specific state
                                         renderInput={(params) => (
                                             <TextField {...params} label="Spreading Method" variant="outlined" />
                                         )}

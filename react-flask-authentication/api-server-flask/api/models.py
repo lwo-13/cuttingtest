@@ -4,7 +4,7 @@ Copyright (c) 2019 - present AppSeed.us
 """
 
 
-
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.inspection import inspect
@@ -181,8 +181,15 @@ class Mattresses(db.Model):
         db.session.commit()
 
     def to_dict(self):
-        """Convert model instance to dictionary for easy JSON serialization."""
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            # ✅ Convert datetime to string
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')  # Format: YYYY-MM-DD HH:MM:SS
+            else:
+                result[column.name] = value
+        return result
 
     @classmethod
     def get_by_id(cls, id):
