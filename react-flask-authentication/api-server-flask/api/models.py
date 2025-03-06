@@ -161,7 +161,7 @@ class Mattresses(db.Model):
     __tablename__ = 'mattresses'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    mattress = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    mattress = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
     order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     fabric_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     fabric_code = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)

@@ -127,38 +127,106 @@ const OrderPlanning = () => {
     // Handle Order Selection
     const handleOrderChange = (event, newValue) => {
         if (newValue) {
-            setSelectedOrder(newValue.id); //
-            setOrderSizes(newValue.sizes || []); // Update size details dynamically
-            setOrderSizeNames(newValue.sizes ? newValue.sizes.map(size => size.size) : []); // Store only size names
+            setSelectedOrder(newValue.id);
+            setOrderSizes(newValue.sizes || []);
+            setOrderSizeNames(newValue.sizes ? newValue.sizes.map(size => size.size) : []);
             setSelectedStyle(newValue.style);
             setSelectedSeason(newValue.season);
             setSelectedColorCode(newValue.colorCode);
-            
-            // ✅ Reset all tables when switching orders
-            setTables([
-                {
-                    id: 1, // ✅ Keep track of table IDs for duplication
-                    rows: [
+
+            console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
+
+            // ✅ Fetch existing mattresses from Flask API
+            axios.get(`http://127.0.0.1:5000/api/mattress/get_by_order/${newValue.id}`)
+                .then(response => {
+                    if (response.data.success) {
+                        console.log("✅ Mattresses Loaded:", response.data.data);
+
+                        // ✅ Create a mapping of tables grouped by `fabric_type`
+                        const tablesByFabricType = {};
+
+                        response.data.data.forEach((mattress) => {
+                            const fabricType = mattress.fabric_type;
+
+                            // ✅ Ensure each fabric type has its own table
+                            if (!tablesByFabricType[fabricType]) {
+                                tablesByFabricType[fabricType] = {
+                                    id: Object.keys(tablesByFabricType).length + 1,
+                                    fabricType: fabricType,
+                                    fabricCode: mattress.fabric_code,
+                                    fabricColor: mattress.fabric_color,
+                                    spreadingMethod: mattress.spreading_method,
+                                    rows: []
+                                };
+                            }
+
+                            // ✅ Add mattress row to the correct table
+                            tablesByFabricType[fabricType].rows.push({
+                                mattressName: mattress.mattress,  // ✅ Store but do not display in UI
+                                markerName: "",  // Separate from mattressName
+                                piecesPerSize: {},  // ⚠️ Adjust if pieces per size are saved separately
+                                width: "",
+                                markerLength: "",
+                                layers: "",
+                                expectedConsumption: "",
+                                bagno: mattress.dye_lot
+                            });
+                        });
+
+                        // ✅ Convert tables object to array
+                        const loadedTables = Object.values(tablesByFabricType);
+
+                        setTables(loadedTables);  // ✅ Restore previous tables
+                    } else {
+                        console.warn("⚠️ No existing mattresses found for this order.");
+                        setTables([
+                            {
+                                id: 1,
+                                rows: [
+                                    {
+                                        mattressName: "",  // ✅ Keep track of new mattresses without showing it
+                                        markerName: "",
+                                        piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
+                                        width: "",
+                                        markerLength: "",
+                                        layers: "",
+                                        expectedConsumption: "",
+                                        bagno: ""
+                                    }
+                                ]
+                            }
+                        ]);
+                    }
+                })
+                .catch(error => {
+                    console.error("❌ Error fetching mattresses:", error);
+                    setTables([
                         {
-                            markerName: "",
-                            piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
-                            width: "",
-                            markerLength: "",
-                            layers: "",
-                            expectedConsumption: "",
-                            bagno: ""
+                            id: 1,
+                            rows: [
+                                {
+                                    mattressName: "",  // ✅ Keep track of new mattresses without showing it
+                                    markerName: "",
+                                    piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
+                                    width: "",
+                                    markerLength: "",
+                                    layers: "",
+                                    expectedConsumption: "",
+                                    bagno: ""
+                                }
+                            ]
                         }
-                    ]
-                }
-            ]);
+                    ]);
+                });
+
             setFabricType(null);
             setSpreadingMethod(null);
         } else {
             setSelectedOrder(null);
-            setOrderSizes([]); // Reset sizes if no order is selected
-            setOrderSizeNames([]); // ✅ Reset only size names
-            setMarkerOptions([]); // Also clear marker options if no order is selected
-            setTables([]);  // ✅ Reset all tables
+            setOrderSizes([]);
+            setOrderSizeNames([]);
+            setMarkerOptions([]);
+            setTables([]);
             setFabricType(null);
             setSpreadingMethod(null);
             setSelectedStyle("");
@@ -166,6 +234,7 @@ const OrderPlanning = () => {
             setSelectedColorCode("");
         }
     };
+
     
     // Function to add a new row
     const handleAddRow = (tableIndex) => {
@@ -269,56 +338,62 @@ const OrderPlanning = () => {
             return;
         }
     
-        // ✅ Extract Data for API
-        const fabricType = tables[0]?.fabricType || "";
-        const fabricCode = tables[0]?.fabricCode || "";
-        const fabricColor = tables[0]?.fabricColor || "";
-        const dyeLot = tables[0]?.rows[0]?.bagno || "";  // ✅ Use the first row's Bagno as the dye lot
-        const spreadingMethodValue = spreadingMethod || "";
+        let mattressIndex = 1;  // ✅ Start at 001 for naming
     
-        if (!fabricType || !fabricCode || !fabricColor || !dyeLot) {
-            alert("Fabric Type, Fabric Code, Fabric Color, and Dye Lot are required.");
-            return;
-        }
+        tables.forEach((table, tableIndex) => {
+            const fabricType = table?.fabricType || "";
+            const fabricCode = table?.fabricCode || "";
+            const fabricColor = table?.fabricColor || "";
+            const spreadingMethodValue = table.spreadingMethod || "FACE UP";  
     
-        // ✅ Track how many mattresses for this order already exist
-        let mattressIndex = 1;  // Start at 001
-        const existingMattresses = tables.map((_, idx) => idx + 1);  // Existing indexes
+            if (!fabricType || !fabricCode || !fabricColor) {
+                alert(`Table ${tableIndex + 1}: Fabric Type, Fabric Code, and Fabric Color are required.`);
+                return;
+            }
     
-        if (existingMattresses.length > 0) {
-            mattressIndex = Math.max(...existingMattresses) + 1;
-        }
+            table.rows.forEach((row, rowIndex) => {
+                const dyeLot = row?.bagno || "";
     
-        // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, ORDER-AS-FABRICTYPE-002, ...)
-        const mattressName = `${selectedOrder}-AS-${fabricType}-${String(mattressIndex).padStart(3, '0')}`;
-    
-        const payload = {
-            mattress: mattressName,  
-            order_commessa: selectedOrder,
-            fabric_type: fabricType,
-            fabric_code: fabricCode,
-            fabric_color: fabricColor,
-            dye_lot: dyeLot,
-            item_type: "Mattress",
-            spreading_method: spreadingMethodValue
-        };
-    
-        console.log("Sending Data:", payload);  // ✅ Debugging
-    
-        // ✅ Send Data to API
-        axios.post('http://127.0.0.1:5000/api/mattress/add_mattress_row', payload)
-            .then(response => {
-                if (response.data.success) {
-                    alert(`Mattress ${mattressName} added successfully!`);
-                } else {
-                    alert("Error: " + response.data.message);
+                if (!dyeLot) {
+                    alert(`Table ${tableIndex + 1}, Row ${rowIndex + 1}: Dye Lot is required.`);
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error("Error sending mattress data:", error);
-                alert("Failed to add mattress. Check the console for details.");
+    
+                // ✅ Use existing mattressName or generate a new one if missing
+                const mattressName = row.mattressName || `${selectedOrder}-AS-${fabricType}-${String(mattressIndex).padStart(3, '0')}`;
+    
+                const payload = {
+                    mattress: mattressName,  
+                    order_commessa: selectedOrder,
+                    fabric_type: fabricType,
+                    fabric_code: fabricCode,
+                    fabric_color: fabricColor,
+                    dye_lot: dyeLot,
+                    item_type: "Mattress",
+                    spreading_method: spreadingMethodValue
+                };
+    
+                console.log("🚀 Sending Data:", JSON.stringify(payload, null, 2));  // ✅ Debugging
+    
+                axios.post('http://127.0.0.1:5000/api/mattress/add_mattress_row', payload)
+                    .then(response => {
+                        if (response.data.success) {
+                            console.log(`✅ Mattress ${mattressName} added/updated successfully!`);
+                        } else {
+                            console.error(`❌ Error adding/updating Mattress ${mattressName}:`, response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`❌ Failed to add/update Mattress ${mattressName}:`, error);
+                    });
+    
+                mattressIndex++;
             });
+        });
+    
+        alert("All mattresses have been submitted!");
     };
+    
     
 
     return (
