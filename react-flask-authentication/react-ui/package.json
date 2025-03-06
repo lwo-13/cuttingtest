@@ -28,6 +28,8 @@
         "clsx": "^1.1.1",
         "formik": "^2.2.6",
         "framer-motion": "^4.1.13",
+        "jspdf": "^3.0.0",
+        "jspdf-autotable": "^5.0.2",
         "material-ui-popup-state": "^1.8.0",
         "nth-check": "^2.0.1",
         "postcss": "^8.4.31",
