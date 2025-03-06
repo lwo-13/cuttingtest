@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db
+from api.models import Mattresses, db, MattressPhase
 from flask_restx import Namespace, Resource
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
 
 
-@ mattress_api.route('/add_mattress_row')
+@mattress_api.route('/add_mattress_row')
 class MattressResource(Resource):
     def post(self):
         try:
@@ -19,7 +19,7 @@ class MattressResource(Resource):
                 if field not in data or not data[field]:
                     return {"success": False, "message": f"Missing required field: {field}"}, 400
 
-            # ✅ Check if the mattress already exists by `mattressName`
+            # ✅ Check if the mattress already exists
             existing_mattress = Mattresses.query.filter_by(mattress=data["mattress"]).first()
 
             if existing_mattress:
@@ -44,9 +44,25 @@ class MattressResource(Resource):
             db.session.add(new_mattress)
             db.session.commit()
 
-            return {"success": True, "message": "Mattress added successfully", "data": new_mattress.to_dict()}, 201
+            # ✅ Add status phases: NOT SET (Active), PLANNED (Inactive), COMPLETED (Inactive)
+            phases = [
+                MattressPhase(mattress_id=new_mattress.id, status="0 - NOT SET", active=True),
+                MattressPhase(mattress_id=new_mattress.id, status="1 - PLANNED", active=False),
+                MattressPhase(mattress_id=new_mattress.id, status="2 - COMPLETED", active=False),
+            ]
+
+            print(phases)
+            db.session.add_all(phases)
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": "Mattress added successfully with phases",
+                "data": new_mattress.to_dict()
+            }, 201
 
         except Exception as e:
+            db.session.rollback()  # ✅ Rollback transaction on error
             print(f"❌ Exception: {str(e)}")
             return {"success": False, "message": str(e)}, 500
 

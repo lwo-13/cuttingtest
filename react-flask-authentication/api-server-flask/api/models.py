@@ -207,3 +207,19 @@ class Mattresses(db.Model):
         return cls.query.filter_by(order_commessa=order_commessa).all()
 
 
+class MattressPhase(db.Model):
+    __tablename__ = 'mattress_phases'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id'), nullable=False)
+    status = db.Column(db.String(255), nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=False)
+    device = db.Column(db.String(255), nullable=True)
+    operator = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def save(self):
+        """Save phase record to the database."""
+        db.session.add(self)
+        db.session.commit()

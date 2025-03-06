@@ -3,6 +3,7 @@ import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, Table
 import { AddCircleOutline, DeleteOutline, Save } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
@@ -32,56 +33,27 @@ const OrderPlanning = () => {
     const [fabricColor, setFabricColor] = useState("");
     const [markerOptions, setMarkerOptions] = useState([]);
     const [spreadingMethod, setSpreadingMethod] = useState(null);
+    const [collarettoType, setcollarettoType] = useState(null);
     const [deletedMattresses, setDeletedMattresses] = useState([]);
     const [unsavedChanges, setUnsavedChanges] = useState(false);
     
-    const [tables, setTables] = useState([
-        {
-            id: 1, // Unique ID for tracking
-            fabricType: "",
-            fabricCode: "",
-            fabricColor: "",
-            spreadingMethod: "",
-            rows: [{
-                markerName: "",
-                piecesPerSize: {},
-                width: "",
-                markerLength: "",
-                layers: "",
-                expectedConsumption: "",
-                bagno: ""
-            }]
-        }
-    ]);
+    const [tables, setTables] = useState([]); 
 
-    const [collarettoTables, setCollarettoTables] = useState([
-        {
-            id: 1, // Unique ID for tracking
-            fabricType: "",
-            fabricCode: "",
-            fabricColor: "",
-            rows: [
-                {
-                    markerName: "",
-                    width: "",
-                    markerLength: "",
-                    layers: "",
-                    expectedConsumption: "",
-                    bagno: ""
-                }
-            ]
-        }
-    ]);
+    const [collarettoTables, setCollarettoTables] = useState([]);
 
     const handleAddTable = () => {
         setTables(prevTables => [
             ...prevTables,
             {
-                id: prevTables.length + 1, // Assign unique ID
+                id: uuidv4(),  // ✅ Unique ID for each table
+                fabricType: "",
+                fabricCode: "",
+                fabricColor: "",
+                spreadingMethod: "",
                 rows: [{
+                    width: "",
                     markerName: "",
                     piecesPerSize: {},
-                    width: "",
                     markerLength: "",
                     layers: "",
                     expectedConsumption: "",
@@ -95,10 +67,11 @@ const OrderPlanning = () => {
         setCollarettoTables(prevTables => [
             ...prevTables, 
             {
-                id: Date.now(), // Unique ID
+                id: uuidv4(), // Unique ID
                 fabricType: "",
                 fabricCode: "",
                 fabricColor: "",
+                collarettoType: "",
                 rows: [
                     {
                         markerName: "",
@@ -214,9 +187,9 @@ const OrderPlanning = () => {
                             // ✅ Add mattress row to the correct table
                             tablesByFabricType[fabricType].rows.push({
                                 mattressName: mattress.mattress,  // ✅ Store but do not display in UI
+                                width: "",
                                 markerName: "",  // Separate from mattressName
                                 piecesPerSize: {},  // ⚠️ Adjust if pieces per size are saved separately
-                                width: "",
                                 markerLength: "",
                                 layers: "",
                                 expectedConsumption: "",
@@ -236,9 +209,9 @@ const OrderPlanning = () => {
                                 rows: [
                                     {
                                         mattressName: "",  // ✅ Keep track of new mattresses without showing it
+                                        width: "",
                                         markerName: "",
                                         piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
-                                        width: "",
                                         markerLength: "",
                                         layers: "",
                                         expectedConsumption: "",
@@ -257,9 +230,9 @@ const OrderPlanning = () => {
                             rows: [
                                 {
                                     mattressName: "",  // ✅ Keep track of new mattresses without showing it
+                                    width: "",
                                     markerName: "",
                                     piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
-                                    width: "",
                                     markerLength: "",
                                     layers: "",
                                     expectedConsumption: "",
@@ -297,12 +270,12 @@ const OrderPlanning = () => {
                         rows: [
                             ...table.rows,
                             {
+                                width: "",
                                 markerName: "",
                                 piecesPerSize: orderSizeNames.reduce((acc, size) => {
                                     acc[size] = ""; // Initialize each size with an empty value
                                     return acc;
                                 }, {}),
-                                width: "",
                                 markerLength: "",
                                 layers: "",
                                 expectedConsumption: "",
@@ -600,7 +573,7 @@ const OrderPlanning = () => {
             <Box mt={2} />
 
             {/* Mattress Group Section */}
-            {tables.map((table, tableIndex) => (
+            {tables.length > 0 && tables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before every table except the first one */}
                    {tableIndex > 0 && <Box mt={2} />} 
@@ -718,6 +691,7 @@ const OrderPlanning = () => {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
+                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Width</TableCell>
                                             <TableCell>Marker Name</TableCell>
                                             {/* ✅ Correctly Mapping Sizes */}
                                             {orderSizes.length > 0 &&
@@ -727,7 +701,6 @@ const OrderPlanning = () => {
                                                     </TableCell>
                                                 ))
                                             }
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Width</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Marker Length</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Layers</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Expected Consumption</TableCell>
@@ -738,6 +711,26 @@ const OrderPlanning = () => {
                                     <TableBody>
                                         {tables[tableIndex].rows.map((row, rowIndex) => (
                                             <TableRow key={rowIndex}>
+
+                                                {/* Width, Marker Length, Layers, Expected Consumption, Bagno */}
+                                                {/* Width (Auto-Filled & Read-only) */}
+                                                <TableCell sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={tables[tableIndex].rows[rowIndex].width || ""}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value.replace(/\D/g, '').slice(0, 3);  // ✅ Remove non-numeric & limit to 4 digits
+                                                            handleInputChange(tableIndex, rowIndex, "width", value);
+                                                        }}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '60px',
+                                                            maxWidth: '70px',
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                        }}
+                                                    />
+                                                </TableCell>
 
                                                 {/* Marker Code (Dropdown) */}
                                                 <TableCell sx={{ padding: '4px', minWidth: '350px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -825,14 +818,6 @@ const OrderPlanning = () => {
                                                     </TableCell>
                                                 ))}
 
-                                                {/* Width, Marker Length, Layers, Expected Consumption, Bagno */}
-                                                {/* Width (Auto-Filled & Read-only) */}
-                                                <TableCell sx={{ minWidth: '60x', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
-                                                    <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
-                                                        {row.width}
-                                                    </Typography>
-                                                </TableCell>
-
                                                 {/* Marker Length (Auto-Filled & Read-only) */}
                                                 <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
                                                     <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
@@ -898,8 +883,9 @@ const OrderPlanning = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* Add Row Button */}
-                            <Box mt={2} display="flex" justifyContent="flex-end">
+                            {/* Button Container (Flexbox for alignment) */}
+                            <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
+                                {/* Add Row Button */}
                                 <Button
                                     variant="contained"
                                     color="primary"
@@ -908,23 +894,23 @@ const OrderPlanning = () => {
                                 >
                                     Add Row
                                 </Button>
-                            </Box>
-                        </Box>
 
-                        {/* Remove Table Button */}
-                        {tables.length > 1 && (
-                            <Box mt={2} display="flex" justifyContent="flex-end">
-                                <Button variant="outlined" color="error" onClick={() => handleRemoveTable(table.id)}>
-                                    Remove Table
+                                {/* Remove Table Button */}
+                                <Button 
+                                    variant="outlined" 
+                                    color="error" 
+                                    onClick={() => handleRemoveTable(table.id)}
+                                >
+                                    Remove
                                 </Button>
                             </Box>
-                        )}
+                        </Box>
                     </MainCard>
                     </React.Fragment>
             ))}
 
              {/* Collaretto Tables Section */}
-            {collarettoTables.map((table, tableIndex) => (
+             {collarettoTables.length > 0 && collarettoTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
                     <MainCard title={`Collaretto Group ${tableIndex + 1}`}>
@@ -1001,9 +987,9 @@ const OrderPlanning = () => {
                                     <Autocomplete
                                         options={["ALONG THE GRAIN", "IN WEFT", "ON THE BIAS"]} // ✅ Defined options
                                         getOptionLabel={(option) => option} 
-                                        value={tables[tableIndex].collarettoType || null} // ✅ Table-specific value
+                                        value={collarettoTables[tableIndex].collarettoType || null} // ✅ Table-specific value
                                         onChange={(event, newValue) => {
-                                            setTables(prevTables => {
+                                            setCollarettoTables(prevTables => {
                                                 const updatedTables = [...prevTables];
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], collarettoType: newValue };
                                                 return updatedTables;
@@ -1098,25 +1084,27 @@ const OrderPlanning = () => {
                 </React.Fragment>
             ))}
 
-            <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
-                <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddCircleOutline />}
-                    onClick={handleAddTable}
-                >
-                    Add Mattress
-                </Button>
+            {selectedOrder && (
+                <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<AddCircleOutline />}
+                        onClick={handleAddTable}
+                    >
+                        Add Mattress
+                    </Button>
 
-                <Button
-                    variant="contained"
-                    color="secondary" // ✅ Different color to distinguish it
-                    startIcon={<AddCircleOutline />}
-                    onClick={handleAddCollaretto}
-                >
-                    Add Collaretto
-                </Button>
-            </Box>
+                    <Button
+                        variant="contained"
+                        color="secondary" // ✅ Different color to distinguish it
+                        startIcon={<AddCircleOutline />}
+                        onClick={handleAddCollaretto}
+                    >
+                        Add Collaretto
+                    </Button>
+                </Box>
+            )}
         </>
     );
 };
