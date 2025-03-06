@@ -4,14 +4,6 @@ import { AddCircleOutline, DeleteOutline, Save } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
 
-
-// Sample Data
-const sampleOrders = [
-    { id: 1, name: "25IE341346", sizes: [{ size: "S", qty: 100 }, { size: "M", qty: 150 }, { size: "L", qty: 200 }] },
-    { id: 2, name: "25IC344190", sizes: [{ size: "XS", qty: 120 }, { size: "S", qty: 140 }, { size: "M", qty: 160 }, { size: "L", qty: 180 }] },
-    { id: 3, name: "25IP5800332715", sizes: [{ size: "S", qty: 50 }, { size: "M", qty: 70 }, { size: "L", qty: 90 }, { size: "XL", qty: 110 }, { size: "XXL", qty: 130 }, { size: "XXXL", qty: 150 }] }
-];
-
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
     { id: "VEN001", name: "DELITSIYA FASHION LTD" },
@@ -40,6 +32,8 @@ const OrderPlanning = () => {
     const [fabricColor, setFabricColor] = useState("");
     const [markerOptions, setMarkerOptions] = useState([]);
     const [spreadingMethod, setSpreadingMethod] = useState(null);
+    const [deletedMattresses, setDeletedMattresses] = useState([]);
+    const [unsavedChanges, setUnsavedChanges] = useState(false);
     
     const [tables, setTables] = useState([
         {
@@ -278,12 +272,21 @@ const OrderPlanning = () => {
         setTables(prevTables => {
             return prevTables.map((table, tIndex) => {
                 if (tIndex === tableIndex) {
+                    const deletedRow = table.rows[rowIndex];
+    
+                    // ✅ If the row has a valid mattress name, add it to the delete list
+                    if (deletedRow.mattressName) {
+                        setDeletedMattresses(prevDeleted => [...prevDeleted, deletedRow.mattressName]);
+                    }
+
+                    setUnsavedChanges(true);  // ✅ Mark as unsaved when a row is deleted
+    
                     return {
                         ...table,
-                        rows: table.rows.filter((_, i) => i !== rowIndex) // ✅ Creates a new array without mutating state
+                        rows: table.rows.filter((_, i) => i !== rowIndex)
                     };
                 }
-                return table; // ✅ Return other tables unchanged
+                return table;
             });
         });
     };
@@ -315,9 +318,12 @@ const OrderPlanning = () => {
             updatedTable.rows = updatedRows;
             updatedTables[tableIndex] = updatedTable;
     
+            setUnsavedChanges(true);  // ✅ Mark the form as having unsaved changes
+    
             return updatedTables;
         });
     };
+    
 
     // ✅ New function to handle delayed calculation
     const updateExpectedConsumption = (tableIndex, rowIndex) => {
@@ -346,69 +352,78 @@ const OrderPlanning = () => {
             return;
         }
     
-        let mattressIndex = 1;  // ✅ Start at 001 for naming
+        const newMattressNames = new Set();
+        const payloads = [];
     
-        tables.forEach((table, tableIndex) => {
-            const fabricType = table?.fabricType || "";
-            const fabricCode = table?.fabricCode || "";
-            const fabricColor = table?.fabricColor || "";
-            const spreadingMethodValue = table.spreadingMethod || "FACE UP";  
-    
-            if (!fabricType || !fabricCode || !fabricColor) {
-                alert(`Table ${tableIndex + 1}: Fabric Type, Fabric Code, and Fabric Color are required.`);
-                return;
-            }
-    
+        // ✅ Collect data for saving
+        tables.forEach((table) => {
             table.rows.forEach((row, rowIndex) => {
-                const dyeLot = row?.bagno || "";
+                if (!row.markerName) return; // ✅ Skip empty rows
     
-                if (!dyeLot) {
-                    alert(`Table ${tableIndex + 1}, Row ${rowIndex + 1}: Dye Lot is required.`);
-                    return;
-                }
+                // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
+                const mattressName = `${selectedOrder}-AS-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
+                newMattressNames.add(mattressName); // ✅ Track UI rows
     
-                // ✅ Use existing mattressName or generate a new one if missing
-                const mattressName = row.mattressName || `${selectedOrder}-AS-${fabricType}-${String(mattressIndex).padStart(3, '0')}`;
-    
-                const payload = {
-                    mattress: mattressName,  
+                payloads.push({
+                    mattress: mattressName,
                     order_commessa: selectedOrder,
-                    fabric_type: fabricType,
-                    fabric_code: fabricCode,
-                    fabric_color: fabricColor,
-                    dye_lot: dyeLot,
+                    fabric_type: table.fabricType,
+                    fabric_code: table.fabricCode,
+                    fabric_color: table.fabricColor,
+                    dye_lot: row.bagno,
                     item_type: "Mattress",
-                    spreading_method: spreadingMethodValue
-                };
-    
-                console.log("🚀 Sending Data:", JSON.stringify(payload, null, 2));  // ✅ Debugging
-    
-                axios.post('http://127.0.0.1:5000/api/mattress/add_mattress_row', payload)
-                    .then(response => {
-                        if (response.data.success) {
-                            console.log(`✅ Mattress ${mattressName} added/updated successfully!`);
-                        } else {
-                            console.error(`❌ Error adding/updating Mattress ${mattressName}:`, response.data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error(`❌ Failed to add/update Mattress ${mattressName}:`, error);
-                    });
-    
-                mattressIndex++;
+                    spreading_method: table.spreadingMethod,
+                });
             });
         });
     
-        alert("All mattresses have been submitted!");
-    };
+        console.log("📤 Sending Updated Data:", payloads);
     
+        // ✅ Send Update Requests
+        Promise.all(payloads.map(payload =>
+            axios.post('http://127.0.0.1:5000/api/mattress/add_mattress_row', payload)
+                .then(response => {
+                    if (response.data.success) {
+                        console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
+                    } else {
+                        console.warn(`⚠️ Failed to save mattress ${payload.mattress}:`, response.data.message);
+                    }
+                })
+                .catch(error => console.error("❌ Error saving mattress:", error))
+        )).then(() => {
+            // ✅ Delete Only Rows That Were Removed from UI
+            console.log("🗑️ Mattresses to delete:", deletedMattresses);
+    
+            const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
+    
+            return Promise.all(mattressesToDelete.map(mattress =>
+                axios.delete(`http://127.0.0.1:5000/api/mattress/delete/${mattress}`)
+                    .then(res => {
+                        console.log(`🗑️ Deleted mattress: ${mattress}`);
+                    })
+                    .catch(err => console.error(`❌ Error deleting mattress: ${mattress}`, err))
+            ));
+        }).then(() => {
+            // ✅ Reset state after successful save
+            setDeletedMattresses([]);
+            setUnsavedChanges(false);
+        });
+    };
     
 
     return (
         <>
             <MainCard title="Order Planning" sx={{ position: 'relative' }}>
                 {/* Save Button (Positioned at the Top-Right) */}
-                <Box sx={{ position: 'absolute', top: '16px', right: '16px' }}>
+                <Box sx={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+
+                    {/* ✅ Show "Unsaved Changes" only if needed */}
+                    {unsavedChanges && (
+                        <Typography color="error" sx={{ fontWeight: 'bold' }}>
+                            Unsaved Changes
+                        </Typography>
+                    )}
+
                     <Button 
                         variant="contained" 
                         sx={{ backgroundColor: '#B0B0B0', color: 'white', '&:hover': { backgroundColor: '#A0A0A0' } }}
@@ -861,25 +876,7 @@ const OrderPlanning = () => {
                     startIcon={<AddCircleOutline />}
                     onClick={() => {}} // 🔹 Placeholder for future functionality
                 >
-                    Add Collaretto Along Grain
-                </Button>
-
-                <Button
-                    variant="contained"
-                    color="secondary"
-                    startIcon={<AddCircleOutline />}
-                    onClick={() => {}} // 🔹 Placeholder for future functionality
-                >
-                    Add Collaretto Weft
-                </Button>
-
-                <Button
-                    variant="contained"
-                    color="secondary"
-                    startIcon={<AddCircleOutline />}
-                    onClick={() => {}} // 🔹 Placeholder for future functionality
-                >
-                    Add Collaretto Bias
+                    Add Collaretto
                 </Button>
             </Box>
         </>

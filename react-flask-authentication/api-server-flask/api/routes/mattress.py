@@ -68,3 +68,20 @@ class MattressByOrder(Resource):
         except Exception as e:
             print(f"❌ Error fetching mattresses: {str(e)}")
             return {"success": False, "message": str(e)}, 500
+
+
+@ mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])
+class DeleteMattressResource(Resource):
+    def delete(self, mattress_name):
+        try:
+            mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
+            if not mattress:
+                return {"success": False, "message": "Mattress not found"}, 404
+
+            db.session.delete(mattress)
+            db.session.commit()
+
+            return {"success": True, "message": f"Deleted mattress {mattress_name}"}, 200
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
