@@ -8,6 +8,7 @@ import AuthGuard from './../utils/route-guard/AuthGuard';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
+const KanbanBoard = Loadable(lazy(() => import('../views/dashboard/kanbanboard')));
 
 // tables routing
 const Orders = Loadable(lazy(() => import('../views/tables/orders')));
@@ -37,6 +38,7 @@ const MainRoutes = () => {
         <Route
             path={[
                 '/dashboard/default',
+                '/dashboard/kanbanboard',
 
                 '/tables/orders',
                 '/tables/markerdb',
@@ -58,6 +60,7 @@ const MainRoutes = () => {
                 <Switch location={location} key={location.pathname}>
                     <AuthGuard>
                         <Route path="/dashboard/default" component={DashboardDefault} />
+                        <Route path="/dashboard/kanbanboard" component={KanbanBoard} />
 
                         <Route path="/tables/orders" component={Orders} />
                         <Route path="/tables/markerdb" component={MarkerDB} />

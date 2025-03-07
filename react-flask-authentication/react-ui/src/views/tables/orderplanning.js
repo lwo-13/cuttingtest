@@ -41,6 +41,37 @@ const OrderPlanning = () => {
 
     const [collarettoTables, setCollarettoTables] = useState([]);
 
+    const [alongTables, setAlongTables] = useState([]);
+
+    const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
+
+    const sortSizes = (sizes) => {
+        return sizes.sort((a, b) => {
+            const sizeA = a.size;
+            const sizeB = b.size;
+    
+            // If both are numbers, sort numerically
+            if (!isNaN(sizeA) && !isNaN(sizeB)) {
+                return parseInt(sizeA) - parseInt(sizeB);
+            }
+    
+            // If both are letters, sort by predefined order
+            const indexA = sizeOrder.indexOf(sizeA);
+            const indexB = sizeOrder.indexOf(sizeB);
+    
+            if (indexA !== -1 && indexB !== -1) {
+                return indexA - indexB;
+            }
+    
+            // If one is a number and the other is a letter, prioritize letters first
+            if (!isNaN(sizeA)) return 1;
+            if (!isNaN(sizeB)) return -1;
+    
+            // Default to alphabetical order for unknown cases
+            return sizeA.localeCompare(sizeB);
+        });
+    };
+
     const handleAddTable = () => {
         setTables(prevTables => [
             ...prevTables,
@@ -55,6 +86,7 @@ const OrderPlanning = () => {
                     markerName: "",
                     piecesPerSize: {},
                     markerLength: "",
+                    efficiency: "",
                     layers: "",
                     expectedConsumption: "",
                     bagno: ""
@@ -86,12 +118,38 @@ const OrderPlanning = () => {
         ]);
     };
 
+    const handleAddAlong = () => {
+        setAlongTables(prevTables => [
+            ...prevTables, 
+            {
+                id: uuidv4(), // Unique ID
+                fabricType: "",
+                fabricCode: "",
+                fabricColor: "",
+                rows: [
+                    {
+                        markerName: "",
+                        width: "",
+                        markerLength: "",
+                        layers: "",
+                        expectedConsumption: "",
+                        bagno: ""
+                    }
+                ]
+            }
+        ]);
+    };
+
     const handleRemoveTable = (id) => {
         setTables(prevTables => prevTables.filter(table => table.id !== id));
     };
 
     const handleRemoveCollaretto = (id) => {
         setCollarettoTables(prevTables => prevTables.filter(table => table.id !== id));
+    };
+
+    const handleRemoveAlong = (id) => {
+        setAlongTables(prevTables => prevTables.filter(table => table.id !== id));
     };
 
     // Fetch order data from Flask API 
@@ -121,7 +179,11 @@ const OrderPlanning = () => {
                         }
                     });
     
-                    setOrderOptions(Array.from(ordersMap.values()));  // ✅ Convert map to array
+                    const sortedOrders = Array.from(ordersMap.values()).map(order => ({
+                        ...order,
+                        sizes: sortSizes(order.sizes || [])
+                    }));
+                    setOrderOptions(sortedOrders);
                 } else {
                     console.error("Failed to fetch orders");
                 }
@@ -136,7 +198,7 @@ const OrderPlanning = () => {
     
         console.log("Fetching marker headers...");  // ✅ Debugging
     
-        axios.get('http://127.0.0.1:5000/api/markers/marker_headers_planning')  // ✅ Fetch only when order changes
+        axios.get(`http://127.0.0.1:5000/api/markers/marker_headers_planning?style=${encodeURIComponent(selectedStyle)}`)  // ✅ Fetch only when order changes
             .then((response) => {
                 console.log("API Response:", response.data);  // ✅ Debugging
                 if (response.data.success) {
@@ -152,8 +214,8 @@ const OrderPlanning = () => {
     const handleOrderChange = (event, newValue) => {
         if (newValue) {
             setSelectedOrder(newValue.id);
-            setOrderSizes(newValue.sizes || []);
-            setOrderSizeNames(newValue.sizes ? newValue.sizes.map(size => size.size) : []);
+            setOrderSizes(sortSizes(newValue.sizes || []));
+            setOrderSizeNames(sortSizes(newValue.sizes || []).map(size => size.size));
             setSelectedStyle(newValue.style);
             setSelectedSeason(newValue.season);
             setSelectedColorCode(newValue.colorCode);
@@ -211,7 +273,7 @@ const OrderPlanning = () => {
                                         mattressName: "",  // ✅ Keep track of new mattresses without showing it
                                         width: "",
                                         markerName: "",
-                                        piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
+                                        piecesPerSize: newValue.sizes ? Object.fromEntries(sortSizes(newValue.sizes).map(size => [size.size, ""])) : {},
                                         markerLength: "",
                                         layers: "",
                                         expectedConsumption: "",
@@ -232,7 +294,7 @@ const OrderPlanning = () => {
                                     mattressName: "",  // ✅ Keep track of new mattresses without showing it
                                     width: "",
                                     markerName: "",
-                                    piecesPerSize: newValue.sizes ? Object.fromEntries(newValue.sizes.map(size => [size.size, ""])) : {},
+                                    piecesPerSize: newValue.sizes ? Object.fromEntries(sortSizes(newValue.sizes).map(size => [size.size, ""])) : {},
                                     markerLength: "",
                                     layers: "",
                                     expectedConsumption: "",
@@ -251,6 +313,8 @@ const OrderPlanning = () => {
             setOrderSizeNames([]);
             setMarkerOptions([]);
             setTables([]);
+            setCollarettoTables([]);
+            setAlongTables([]);
             setFabricType(null);
             setSpreadingMethod(null);
             setSelectedStyle("");
@@ -263,6 +327,67 @@ const OrderPlanning = () => {
     // Function to add a new row
     const handleAddRow = (tableIndex) => {
         setTables(prevTables => {
+            return prevTables.map((table, index) => {
+                if (index === tableIndex) {
+                    return {
+                        ...table,
+                        rows: [
+                            ...table.rows,
+                            {
+                                width: "",
+                                markerName: "",
+                                piecesPerSize: orderSizeNames.reduce((acc, size) => {
+                                    acc[size] = ""; // Initialize each size with an empty value
+                                    return acc;
+                                }, {}),
+                                markerLength: "",
+                                efficiency: "",
+                                layers: "",
+                                expectedConsumption: "",
+                                bagno: ""
+                            }
+                        ]
+                    };
+                }
+                return table; // Keep other tables unchanged
+            });
+        });
+        setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
+    };
+
+    // Function to add a new row Along 
+    const handleAddRowAlong = (tableIndex) => {
+        setAlongTables(prevTables => {
+            return prevTables.map((table, index) => {
+                if (index === tableIndex) {
+                    return {
+                        ...table,
+                        rows: [
+                            ...table.rows,
+                            {
+                                width: "",
+                                markerName: "",
+                                piecesPerSize: orderSizeNames.reduce((acc, size) => {
+                                    acc[size] = ""; // Initialize each size with an empty value
+                                    return acc;
+                                }, {}),
+                                markerLength: "",
+                                layers: "",
+                                expectedConsumption: "",
+                                bagno: ""
+                            }
+                        ]
+                    };
+                }
+                return table; // Keep other tables unchanged
+            });
+        });
+        setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
+    };
+
+    // Function to add a new row Weft & Bias 
+    const handleAddRowCollaretto = (tableIndex) => {
+        setCollarettoTables(prevTables => {
             return prevTables.map((table, index) => {
                 if (index === tableIndex) {
                     return {
@@ -355,6 +480,20 @@ const OrderPlanning = () => {
             updatedRows[rowIndex] = { ...updatedRows[rowIndex], [field]: value };
     
             updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
+
+            return updatedTables;
+        });
+    };
+
+    const handleAlongRowChange = (tableIndex, rowIndex, field, value) => {
+        setAlongTables(prevTables => {
+            const updatedTables = [...prevTables];
+            const updatedRows = [...updatedTables[tableIndex].rows];
+    
+            updatedRows[rowIndex] = { ...updatedRows[rowIndex], [field]: value };
+    
+            updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
+
             return updatedTables;
         });
     };
@@ -442,6 +581,20 @@ const OrderPlanning = () => {
             setDeletedMattresses([]);
             setUnsavedChanges(false);
         });
+    };
+
+    const getTablePlannedQuantities = (table) => {
+        const plannedQuantities = {};
+    
+        table.rows.forEach(row => {
+            Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
+                const layers = parseInt(row.layers) || 0;
+                const pieces = parseInt(pcs) || 0;
+                plannedQuantities[size] = (plannedQuantities[size] || 0) + (pieces * layers);
+            });
+        });
+    
+        return plannedQuantities;
     };
     
 
@@ -577,7 +730,23 @@ const OrderPlanning = () => {
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before every table except the first one */}
                    {tableIndex > 0 && <Box mt={2} />} 
-                    <MainCard key={table.id} title={`Mattress Group ${tableIndex + 1}`}>
+                    <MainCard 
+                        key={table.id} 
+                        title={
+                            <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                                <Typography variant="h3">{`Mattress Group ${tableIndex + 1}`}</Typography>
+
+                                {/* Table-Specific Planned Quantities */}
+                                <Box display="flex" gap={2} sx={{ backgroundColor: "#EFEFEF", padding: "4px 8px", borderRadius: "8px" }}>
+                                    {Object.entries(getTablePlannedQuantities(table)).map(([size, qty]) => (
+                                        <Typography key={size} variant="body2" sx={{ fontWeight: "bold" }}>
+                                            {size}: {qty}
+                                        </Typography>
+                                    ))}
+                                </Box>
+                            </Box>
+                        }
+                    >
                     <Box p={1}>
                             <Grid container spacing={2}>
                                 {/* Fabric Type (Dropdown) */}
@@ -701,7 +870,8 @@ const OrderPlanning = () => {
                                                     </TableCell>
                                                 ))
                                             }
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Marker Length</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Length</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Eff %</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Layers</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Expected Consumption</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Bagno</TableCell>
@@ -748,14 +918,16 @@ const OrderPlanning = () => {
                                                                         ...newRows[rowIndex],
                                                                         markerName: newValue.marker_name,
                                                                         width: newValue.marker_width,       // ✅ Auto-fill Width
-                                                                        markerLength: newValue.marker_length // ✅ Auto-fill Marker Length
+                                                                        markerLength: newValue.marker_length, // ✅ Auto-fill Marker Length
+                                                                        efficiency: newValue.efficiency // ✅ Auto-fill Efficienyc
                                                                     };
                                                                 } else {
                                                                     newRows[rowIndex] = {
                                                                         ...newRows[rowIndex],
                                                                         markerName: "",
                                                                         width: "",       // ✅ Clear Width if empty
-                                                                        markerLength: "" // ✅ Clear Marker Length if empty
+                                                                        markerLength: "", // ✅ Clear Marker Length if empty
+                                                                        efficiency: "" // ✅ Clear Marker Eff if empty
                                                                     };
                                                                 }
                                     
@@ -822,6 +994,13 @@ const OrderPlanning = () => {
                                                 <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
                                                     <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
                                                         {row.markerLength}
+                                                    </Typography>
+                                                </TableCell>
+
+                                                {/* Efficiency (Auto-Filled & Read-only) */}
+                                                <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+                                                    <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
+                                                        {row.efficiency}
                                                     </Typography>
                                                 </TableCell>
 
@@ -909,8 +1088,173 @@ const OrderPlanning = () => {
                     </React.Fragment>
             ))}
 
-             {/* Collaretto Tables Section */}
-             {collarettoTables.length > 0 && collarettoTables.map((table, tableIndex) => (
+            {/* Along Tables Section */}
+            {alongTables.length > 0 && alongTables.map((table, tableIndex) => (
+                <React.Fragment key={table.id}>
+                    <Box mt={2} />
+                    <MainCard title={`Collaretto Along the Grain ${tableIndex + 1}`}>
+
+                        <Box p={1}>
+                            <Grid container spacing={2}>
+                                {/* Fabric Type (Dropdown) */}
+                                <Grid item xs={3} sm={2} md={1.5}>
+                                    <Autocomplete
+                                        options={fabricTypeOptions}
+                                        getOptionLabel={(option) => option}
+                                        value={table.fabricType || null}
+                                        onChange={(event, newValue) => {
+                                            setAlongTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
+                                                return updatedTables;
+                                            });
+                                        }}
+                                        renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Fabric Code (Text Input) */}
+                                <Grid item xs={3} sm={2} md={2}>
+                                    <TextField
+                                        label="Fabric Code"
+                                        variant="outlined"
+                                        value={table.fabricCode || ""}
+                                        onChange={(e) => {
+                                            const value = e.target.value.slice(0, 8);
+                                            setAlongTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
+                                                return updatedTables;
+                                            });
+                                        }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Fabric Description (Read-Only) */}
+                                <Grid item xs={3} sm={2} md={2}>
+                                    <TextField
+                                        label="Fabric Description"
+                                        variant="outlined"
+                                        value="" // Placeholder, will be filled with DB data
+                                        slotProps={{ input: { readOnly: true } }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Fabric Color (Text Input) */}
+                                <Grid item xs={3} sm={2} md={1.5}>
+                                    <TextField
+                                        label="Fabric Color"
+                                        variant="outlined"
+                                        value={table.fabricColor || ""}
+                                        onChange={(e) => {
+                                            const value = e.target.value.slice(0, 4);
+                                            setAlongTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
+                                                return updatedTables;
+                                            });
+                                        }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Box>
+
+                        {/* Table Section */}
+                        <Box>
+                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Marker Name</TableCell>
+                                            <TableCell align="center">Width</TableCell>
+                                            <TableCell align="center">Marker Length</TableCell>
+                                            <TableCell align="center">Layers</TableCell>
+                                            <TableCell align="center">Expected Consumption</TableCell>
+                                            <TableCell align="center">Bagno</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {table.rows.map((row, rowIndex) => (
+                                            <TableRow key={rowIndex}>
+                                                <TableCell>
+                                                    <Autocomplete
+                                                        options={markerOptions}
+                                                        getOptionLabel={(option) => option.marker_name}
+                                                        value={markerOptions.find(m => m.marker_name === row.markerName) || null}
+                                                        onChange={(_, newValue) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "markerName", newValue ? newValue.marker_name : "");
+                                                        }}
+                                                        renderInput={(params) => <TextField {...params} variant="outlined" />}
+                                                    />
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography>{row.width}</Typography>
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography>{row.markerLength}</Typography>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.layers || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "layers", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        sx={{ width: '100%', minWidth: '65px', maxWidth: '80px', textAlign: 'center' }}
+                                                    />
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography>{row.expectedConsumption}</Typography>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.bagno || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
+                                                        sx={{ width: '100%', minWidth: '90px', maxWidth: '120px', textAlign: 'center' }}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            {/* Button Container (Flexbox for alignment) */}
+                            <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
+                                {/* Add Row Button */}
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    startIcon={<AddCircleOutline />}
+                                    onClick={() => handleAddRowAlong(tableIndex)} // ✅ Pass the specific table index
+                                >
+                                    Add Row
+                                </Button>
+
+                                {/* Remove Table Button */}
+                                <Button 
+                                    variant="outlined" 
+                                    color="error" 
+                                    onClick={() => handleRemoveAlong(table.id)}
+                                >
+                                    Remove
+                                </Button>
+                            </Box>
+                        </Box>
+                    </MainCard>
+                </React.Fragment>
+            ))}
+
+            {/* Collaretto Tables Section */}
+            {collarettoTables.length > 0 && collarettoTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
                     <MainCard title={`Collaretto Group ${tableIndex + 1}`}>
@@ -985,7 +1329,7 @@ const OrderPlanning = () => {
                                 {/* Collaretto Type (Dropdown) */}
                                 <Grid item xs={3} sm={2} md={2}>
                                     <Autocomplete
-                                        options={["ALONG THE GRAIN", "IN WEFT", "ON THE BIAS"]} // ✅ Defined options
+                                        options={["IN WEFT", "ON THE BIAS"]} // ✅ Defined options
                                         getOptionLabel={(option) => option} 
                                         value={collarettoTables[tableIndex].collarettoType || null} // ✅ Table-specific value
                                         onChange={(event, newValue) => {
@@ -1071,15 +1415,29 @@ const OrderPlanning = () => {
                                     </TableBody>
                                 </Table>
                             </TableContainer>
-                        </Box>
 
-                        {/* Remove Collaretto Table Button */}
-                        <Box mt={2} display="flex" justifyContent="flex-end">
-                            <Button variant="outlined" color="error" onClick={() => handleRemoveCollaretto(table.id)}>
-                                Remove Collaretto
-                            </Button>
-                        </Box>
+                            {/* Button Container (Flexbox for alignment) */}
+                            <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
+                                {/* Add Row Button */}
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    startIcon={<AddCircleOutline />}
+                                    onClick={() => handleAddRowCollaretto(tableIndex)} // ✅ Pass the specific table index
+                                >
+                                    Add Row
+                                </Button>
 
+                                {/* Remove Table Button */}
+                                <Button 
+                                    variant="outlined" 
+                                    color="error" 
+                                    onClick={() => handleRemoveCollaretto(table.id)}
+                                >
+                                    Remove
+                                </Button>
+                            </Box>
+                        </Box>
                     </MainCard>
                 </React.Fragment>
             ))}
@@ -1099,9 +1457,18 @@ const OrderPlanning = () => {
                         variant="contained"
                         color="secondary" // ✅ Different color to distinguish it
                         startIcon={<AddCircleOutline />}
+                        onClick={handleAddAlong}
+                    >
+                        Add Collaretto Along Grain
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        color="secondary" // ✅ Different color to distinguish it
+                        startIcon={<AddCircleOutline />}
                         onClick={handleAddCollaretto}
                     >
-                        Add Collaretto
+                        Add Collaretto Weft or Bias
                     </Button>
                 </Box>
             )}

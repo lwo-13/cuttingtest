@@ -1,5 +1,5 @@
 // assets
-import { IconClipboardList, IconLayout, IconTemplate } from '@tabler/icons';
+import { IconClipboardList, IconLayoutCollage, IconTemplate } from '@tabler/icons';
 
 //-----------------------|| TABLES MENU ITEMS ||-----------------------//
 
@@ -21,7 +21,7 @@ const tables = {
       title: 'Marker Database',         // Label in the sidebar
       type: 'item',                 // It's a single link
       url: '/tables/markerdb', // URL route (adjust as needed)
-      icon: IconLayout,    // Choose your icon
+      icon: IconLayoutCollage,    // Choose your icon
       breadcrumbs: false
     },
     {

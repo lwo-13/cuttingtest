@@ -36,11 +36,21 @@ class MarkerHeaders(Resource):
 class MarkerHeadersPlanning(Resource):
     def get(self):
         try:
-            headers = MarkerHeader.query.filter_by(status='ACTIVE').all()
+            selected_style = request.args.get('style')  # 🔍 Get style from query parameters
+            
+            if not selected_style:
+                return {"success": False, "msg": "Missing required style parameter"}, 400
+
+            headers = MarkerHeader.query.filter(
+                MarkerHeader.status == 'ACTIVE',
+                MarkerHeader.model.ilike(f"%{selected_style}%")  # Case-insensitive search
+            ).all()
+
             result = [{
                 "marker_name": header.marker_name,
                 "marker_width": header.marker_width,
-                "marker_length": header.marker_length
+                "marker_length": header.marker_length,
+                "efficiency": header.efficiency
             } for header in headers]
 
             return {"success": True, "data": result}, 200

@@ -47,7 +47,7 @@ class MattressResource(Resource):
             # ✅ Add status phases: NOT SET (Active), PLANNED (Inactive), COMPLETED (Inactive)
             phases = [
                 MattressPhase(mattress_id=new_mattress.id, status="0 - NOT SET", active=True),
-                MattressPhase(mattress_id=new_mattress.id, status="1 - PLANNED", active=False),
+                MattressPhase(mattress_id=new_mattress.id, status="1 - TO LOAD", active=False),
                 MattressPhase(mattress_id=new_mattress.id, status="2 - COMPLETED", active=False),
             ]
 
@@ -111,3 +111,39 @@ class GetAllMattressesResource(Resource):
             return {"success": True, "data": [m.to_dict() for m in mattresses]}, 200
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+        
+@ mattress_api.route('/kanban')
+class GetKanbanMattressesResource(Resource):
+    def get(self):
+        """Fetch only active PHASE first, then filter 'TO LOAD' status."""
+        try:
+            query = db.session.query(
+                MattressPhase.mattress_id,
+                MattressPhase.status,
+                MattressPhase.device,
+                MattressPhase.operator,
+                Mattresses.mattress,
+                Mattresses.order_commessa,
+                Mattresses.fabric_type
+            ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
+            .filter(MattressPhase.active == True) \
+            .filter(MattressPhase.status.in_(["TO LOAD"])) \
+            .all()
+
+            result = [
+                {
+                    "id": row.mattress_id,
+                    "mattress": row.mattress,
+                    "status": row.status,
+                    "device": row.device if row.device else "SP0",  # Default to SP0 if device is missing
+                    "operator": row.operator,
+                    "order_commessa": row.order_commessa,
+                    "fabric_type": row.fabric_type,
+                }
+                for row in query
+            ]
+
+            return {"success": True, "data": result}, 200
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+

@@ -1,5 +1,5 @@
 // assets
-import { IconDashboard, IconDeviceAnalytics } from '@tabler/icons';
+import { IconDashboard, IconDeviceAnalytics, IconLayoutKanban } from '@tabler/icons';
 
 // constant
 const icons = {
@@ -16,10 +16,18 @@ export const dashboard = {
     children: [
         {
             id: 'default',
-            title: 'Dashboard',
+            title: 'KPI Dashboard',
             type: 'item',
             url: '/dashboard/default',
             icon: icons['IconDashboard'],
+            breadcrumbs: false
+        },
+        {
+            id: 'kanban',
+            title: 'Board',
+            type: 'item',
+            url: '/dashboard/kanbanboard',
+            icon: IconLayoutKanban,
             breadcrumbs: false
         }
     ]
