@@ -41,21 +41,34 @@ class MarkerHeadersPlanning(Resource):
             if not selected_style:
                 return {"success": False, "msg": "Missing required style parameter"}, 400
 
+            # ✅ Fetch ACTIVE markers matching the style
             headers = MarkerHeader.query.filter(
                 MarkerHeader.status == 'ACTIVE',
                 MarkerHeader.model.ilike(f"%{selected_style}%")  # Case-insensitive search
             ).all()
 
-            result = [{
-                "marker_name": header.marker_name,
-                "marker_width": header.marker_width,
-                "marker_length": header.marker_length,
-                "efficiency": header.efficiency
-            } for header in headers]
+            result = []
+
+            for header in headers:
+                # ✅ Fetch Marker Lines for the current header
+                marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
+                
+                # ✅ Store size quantities in a dictionary
+                size_quantities = {line.size: line.pcs_on_layer for line in marker_lines}
+
+                # ✅ Append full marker data
+                result.append({
+                    "marker_name": header.marker_name,
+                    "marker_width": header.marker_width,
+                    "marker_length": header.marker_length,
+                    "efficiency": header.efficiency,
+                    "size_quantities": size_quantities  # ✅ Include size quantities
+                })
 
             return {"success": True, "data": result}, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
+
 
 # ===================== Import Marker ==========================
 @markers_api.route('/import_marker', methods=['POST'])

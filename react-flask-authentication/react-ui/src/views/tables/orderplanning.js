@@ -861,7 +861,7 @@ const OrderPlanning = () => {
                                     <TableHead>
                                         <TableRow>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Width</TableCell>
-                                            <TableCell>Marker Name</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Marker Name</TableCell>
                                             {/* ✅ Correctly Mapping Sizes */}
                                             {orderSizes.length > 0 &&
                                                 orderSizes.map((size, index) => (
@@ -883,14 +883,34 @@ const OrderPlanning = () => {
                                             <TableRow key={rowIndex}>
 
                                                 {/* Width, Marker Length, Layers, Expected Consumption, Bagno */}
-                                                {/* Width (Auto-Filled & Read-only) */}
+
+                                                {/* Width (Auto-Filled or Input) */}
                                                 <TableCell sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].width || ""}
                                                         onChange={(e) => {
                                                             const value = e.target.value.replace(/\D/g, '').slice(0, 3);  // ✅ Remove non-numeric & limit to 4 digits
-                                                            handleInputChange(tableIndex, rowIndex, "width", value);
+                                                            
+                                                            setTables(prevTables => {
+                                                                const updatedTables = [...prevTables];
+                                                                const updatedRows = [...updatedTables[tableIndex].rows];
+                                                
+                                                                updatedRows[rowIndex] = {
+                                                                    ...updatedRows[rowIndex],
+                                                                    width: value,
+                                                                    markerName: "" // ✅ Clear selected marker when width changes
+                                                                };
+                                                
+                                                                updatedTables[tableIndex] = {
+                                                                    ...updatedTables[tableIndex],
+                                                                    rows: updatedRows
+                                                                };
+                                                
+                                                                return updatedTables;
+                                                            });
+                                                
+                                                            setUnsavedChanges(true);  // ✅ Mark as unsaved when width is edited
                                                         }}
                                                         sx={{
                                                             width: '100%',
@@ -902,40 +922,46 @@ const OrderPlanning = () => {
                                                     />
                                                 </TableCell>
 
-                                                {/* Marker Code (Dropdown) */}
+                                                {/* Marker Name (Dropdown) */}
                                                 <TableCell sx={{ padding: '4px', minWidth: '350px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     <Autocomplete
-                                                        options={markerOptions}
+                                                        options={row.width
+                                                            ? [...markerOptions]
+                                                                .filter(marker => parseFloat(marker.marker_width) === parseFloat(row.width))
+                                                                .sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency)) // ✅ Sort by efficiency (Descending)
+                                                            : [...markerOptions].sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency))} // ✅ Sort all markers when no width is entered
                                                         getOptionLabel={(option) => option.marker_name}
                                                         value={markerOptions.find(m => m.marker_name === row.markerName) || null}
                                                         onChange={(_, newValue) => {
                                                             setTables(prevTables => {
                                                                 const updatedTables = [...prevTables];
                                                                 const newRows = [...updatedTables[tableIndex].rows];
-                                    
+                                                    
                                                                 if (newValue) {
                                                                     newRows[rowIndex] = {
                                                                         ...newRows[rowIndex],
                                                                         markerName: newValue.marker_name,
-                                                                        width: newValue.marker_width,       // ✅ Auto-fill Width
+                                                                        width: newValue.marker_width,        // ✅ Auto-fill Width
                                                                         markerLength: newValue.marker_length, // ✅ Auto-fill Marker Length
-                                                                        efficiency: newValue.efficiency // ✅ Auto-fill Efficienyc
+                                                                        efficiency: newValue.efficiency,      // ✅ Auto-fill Efficiency
+                                                                        piecesPerSize: newValue.size_quantities || {} // ✅ Auto-fill Sizes Quantities
                                                                     };
                                                                 } else {
                                                                     newRows[rowIndex] = {
                                                                         ...newRows[rowIndex],
                                                                         markerName: "",
-                                                                        width: "",       // ✅ Clear Width if empty
+                                                                        width: "",        // ✅ Clear Width if empty
                                                                         markerLength: "", // ✅ Clear Marker Length if empty
-                                                                        efficiency: "" // ✅ Clear Marker Eff if empty
+                                                                        efficiency: "",   // ✅ Clear Efficiency if empty
+                                                                        piecesPerSize: {} // ✅ Clear Size Quantities if empty
                                                                     };
                                                                 }
-                                    
+                                                    
                                                                 updatedTables[tableIndex] = {
                                                                     ...updatedTables[tableIndex],
                                                                     rows: newRows
                                                                 };
-                                    
+                                                    
                                                                 return updatedTables;
                                                             });
                                                         }}
@@ -947,46 +973,15 @@ const OrderPlanning = () => {
                                                     />
                                                 </TableCell>
 
-                                                {/* ✅ Dynamic Inputs for Pieces Per Size */}
+                                                {/* Pieces Per Size (Auto-Filled & Read-only) */}
                                                 {orderSizes.map((size) => (
                                                     <TableCell
                                                         sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}
                                                         key={size.size}
                                                     >
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={tables[tableIndex].rows[rowIndex].piecesPerSize[size.size] || ""}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value.replace(/\D/g, "").slice(0, 2); // ✅ Only numbers, max 2 digits
-
-                                                                setTables(prevTables => {
-                                                                    const updatedTables = [...prevTables];
-                                                                    const updatedRows = [...updatedTables[tableIndex].rows];
-
-                                                                    updatedRows[rowIndex] = {
-                                                                        ...updatedRows[rowIndex],
-                                                                        piecesPerSize: {
-                                                                            ...updatedRows[rowIndex].piecesPerSize,
-                                                                            [size.size]: value
-                                                                        }
-                                                                    };
-
-                                                                    updatedTables[tableIndex] = {
-                                                                        ...updatedTables[tableIndex],
-                                                                        rows: updatedRows
-                                                                    };
-
-                                                                    return updatedTables;
-                                                                });
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '60px', // ✅ Ensures a minimum width
-                                                                maxWidth: '70px', // ✅ Prevents expanding too much
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                            }}
-                                                        />
+                                                        <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
+                                                            {tables[tableIndex].rows[rowIndex].piecesPerSize[size.size] || 0}
+                                                        </Typography>
                                                     </TableCell>
                                                 ))}
 
