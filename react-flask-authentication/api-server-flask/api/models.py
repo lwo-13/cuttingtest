@@ -223,3 +223,37 @@ class MattressPhase(db.Model):
         """Save phase record to the database."""
         db.session.add(self)
         db.session.commit()
+
+
+class MattressDetail(db.Model):
+    __tablename__ = 'mattress_details'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id', ondelete='CASCADE'), nullable=False, unique=True)
+    layers = db.Column(db.Float, nullable=False)
+    layers_a = db.Column(db.Float, nullable=True)
+    length_mattress = db.Column(db.Float, nullable=False)
+    cons_planned = db.Column(db.Float, nullable=False)
+    cons_actual = db.Column(db.Float, nullable=True)
+    extra = db.Column(db.Float, nullable=False)
+    pcs_bundle = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    mattress = db.relationship('Mattresses', backref=db.backref('details', cascade='all, delete-orphan'))
+
+
+class MattressMarker(db.Model):
+    __tablename__ = 'mattress_markers'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id', ondelete='CASCADE'), nullable=False)
+    marker_id = db.Column(db.Integer, db.ForeignKey('marker_headers.id'), nullable=False)  # Linking to `marker_headers` table
+    marker_name = db.Column(db.String(255), nullable=False)
+    marker_width = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    # Relationships
+    mattress = db.relationship('Mattresses', backref=db.backref('mattress_markers', cascade='all, delete-orphan'))
+    marker = db.relationship('MarkerHeader', backref=db.backref('mattress_markers'))

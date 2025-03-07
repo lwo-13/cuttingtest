@@ -253,7 +253,7 @@ const OrderPlanning = () => {
                                 markerName: "",  // Separate from mattressName
                                 piecesPerSize: {},  // ⚠️ Adjust if pieces per size are saved separately
                                 markerLength: "",
-                                layers: "",
+                                layers: mattress.layers || "", // ✅ Pre-fill layers from DB
                                 expectedConsumption: "",
                                 bagno: mattress.dye_lot
                             });
@@ -536,7 +536,14 @@ const OrderPlanning = () => {
                 // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
                 const mattressName = `${selectedOrder}-AS-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
                 newMattressNames.add(mattressName); // ✅ Track UI rows
-    
+
+                // ✅ Ensure numerical values are properly handled (convert empty strings to 0)
+                const layers = parseFloat(row.layers) || 0;
+                const markerLength = parseFloat(row.markerLength) || 0;
+                const extra = ALLOWANCE; // ✅ Fixed Allowance Value (0.02)
+                const lengthMattress = markerLength + extra; // ✅ Corrected calculation
+                const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
+
                 payloads.push({
                     mattress: mattressName,
                     order_commessa: selectedOrder,
@@ -544,8 +551,12 @@ const OrderPlanning = () => {
                     fabric_code: table.fabricCode,
                     fabric_color: table.fabricColor,
                     dye_lot: row.bagno,
-                    item_type: "Mattress",
+                    item_type: "AS",
                     spreading_method: table.spreadingMethod,
+                    layers: layers,
+                    length_mattress: lengthMattress, // ✅ Updated: markerLength + allowance
+                    cons_planned: consPlanned, // ✅ Auto-calculated
+                    extra: extra // ✅ Always 0.02
                 });
             });
         });

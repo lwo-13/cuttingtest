@@ -1,22 +1,24 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker
 from flask_restx import Namespace, Resource
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
 
 
-@mattress_api.route('/add_mattress_row')
+@mattress_api.route('/add_mattress_row', methods=['POST'])
 class MattressResource(Resource):
     def post(self):
         try:
             data = request.get_json()
 
             # ✅ Validate required fields
-            required_fields = ["mattress", "order_commessa", "fabric_type", "fabric_code", "fabric_color", 
-                               "dye_lot", "item_type", "spreading_method"]
+            required_fields = [
+                "mattress", "order_commessa", "fabric_type", "fabric_code", "fabric_color", 
+                "dye_lot", "item_type", "spreading_method", "layers", "length_mattress", "cons_planned", "extra"
+            ]
             for field in required_fields:
-                if field not in data or not data[field]:
+                if field not in data or data[field] is None:
                     return {"success": False, "message": f"Missing required field: {field}"}, 400
 
             # ✅ Check if the mattress already exists
@@ -25,7 +27,7 @@ class MattressResource(Resource):
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {data['mattress']}")
 
-                # ✅ Update existing mattress instead of inserting a new one
+                # ✅ Update existing mattress details
                 existing_mattress.order_commessa = data["order_commessa"]
                 existing_mattress.fabric_type = data["fabric_type"]
                 existing_mattress.fabric_code = data["fabric_code"]
@@ -34,30 +36,70 @@ class MattressResource(Resource):
                 existing_mattress.item_type = data["item_type"]
                 existing_mattress.spreading_method = data["spreading_method"]
 
+                # ✅ Update mattress details if they exist, otherwise create a new entry
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+
+                if mattress_detail:
+                    mattress_detail.layers = data["layers"]
+                    mattress_detail.length_mattress = data["length_mattress"]
+                    mattress_detail.cons_planned = data["cons_planned"]
+                    mattress_detail.extra = data["extra"]
+                else:
+                    new_mattress_detail = MattressDetail(
+                        mattress_id=existing_mattress.id,
+                        layers=data["layers"],
+                        length_mattress=data["length_mattress"],
+                        cons_planned=data["cons_planned"],
+                        extra=data["extra"]
+                    )
+                    db.session.add(new_mattress_detail)
+
                 db.session.commit()
 
-                return {"success": True, "message": "Mattress updated successfully", "data": existing_mattress.to_dict()}, 200
+                return {
+                    "success": True,
+                    "message": "Mattress and details updated successfully",
+                    "data": existing_mattress.to_dict()
+                }, 200
 
-            # ✅ Insert a new mattress only if it does not exist
+            # ✅ Insert a new mattress
             print(f"➕ Inserting new mattress: {data['mattress']}")
-            new_mattress = Mattresses(**data)
+            new_mattress = Mattresses(
+                mattress=data["mattress"],
+                order_commessa=data["order_commessa"],
+                fabric_type=data["fabric_type"],
+                fabric_code=data["fabric_code"],
+                fabric_color=data["fabric_color"],
+                dye_lot=data["dye_lot"],
+                item_type=data["item_type"],
+                spreading_method=data["spreading_method"]
+            )
             db.session.add(new_mattress)
             db.session.commit()
 
-            # ✅ Add status phases: NOT SET (Active), PLANNED (Inactive), COMPLETED (Inactive)
+            # ✅ Insert mattress details
+            new_mattress_detail = MattressDetail(
+                mattress_id=new_mattress.id,
+                layers=data["layers"],
+                length_mattress=data["length_mattress"],
+                cons_planned=data["cons_planned"],
+                extra=data["extra"]
+            )
+            db.session.add(new_mattress_detail)
+
+            # ✅ Insert mattress phases
             phases = [
                 MattressPhase(mattress_id=new_mattress.id, status="0 - NOT SET", active=True),
                 MattressPhase(mattress_id=new_mattress.id, status="1 - TO LOAD", active=False),
                 MattressPhase(mattress_id=new_mattress.id, status="2 - COMPLETED", active=False),
             ]
 
-            print(phases)
             db.session.add_all(phases)
             db.session.commit()
 
             return {
                 "success": True,
-                "message": "Mattress added successfully with phases",
+                "message": "Mattress added successfully with details and phases",
                 "data": new_mattress.to_dict()
             }, 201
 
@@ -67,22 +109,39 @@ class MattressResource(Resource):
             return {"success": False, "message": str(e)}, 500
 
 
-@ mattress_api.route('/get_by_order/<string:order_commessa>')
-class MattressByOrder(Resource):
+
+@mattress_api.route('/get_by_order/<string:order_commessa>', methods=['GET'])
+class GetMattressesByOrder(Resource):
     def get(self, order_commessa):
         try:
-            print(f"🔍 Fetching mattresses for order: {order_commessa}")
-            mattresses = Mattresses.query.filter(Mattresses.order_commessa == order_commessa).all()
+            mattresses = db.session.query(
+                Mattresses,
+                MattressDetail.layers  # Fetch only the `layers` column
+            ).outerjoin(
+                MattressDetail, Mattresses.id == MattressDetail.mattress_id
+            ).filter(
+                Mattresses.order_commessa == order_commessa
+            ).all()
 
             if not mattresses:
-                print("⚠️ No mattresses found in database")
-                return {"success": True, "data": []}, 200  # ✅ Return empty list instead of 404
+                return {"success": False, "message": "No mattresses found for this order"}, 404
 
-            print(f"✅ Found {len(mattresses)} mattresses in database")
-            return {"success": True, "data": [m.to_dict() for m in mattresses]}, 200
+            result = []
+            for mattress, layers in mattresses:
+                result.append({
+                    "mattress": mattress.mattress,
+                    "fabric_type": mattress.fabric_type,
+                    "fabric_code": mattress.fabric_code,
+                    "fabric_color": mattress.fabric_color,
+                    "dye_lot": mattress.dye_lot,
+                    "item_type": mattress.item_type,
+                    "spreading_method": mattress.spreading_method,
+                    "layers": layers  # Include `layers` from `mattress_details`
+                })
+
+            return {"success": True, "data": result}, 200
 
         except Exception as e:
-            print(f"❌ Error fetching mattresses: {str(e)}")
             return {"success": False, "message": str(e)}, 500
 
 
