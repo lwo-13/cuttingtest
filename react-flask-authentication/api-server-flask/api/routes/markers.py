@@ -4,73 +4,13 @@ from api.models import db, MarkerHeader, MarkerLine
 import json
 import xml.etree.ElementTree as ET
 import os
+import logging
 
 # Create Blueprint and API instance
 markers_bp = Blueprint('markers', __name__)
 markers_api = Namespace('markers', description="Marker Management")
 
 # ===================== Marker Headers ==========================
-@markers_api.route('/marker_headers', methods=['GET'])
-class MarkerHeaders(Resource):
-    def get(self):
-        try:
-            headers = MarkerHeader.query.filter_by(status='ACTIVE').all()
-            result = [{
-                "id": header.id,
-                "marker_name": header.marker_name,
-                "marker_width": header.marker_width,
-                "marker_length": header.marker_length,
-                "efficiency": header.efficiency,
-                "total_pcs": header.total_pcs,
-                "creation_type": header.creation_type,
-                "model": header.model,
-                "variant": header.variant
-            } for header in headers]
-
-            return {"success": True, "data": result}, 200
-        except Exception as e:
-            return {"success": False, "msg": str(e)}, 500
-
-# ===================== Marker Headers Planning ==========================
-@markers_api.route('/marker_headers_planning', methods=['GET'])
-class MarkerHeadersPlanning(Resource):
-    def get(self):
-        try:
-            selected_style = request.args.get('style')  # 🔍 Get style from query parameters
-            
-            if not selected_style:
-                return {"success": False, "msg": "Missing required style parameter"}, 400
-
-            # ✅ Fetch ACTIVE markers matching the style
-            headers = MarkerHeader.query.filter(
-                MarkerHeader.status == 'ACTIVE',
-                MarkerHeader.model.ilike(f"%{selected_style}%")  # Case-insensitive search
-            ).all()
-
-            result = []
-
-            for header in headers:
-                # ✅ Fetch Marker Lines for the current header
-                marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
-                
-                # ✅ Store size quantities in a dictionary
-                size_quantities = {line.size: line.pcs_on_layer for line in marker_lines}
-
-                # ✅ Append full marker data
-                result.append({
-                    "marker_name": header.marker_name,
-                    "marker_width": header.marker_width,
-                    "marker_length": header.marker_length,
-                    "efficiency": header.efficiency,
-                    "size_quantities": size_quantities  # ✅ Include size quantities
-                })
-
-            return {"success": True, "data": result}, 200
-        except Exception as e:
-            return {"success": False, "msg": str(e)}, 500
-
-
-# ===================== Import Marker ==========================
 @markers_api.route('/import_marker', methods=['POST'])
 class ImportMarker(Resource):
     def post(self):
@@ -131,21 +71,21 @@ class ImportMarker(Resource):
             cut_perimeter = float(statistics_elem.find('CutPerimeter').attrib.get('Value', 0).replace(',', '.'))
             total_pieces = int(statistics_elem.find('TotalPieces').attrib.get('Value', 0))
 
-            # Extract <MarkerContent>
+            # Extract <MarkerContent> - Important for model and variant
             marker_content = root.find('.//MarkerContent')
             model = ''
             variant = ''
 
             if marker_content is not None:
-                first_variant = marker_content.findall('NewVariant')[0] if marker_content.findall('NewVariant') else None
+                variants = marker_content.findall('NewVariant')
+
+                # Extract the model and variant for the first variant as the default
+                first_variant = variants[0] if variants else None
                 if first_variant:
-                    model = first_variant.find('Model').attrib.get('Value', '').strip() if first_variant.find('Model') else ''
-                    variant = first_variant.find('Variant').attrib.get('Value', '').strip() if first_variant.find('Variant') else ''
+                    model = first_variant.find('Model').attrib.get('Value', '').strip()
+                    variant = first_variant.find('Variant').attrib.get('Value', '').strip()
 
-            # Get Creation Type
-            creation_type = request.form.get('creationType').upper()
-
-            # Save MarkerHeader
+            # Save MarkerHeader first before creating MarkerLines
             new_marker = MarkerHeader(
                 marker_name=marker_name,
                 marker_type=marker_type,
@@ -169,29 +109,56 @@ class ImportMarker(Resource):
                 notches=notches,
                 cutting_perimeter=cut_perimeter,
                 total_pcs=total_pieces,
-                model=model,
-                variant=variant,
+                model=model,  # Ensure model is populated here
+                variant=variant,  # Ensure variant is populated here
                 status='ACTIVE',
-                creation_type=creation_type
+                creation_type=request.form.get('creationType').upper()
             )
 
             db.session.add(new_marker)
-            db.session.commit()
+            db.session.commit()  # Commit the new_marker before proceeding
 
             # Save MarkerLines (Variants)
             if marker_content is not None:
-                for i, variant in enumerate(marker_content.findall('NewVariant')):
-                    size = variant.find('Size').attrib.get('Value', '').strip() if variant.find('Size') else ''
-                    quantity = variant.find('Quantity').attrib.get('Value', '').strip() if variant.find('Quantity') else ''
-                    model = variant.find('Model').attrib.get('Value', '').strip() if variant.find('Model') else ''
+                for i, variant in enumerate(marker_content.findall('.//NewVariant')):
+                    size_element = variant.find('Size')
+                    quantity_element = variant.find('Quantity')
 
+                    # Debugging output to confirm extraction
+                    if size_element is not None:
+                        size = size_element.attrib.get('Value', '').strip()
+                        print(f"Extracted size: {size}")
+                    else:
+                        print("Size element not found!")
+
+                    if quantity_element is not None:
+                        quantity = quantity_element.attrib.get('Value', '0').strip()
+                        print(f"Extracted quantity: {quantity}")
+                    else:
+                        print("Quantity element not found!")
+
+                    # If there are updates and this variant has edits, apply them
                     if has_edits and i < len(updated_data):
                         updated_variant = updated_data[i]
                         size = updated_variant.get('size', size)
                         quantity = updated_variant.get('qty', quantity)
                         model = updated_variant.get('style', model)
 
-                    new_marker_line = MarkerLine(marker_header_id=new_marker.id, style=model, size=size, style_size=f"{model} {size}", pcs_on_layer=float(quantity))
+                    # Convert quantity to float only if it's a valid number, otherwise set it to 0
+                    try:
+                        pcs_on_layer = float(quantity) if quantity else 0.0
+                    except ValueError:
+                        pcs_on_layer = 0.0  # Default to 0 if quantity is not a valid number
+
+                    # Use the model from marker_header for style in marker_lines
+                    print(f"Saving size: {size}")
+                    new_marker_line = MarkerLine(
+                        marker_header_id=new_marker.id, 
+                        style=new_marker.model,  # Ensure model is used correctly
+                        size=size,  # Ensure size is assigned here
+                        style_size=f"{new_marker.model} {size}", 
+                        pcs_on_layer=pcs_on_layer
+                    )
                     db.session.add(new_marker_line)
 
                 db.session.commit()
