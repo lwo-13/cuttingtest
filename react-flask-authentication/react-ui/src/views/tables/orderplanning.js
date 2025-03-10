@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button } from '@mui/material';
+import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert } from '@mui/material';
 import { AddCircleOutline, DeleteOutline, Save } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
@@ -43,7 +43,23 @@ const OrderPlanning = () => {
 
     const [alongTables, setAlongTables] = useState([]);
 
+    const [errorMessage, setErrorMessage] = useState("");
+    const [openError, setOpenError] = useState(false);
+
+    const [successMessage, setSuccessMessage] = useState("");
+    const [openSuccess, setOpenSuccess] = useState(false);
+
     const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
+
+    const handleCloseError = (event, reason) => {
+        if (reason === 'clickaway') return;
+        setOpenError(false);
+    };
+
+    const handleCloseSuccess = (event, reason) => {
+        if (reason === "clickaway") return;
+        setOpenSuccess(false);
+    };
 
     const sortSizes = (sizes) => {
         return sizes.sort((a, b) => {
@@ -521,18 +537,42 @@ const OrderPlanning = () => {
 
     const handleSave = () => {
         if (!selectedOrder || !tables.length) {
-            alert("Please select an order and enter at least one mattress entry.");
+            setErrorMessage("Please select an order and enter at least one mattress entry.");
+            setOpenError(true);
             return;
         }
     
         const newMattressNames = new Set();
         const payloads = [];
-    
-        // ✅ Collect data for saving
+        let invalidRow = null;
+        
+        // ✅ Check for missing mandatory fields
+        const hasInvalidData = tables.some((table, tableIndex) => {
+            if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.spreadingMethod) {
+                invalidRow = `Mattress Group ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color, or Spreading Method)`;
+                return true; // 🚨 Stop processing immediately
+            }
+
+            return table.rows.some((row, rowIndex) => {
+                if (!row.markerName || !row.layers || parseInt(row.layers) <= 0) {
+                    invalidRow = `Mattress Group ${tableIndex + 1}, Row ${rowIndex + 1} is missing a Marker or Layers`;
+                    return true; // 🚨 Stops processing if invalid
+                }
+                return false;
+            });
+        });
+
+        // 🚨 Show Error Message If Validation Fails
+        if (hasInvalidData) {
+            setErrorMessage(invalidRow);
+            setOpenError(true);
+            return; // ✅ Prevents saving invalid data
+        }
+
+        // ✅ Proceed with valid mattress processing
         tables.forEach((table) => {
             table.rows.forEach((row, rowIndex) => {
-                if (!row.markerName) return; // ✅ Skip empty rows
-    
+
                 // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
                 const mattressName = `${selectedOrder}-AS-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
                 newMattressNames.add(mattressName); // ✅ Track UI rows
@@ -556,12 +596,13 @@ const OrderPlanning = () => {
                     layers: layers,
                     length_mattress: lengthMattress, // ✅ Updated: markerLength + allowance
                     cons_planned: consPlanned, // ✅ Auto-calculated
-                    extra: extra // ✅ Always 0.02
+                    extra: extra, // ✅ Always 0.02
+                    marker_name: row.markerName,
+                    marker_width: parseFloat(row.width) || 0,
+                    marker_length: markerLength
                 });
             });
         });
-    
-        console.log("📤 Sending Updated Data:", payloads);
     
         // ✅ Send Update Requests
         Promise.all(payloads.map(payload =>
@@ -571,26 +612,44 @@ const OrderPlanning = () => {
                         console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
                     } else {
                         console.warn(`⚠️ Failed to save mattress ${payload.mattress}:`, response.data.message);
+                        throw new Error(`Failed to save mattress ${payload.mattress}`);
                     }
                 })
-                .catch(error => console.error("❌ Error saving mattress:", error))
-        )).then(() => {
+                .catch(error => {
+                    console.error("❌ Error saving mattress:", error);
+                    throw error; // ✅ Ensure Promise.all rejects if an error occurs
+                })
+        ))
+        .then(() => {
             // ✅ Delete Only Rows That Were Removed from UI
             console.log("🗑️ Mattresses to delete:", deletedMattresses);
-    
+
             const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
-    
+
             return Promise.all(mattressesToDelete.map(mattress =>
                 axios.delete(`http://127.0.0.1:5000/api/mattress/delete/${mattress}`)
-                    .then(res => {
+                    .then(() => {
                         console.log(`🗑️ Deleted mattress: ${mattress}`);
                     })
-                    .catch(err => console.error(`❌ Error deleting mattress: ${mattress}`, err))
+                    .catch(error => {
+                        console.error(`❌ Error deleting mattress: ${mattress}`, error);
+                        throw error; // ✅ Ensure Promise.all rejects if an error occurs
+                    })
             ));
-        }).then(() => {
+        })
+        .then(() => {
             // ✅ Reset state after successful save
             setDeletedMattresses([]);
             setUnsavedChanges(false);
+
+            // ✅ Show success message
+            setSuccessMessage("Saving completed successfully!");
+            setOpenSuccess(true);
+        })
+        .catch(() => {
+            // ❌ Show error if any API request fails
+            setErrorMessage("An error occurred while saving. Please try again.");
+            setOpenError(true);
         });
     };
 
@@ -1478,6 +1537,30 @@ const OrderPlanning = () => {
                     </Button>
                 </Box>
             )}
+
+            {/* Error Snackbar */}
+            <Snackbar 
+                open={openError} 
+                autoHideDuration={5000} 
+                onClose={handleCloseError} 
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+                    {errorMessage}
+                </Alert>
+            </Snackbar>
+
+            {/* ✅ Success Message Snackbar */}
+            <Snackbar 
+                open={openSuccess} 
+                autoHideDuration={5000} 
+                onClose={handleCloseSuccess} 
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert onClose={handleCloseSuccess} severity="success" sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}>
+                    {successMessage}
+                </Alert>
+            </Snackbar>
         </>
     );
 };

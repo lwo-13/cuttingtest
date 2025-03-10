@@ -112,6 +112,8 @@ const RestLogin = (props, { ...others }) => {
                                 email: values.email
                             })
                             .then(function (response) {
+                                console.log("Raw API response:", response);
+                                console.log("Parsed data:", response.data);
                                 if (response.data.success) {
                                     console.log(response.data);
                                     dispatcher({

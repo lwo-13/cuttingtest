@@ -83,20 +83,22 @@ class Register(Resource):
 # User Login
 @auth_api.route('/login')
 class Login(Resource):
-    @auth_api.expect(login_model, validate=True)
     def post(self):
         req_data = request.get_json()
-        _email, _password = req_data["email"], req_data["password"]
+        _email = req_data.get("email")
+        _password = req_data.get("password")
 
-        user_exists = Users.get_by_email(_email)
-        if not user_exists or not user_exists.check_password(_password):
+        user = Users.get_by_email(_email)
+        if not user:
+            print("DEBUG: User not found!")
             return {"success": False, "msg": "Invalid email or password"}, 400
 
-        token = jwt.encode({'email': _email, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
-        user_exists.set_jwt_auth_active(True)
-        user_exists.save()
+        if not user.check_password(_password):
+            print("DEBUG: Password does not match!")
+            return {"success": False, "msg": "Invalid email or password"}, 400
 
-        return {"success": True, "token": token, "user": user_exists.toJSON()}, 200
+        print("DEBUG: Login successful!")
+        return {"success": True, "msg": "Login successful"}, 200
 
 # User Edit
 @auth_api.route('/edit')

@@ -131,21 +131,21 @@ const ProfileSection = () => {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     const handleLogout = () => {
-        console.log(account.token);
+        const token = account.token;
         axios
-            .post( configData.API_SERVER + 'users/logout', {token: `${account.token}`}, { headers: { Authorization: `${account.token}` } })
-            .then(function (response) {
-                
-                // Force the LOGOUT
-                //if (response.data.success) {
-                    dispatcher({ type: LOGOUT });
-                //} else {
-                //    console.log('response - ', response.data.msg);
-                //}
-            })
-            .catch(function (error) {
-                console.log('error - ', error);
-            });
+        .post(`${configData.API_SERVER}users/logout`, {}, {
+            headers: {
+                Authorization: `Bearer ${token}` // ✅ Correctly formatted Authorization header
+            }
+        })
+        .then(function (response) {
+            console.log("Logout successful:", response.data);
+            dispatcher({ type: LOGOUT }); // ✅ Clears user state
+            localStorage.removeItem("token"); // ✅ Removes token from storage
+        })
+        .catch(function (error) {
+            console.error("Logout failed:", error.response ? error.response.data : error);
+        });
     };
     const handleToggle = () => {
         setOpen((prevOpen) => !prevOpen);

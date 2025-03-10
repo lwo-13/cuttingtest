@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader
 from flask_restx import Namespace, Resource
 
 mattress_bp = Blueprint('mattress_bp', __name__)
@@ -15,7 +15,8 @@ class MattressResource(Resource):
             # ✅ Validate required fields
             required_fields = [
                 "mattress", "order_commessa", "fabric_type", "fabric_code", "fabric_color", 
-                "dye_lot", "item_type", "spreading_method", "layers", "length_mattress", "cons_planned", "extra"
+                "dye_lot", "item_type", "spreading_method", "layers", "length_mattress", "cons_planned", 
+                "extra", "marker_name", "marker_width", "marker_length"
             ]
             for field in required_fields:
                 if field not in data or data[field] is None:
@@ -27,7 +28,7 @@ class MattressResource(Resource):
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {data['mattress']}")
 
-                # ✅ Update existing mattress details
+                # ✅ Update mattress details
                 existing_mattress.order_commessa = data["order_commessa"]
                 existing_mattress.fabric_type = data["fabric_type"]
                 existing_mattress.fabric_code = data["fabric_code"]
@@ -36,9 +37,8 @@ class MattressResource(Resource):
                 existing_mattress.item_type = data["item_type"]
                 existing_mattress.spreading_method = data["spreading_method"]
 
-                # ✅ Update mattress details if they exist, otherwise create a new entry
+                # ✅ Update mattress details
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
-
                 if mattress_detail:
                     mattress_detail.layers = data["layers"]
                     mattress_detail.length_mattress = data["length_mattress"]
@@ -54,53 +54,94 @@ class MattressResource(Resource):
                     )
                     db.session.add(new_mattress_detail)
 
+                mattress_id = existing_mattress.id  # ✅ Get existing ID for marker saving
                 db.session.commit()
+                print(f"✅ Mattress Updated (ID: {mattress_id})")
 
-                return {
-                    "success": True,
-                    "message": "Mattress and details updated successfully",
-                    "data": existing_mattress.to_dict()
-                }, 200
+            else:
+                # ✅ Insert new mattress
+                print(f"➕ Inserting new mattress: {data['mattress']}")
+                new_mattress = Mattresses(
+                    mattress=data["mattress"],
+                    order_commessa=data["order_commessa"],
+                    fabric_type=data["fabric_type"],
+                    fabric_code=data["fabric_code"],
+                    fabric_color=data["fabric_color"],
+                    dye_lot=data["dye_lot"],
+                    item_type=data["item_type"],
+                    spreading_method=data["spreading_method"]
+                )
+                db.session.add(new_mattress)
+                db.session.flush()  # ✅ Get the new ID before commit
 
-            # ✅ Insert a new mattress
-            print(f"➕ Inserting new mattress: {data['mattress']}")
-            new_mattress = Mattresses(
-                mattress=data["mattress"],
-                order_commessa=data["order_commessa"],
-                fabric_type=data["fabric_type"],
-                fabric_code=data["fabric_code"],
-                fabric_color=data["fabric_color"],
-                dye_lot=data["dye_lot"],
-                item_type=data["item_type"],
-                spreading_method=data["spreading_method"]
-            )
-            db.session.add(new_mattress)
+                mattress_id = new_mattress.id
+
+                # ✅ Insert mattress details
+                new_mattress_detail = MattressDetail(
+                    mattress_id=mattress_id,
+                    layers=data["layers"],
+                    length_mattress=data["length_mattress"],
+                    cons_planned=data["cons_planned"],
+                    extra=data["extra"]
+                )
+                db.session.add(new_mattress_detail)
+
+                # ✅ Insert mattress phases
+                phases = [
+                    MattressPhase(mattress_id=mattress_id, status="0 - NOT SET", active=True),
+                    MattressPhase(mattress_id=mattress_id, status="1 - TO LOAD", active=False),
+                    MattressPhase(mattress_id=mattress_id, status="2 - COMPLETED", active=False),
+                ]
+                db.session.add_all(phases)
+
+                db.session.commit()
+                print(f"✅ Mattress Added (ID: {mattress_id})")
+
+            # ✅ Find marker_id based on marker_name
+            marker = MarkerHeader.query.filter_by(marker_name=data["marker_name"]).first()
+            if not marker:
+                db.session.rollback()
+                return {"success": False, "message": f"Marker '{data['marker_name']}' not found"}, 400
+
+            marker_id = marker.id
+
+            # ✅ Check if a different marker is already linked to this mattress
+            existing_marker = MattressMarker.query.filter_by(mattress_id=mattress_id).first()
+
+            if existing_marker:
+                if existing_marker.marker_id != marker_id:
+                    # ✅ If the marker has changed, delete the old one and insert the new one
+                    print(f"🟡 Marker changed. Removing old marker {existing_marker.marker_name} and adding {data['marker_name']}")
+                    db.session.delete(existing_marker)
+
+                    new_marker_entry = MattressMarker(
+                        mattress_id=mattress_id,
+                        marker_id=marker_id,
+                        marker_name=data["marker_name"],
+                        marker_width=data["marker_width"],
+                        marker_length=data["marker_length"]
+                    )
+                    db.session.add(new_marker_entry)
+                else:
+                    print(f"✅ Marker already up to date for Mattress ID: {mattress_id}")
+
+            else:
+                # ✅ Insert new marker if none exists
+                new_marker_entry = MattressMarker(
+                    mattress_id=mattress_id,
+                    marker_id=marker_id,
+                    marker_name=data["marker_name"],
+                    marker_width=data["marker_width"],
+                    marker_length=data["marker_length"]
+                )
+                db.session.add(new_marker_entry)
+                print(f"✅ New marker added for Mattress ID: {mattress_id}")
+
             db.session.commit()
-
-            # ✅ Insert mattress details
-            new_mattress_detail = MattressDetail(
-                mattress_id=new_mattress.id,
-                layers=data["layers"],
-                length_mattress=data["length_mattress"],
-                cons_planned=data["cons_planned"],
-                extra=data["extra"]
-            )
-            db.session.add(new_mattress_detail)
-
-            # ✅ Insert mattress phases
-            phases = [
-                MattressPhase(mattress_id=new_mattress.id, status="0 - NOT SET", active=True),
-                MattressPhase(mattress_id=new_mattress.id, status="1 - TO LOAD", active=False),
-                MattressPhase(mattress_id=new_mattress.id, status="2 - COMPLETED", active=False),
-            ]
-
-            db.session.add_all(phases)
-            db.session.commit()
-
             return {
                 "success": True,
-                "message": "Mattress added successfully with details and phases",
-                "data": new_mattress.to_dict()
+                "message": "Mattress, details, and marker updated successfully",
+                "mattress_id": mattress_id
             }, 201
 
         except Exception as e:

@@ -20,7 +20,7 @@ def create_app():
     db.init_app(app)
 
     # Enable CORS
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
     
     # Register Blueprints (auth, markers, etc.)
     register_blueprints(app)

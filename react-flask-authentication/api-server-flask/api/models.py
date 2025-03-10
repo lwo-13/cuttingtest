@@ -17,8 +17,8 @@ class Users(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(32, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
-    email = db.Column(db.String(64, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
-    password = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'))
+    email = db.Column(db.String(64, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
+    password = db.Column(db.String(512, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     jwt_auth_active = db.Column(db.Boolean, nullable=True)
     date_joined = db.Column(db.DateTime, nullable=True)
     role = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
@@ -34,7 +34,13 @@ class Users(db.Model):
         self.password = generate_password_hash(password)
 
     def check_password(self, password):
-        return check_password_hash(self.password, password)
+        if not self.password:
+            return False
+        
+        try:
+            return check_password_hash(self.password.strip(), password)
+        except ValueError as e:
+            return False
 
     def update_email(self, new_email):
         self.email = new_email
@@ -251,6 +257,7 @@ class MattressMarker(db.Model):
     marker_id = db.Column(db.Integer, db.ForeignKey('marker_headers.id'), nullable=False)  # Linking to `marker_headers` table
     marker_name = db.Column(db.String(255), nullable=False)
     marker_width = db.Column(db.Float, nullable=False)
+    marker_length = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
