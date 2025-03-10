@@ -36,32 +36,36 @@ user_edit_model = auth_api.model('UserEditModel', {
 def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
-        token = request.headers.get("authorization")
+        token = request.headers.get("Authorization")
 
         if not token:
             return {"success": False, "msg": "Valid JWT token is missing"}, 400
+
+        token = token.replace("Bearer ", "").strip('"')
+
+        # Check if token is revoked (ONLY IF NOT LOGGING OUT)
+        if request.path != "/api/users/logout":
+            if db.session.query(JWTTokenBlocklist.id).filter_by(jwt_token=token).scalar():
+                return {"success": False, "msg": "Token revoked."}, 400
 
         try:
             data = jwt.decode(token, BaseConfig.SECRET_KEY, algorithms=["HS256"])
             current_user = Users.get_by_email(data["email"])
 
-            if not current_user:
-                return {"success": False, "msg": "Invalid token, user does not exist."}, 400
+            if not isinstance(current_user, Users):  # ✅ Ensure it's a User object
+                print(f"DEBUG: User lookup failed for token: {token}")
+                return {"success": False, "msg": "User not found."}, 400
 
-            if db.session.query(JWTTokenBlocklist.id).filter_by(jwt_token=token).scalar():
-                return {"success": False, "msg": "Token revoked."}, 400
-
-            if not current_user.check_jwt_auth_active():
-                return {"success": False, "msg": "Token expired."}, 400
+            return f(current_user, *args, **kwargs)
 
         except jwt.ExpiredSignatureError:
             return {"success": False, "msg": "Token expired"}, 400
         except jwt.InvalidTokenError:
             return {"success": False, "msg": "Token is invalid"}, 400
 
-        return f(current_user, *args, **kwargs)
-
     return decorator
+
+
 
 # User Registration
 @auth_api.route('/register')
@@ -83,22 +87,37 @@ class Register(Resource):
 # User Login
 @auth_api.route('/login')
 class Login(Resource):
+    """
+       Login user by taking 'login_model' input and return JWT token
+    """
+
+    @auth_api.expect(login_model, validate=True)
     def post(self):
+
         req_data = request.get_json()
+
         _email = req_data.get("email")
         _password = req_data.get("password")
 
-        user = Users.get_by_email(_email)
-        if not user:
-            print("DEBUG: User not found!")
-            return {"success": False, "msg": "Invalid email or password"}, 400
+        user_exists = Users.get_by_email(_email)
 
-        if not user.check_password(_password):
-            print("DEBUG: Password does not match!")
-            return {"success": False, "msg": "Invalid email or password"}, 400
+        if not user_exists:
+            return {"success": False,
+                    "msg": "This email does not exist."}, 400
 
-        print("DEBUG: Login successful!")
-        return {"success": True, "msg": "Login successful"}, 200
+        if not user_exists.check_password(_password):
+            return {"success": False,
+                    "msg": "Wrong credentials."}, 400
+
+        # create access token uwing JWT
+        token = jwt.encode({'email': _email, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
+
+        user_exists.set_jwt_auth_active(True)
+        user_exists.save()
+
+        return {"success": True,
+                "token": token,
+                "user": user_exists.toJSON()}, 200
 
 # User Edit
 @auth_api.route('/edit')
@@ -116,35 +135,21 @@ class EditUser(Resource):
 # User Logout
 @auth_api.route('/logout')
 class LogoutUser(Resource):
+    """
+       Logs out User using 'logout_model' input
+    """
+
     @token_required
     def post(self, current_user):
+
         _jwt_token = request.headers["authorization"]
-        JWTTokenBlocklist(jwt_token=_jwt_token, created_at=datetime.now(timezone.utc)).save()
 
-        current_user.set_jwt_auth_active(False)
-        current_user.save()
+        jwt_block = JWTTokenBlocklist(jwt_token=_jwt_token, created_at=datetime.now(timezone.utc))
+        jwt_block.save()
 
-        return {"success": True, "msg": "User logged out"}, 200
+        self.set_jwt_auth_active(False)
+        self.save()
 
-# GitHub OAuth
-@auth_api.route('/oauth/github')
-class GitHubLogin(Resource):
-    def get(self):
-        code = request.args.get('code')
-        client_id, client_secret = BaseConfig.GITHUB_CLIENT_ID, BaseConfig.GITHUB_CLIENT_SECRET
-        root_url = 'https://github.com/login/oauth/access_token'
+        return {"success": True}, 200
 
-        params = {'client_id': client_id, 'client_secret': client_secret, 'code': code}
-        data = requests.post(root_url, params=params, headers={'Content-Type': 'application/x-www-form-urlencoded'}).text
-        access_token = data.split('&')[0].split('=')[1]
 
-        user_data = requests.get('https://api.github.com/user', headers={"Authorization": "Bearer " + access_token}).json()
-        
-        user = Users.get_by_username(user_data['login']) or Users(username=user_data['login'], email=user_data.get('email'))
-        user.save()
-
-        token = jwt.encode({"username": user.username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
-        user.set_jwt_auth_active(True)
-        user.save()
-
-        return {"success": True, "user": {"_id": user.id, "email": user.email, "username": user.username, "token": token}}, 200

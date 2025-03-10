@@ -53,6 +53,7 @@ class Users(db.Model):
 
     def set_jwt_auth_active(self, set_status):
         self.jwt_auth_active = set_status
+        db.session.commit()
 
     @classmethod
     def get_by_id(cls, id):
@@ -81,7 +82,7 @@ class Users(db.Model):
 class JWTTokenBlocklist(db.Model):
     __tablename__ = 'jwt_token_blocklist'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # Matches MS SQL primary key definition
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # Matches MS SQL primary key definition
     jwt_token = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
 
