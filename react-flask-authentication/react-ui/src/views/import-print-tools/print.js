@@ -38,29 +38,20 @@ const Print = () => {
         }));
     };
 
+    // Generate PDF with custom layout
     const generatePDF = () => {
         const doc = new jsPDF();
 
         // Set title with custom font
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.text("Mattress Report", 105, 10, { align: "center" });
+        doc.setFontSize(20);
+        doc.text("Mattress Report", 105, 20, { align: "center" });
 
-        // Add a line below the title
+        // Draw a line under the title
         doc.setLineWidth(0.5);
-        doc.line(10, 15, 200, 15); // Horizontal line
+        doc.line(10, 25, 200, 25); // Horizontal line
 
-        // Set font for table and other text
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-
-        // Filter mattresses based on selection and filters
-        const filteredMattresses = mattresses.filter(mattress =>
-            mattress.order_commessa.includes(orderFilter) &&
-            mattress.mattress.includes(mattressFilter) &&
-            selectedItems[getUniqueKey(mattress.order_commessa, mattress.mattress)] // Include only selected items
-        );
-
+        // Set up table styles
         const tableData = filteredMattresses.map((mattress, index) => [
             index + 1,
             mattress.mattress,
@@ -74,14 +65,13 @@ const Print = () => {
             mattress.created_at
         ]);
 
-        // Add table with custom styles
         autoTable(doc, {
             head: [["#", "Mattress", "Order", "Fabric Type", "Fabric Code", "Color", "Dye Lot", "Item Type", "Spreading", "Created At"]],
             body: tableData,
-            startY: 20,
+            startY: 30, // Start table below title and line
             styles: { 
                 fontSize: 10, 
-                cellPadding: 3,
+                cellPadding: 5,
                 font: "helvetica", 
                 lineColor: [44, 62, 80], // Custom line color (dark blue-gray)
                 lineWidth: 0.3,
@@ -90,14 +80,18 @@ const Print = () => {
             columnStyles: { 
                 0: { cellWidth: 10 },
                 1: { cellWidth: 40 },
-                2: { cellWidth: 40 }
+                2: { cellWidth: 40 },
+                3: { cellWidth: 35 },
+                4: { cellWidth: 35 }
             },
             alternateRowStyles: { fillColor: [245, 245, 245] }, // Alternate row color
         });
 
-        // Add a footer with current date
+        // Add footer with current date and page number
         doc.setFontSize(8);
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, doc.lastAutoTable.finalY + 10, { align: "center" });
+        const date = new Date().toLocaleDateString();
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.text(`Generated on: ${date} | Page ${pageCount}`, 105, doc.lastAutoTable.finalY + 10, { align: "center" });
 
         // Save the PDF
         doc.save("mattresses_report.pdf");
@@ -107,6 +101,9 @@ const Print = () => {
         mattress.order_commessa.includes(orderFilter) &&
         mattress.mattress.includes(mattressFilter)
     );
+
+    // Add error handling for PDF generation
+    const isAnyItemSelected = Object.keys(selectedItems).some(key => selectedItems[key]);
 
     return (
         <Box p={3}>
@@ -124,7 +121,14 @@ const Print = () => {
                     value={mattressFilter}
                     onChange={(e) => setMattressFilter(e.target.value)}
                 />
-                <Button variant="contained" color="primary" onClick={generatePDF}>Generate PDF</Button>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={generatePDF}
+                    disabled={!isAnyItemSelected} // Disable the button if no items are selected
+                >
+                    Generate PDF
+                </Button>
             </Box>
             {loading ? (
                 <CircularProgress />

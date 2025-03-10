@@ -247,3 +247,26 @@ class GetKanbanMattressesResource(Resource):
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
 
+@ mattress_api.route('/all_with_details')
+class GetAllMattressesWithDetailsResource(Resource):
+    def get(self):
+        """Fetch all mattress records with associated details and markers."""
+        try:
+            # Query all mattresses with their details and markers
+            mattresses = Mattresses.query.join(MattressDetail).join(MattressMarker).all()
+            
+            # Create a list of dictionaries with mattress info, details, and markers
+            data = []
+            for mattress in mattresses:
+                mattress_dict = mattress.to_dict()
+                
+                # Add related details and markers
+                mattress_dict['details'] = [detail.to_dict() for detail in mattress.details]
+                mattress_dict['markers'] = [marker.to_dict() for marker in mattress.mattress_markers]
+                
+                data.append(mattress_dict)
+            
+            return {"success": True, "data": data}, 200
+        
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500

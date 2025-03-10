@@ -245,6 +245,15 @@ class MattressDetail(db.Model):
     pcs_bundle = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    def to_dict(self):
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result
 
     mattress = db.relationship('Mattresses', backref=db.backref('details', cascade='all, delete-orphan'))
 
@@ -260,7 +269,15 @@ class MattressMarker(db.Model):
     marker_length = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
+    def to_dict(self):
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result
     # Relationships
     mattress = db.relationship('Mattresses', backref=db.backref('mattress_markers', cascade='all, delete-orphan'))
     marker = db.relationship('MarkerHeader', backref=db.backref('mattress_markers'))
