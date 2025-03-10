@@ -4,73 +4,13 @@ from api.models import db, MarkerHeader, MarkerLine
 import json
 import xml.etree.ElementTree as ET
 import os
+import logging
 
 # Create Blueprint and API instance
 markers_bp = Blueprint('markers', __name__)
 markers_api = Namespace('markers', description="Marker Management")
 
 # ===================== Marker Headers ==========================
-@markers_api.route('/marker_headers', methods=['GET'])
-class MarkerHeaders(Resource):
-    def get(self):
-        try:
-            headers = MarkerHeader.query.filter_by(status='ACTIVE').all()
-            result = [{
-                "id": header.id,
-                "marker_name": header.marker_name,
-                "marker_width": header.marker_width,
-                "marker_length": header.marker_length,
-                "efficiency": header.efficiency,
-                "total_pcs": header.total_pcs,
-                "creation_type": header.creation_type,
-                "model": header.model,
-                "variant": header.variant
-            } for header in headers]
-
-            return {"success": True, "data": result}, 200
-        except Exception as e:
-            return {"success": False, "msg": str(e)}, 500
-
-# ===================== Marker Headers Planning ==========================
-@markers_api.route('/marker_headers_planning', methods=['GET'])
-class MarkerHeadersPlanning(Resource):
-    def get(self):
-        try:
-            selected_style = request.args.get('style')  # 🔍 Get style from query parameters
-            
-            if not selected_style:
-                return {"success": False, "msg": "Missing required style parameter"}, 400
-
-            # ✅ Fetch ACTIVE markers matching the style
-            headers = MarkerHeader.query.filter(
-                MarkerHeader.status == 'ACTIVE',
-                MarkerHeader.model.ilike(f"%{selected_style}%")  # Case-insensitive search
-            ).all()
-
-            result = []
-
-            for header in headers:
-                # ✅ Fetch Marker Lines for the current header
-                marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
-                
-                # ✅ Store size quantities in a dictionary
-                size_quantities = {line.size: line.pcs_on_layer for line in marker_lines}
-
-                # ✅ Append full marker data
-                result.append({
-                    "marker_name": header.marker_name,
-                    "marker_width": header.marker_width,
-                    "marker_length": header.marker_length,
-                    "efficiency": header.efficiency,
-                    "size_quantities": size_quantities  # ✅ Include size quantities
-                })
-
-            return {"success": True, "data": result}, 200
-        except Exception as e:
-            return {"success": False, "msg": str(e)}, 500
-
-
-# ===================== Import Marker ==========================
 @markers_api.route('/import_marker', methods=['POST'])
 class ImportMarker(Resource):
     def post(self):
