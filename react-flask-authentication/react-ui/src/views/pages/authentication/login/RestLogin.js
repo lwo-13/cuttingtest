@@ -116,6 +116,7 @@ const RestLogin = (props, { ...others }) => {
                                 console.log("Parsed data:", response.data);
                                 if (response.data.success) {
                                     console.log(response.data);
+                                    localStorage.setItem("token", response.data.token);
                                     dispatcher({
                                         type: ACCOUNT_INITIALIZE,
                                         payload: { isLoggedIn: true, user: response.data.user, token: response.data.token }

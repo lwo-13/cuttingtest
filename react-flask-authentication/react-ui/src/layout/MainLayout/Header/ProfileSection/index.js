@@ -130,23 +130,32 @@ const ProfileSection = () => {
 
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
+
     const handleLogout = () => {
-        const token = account.token;
+        const berryAccount = JSON.parse(localStorage.getItem("berry-account") || "{}");
+        const token = berryAccount.token || localStorage.getItem("token");
+    
+        if (!token) {
+            console.log("DEBUG: No token found in local storage!");
+            return;
+        }
+    
+        console.log("DEBUG: Sending token in logout request:", token);
+    
         axios
-        .post(`${configData.API_SERVER}users/logout`, {}, {
-            headers: {
-                Authorization: `Bearer ${token}` // ✅ Correctly formatted Authorization header
-            }
-        })
-        .then(function (response) {
-            console.log("Logout successful:", response.data);
-            dispatcher({ type: LOGOUT }); // ✅ Clears user state
-            localStorage.removeItem("token"); // ✅ Removes token from storage
-        })
-        .catch(function (error) {
-            console.error("Logout failed:", error.response ? error.response.data : error);
-        });
+            .post(configData.API_SERVER + "users/logout", {}, {
+                headers: { Authorization: `Bearer ${token.replace(/"/g, '')}` } // 🛠️ Ensure no quotes
+            })
+            .then((response) => {
+                console.log("Logout successful:", response.data);
+                dispatcher({ type: LOGOUT });
+            })
+            .catch((error) => {
+                console.log("Logout API error:", error.response ? error.response.data : error);
+            });
     };
+    
+
     const handleToggle = () => {
         setOpen((prevOpen) => !prevOpen);
     };

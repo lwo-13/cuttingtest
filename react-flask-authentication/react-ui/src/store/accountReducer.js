@@ -1,9 +1,11 @@
 // action - state management
 import { ACCOUNT_INITIALIZE, LOGIN, LOGOUT } from './actions';
 
+const storedToken = localStorage.getItem("token");
+
 export const initialState = {
-    token: '',
-    isLoggedIn: false,
+    token: localStorage.getItem("token") || "",
+    isLoggedIn: !!localStorage.getItem("token"),
     isInitialized: false,
     user: null
 };
@@ -14,6 +16,7 @@ const accountReducer = (state = initialState, action) => {
     switch (action.type) {
         case ACCOUNT_INITIALIZE: {
             const { isLoggedIn, user, token } = action.payload;
+            localStorage.setItem("token", token);
             return {
                 ...state,
                 isLoggedIn,
@@ -31,6 +34,7 @@ const accountReducer = (state = initialState, action) => {
             };
         }
         case LOGOUT: {
+            localStorage.removeItem("token"); 
             return {
                 ...state,
                 isLoggedIn: false,
