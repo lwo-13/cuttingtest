@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert } from '@mui/material';
-import { AddCircleOutline, DeleteOutline, Save } from '@mui/icons-material';
+import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { useSelector } from "react-redux";
 
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
@@ -17,8 +18,6 @@ const sampleLaboratorio = [
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
 
-const ALLOWANCE = 0.02;
-
 const OrderPlanning = () => {
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -31,6 +30,7 @@ const OrderPlanning = () => {
     const [fabricType, setFabricType] = useState(null);
     const [fabricCode, setFabricCode] = useState("");
     const [fabricColor, setFabricColor] = useState("");
+    const [alongExtra, setalongExtra] = useState("");
     const [markerOptions, setMarkerOptions] = useState([]);
     const [spreadingMethod, setSpreadingMethod] = useState(null);
     const [collarettoType, setcollarettoType] = useState(null);
@@ -102,6 +102,7 @@ const OrderPlanning = () => {
                     markerName: "",
                     piecesPerSize: {},
                     markerLength: "",
+                    allowance: "",
                     efficiency: "",
                     layers: "",
                     expectedConsumption: "",
@@ -144,12 +145,11 @@ const OrderPlanning = () => {
                 fabricColor: "",
                 rows: [
                     {
-                        markerName: "",
+                        bagno: "",
                         width: "",
                         markerLength: "",
                         layers: "",
-                        expectedConsumption: "",
-                        bagno: ""
+                        expectedConsumption: ""
                     }
                 ]
             }
@@ -207,7 +207,6 @@ const OrderPlanning = () => {
             .catch(error => console.error("Error fetching order data:", error));
     }, []);
     
-
     // Fetch marker data from Flask API 
     useEffect(() => {
         if (!selectedOrder) return;  // ✅ Do nothing if no order is selected
@@ -280,6 +279,7 @@ const OrderPlanning = () => {
                             width: markerDetails ? markerDetails.marker_width : "",
                             markerName: mattress.marker_name,
                             markerLength: markerDetails ? markerDetails.marker_length : "",
+                            allowance: parseFloat(mattress.allowance) || 0,
                             efficiency: markerDetails ? markerDetails.efficiency : "",
                             piecesPerSize: markerDetails ? markerDetails.size_quantities || {} : {},
                             layers: mattress.layers || "",
@@ -290,8 +290,17 @@ const OrderPlanning = () => {
     
                     // Convert to array and set tables
                     const loadedTables = Object.values(tablesByFabricType);
-                    console.log("✅ Final Processed Tables:", loadedTables);
                     setTables(loadedTables);
+
+                    // ✅ Automatically update expected consumption for all rows
+                    setTimeout(() => {
+                        loadedTables.forEach((table, tableIndex) => {
+                            table.rows.forEach((row, rowIndex) => {
+                                updateExpectedConsumption(tableIndex, rowIndex);
+                            });
+                        });
+                    }, 100); // Small delay to ensure state update has completed
+
                 } else {
                     console.error("❌ Error fetching mattresses or markers");
                     setTables([]);
@@ -316,7 +325,6 @@ const OrderPlanning = () => {
             setSelectedColorCode("");
         }
     };
-
     
     // Function to add a new row
     const handleAddRow = (tableIndex) => {
@@ -335,6 +343,7 @@ const OrderPlanning = () => {
                                     return acc;
                                 }, {}),
                                 markerLength: "",
+                                allowance: "",
                                 efficiency: "",
                                 layers: "",
                                 expectedConsumption: "",
@@ -433,6 +442,39 @@ const OrderPlanning = () => {
         });
     };
 
+    const handleRemoveAlongRow = (tableIndex, rowIndex) => {
+        setAlongTables(prevTables => {
+            return prevTables.map((table, tIndex) => {
+                if (tIndex === tableIndex) {
+                    setUnsavedChanges(true);  // ✅ Mark as unsaved when a row is deleted
+                    
+                    return {
+                        ...table,
+                        rows: table.rows.filter((_, i) => i !== rowIndex) // ✅ Remove row
+                    };
+                }
+                return table;
+            });
+        });
+    };
+
+    const handleRemoveCollarettoRow = (tableIndex, rowIndex) => {
+        setCollarettoTables(prevTables => {
+            return prevTables.map((table, tIndex) => {
+                if (tIndex === tableIndex) {
+                    return {
+                        ...table,
+                        rows: table.rows.filter((_, i) => i !== rowIndex) // ✅ Remove only the selected row
+                    };
+                }
+                return table;
+            });
+        });
+    
+        setUnsavedChanges(true); // ✅ Mark as unsaved when a row is deleted
+    };
+    
+
     const handleInputChange = (tableIndex, rowIndex, field, value) => {
         setTables(prevTables => {
             if (!prevTables[tableIndex]) return prevTables; // ✅ Prevents errors if tableIndex is invalid
@@ -484,13 +526,65 @@ const OrderPlanning = () => {
             const updatedTables = [...prevTables];
             const updatedRows = [...updatedTables[tableIndex].rows];
     
-            updatedRows[rowIndex] = { ...updatedRows[rowIndex], [field]: value };
+            // ✅ Update the specific field
+            const updatedRow = { ...updatedRows[rowIndex], [field]: value };
     
+            // ✅ Convert required values to numbers (default to 0 if empty)
+            const usableWidth = parseFloat(updatedRow.usableWidth) || 0;
+            const collarettoWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10; // Avoid division by 0
+            const pieces = parseFloat(updatedRow.pieces) || 0;
+            const theoreticalConsumption = parseFloat(updatedRow.theoreticalConsumption) || 0;
+            const extraPercentage = parseFloat(updatedRow.extraPercentage) || 1; // Default 1 (100%)
+    
+            // ✅ Calculate Koturi per Roll (round down)
+            updatedRow.koturiPerRoll = collarettoWidth > 0 ? Math.floor(usableWidth / collarettoWidth) : 0;
+    
+            // ✅ Calculate Meters of Collaretto
+            updatedRow.metersCollaretto = pieces * theoreticalConsumption * extraPercentage;
+    
+            // ✅ Calculate Consumption
+            updatedRow.consumption = updatedRow.koturiPerRoll > 0
+                ? (updatedRow.metersCollaretto / updatedRow.koturiPerRoll).toFixed(2) // Round to 2 decimals
+                : "0";
+    
+            // ✅ Save updated row in copied array
+            updatedRows[rowIndex] = updatedRow;
             updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
-
+    
+            return updatedTables; // ✅ Return new state to trigger React re-render
+        });
+    };
+    
+    const handleExtraChange = (tableIndex, value) => {
+        setAlongTables(prevTables => {
+            const updatedTables = [...prevTables];
+    
+            // ✅ Update `alongExtra` in the selected table
+            updatedTables[tableIndex] = { ...updatedTables[tableIndex], alongExtra: value };
+    
+            // ✅ Convert Extra % into a multiplier (e.g., 10% → 1.10)
+            const extraMultiplier = 1 + (parseFloat(value) / 100) || 1;
+    
+            // ✅ Update all rows in this table
+            updatedTables[tableIndex].rows = updatedTables[tableIndex].rows.map(row => {
+                const pieces = parseFloat(row.pieces) || 0;
+                const theoreticalConsumption = parseFloat(row.theoreticalConsumption) || 0;
+    
+                // ✅ Apply Extra % increase
+                row.metersCollaretto = pieces * theoreticalConsumption * extraMultiplier;
+    
+                // ✅ Update `consumption`
+                row.consumption = row.koturiPerRoll > 0
+                    ? (row.metersCollaretto / row.koturiPerRoll).toFixed(2)
+                    : "0";
+    
+                return row;
+            });
+    
             return updatedTables;
         });
     };
+    
     
     // ✅ New function to handle delayed calculation
     const updateExpectedConsumption = (tableIndex, rowIndex) => {
@@ -501,7 +595,8 @@ const OrderPlanning = () => {
             clearTimeout(updatedTables[tableIndex].rows[rowIndex].timeout);
     
             updatedTables[tableIndex].rows[rowIndex].timeout = setTimeout(() => {
-                const markerLength = (parseFloat(updatedTables[tableIndex].rows[rowIndex].markerLength) || 0) + ALLOWANCE;
+                const userAllowance = parseFloat(updatedTables[tableIndex].rows[rowIndex].allowance) || 0;
+                const markerLength = (parseFloat(updatedTables[tableIndex].rows[rowIndex].markerLength) || 0) + userAllowance;
                 const layers = parseInt(updatedTables[tableIndex].rows[rowIndex].layers) || 0;
     
                 updatedTables[tableIndex].rows[rowIndex].expectedConsumption = (markerLength * layers).toFixed(1);
@@ -512,6 +607,8 @@ const OrderPlanning = () => {
             return updatedTables;
         });
     };
+
+    const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
     const handleSave = () => {
         if (!selectedOrder || !tables.length) {
@@ -558,9 +655,10 @@ const OrderPlanning = () => {
                 // ✅ Ensure numerical values are properly handled (convert empty strings to 0)
                 const layers = parseFloat(row.layers) || 0;
                 const markerLength = parseFloat(row.markerLength) || 0;
-                const extra = ALLOWANCE; // ✅ Fixed Allowance Value (0.02)
-                const lengthMattress = markerLength + extra; // ✅ Corrected calculation
+                const userAllowance = parseFloat(row.allowance) || 0;
+                const lengthMattress = markerLength + userAllowance; // ✅ Corrected calculation
                 const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
+                
 
                 payloads.push({
                     mattress: mattressName,
@@ -574,10 +672,11 @@ const OrderPlanning = () => {
                     layers: layers,
                     length_mattress: lengthMattress, // ✅ Updated: markerLength + allowance
                     cons_planned: consPlanned, // ✅ Auto-calculated
-                    extra: extra, // ✅ Always 0.02
+                    extra: userAllowance,
                     marker_name: row.markerName,
                     marker_width: parseFloat(row.width) || 0,
-                    marker_length: markerLength
+                    marker_length: markerLength,
+                    operator: username
                 });
             });
         });
@@ -644,7 +743,10 @@ const OrderPlanning = () => {
     
         return plannedQuantities;
     };
-    
+
+    const handlePrint = () => {
+        window.print(); // ✅ Opens the print dialog
+    };
 
     return (
         <>
@@ -659,13 +761,32 @@ const OrderPlanning = () => {
                         </Typography>
                     )}
 
+                    {/* Save Button */}
                     <Button 
                         variant="contained" 
-                        sx={{ backgroundColor: '#B0B0B0', color: 'white', '&:hover': { backgroundColor: '#A0A0A0' } }}
+                        sx={{
+                            backgroundColor: unsavedChanges ? '#707070' : '#B0B0B0', // ✅ Darker color when unsaved changes exist
+                            color: 'white', 
+                            '&:hover': { backgroundColor: unsavedChanges ? '#505050' : '#A0A0A0' } // ✅ Even darker on hover if unsaved
+                        }}
                         onClick={handleSave}
                         startIcon={<Save />}
                     >
                         Save
+                    </Button>
+
+                    {/* Print Button */}
+                    <Button 
+                        variant="contained" 
+                        sx={{
+                            backgroundColor: '#1976D2', // ✅ Blue color (Material UI Primary)
+                            color: 'white', 
+                            '&:hover': { backgroundColor: '#1565C0' } // ✅ Darker blue on hover
+                        }}
+                        onClick={handlePrint} // ✅ Calls the print function
+                        startIcon={<Print />} // ✅ Uses a Print icon
+                    >
+                        Print
                     </Button>
                 </Box>
 
@@ -786,11 +907,20 @@ const OrderPlanning = () => {
 
                                 {/* Table-Specific Planned Quantities */}
                                 <Box display="flex" gap={2} sx={{ backgroundColor: "#EFEFEF", padding: "4px 8px", borderRadius: "8px" }}>
-                                    {Object.entries(getTablePlannedQuantities(table)).map(([size, qty]) => (
-                                        <Typography key={size} variant="body2" sx={{ fontWeight: "bold" }}>
-                                            {size}: {qty}
-                                        </Typography>
-                                    ))}
+                                    {Object.entries(getTablePlannedQuantities(table)).map(([size, qty]) => {
+                                        // ✅ Find the total ordered quantity for the specific size from orderSizes
+                                        const sizeData = orderSizes.find(s => s.size === size);
+                                        const totalOrdered = sizeData ? sizeData.qty : 1; // ✅ Use actual qty, default to 1 if not found
+
+                                        // ✅ Calculate percentage (prevent NaN by checking totalOrdered)
+                                        const percentage = totalOrdered ? ((qty / totalOrdered) * 100).toFixed(1) : "N/A";
+
+                                        return (
+                                            <Typography key={size} variant="body2" sx={{ fontWeight: "bold" }}>
+                                                {size}: {qty} ({percentage !== "NaN" ? percentage + "%" : "N/A"})
+                                            </Typography>
+                                        );
+                                    })}
                                 </Box>
                             </Box>
                         }
@@ -908,8 +1038,8 @@ const OrderPlanning = () => {
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Width</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Marker Name</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px'}}>Width [cm]</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '400px'}}>Marker Name</TableCell>
                                             {/* ✅ Correctly Mapping Sizes */}
                                             {orderSizes.length > 0 &&
                                                 orderSizes.map((size, index) => (
@@ -918,10 +1048,11 @@ const OrderPlanning = () => {
                                                     </TableCell>
                                                 ))
                                             }
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Length</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Eff %</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px' }}>Length [m]</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '130px'  }}>Allowance [m]</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '70px'  }}>Eff %</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Layers</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Expected Consumption</TableCell>
+                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px'   }}>Cons [m]</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Bagno</TableCell>
                                             <TableCell></TableCell>
                                         </TableRow>
@@ -978,7 +1109,15 @@ const OrderPlanning = () => {
                                                                 .filter(marker => parseFloat(marker.marker_width) === parseFloat(row.width))
                                                                 .sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency)) // ✅ Sort by efficiency (Descending)
                                                             : [...markerOptions].sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency))} // ✅ Sort all markers when no width is entered
-                                                        getOptionLabel={(option) => option.marker_name}
+                                                        getOptionLabel={(option) => option.marker_name} // Keep only marker name here
+                                                        renderOption={(props, option) => (
+                                                            <li {...props}>
+                                                                <span>{option.marker_name}</span>
+                                                                <span style={{ color: "gray", marginLeft: "10px", fontSize: "0.85em" }}>
+                                                                    ({option.efficiency}%)
+                                                                </span>
+                                                            </li>
+                                                        )}
                                                         value={markerOptions.find(m => m.marker_name === row.markerName) || null}
                                                         onChange={(_, newValue) => {
                                                             setTables(prevTables => {
@@ -1038,6 +1177,30 @@ const OrderPlanning = () => {
                                                     <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
                                                         {row.markerLength}
                                                     </Typography>
+                                                </TableCell>
+
+                                                {/* Allowance (Text Input) */}
+                                                <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={tables[tableIndex]?.rows[rowIndex]?.allowance || ""} 
+                                                        onChange={(e) => {
+                                                            const value = e.target.value
+                                                                .replace(/[^0-9.,]/g, '')  // ✅ Allow only digits, dot (.), and comma (,)
+                                                                .replace(/[,]+/g, '.')     // ✅ Convert multiple commas to a single dot
+                                                                .replace(/(\..*)\./g, '$1') // ✅ Prevent multiple dots
+                                                                .slice(0, 4);  // ✅ Limit total length (adjust if needed)
+                                                            handleInputChange(tableIndex, rowIndex, "allowance", value);
+                                                            updateExpectedConsumption(tableIndex, rowIndex);
+                                                        }}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '65px', // ✅ Ensures a minimum width
+                                                            maxWidth: '80px', // ✅ Prevents expanding too much
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                        }}
+                                                    />
                                                 </TableCell>
 
                                                 {/* Efficiency (Auto-Filled & Read-only) */}
@@ -1135,16 +1298,18 @@ const OrderPlanning = () => {
             {alongTables.length > 0 && alongTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
-                    <MainCard title={`Collaretto Along the Grain ${tableIndex + 1}`}>
+                    <MainCard title={`Collaretto Along the Grain`}>
 
                         <Box p={1}>
                             <Grid container spacing={2}>
                                 {/* Fabric Type (Dropdown) */}
                                 <Grid item xs={3} sm={2} md={1.5}>
                                     <Autocomplete
-                                        options={fabricTypeOptions}
+                                        options={fabricTypeOptions.filter(option => 
+                                            !alongTables.some((t, i) => i !== tableIndex && t.fabricType === option) // ✅ Exclude fabricType selected in other alongTables
+                                        )}
                                         getOptionLabel={(option) => option}
-                                        value={table.fabricType || null}
+                                        value={alongTables[tableIndex].fabricType || null}
                                         onChange={(event, newValue) => {
                                             setAlongTables(prevTables => {
                                                 const updatedTables = [...prevTables];
@@ -1153,7 +1318,11 @@ const OrderPlanning = () => {
                                             });
                                         }}
                                         renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
-                                        sx={{ width: '100%', minWidth: '60px' }}
+                                        sx={{
+                                            width: '100%',
+                                            minWidth: '60px',
+                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+                                        }}
                                     />
                                 </Grid>
 
@@ -1175,17 +1344,6 @@ const OrderPlanning = () => {
                                     />
                                 </Grid>
 
-                                {/* Fabric Description (Read-Only) */}
-                                <Grid item xs={3} sm={2} md={2}>
-                                    <TextField
-                                        label="Fabric Description"
-                                        variant="outlined"
-                                        value="" // Placeholder, will be filled with DB data
-                                        slotProps={{ input: { readOnly: true } }}
-                                        sx={{ width: '100%', minWidth: '60px' }}
-                                    />
-                                </Grid>
-
                                 {/* Fabric Color (Text Input) */}
                                 <Grid item xs={3} sm={2} md={1.5}>
                                     <TextField
@@ -1203,6 +1361,17 @@ const OrderPlanning = () => {
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
                                 </Grid>
+
+                                {/* Extra (Text Input) */}
+                                <Grid item xs={2} sm={1} md={1}>
+                                    <TextField
+                                        label="Extra %"
+                                        variant="outlined"
+                                        value={table.alongExtra || ""}
+                                        onChange={(e) => handleExtraChange(tableIndex, e.target.value.slice(0, 2))}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
                             </Grid>
                         </Box>
 
@@ -1211,58 +1380,125 @@ const OrderPlanning = () => {
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
                                     <TableHead>
-                                        <TableRow>
-                                            <TableCell>Marker Name</TableCell>
-                                            <TableCell align="center">Width</TableCell>
-                                            <TableCell align="center">Marker Length</TableCell>
-                                            <TableCell align="center">Layers</TableCell>
-                                            <TableCell align="center">Expected Consumption</TableCell>
-                                            <TableCell align="center">Bagno</TableCell>
+                                        <TableRow sx={{ height: "50px" }}>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>IT Cons. [m/pc]</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Koturi per Roll</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Total Collaretto [m]</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Consumption</TableCell>
+                                            <TableCell></TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
                                         {table.rows.map((row, rowIndex) => (
                                             <TableRow key={rowIndex}>
-                                                <TableCell>
-                                                    <Autocomplete
-                                                        options={markerOptions}
-                                                        getOptionLabel={(option) => option.marker_name}
-                                                        value={markerOptions.find(m => m.marker_name === row.markerName) || null}
-                                                        onChange={(_, newValue) => {
-                                                            handleAlongRowChange(tableIndex, rowIndex, "markerName", newValue ? newValue.marker_name : "");
-                                                        }}
-                                                        renderInput={(params) => <TextField {...params} variant="outlined" />}
-                                                    />
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Typography>{row.width}</Typography>
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Typography>{row.markerLength}</Typography>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={row.layers || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "layers", e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                                        sx={{ width: '100%', minWidth: '65px', maxWidth: '80px', textAlign: 'center' }}
-                                                    />
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Typography>{row.expectedConsumption}</Typography>
-                                                </TableCell>
-
-                                                <TableCell>
+                                                {/* Bagno (Editable Text Field) */}
+                                                <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
                                                     <TextField
                                                         variant="outlined"
                                                         value={row.bagno || ""}
                                                         onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
-                                                        sx={{ width: '100%', minWidth: '90px', maxWidth: '120px', textAlign: 'center' }}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '90px',
+                                                            maxWidth: '120px',
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" }
+                                                        }}
                                                     />
+                                                </TableCell>
+
+                                                {/* Usable Width */}
+                                                <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.usableWidth || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3))}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '90px', // ✅ Ensures a minimum width
+                                                            maxWidth: '120px', // ✅ Prevents expanding too much
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                        }}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Pieces (Editable Text Field) */}
+                                                <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.pieces || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7))}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '90px',
+                                                            maxWidth: '120px',
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" }
+                                                        }}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Theoretical Consumption (Editable Text Field) */}
+                                                <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.theoreticalConsumption || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "theoreticalConsumption", e.target.value.replace(/[^0-9.,]/g, ''))}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '90px', // ✅ Ensures a minimum width
+                                                            maxWidth: '120px', // ✅ Prevents expanding too much
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                        }}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Collaretto Width */}
+                                                <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.collarettoWidth || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '65px', // ✅ Ensures a minimum width
+                                                            maxWidth: '150px', // ✅ Prevents expanding too much
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                        }}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Koturi per Roll */}
+                                                <TableCell align="center">
+                                                    <Typography>{row.koturiPerRoll || ""}</Typography>
+                                                </TableCell>
+
+                                                {/* Meters of Collaretto */}
+                                                <TableCell align="center">
+                                                    <Typography>{row.metersCollaretto || ""}</Typography>
+                                                </TableCell>
+
+                                                {/* Consumption */}
+                                                <TableCell align="center">
+                                                    <Typography>{row.consumption && row.consumption !== "0.00" ? row.consumption : ""}</Typography>
+                                                </TableCell>
+
+                                                {/* Delete Button */}
+                                                <TableCell>
+                                                    <IconButton 
+                                                        onClick={() => handleRemoveAlongRow(tableIndex, rowIndex)}
+                                                        color="error"
+                                                        disabled={alongTables[tableIndex].rows.length === 1} // ✅ Disable when only 1 row left
+                                                    >
+                                                        <DeleteOutline />
+                                                    </IconButton>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -1300,7 +1536,7 @@ const OrderPlanning = () => {
             {collarettoTables.length > 0 && collarettoTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
-                    <MainCard title={`Collaretto Group ${tableIndex + 1}`}>
+                    <MainCard title={`Collaretto Weft or Bias`}>
 
                         <Box p={1}>
                             <Grid container spacing={2}>
@@ -1340,17 +1576,6 @@ const OrderPlanning = () => {
                                     />
                                 </Grid>
 
-                                {/* Fabric Description (Read-Only) */}
-                                <Grid item xs={3} sm={2} md={2}>
-                                    <TextField
-                                        label="Fabric Description"
-                                        variant="outlined"
-                                        value="" // Placeholder, will be filled with DB data
-                                        slotProps={{ input: { readOnly: true } }}
-                                        sx={{ width: '100%', minWidth: '60px' }}
-                                    />
-                                </Grid>
-
                                 {/* Fabric Color (Text Input) */}
                                 <Grid item xs={3} sm={2} md={1.5}>
                                     <TextField
@@ -1365,6 +1590,17 @@ const OrderPlanning = () => {
                                                 return updatedTables;
                                             });
                                         }}
+                                        sx={{ width: '100%', minWidth: '60px' }}
+                                    />
+                                </Grid>
+
+                                {/* Extra (Text Input) */}
+                                <Grid item xs={2} sm={1} md={1}>
+                                    <TextField
+                                        label="Extra %"
+                                        variant="outlined"
+                                        value={table.alongExtra || ""}
+                                        onChange={(e) => handleExtraChange(tableIndex, e.target.value.slice(0, 2))}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
                                 </Grid>
@@ -1398,65 +1634,132 @@ const OrderPlanning = () => {
                         {/* Table Section */}
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Marker Name</TableCell>
-                                            <TableCell align="center">Width</TableCell>
-                                            <TableCell align="center">Marker Length</TableCell>
-                                            <TableCell align="center">Layers</TableCell>
-                                            <TableCell align="center">Expected Consumption</TableCell>
-                                            <TableCell align="center">Bagno</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {table.rows.map((row, rowIndex) => (
-                                            <TableRow key={rowIndex}>
-                                                <TableCell>
-                                                    <Autocomplete
-                                                        options={markerOptions}
-                                                        getOptionLabel={(option) => option.marker_name}
-                                                        value={markerOptions.find(m => m.marker_name === row.markerName) || null}
-                                                        onChange={(_, newValue) => {
-                                                            handleCollarettoRowChange(tableIndex, rowIndex, "markerName", newValue ? newValue.marker_name : "");
-                                                        }}
-                                                        renderInput={(params) => <TextField {...params} variant="outlined" />}
-                                                    />
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Typography>{row.width}</Typography>
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Typography>{row.markerLength}</Typography>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={row.layers || ""}
-                                                        onChange={(e) => handleCollarettoRowChange(tableIndex, rowIndex, "layers", e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                                        sx={{ width: '100%', minWidth: '65px', maxWidth: '80px', textAlign: 'center' }}
-                                                    />
-                                                </TableCell>
-
-                                                <TableCell align="center">
-                                                    <Typography>{row.expectedConsumption}</Typography>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={row.bagno || ""}
-                                                        onChange={(e) => handleCollarettoRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
-                                                        sx={{ width: '100%', minWidth: '90px', maxWidth: '120px', textAlign: 'center' }}
-                                                    />
-                                                </TableCell>
+                                    <Table>
+                                        <TableHead>
+                                            <TableRow sx={{ height: "50px" }}>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>IT Cons. [m/pc]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Koturi per Roll</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Total Collaretto [m]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Consumption</TableCell>
+                                                <TableCell></TableCell>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHead>
+                                        <TableBody>
+                                            {table.rows.map((row, rowIndex) => (
+                                                <TableRow key={rowIndex}>
+                                                    {/* Bagno (Editable Text Field) */}
+                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.bagno || ""}
+                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '90px',
+                                                                maxWidth: '120px',
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" }
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {/* Usable Width */}
+                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.usableWidth || ""}
+                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3))}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '90px', // ✅ Ensures a minimum width
+                                                                maxWidth: '120px', // ✅ Prevents expanding too much
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {/* Pieces (Editable Text Field) */}
+                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.pieces || ""}
+                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7))}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '90px',
+                                                                maxWidth: '120px',
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" }
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {/* Theoretical Consumption (Editable Text Field) */}
+                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.theoreticalConsumption || ""}
+                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "theoreticalConsumption", e.target.value.replace(/[^0-9.,]/g, ''))}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '90px', // ✅ Ensures a minimum width
+                                                                maxWidth: '120px', // ✅ Prevents expanding too much
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {/* Collaretto Width */}
+                                                    <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.collarettoWidth || ""}
+                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '65px', // ✅ Ensures a minimum width
+                                                                maxWidth: '150px', // ✅ Prevents expanding too much
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {/* Koturi per Roll */}
+                                                    <TableCell align="center">
+                                                        <Typography>{row.koturiPerRoll || ""}</Typography>
+                                                    </TableCell>
+
+                                                    {/* Meters of Collaretto */}
+                                                    <TableCell align="center">
+                                                        <Typography>{row.metersCollaretto || ""}</Typography>
+                                                    </TableCell>
+
+                                                    {/* Consumption */}
+                                                    <TableCell align="center">
+                                                        <Typography>{row.consumption && row.consumption !== "0.00" ? row.consumption : ""}</Typography>
+                                                    </TableCell>
+
+                                                    {/* Delete Button */}
+                                                    <TableCell>
+                                                        <IconButton 
+                                                            onClick={() => handleRemoveCollarettoRow(tableIndex, rowIndex)}
+                                                            color="error"
+                                                            disabled={collarettoTables[tableIndex].rows.length === 1} // ✅ Disable when only 1 row left
+                                                        >
+                                                            <DeleteOutline />
+                                                        </IconButton>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                             </TableContainer>
 
                             {/* Button Container (Flexbox for alignment) */}

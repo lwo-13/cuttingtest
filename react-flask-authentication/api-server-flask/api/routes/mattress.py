@@ -88,7 +88,7 @@ class MattressResource(Resource):
 
                 # ✅ Insert mattress phases
                 phases = [
-                    MattressPhase(mattress_id=mattress_id, status="0 - NOT SET", active=True),
+                    MattressPhase(mattress_id=mattress_id, status="0 - NOT SET", active=True, operator=data["operator"]),
                     MattressPhase(mattress_id=mattress_id, status="1 - TO LOAD", active=False),
                     MattressPhase(mattress_id=mattress_id, status="2 - COMPLETED", active=False),
                 ]
@@ -156,6 +156,7 @@ class GetMattressesByOrder(Resource):
             mattresses = db.session.query(
                 Mattresses,
                 MattressDetail.layers,  # Fetch `layers` from mattress_details
+                MattressDetail.extra,
                 MattressMarker.marker_name  # Fetch `marker_name` from mattress_markers
             ).outerjoin(
                 MattressDetail, Mattresses.id == MattressDetail.mattress_id
@@ -169,7 +170,7 @@ class GetMattressesByOrder(Resource):
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers, marker_name in mattresses:
+            for mattress, layers, extra, marker_name in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "fabric_type": mattress.fabric_type,
@@ -179,15 +180,14 @@ class GetMattressesByOrder(Resource):
                     "item_type": mattress.item_type,
                     "spreading_method": mattress.spreading_method,
                     "layers": layers if layers is not None else "",  # Ensure empty if no value
-                    "marker_name": marker_name if marker_name is not None else ""  # Ensure empty if no value
+                    "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
+                    "allowance": extra if extra is not None else 0
                 })
 
             return {"success": True, "data": result}, 200
 
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
-
-
 
 @ mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])
 class DeleteMattressResource(Resource):
