@@ -1384,8 +1384,9 @@ const OrderPlanning = () => {
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
-                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>IT Cons. [m/pc]</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Koturi</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Koturi per Roll</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Total Collaretto [m]</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Consumption</TableCell>
@@ -1460,6 +1461,22 @@ const OrderPlanning = () => {
                                                 </TableCell>
 
                                                 {/* Collaretto Width */}
+                                                <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
+                                                    <TextField
+                                                        variant="outlined"
+                                                        value={row.collarettoWidth || ""}
+                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        sx={{
+                                                            width: '100%',
+                                                            minWidth: '65px', // ✅ Ensures a minimum width
+                                                            maxWidth: '150px', // ✅ Prevents expanding too much
+                                                            textAlign: 'center',
+                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                        }}
+                                                    />
+                                                </TableCell>
+
+                                                {/* Srap Koturi */}
                                                 <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
                                                     <TextField
                                                         variant="outlined"
