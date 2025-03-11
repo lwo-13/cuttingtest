@@ -7,12 +7,14 @@ import autoTable from 'jspdf-autotable';
 const Print = () => {
     const [mattresses, setMattresses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingPDF, setLoadingPDF] = useState(false);  // New state for loading PDF
     const [orderFilter, setOrderFilter] = useState('');
     const [mattressFilter, setMattressFilter] = useState('');
     const [selectedItems, setSelectedItems] = useState({}); // State to track selected items (order + mattress)
 
+    // Fetch the mattress list (without details)
     useEffect(() => {
-        axios.get('http://127.0.0.1:5000/api/mattress/all') // Updated API route
+        axios.get('http://127.0.0.1:5000/api/mattress/all') // API route to get all mattresses
             .then(response => {
                 if (response.data.success) {
                     setMattresses(response.data.data);
@@ -38,72 +40,116 @@ const Print = () => {
         }));
     };
 
-    // Generate PDF with custom layout
-    const generatePDF = () => {
-        const doc = new jsPDF();
+    // Generate PDF function
+  const generatePDF = () => {
+    // Get selected mattress keys
+    const selectedMattresses = Object.keys(selectedItems).filter(key => selectedItems[key]);
 
-        // Set title with custom font
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
-        doc.text("Mattress Report", 105, 20, { align: "center" });
+    // If no mattress is selected, show an alert and stop execution
+    if (selectedMattresses.length === 0) {
+        window.alert("Please select at least one mattress before generating the PDF.");
+        return;
+    }
 
-        // Draw a line under the title
-        doc.setLineWidth(0.5);
-        doc.line(10, 25, 200, 25); // Horizontal line
+    setLoadingPDF(true); // Show loading indicator while generating PDF
 
-        // Set up table styles
-        const tableData = filteredMattresses.map((mattress, index) => [
-            index + 1,
-            mattress.mattress,
-            mattress.order_commessa,
-            mattress.fabric_type,
-            mattress.fabric_code,
-            mattress.fabric_color,
-            mattress.dye_lot,
-            mattress.item_type,
-            mattress.spreading_method,
-            mattress.created_at
-        ]);
+    axios.get('http://127.0.0.1:5000/api/mattress/all_with_details')
+        .then(response => {
+            if (response.data.success) {
+                const mattressesWithDetails = response.data.data;
+                const doc = new jsPDF();
 
-        autoTable(doc, {
-            head: [["#", "Mattress", "Order", "Fabric Type", "Fabric Code", "Color", "Dye Lot", "Item Type", "Spreading", "Created At"]],
-            body: tableData,
-            startY: 30, // Start table below title and line
-            styles: { 
-                fontSize: 10, 
-                cellPadding: 5,
-                font: "helvetica", 
-                lineColor: [44, 62, 80], // Custom line color (dark blue-gray)
-                lineWidth: 0.3,
-                fillColor: [240, 240, 240], // Background color for the header
-            },
-            columnStyles: { 
-                0: { cellWidth: 10 },
-                1: { cellWidth: 40 },
-                2: { cellWidth: 40 },
-                3: { cellWidth: 35 },
-                4: { cellWidth: 35 }
-            },
-            alternateRowStyles: { fillColor: [245, 245, 245] }, // Alternate row color
-        });
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(18);
+                doc.text("Mattress Report", 105, 10, { align: "center" });
 
-        // Add footer with current date and page number
-        doc.setFontSize(8);
-        const date = new Date().toLocaleDateString();
-        const pageCount = doc.internal.getNumberOfPages();
-        doc.text(`Generated on: ${date} | Page ${pageCount}`, 105, doc.lastAutoTable.finalY + 10, { align: "center" });
+                doc.setLineWidth(0.5);
+                doc.line(10, 15, 200, 15);
 
-        // Save the PDF
-        doc.save("mattresses_report.pdf");
-    };
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+
+                // Filter mattresses based on selection
+                const filteredMattresses = mattresses.filter(mattress =>
+                    selectedItems[getUniqueKey(mattress.order_commessa, mattress.mattress)]
+                );
+
+                const tableData = filteredMattresses.map((mattress, index) => [
+                    index + 1,
+                    mattress.mattress,
+                    mattress.order_commessa,
+                    mattress.fabric_type,
+                    mattress.fabric_code,
+                    mattress.fabric_color,
+                    mattress.dye_lot,
+                    mattress.item_type,
+                    mattress.spreading_method,
+                    mattress.created_at
+                ]);
+
+                autoTable(doc, {
+                    head: [["#", "Mattress", "Order", "Fabric Type", "Fabric Code", "Color", "Dye Lot", "Item Type", "Spreading", "Created At"]],
+                    body: tableData,
+                    startY: 20,
+                    styles: { 
+                        fontSize: 10, 
+                        cellPadding: 3,
+                        font: "helvetica", 
+                        lineColor: [44, 62, 80],
+                        lineWidth: 0.3,
+                        fillColor: [240, 240, 240], 
+                    },
+                    columnStyles: { 
+                        0: { cellWidth: 10 },
+                        1: { cellWidth: 40 },
+                        2: { cellWidth: 40 }
+                    },
+                    alternateRowStyles: { fillColor: [245, 245, 245] },
+                });
+
+                filteredMattresses.forEach((mattress, index) => {
+                    const yOffset = doc.lastAutoTable.finalY + 10 + (index * 60);
+                    doc.text(`Mattress: ${mattress.mattress} (${mattress.order_commessa})`, 10, yOffset);
+
+                    const mattressWithDetails = mattressesWithDetails.find(m => m.mattress === mattress.mattress && m.order_commessa === mattress.order_commessa);
+
+                    if (mattressWithDetails?.details?.length) {
+                        mattressWithDetails.details.forEach((detail, i) => {
+                            doc.text(`Layer: ${detail.layers}`, 10, yOffset + (i + 1) * 10);
+                            doc.text(`Planned Consumption: ${detail.cons_planned}`, 10, yOffset + (i + 1) * 20);
+                            doc.text(`Actual Consumption: ${detail.cons_actual}`, 10, yOffset + (i + 1) * 30);
+                        });
+                    }
+
+                    if (mattressWithDetails?.markers?.length) {
+                        mattressWithDetails.markers.forEach((marker, i) => {
+                            doc.text(`Marker: ${marker.marker_name}`, 10, yOffset + 50 + (i + 1) * 10);
+                            doc.text(`Width: ${marker.marker_width}`, 10, yOffset + 50 + (i + 1) * 20);
+                            doc.text(`Length: ${marker.marker_length}`, 10, yOffset + 50 + (i + 1) * 30);
+                        });
+                    }
+                });
+
+                doc.setFontSize(8);
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, doc.lastAutoTable.finalY + 10, { align: "center" });
+
+                doc.save("mattresses_report_with_details.pdf");
+            } else {
+                console.error("Failed to fetch mattress details");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching mattress details:", error);
+        })
+        .finally(() => setLoadingPDF(false));
+};
+
+
 
     const filteredMattresses = mattresses.filter(mattress =>
         mattress.order_commessa.includes(orderFilter) &&
         mattress.mattress.includes(mattressFilter)
     );
-
-    // Add error handling for PDF generation
-    const isAnyItemSelected = Object.keys(selectedItems).some(key => selectedItems[key]);
 
     return (
         <Box p={3}>
@@ -121,13 +167,8 @@ const Print = () => {
                     value={mattressFilter}
                     onChange={(e) => setMattressFilter(e.target.value)}
                 />
-                <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={generatePDF}
-                    disabled={!isAnyItemSelected} // Disable the button if no items are selected
-                >
-                    Generate PDF
+                <Button variant="contained" color="primary" onClick={generatePDF} disabled={loadingPDF}>
+                    {loadingPDF ? "Generating PDF..." : "Generate PDF"}
                 </Button>
             </Box>
             {loading ? (
@@ -181,5 +222,4 @@ const Print = () => {
         </Box>
     );
 };
-
-export default Print;
+export default Print; 
