@@ -235,94 +235,72 @@ const OrderPlanning = () => {
             setSelectedStyle(newValue.style);
             setSelectedSeason(newValue.season);
             setSelectedColorCode(newValue.colorCode);
-
+    
             console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
-
-            // ✅ Fetch existing mattresses from Flask API
-            axios.get(`http://127.0.0.1:5000/api/mattress/get_by_order/${newValue.id}`)
-                .then(response => {
-                    if (response.data.success) {
-                        console.log("✅ Mattresses Loaded:", response.data.data);
-
-                        // ✅ Create a mapping of tables grouped by `fabric_type`
-                        const tablesByFabricType = {};
-
-                        response.data.data.forEach((mattress) => {
-                            const fabricType = mattress.fabric_type;
-
-                            // ✅ Ensure each fabric type has its own table
-                            if (!tablesByFabricType[fabricType]) {
-                                tablesByFabricType[fabricType] = {
-                                    id: Object.keys(tablesByFabricType).length + 1,
-                                    fabricType: fabricType,
-                                    fabricCode: mattress.fabric_code,
-                                    fabricColor: mattress.fabric_color,
-                                    spreadingMethod: mattress.spreading_method,
-                                    rows: []
-                                };
-                            }
-
-                            // ✅ Add mattress row to the correct table
-                            tablesByFabricType[fabricType].rows.push({
-                                mattressName: mattress.mattress,  // ✅ Store but do not display in UI
-                                width: "",
-                                markerName: "",  // Separate from mattressName
-                                piecesPerSize: {},  // ⚠️ Adjust if pieces per size are saved separately
-                                markerLength: "",
-                                layers: mattress.layers || "", // ✅ Pre-fill layers from DB
-                                expectedConsumption: "",
-                                bagno: mattress.dye_lot
-                            });
-                        });
-
-                        // ✅ Convert tables object to array
-                        const loadedTables = Object.values(tablesByFabricType);
-
-                        setTables(loadedTables);  // ✅ Restore previous tables
-                    } else {
-                        console.warn("⚠️ No existing mattresses found for this order.");
-                        setTables([
-                            {
-                                id: 1,
-                                rows: [
-                                    {
-                                        mattressName: "",  // ✅ Keep track of new mattresses without showing it
-                                        width: "",
-                                        markerName: "",
-                                        piecesPerSize: newValue.sizes ? Object.fromEntries(sortSizes(newValue.sizes).map(size => [size.size, ""])) : {},
-                                        markerLength: "",
-                                        layers: "",
-                                        expectedConsumption: "",
-                                        bagno: ""
-                                    }
-                                ]
-                            }
-                        ]);
-                    }
-                })
-                .catch(error => {
-                    console.error("❌ Error fetching mattresses:", error);
-                    setTables([
-                        {
-                            id: 1,
-                            rows: [
-                                {
-                                    mattressName: "",  // ✅ Keep track of new mattresses without showing it
-                                    width: "",
-                                    markerName: "",
-                                    piecesPerSize: newValue.sizes ? Object.fromEntries(sortSizes(newValue.sizes).map(size => [size.size, ""])) : {},
-                                    markerLength: "",
-                                    layers: "",
-                                    expectedConsumption: "",
-                                    bagno: ""
-                                }
-                            ]
+    
+            // Fetch mattresses and markers in parallel
+            Promise.all([
+                axios.get(`http://127.0.0.1:5000/api/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
+                axios.get(`http://127.0.0.1:5000/api/markers/marker_headers_planning?style=${newValue.style}`)  // Fetch markers
+            ])
+            .then(([mattressResponse, markerResponse]) => {
+                if (mattressResponse.data.success && markerResponse.data.success) {
+                    console.log("✅ Mattresses Loaded:", mattressResponse.data.data);
+                    console.log("✅ Markers Loaded:", markerResponse.data.data);
+    
+                    // Mapping markers by marker_name for easy lookup
+                    const markersMap = markerResponse.data.data.reduce((acc, marker) => {
+                        acc[marker.marker_name] = marker;
+                        return acc;
+                    }, {});
+    
+                    // Group mattresses by fabric type
+                    const tablesByFabricType = {};
+    
+                    mattressResponse.data.data.forEach((mattress) => {
+                        const fabricType = mattress.fabric_type;
+    
+                        if (!tablesByFabricType[fabricType]) {
+                            tablesByFabricType[fabricType] = {
+                                id: Object.keys(tablesByFabricType).length + 1,
+                                fabricType: fabricType,
+                                fabricCode: mattress.fabric_code,
+                                fabricColor: mattress.fabric_color,
+                                spreadingMethod: mattress.spreading_method,
+                                rows: []
+                            };
                         }
-                    ]);
-                });
-
-            setFabricType(null);
-            setSpreadingMethod(null);
+    
+                        // Get marker details for this mattress
+                        const markerDetails = markersMap[mattress.marker_name];
+    
+                        // Add mattress row with all necessary data (including marker details)
+                        tablesByFabricType[fabricType].rows.push({
+                            mattressName: mattress.mattress,
+                            width: markerDetails ? markerDetails.marker_width : "",
+                            markerName: mattress.marker_name,
+                            markerLength: markerDetails ? markerDetails.marker_length : "",
+                            efficiency: markerDetails ? markerDetails.efficiency : "",
+                            piecesPerSize: markerDetails ? markerDetails.size_quantities || {} : {},
+                            layers: mattress.layers || "",
+                            expectedConsumption: "",
+                            bagno: mattress.dye_lot
+                        });
+                    });
+    
+                    // Convert to array and set tables
+                    const loadedTables = Object.values(tablesByFabricType);
+                    console.log("✅ Final Processed Tables:", loadedTables);
+                    setTables(loadedTables);
+                } else {
+                    console.error("❌ Error fetching mattresses or markers");
+                    setTables([]);
+                }
+            })
+            .catch(error => {
+                console.error("❌ Error in parallel fetch:", error);
+                setTables([]);
+            });
         } else {
             setSelectedOrder(null);
             setOrderSizes([]);

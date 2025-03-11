@@ -149,17 +149,18 @@ class MattressResource(Resource):
             print(f"❌ Exception: {str(e)}")
             return {"success": False, "message": str(e)}, 500
 
-
-
 @mattress_api.route('/get_by_order/<string:order_commessa>', methods=['GET'])
 class GetMattressesByOrder(Resource):
     def get(self, order_commessa):
         try:
             mattresses = db.session.query(
                 Mattresses,
-                MattressDetail.layers  # Fetch only the `layers` column
+                MattressDetail.layers,  # Fetch `layers` from mattress_details
+                MattressMarker.marker_name  # Fetch `marker_name` from mattress_markers
             ).outerjoin(
                 MattressDetail, Mattresses.id == MattressDetail.mattress_id
+            ).outerjoin(
+                MattressMarker, Mattresses.id == MattressMarker.mattress_id
             ).filter(
                 Mattresses.order_commessa == order_commessa
             ).all()
@@ -168,7 +169,7 @@ class GetMattressesByOrder(Resource):
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers in mattresses:
+            for mattress, layers, marker_name in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "fabric_type": mattress.fabric_type,
@@ -177,13 +178,15 @@ class GetMattressesByOrder(Resource):
                     "dye_lot": mattress.dye_lot,
                     "item_type": mattress.item_type,
                     "spreading_method": mattress.spreading_method,
-                    "layers": layers  # Include `layers` from `mattress_details`
+                    "layers": layers if layers is not None else "",  # Ensure empty if no value
+                    "marker_name": marker_name if marker_name is not None else ""  # Ensure empty if no value
                 })
 
             return {"success": True, "data": result}, 200
 
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+
 
 
 @ mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])
