@@ -113,7 +113,7 @@ autoTable(doc, {
         4: { cellWidth: 15 },
         5: { cellWidth: 15 },
         6: { cellWidth: 15 },
-        7: { cellWidth: 15 },
+        7: { cellWidth: 16 },
         8: { cellWidth: 25 },
         9: { cellWidth: 25 },
     },
@@ -180,10 +180,13 @@ autoTable(doc, {
                 doc.setFontSize(8);
                 doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, yOffset, { align: "center" });
 
-                // Save the PDF
-                doc.save("mattresses_report_with_details.pdf");
-            } else {
-                console.error("Failed to fetch mattress details");
+                if (filteredMattresses.length > 0) {
+                    const firstMattress = filteredMattresses[0];
+                    const fileName = `${firstMattress.mattress}.pdf`.replace(/[\/:*?"<>|]/g, ""); // Remove invalid characters
+                    doc.save(fileName);
+                } else {
+                    doc.save("mattresses_report_with_details.pdf"); // Fallback if nothing is selected
+                }
             }
         })
         .catch(error => {
@@ -216,9 +219,31 @@ autoTable(doc, {
                     value={mattressFilter}
                     onChange={(e) => setMattressFilter(e.target.value)}
                 />
-                <Button variant="contained" color="primary" onClick={generatePDF} disabled={loadingPDF}>
-                    {loadingPDF ? "Generating PDF..." : "Generate PDF"}
-                </Button>
+<Button 
+    variant="contained" 
+    color="primary" 
+    onClick={generatePDF} 
+    disabled={loadingPDF || Object.values(selectedItems).every(value => !value)} 
+    sx={{
+        backgroundColor: loadingPDF ? "#ccc" : "#1976d2",
+        color: "#fff",
+        fontSize: "16px",
+        fontWeight: "bold",
+        padding: "10px 20px",
+        borderRadius: "8px",
+        transition: "all 0.3s ease",
+        "&:hover": {
+            backgroundColor: loadingPDF ? "#ccc" : "#1565c0",
+        },
+        "&:disabled": {
+            backgroundColor: "#bdbdbd",
+            color: "#757575",
+        },
+    }}
+>
+    Generate PDF
+</Button>
+
             </Box>
             {loading ? (
                 <CircularProgress />
