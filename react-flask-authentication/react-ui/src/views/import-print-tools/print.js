@@ -41,39 +41,32 @@ const Print = () => {
     };
 
     // Generate PDF function
-  const generatePDF = () => {
-    // Get selected mattress keys
-    const selectedMattresses = Object.keys(selectedItems).filter(key => selectedItems[key]);
-
-    // If no mattress is selected, show an alert and stop execution
-    if (selectedMattresses.length === 0) {
-        window.alert("Please select at least one mattress before generating the PDF.");
-        return;
-    }
-
-    setLoadingPDF(true); // Show loading indicator while generating PDF
+const generatePDF = () => {
+    setLoadingPDF(true);
 
     axios.get('http://127.0.0.1:5000/api/mattress/all_with_details')
         .then(response => {
             if (response.data.success) {
                 const mattressesWithDetails = response.data.data;
-                const doc = new jsPDF();
+                const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
+                // Title
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(18);
-                doc.text("Mattress Report", 105, 10, { align: "center" });
+                doc.text("Mattress Report", 105, 15, { align: "center" });
 
+                // Add separator line
                 doc.setLineWidth(0.5);
-                doc.line(10, 15, 200, 15);
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(10);
+                doc.line(10, 20, 200, 20);
 
                 // Filter mattresses based on selection
                 const filteredMattresses = mattresses.filter(mattress =>
+                    mattress.order_commessa.includes(orderFilter) &&
+                    mattress.mattress.includes(mattressFilter) &&
                     selectedItems[getUniqueKey(mattress.order_commessa, mattress.mattress)]
                 );
 
+                // Table Data
                 const tableData = filteredMattresses.map((mattress, index) => [
                     index + 1,
                     mattress.mattress,
@@ -87,52 +80,107 @@ const Print = () => {
                     mattress.created_at
                 ]);
 
-                autoTable(doc, {
-                    head: [["#", "Mattress", "Order", "Fabric Type", "Fabric Code", "Color", "Dye Lot", "Item Type", "Spreading", "Created At"]],
-                    body: tableData,
-                    startY: 20,
-                    styles: { 
-                        fontSize: 10, 
-                        cellPadding: 3,
-                        font: "helvetica", 
-                        lineColor: [44, 62, 80],
-                        lineWidth: 0.3,
-                        fillColor: [240, 240, 240], 
-                    },
-                    columnStyles: { 
-                        0: { cellWidth: 10 },
-                        1: { cellWidth: 40 },
-                        2: { cellWidth: 40 }
-                    },
-                    alternateRowStyles: { fillColor: [245, 245, 245] },
-                });
+                    // Mattress Table (Top Table)
+autoTable(doc, {
+    startY: 25,
+    head: [[
+        "#", "Mattress", "Order", "Fabric Type", "Fabric Code",
+        "Color", "Dye Lot", "Item Type", "Spreading", "Created At"
+    ]],
+    body: tableData,
+    styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        textColor: [0, 0, 0],
+        lineColor: [44, 62, 80],
+        lineWidth: 0.5,
+        halign: "center",
+    },
+    headStyles: {
+        fillColor: [52, 152, 219],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        cellPadding: 2,
+    },
+    alternateRowStyles: {
+        fillColor: [245, 245, 245],
+    },
+    columnStyles: {
+        0: { cellWidth: 5 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 15 },
+        4: { cellWidth: 15 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 15 },
+        7: { cellWidth: 15 },
+        8: { cellWidth: 25 },
+        9: { cellWidth: 25 },
+    },
+    margin: { left: (doc.internal.pageSize.width - 200) / 2 }, // Center the table
+});
+                let yOffset = doc.lastAutoTable.finalY + 10;
 
-                filteredMattresses.forEach((mattress, index) => {
-                    const yOffset = doc.lastAutoTable.finalY + 10 + (index * 60);
+                // Loop through each mattress and add details
+                filteredMattresses.forEach((mattress) => {
+                    const mattressDetails = mattressesWithDetails.find(m => 
+                        m.mattress === mattress.mattress && m.order_commessa === mattress.order_commessa
+                    );
+
+                    doc.setFontSize(12);
+                    doc.setFont("helvetica", "bold");
                     doc.text(`Mattress: ${mattress.mattress} (${mattress.order_commessa})`, 10, yOffset);
+                    yOffset += 6;
 
-                    const mattressWithDetails = mattressesWithDetails.find(m => m.mattress === mattress.mattress && m.order_commessa === mattress.order_commessa);
+                    if (mattressDetails) {
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "normal");
 
-                    if (mattressWithDetails?.details?.length) {
-                        mattressWithDetails.details.forEach((detail, i) => {
-                            doc.text(`Layer: ${detail.layers}`, 10, yOffset + (i + 1) * 10);
-                            doc.text(`Planned Consumption: ${detail.cons_planned}`, 10, yOffset + (i + 1) * 20);
-                            doc.text(`Actual Consumption: ${detail.cons_actual}`, 10, yOffset + (i + 1) * 30);
-                        });
-                    }
+                        // Mattress Details
+                        if (mattressDetails.details && mattressDetails.details.length > 0) {
+                            autoTable(doc, {
+                                startY: yOffset,
+                                head: [["Layer", "Planned Consumption", "Actual Consumption"]],
+                                body: mattressDetails.details.map(detail => [
+                                    detail.layers,
+                                    detail.cons_planned,
+                                    detail.cons_actual !== null ? detail.cons_actual : "Not Available"
+                                ]),
+                                styles: { fontSize: 10, cellPadding: 2 },
+                                alternateRowStyles: { fillColor: [245, 245, 245] },
+                            });
+                            yOffset = doc.lastAutoTable.finalY + 10;
+                        }
 
-                    if (mattressWithDetails?.markers?.length) {
-                        mattressWithDetails.markers.forEach((marker, i) => {
-                            doc.text(`Marker: ${marker.marker_name}`, 10, yOffset + 50 + (i + 1) * 10);
-                            doc.text(`Width: ${marker.marker_width}`, 10, yOffset + 50 + (i + 1) * 20);
-                            doc.text(`Length: ${marker.marker_length}`, 10, yOffset + 50 + (i + 1) * 30);
-                        });
+                        // Mattress Markers
+                        if (mattressDetails.markers && mattressDetails.markers.length > 0) {
+                            doc.setFontSize(11);
+                            doc.setFont("helvetica", "bold");
+                            doc.text("Markers:", 10, yOffset);
+                            yOffset += 6;
+
+                            autoTable(doc, {
+                                startY: yOffset,
+                                head: [["Marker Name", "Width", "Length"]],
+                                body: mattressDetails.markers.map(marker => [
+                                    marker.marker_name,
+                                    marker.marker_width,
+                                    marker.marker_length
+                                ]),
+                                styles: { fontSize: 10, cellPadding: 2 },
+                                alternateRowStyles: { fillColor: [245, 245, 245] },
+                            });
+
+                            yOffset = doc.lastAutoTable.finalY + 10;
+                        }
                     }
                 });
 
+                // Footer
                 doc.setFontSize(8);
-                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, doc.lastAutoTable.finalY + 10, { align: "center" });
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, yOffset, { align: "center" });
 
+                // Save the PDF
                 doc.save("mattresses_report_with_details.pdf");
             } else {
                 console.error("Failed to fetch mattress details");
@@ -143,6 +191,7 @@ const Print = () => {
         })
         .finally(() => setLoadingPDF(false));
 };
+
 
 
 
