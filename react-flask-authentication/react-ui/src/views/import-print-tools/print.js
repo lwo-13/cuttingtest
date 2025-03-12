@@ -764,11 +764,7 @@ const MattressTable = () => {
                     {/* Print Button */}
                     <Button 
                         variant="contained" 
-                        sx={{
-                            backgroundColor: '#1976D2', // ✅ Blue color (Material UI Primary)
-                            color: 'white', 
-                            '&:hover': { backgroundColor: '#1565C0' } // ✅ Darker blue on hover
-                        }}
+                        color="primary"
                         onClick={handlePrint}// ✅ Calls the print function
                         startIcon={<Print />} // ✅ Uses a Print icon
                     >
@@ -778,11 +774,7 @@ const MattressTable = () => {
                     {/* Print Button BG */}
                     <Button 
                         variant="contained" 
-                        sx={{
-                            backgroundColor: '#1976D2', // ✅ Blue color (Material UI Primary)
-                            color: 'white', 
-                            '&:hover': { backgroundColor: '#1565C0' } // ✅ Darker blue on hover
-                        }}
+                        color="primary"
                         onClick={handlePrintBG}// ✅ Calls the print function
                         startIcon={<Print />} // ✅ Uses a Print icon
                     >
