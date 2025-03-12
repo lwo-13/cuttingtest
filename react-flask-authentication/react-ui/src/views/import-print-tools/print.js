@@ -626,9 +626,9 @@ const MattressTable = () => {
         doc.rect(startX + markerColumnWidth, markerTableStartY, markerColumnWidth, rowHeight);
         doc.rect(startX + markerColumnWidth * 2, markerTableStartY, markerColumnWidth, rowHeight);
 
-        doc.text("Style", startX + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
-        doc.text("Size", startX + markerColumnWidth + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
-        doc.text("Pcs per Layer", startX + markerColumnWidth * 2 + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+        doc.text("Модел", startX + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+        doc.text("Размер", startX + markerColumnWidth + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+        doc.text("Бройки в кат", startX + markerColumnWidth * 2 + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
 
         // Fill Data
         markerLines.forEach((row, index) => {
