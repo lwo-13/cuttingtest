@@ -33,6 +33,7 @@ const OrderPlanning = () => {
     const [alongExtra, setalongExtra] = useState("");
     const [markerOptions, setMarkerOptions] = useState([]);
     const [spreadingMethod, setSpreadingMethod] = useState(null);
+    const [overlapping, setOverlapping] = useState(null);
     const [collarettoType, setcollarettoType] = useState(null);
     const [deletedMattresses, setDeletedMattresses] = useState([]);
     const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -320,6 +321,7 @@ const OrderPlanning = () => {
             setAlongTables([]);
             setFabricType(null);
             setSpreadingMethod(null);
+            setOverlapping(null);
             setSelectedStyle("");
             setSelectedSeason("");
             setSelectedColorCode("");
@@ -969,17 +971,6 @@ const OrderPlanning = () => {
                                     />
                                 </Grid>
 
-                                {/* Fabric Description (Read-Only) */}
-                                <Grid item xs={3} sm={2} md={2}>
-                                    <TextField
-                                        label="Fabric Description"
-                                        variant="outlined"
-                                        value="" // Placeholder, will be filled with DB data
-                                        slotProps={{ input: { readOnly: true } }}
-                                        sx={{ width: '100%', minWidth: '60px' }}
-                                    />
-                                </Grid>
-
                                 {/* Fabric Color (Text Input) */}
                                 <Grid item xs={3} sm={2} md={1.5}>
                                     <TextField
@@ -1017,6 +1008,30 @@ const OrderPlanning = () => {
                                         }} // ✅ Update table-specific state
                                         renderInput={(params) => (
                                             <TextField {...params} label="Spreading Method" variant="outlined" />
+                                        )}
+                                        sx={{
+                                            width: '100%',
+                                            minWidth: '60px',
+                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+                                        }}
+                                    />
+                                </Grid>
+
+                                {/* Overlapping (Dropdown) */}
+                                <Grid item xs={1.5} sm={1.5} md={1.5}>
+                                    <Autocomplete
+                                        options={["YES", "NO"]} // ✅ Defined options
+                                        getOptionLabel={(option) => option} 
+                                        value={tables[tableIndex].overlapping || null} // ✅ Table-specific value
+                                        onChange={(event, newValue) => {
+                                            setTables(prevTables => {
+                                                const updatedTables = [...prevTables];
+                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], overlapping: newValue };
+                                                return updatedTables;
+                                            });
+                                        }} // ✅ Update table-specific state
+                                        renderInput={(params) => (
+                                            <TextField {...params} label="Overlapping" variant="outlined" />
                                         )}
                                         sx={{
                                             width: '100%',

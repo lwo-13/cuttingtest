@@ -5,6 +5,8 @@ import { CircularProgress, Box, TextField, Typography, TablePagination, Button, 
 import MainCard from '../../ui-component/cards/MainCard';
 import { Print } from '@mui/icons-material';
 import jsPDF from "jspdf";
+import RobotoBold from "../../assets/fonts/Roboto-Bold-bold";
+import RobotoRegular from "../../assets/fonts/Roboto-Regular-normal";
 
 // Custom Pagination Component to Disable Scrolling
 const CustomPagination = (props) => {
@@ -486,7 +488,7 @@ const MattressTable = () => {
             { label: "Цвят", value: fabricColor },
             { label: "Баня", value: dyeLot },
             { label: "Бройки в бъндел", value: pcsPerBundle },
-            { label: "Запазване на отпадък", value: "" }
+            { label: "Отпадък", value: "" }
         ];
     
         // ✅ Define Layers Table (Right Side)
@@ -506,6 +508,13 @@ const MattressTable = () => {
             unit: "mm",
             format: "a4"
         });
+
+        // Register the fonts
+        doc.addFileToVFS("Roboto-Bold-bold.ttf", RobotoBold);
+        doc.addFont("Roboto-Bold-bold.ttf", "Roboto-Bold", "bold");
+
+        doc.addFileToVFS("Roboto-Regular-normal.ttf", RobotoRegular);
+        doc.addFont("Roboto-Regular-normal.ttf", "Roboto-Regular", "normal");
     
         const startX = 10; 
         const startY = 10;
@@ -522,10 +531,10 @@ const MattressTable = () => {
             doc.rect(startX, yPos, firstColumnWidth, rowHeight);
             doc.rect(startX + firstColumnWidth, yPos, secondColumnWidth, rowHeight);
     
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('Roboto-Bold', 'bold');
             doc.text(field.label, startX + 2, yPos + 5);
     
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('Roboto-Regular', 'normal');
             doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
         });
     
@@ -538,10 +547,10 @@ const MattressTable = () => {
             doc.rect(startX, yPos, firstColumnWidth, rowHeight);
             doc.rect(startX + firstColumnWidth, yPos, secondColumnWidth, rowHeight);
     
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('Roboto-Bold', 'bold');
             doc.text(field.label, startX + 2, yPos + 5);
     
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('Roboto-Regular', 'normal');
             doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
         });
     
@@ -549,7 +558,7 @@ const MattressTable = () => {
         const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10; // ✅ Position it further right
         const layersStartY = startY; 
     
-        doc.setFont('helvetica', 'bold');
+        doc.setFont('Roboto-Bold', 'bold');
         
         const columnWidth = 35; // ✅ Reduce width
         const headerHeight = rowHeight; // Keep header height
@@ -567,7 +576,7 @@ const MattressTable = () => {
             doc.rect(layersStartX, yPos, columnWidth, rowHeight);
             doc.rect(layersStartX + columnWidth, yPos, columnWidth, rowHeight);
 
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('Roboto-Regular', 'normal');
             doc.text(field.planned, layersStartX + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
             doc.text(field.actual, layersStartX + columnWidth + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
         });
@@ -584,7 +593,7 @@ const MattressTable = () => {
             const sectionY = manualTableStartY + section.yOffset;
 
             // ✅ Title row
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('Roboto-Bold', 'bold');
             doc.rect(layersStartX, sectionY, columnWidth * 2, rowHeight); // Same width as Layers Table
             doc.text(section.title, layersStartX + columnWidth, sectionY + rowHeight / 2 + 2, { align: "center" });
 
@@ -594,7 +603,7 @@ const MattressTable = () => {
                 const yPos = sectionY + (index + 1) * rowHeight;
 
                 // ✅ Label column
-                doc.setFont('helvetica', 'normal');
+                doc.setFont('Roboto-Regular', 'normal');
                 doc.rect(layersStartX, yPos, columnWidth, rowHeight);
                 doc.text(label, layersStartX + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
 
@@ -612,14 +621,14 @@ const MattressTable = () => {
         doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
 
         // ✅ Add "Comments" title
-        doc.setFont('helvetica', 'bold');
-        doc.text("Comments", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
+        doc.setFont('Roboto-Bold', 'bold');
+        doc.text("Коментар", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
 
         // ✅ Marker Details Table (Bottom)
         const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
         const markerColumnWidth = 40;
 
-        doc.setFont('helvetica', 'bold');
+        doc.setFont('Roboto-Bold', 'bold');
 
         // Header Row
         doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
@@ -638,7 +647,7 @@ const MattressTable = () => {
             doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight);
             doc.rect(startX + markerColumnWidth * 2, yPos, markerColumnWidth, rowHeight);
 
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('Roboto-Regular', 'normal');
             doc.text(row.style, startX + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
             doc.text(row.size, startX + markerColumnWidth + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
             doc.text(row.pcs_on_layer.toString(), startX + markerColumnWidth * 2 + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
@@ -672,10 +681,10 @@ const MattressTable = () => {
             doc.rect(xPos, yPos + secondColumnWidth, rotatedRowHeight, firstColumnWidth);
 
             // ✅ Draw text in rotated orientation (simulated)
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('Roboto-Bold', 'bold');
             doc.text(field.label, xPos + 5, yPos + 118, { angle: 90 });
 
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('Roboto-Regular', 'normal');
             doc.text(field.value, xPos + 5, yPos + secondColumnWidth - 3, { angle: 90 });
         });
 
@@ -691,15 +700,15 @@ const MattressTable = () => {
             doc.rect(xPos, yPos + ColumnWidth, rotatedRowHeight, ColumnWidth);
 
             // ✅ Draw text in rotated orientation (simulated)
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('Roboto-Bold', 'bold');
             doc.text(field.label, xPos + 5, yPos + 57, { angle: 90 });
 
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('Roboto-Regular', 'normal');
             doc.text(field.value, xPos + 5, yPos + ColumnWidth - 3, { angle: 90 });
         });
 
     
-        doc.save(`Mattress_Travel_Doc_${mattressName}.pdf`);
+        doc.save(`Капак_${mattressName}.pdf`);
 
         try {
             // ✅ API Call to Update Print Status
