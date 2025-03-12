@@ -469,24 +469,24 @@ const MattressTable = () => {
     
         // ✅ Define order table (Left Side)
         const orderTable = [
-            { label: "Mattress Name", value: mattressName },
-            { label: "Marker", value: markerName },
-            { label: "Order Commessa", value: orderCommessa },
-            { label: "Spreader", value: "" } // ✅ Empty field
+            { label: "Капак №", value: mattressName },
+            { label: "Модел №", value: markerName },
+            { label: "Поръчка №", value: orderCommessa },
+            { label: "Наст. маш.", value: "" } // ✅ Empty field
         ];
     
         // ✅ Define fabric table (Below Order Table)
         const fabricTable = [
-            { label: "Overlapping", value: "" },
-            { label: "Marker Width", value: markerWidth },
-            { label: "Marker Length", value: markerLength },
+            { label: "Застъпване", value: "" },
+            { label: "Шир. настил", value: markerWidth },
+            { label: "Дъл. настил", value: markerLength },
             { label: "Extra", value: extra },
-            { label: "Spreading Method", value: spreadingMethod },
-            { label: "Fabric", value: fabricType },
-            { label: "Color", value: fabricColor },
-            { label: "Dye Lot", value: dyeLot },
-            { label: "Pcs per Bundle", value: pcsPerBundle },
-            { label: "Keep Wastage", value: "" }
+            { label: "Начин на настилане", value: spreadingMethod },
+            { label: "Плат", value: fabricType },
+            { label: "Цвят", value: fabricColor },
+            { label: "Баня", value: dyeLot },
+            { label: "Бройки в бъндел", value: pcsPerBundle },
+            { label: "Запазване на отпадък", value: "" }
         ];
     
         // ✅ Define Layers Table (Right Side)
@@ -495,9 +495,9 @@ const MattressTable = () => {
         ];
 
         const fabricTable2 = [
-            { label: "Fabric", value: fabricType },
-            { label: "Color", value: fabricColor },
-            { label: "Dye Lot", value: dyeLot }
+            { label: "Плат", value: fabricType },
+            { label: "Цвят", value: fabricColor },
+            { label: "Баня", value: dyeLot }
         ];
     
         // ✅ Setup PDF
@@ -557,8 +557,8 @@ const MattressTable = () => {
         doc.rect(layersStartX, layersStartY, columnWidth, headerHeight);
         doc.rect(layersStartX + columnWidth, layersStartY, columnWidth, headerHeight);
 
-        doc.text("Planned Layers", layersStartX + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
-        doc.text("Actual Layers", layersStartX + columnWidth + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
+        doc.text("Планирани катове", layersStartX + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
+        doc.text("Реални катове", layersStartX + columnWidth + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
     
         // ✅ Draw rows with centered text
         layersTable.forEach((field, index) => {
@@ -576,8 +576,8 @@ const MattressTable = () => {
         const manualTableStartY = layersStartY + 2 * rowHeight + 8; // Position after Layers Table
 
         const manualEntryTables = [
-            { title: "Spreading", yOffset: 0 },
-            { title: "Cutting", yOffset: 40 } // Space between tables
+            { title: "Настилане", yOffset: 0 },
+            { title: "Кроене", yOffset: 40 } // Space between tables
         ];
 
         manualEntryTables.forEach((section) => {
@@ -589,7 +589,7 @@ const MattressTable = () => {
             doc.text(section.title, layersStartX + columnWidth, sectionY + rowHeight / 2 + 2, { align: "center" });
 
             // ✅ Labels
-            const labels = ["Date", "Hour", "Operator"];
+            const labels = ["Дата", "Час", "Оператор"];
             labels.forEach((label, index) => {
                 const yPos = sectionY + (index + 1) * rowHeight;
 
