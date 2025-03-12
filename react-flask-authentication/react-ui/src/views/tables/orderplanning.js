@@ -778,11 +778,7 @@ const OrderPlanning = () => {
                     {/* Print Button */}
                     <Button 
                         variant="contained" 
-                        sx={{
-                            backgroundColor: '#1976D2', // ✅ Blue color (Material UI Primary)
-                            color: 'white', 
-                            '&:hover': { backgroundColor: '#1565C0' } // ✅ Darker blue on hover
-                        }}
+                        color="primary"
                         onClick={handlePrint} // ✅ Calls the print function
                         startIcon={<Print />} // ✅ Uses a Print icon
                     >
@@ -1832,6 +1828,19 @@ const OrderPlanning = () => {
                         onClick={handleAddCollaretto}
                     >
                         Add Collaretto Weft or Bias
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        sx={{
+                            backgroundColor: "#B71C1C", // ✅ Deep Blood Red
+                            color: "white",
+                            "&:hover": { backgroundColor: "#7F0000" } // ✅ Darker red on hover
+                        }}
+                        startIcon={<AddCircleOutline />}
+                        onClick={handleAddCollaretto}
+                    >
+                        Add Pad Print
                     </Button>
                 </Box>
             )}

@@ -273,3 +273,33 @@ class GetAllMattressesWithDetailsResource(Resource):
         
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+        
+@mattress_api.route('/update_print_travel', methods=['PUT'])
+class UpdatePrintTravelStatus(Resource):
+    def put(self):
+        try:
+            data = request.get_json()
+            mattress_id = data.get("mattress_id")
+            print_travel = data.get("print_travel", None)
+
+            if not mattress_id:
+                return {"success": False, "msg": "mattress_id is required"}, 400
+
+            # 🔹 Find the mattress detail entry
+            mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+
+            if not mattress_detail:
+                return {"success": False, "msg": "Mattress detail not found"}, 404
+
+            # 🔹 Update only `print_travel`
+            if print_travel is not None:
+                mattress_detail.print_travel = print_travel
+                db.session.commit()
+                return {"success": True, "msg": "Print travel status updated successfully"}, 200
+
+            return {"success": False, "msg": "No valid update provided"}, 400
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "msg": str(e)}, 500
+

@@ -244,6 +244,8 @@ class MattressDetail(db.Model):
     cons_actual = db.Column(db.Float, nullable=True)
     extra = db.Column(db.Float, nullable=False)
     pcs_bundle = db.Column(db.Float, nullable=True)
+    print_travel = db.Column(db.Boolean, default=False)
+    print_marker = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     def to_dict(self):

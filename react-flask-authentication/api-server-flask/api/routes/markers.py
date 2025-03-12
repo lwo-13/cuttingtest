@@ -222,3 +222,47 @@ class ImportMarker(Resource):
             return {"success": True, "msg": f"Marker '{marker_name}' imported"}, 201
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
+        
+
+# ===================== Fecth Marker Pieces ==========================
+@markers_api.route('/marker_pcs', methods=['GET'])
+class MarkerPcs(Resource):
+    def get(self):
+        try:
+            marker_name = request.args.get("marker_name")
+
+            if not marker_name:
+                return {"success": False, "msg": "Marker name is required"}, 400
+
+            # 🔹 Step 1: Find Marker ID in `marker_headers`
+            marker = MarkerHeader.query.filter_by(marker_name=marker_name).first()
+
+            if not marker:
+                return {"success": False, "msg": f"Marker '{marker_name}' not found in marker_headers"}, 404
+
+            marker_id = marker.id
+            print(f"🔍 Found Marker ID: {marker_id}")  # ✅ Debugging log
+
+            # 🔹 Step 2: Fetch Marker Lines from `marker_lines` using marker_id
+            lines = MarkerLine.query.filter_by(marker_header_id=marker_id).all()
+
+            if not lines:
+                return {"success": False, "msg": f"No marker lines found for Marker ID {marker_id}"}, 404
+
+            # 🔹 Step 3: Format result
+            result = [{
+                "style": line.style,
+                "size": line.size,
+                "pcs_on_layer": line.pcs_on_layer
+            } for line in lines]
+
+            print(f"✅ Retrieved Marker Lines: {result}")  # ✅ Debugging log
+
+            return {
+                "success": True,
+                "marker_lines": result
+            }, 200
+
+        except Exception as e:
+            print(f"❌ API Error: {str(e)}")  # ✅ Debugging log
+            return {"success": False, "msg": f"An unexpected error occurred: {str(e)}"}, 500

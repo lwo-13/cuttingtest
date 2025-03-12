@@ -1,299 +1,509 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Typography, Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Checkbox } from '@mui/material';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { DataGrid } from '@mui/x-data-grid';
+import { CircularProgress, Box, TextField, Typography, TablePagination, Button, CheckCircleOutline } from '@mui/material';
+import MainCard from '../../ui-component/cards/MainCard';
+import { Print } from '@mui/icons-material';
+import jsPDF from "jspdf";
 
-const Print = () => {
-    const [mattresses, setMattresses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [loadingPDF, setLoadingPDF] = useState(false);  // New state for loading PDF
-    const [orderFilter, setOrderFilter] = useState('');
-    const [mattressFilter, setMattressFilter] = useState('');
-    const [selectedItems, setSelectedItems] = useState({}); // State to track selected items (order + mattress)
-
-    // Fetch the mattress list (without details)
-    useEffect(() => {
-        axios.get('http://127.0.0.1:5000/api/mattress/all') // API route to get all mattresses
-            .then(response => {
-                if (response.data.success) {
-                    setMattresses(response.data.data);
-                } else {
-                    console.error("Failed to fetch mattresses");
-                }
-            })
-            .catch(error => {
-                console.error("Error fetching mattress data:", error);
-            })
-            .finally(() => setLoading(false));
-    }, []);
-
-    // Generate a unique key for each item (order + mattress)
-    const getUniqueKey = (order, mattress) => `${order}-${mattress}`;
-
-    // Handle checkbox selection
-    const handleSelectItem = (order, mattress) => {
-        const key = getUniqueKey(order, mattress);
-        setSelectedItems((prevSelected) => ({
-            ...prevSelected,
-            [key]: !prevSelected[key], // Toggle selection
-        }));
-    };
-
-    // Generate PDF function
-const generatePDF = () => {
-    setLoadingPDF(true);
-
-    axios.get('http://127.0.0.1:5000/api/mattress/all_with_details')
-        .then(response => {
-            if (response.data.success) {
-                const mattressesWithDetails = response.data.data;
-                const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-                // Title
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(18);
-                doc.text("Mattress Report", 105, 15, { align: "center" });
-
-                // Add separator line
-                doc.setLineWidth(0.5);
-                doc.line(10, 20, 200, 20);
-
-                // Filter mattresses based on selection
-                const filteredMattresses = mattresses.filter(mattress =>
-                    mattress.order_commessa.includes(orderFilter) &&
-                    mattress.mattress.includes(mattressFilter) &&
-                    selectedItems[getUniqueKey(mattress.order_commessa, mattress.mattress)]
-                );
-
-                // Table Data
-                const tableData = filteredMattresses.map((mattress, index) => [
-                    index + 1,
-                    mattress.mattress,
-                    mattress.order_commessa,
-                    mattress.fabric_type,
-                    mattress.fabric_code,
-                    mattress.fabric_color,
-                    mattress.dye_lot,
-                    mattress.item_type,
-                    mattress.spreading_method,
-                    mattress.created_at
-                ]);
-
-                    // Mattress Table (Top Table)
-autoTable(doc, {
-    startY: 25,
-    head: [[
-        "#", "Mattress", "Order", "Fabric Type", "Fabric Code",
-        "Color", "Dye Lot", "Item Type", "Spreading", "Created At"
-    ]],
-    body: tableData,
-    styles: {
-        fontSize: 9,
-        cellPadding: 2,
-        textColor: [0, 0, 0],
-        lineColor: [44, 62, 80],
-        lineWidth: 0.5,
-        halign: "center",
-    },
-    headStyles: {
-        fillColor: [52, 152, 219],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        cellPadding: 2,
-    },
-    alternateRowStyles: {
-        fillColor: [245, 245, 245],
-    },
-    columnStyles: {
-        0: { cellWidth: 5 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 15 },
-        4: { cellWidth: 15 },
-        5: { cellWidth: 15 },
-        6: { cellWidth: 15 },
-        7: { cellWidth: 16 },
-        8: { cellWidth: 25 },
-        9: { cellWidth: 25 },
-    },
-    margin: { left: (doc.internal.pageSize.width - 200) / 2 }, // Center the table
-});
-                let yOffset = doc.lastAutoTable.finalY + 10;
-
-                // Loop through each mattress and add details
-                filteredMattresses.forEach((mattress) => {
-                    const mattressDetails = mattressesWithDetails.find(m => 
-                        m.mattress === mattress.mattress && m.order_commessa === mattress.order_commessa
-                    );
-
-                    doc.setFontSize(12);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(`Mattress: ${mattress.mattress} (${mattress.order_commessa})`, 10, yOffset);
-                    yOffset += 6;
-
-                    if (mattressDetails) {
-                        doc.setFontSize(10);
-                        doc.setFont("helvetica", "normal");
-
-                        // Mattress Details
-                        if (mattressDetails.details && mattressDetails.details.length > 0) {
-                            autoTable(doc, {
-                                startY: yOffset,
-                                head: [["Layer", "Planned Consumption", "Actual Consumption"]],
-                                body: mattressDetails.details.map(detail => [
-                                    detail.layers,
-                                    detail.cons_planned,
-                                    detail.cons_actual !== null ? detail.cons_actual : "Not Available"
-                                ]),
-                                styles: { fontSize: 10, cellPadding: 2 },
-                                alternateRowStyles: { fillColor: [245, 245, 245] },
-                            });
-                            yOffset = doc.lastAutoTable.finalY + 10;
-                        }
-
-                        // Mattress Markers
-                        if (mattressDetails.markers && mattressDetails.markers.length > 0) {
-                            doc.setFontSize(11);
-                            doc.setFont("helvetica", "bold");
-                            doc.text("Markers:", 10, yOffset);
-                            yOffset += 6;
-
-                            autoTable(doc, {
-                                startY: yOffset,
-                                head: [["Marker Name", "Width", "Length"]],
-                                body: mattressDetails.markers.map(marker => [
-                                    marker.marker_name,
-                                    marker.marker_width,
-                                    marker.marker_length
-                                ]),
-                                styles: { fontSize: 10, cellPadding: 2 },
-                                alternateRowStyles: { fillColor: [245, 245, 245] },
-                            });
-
-                            yOffset = doc.lastAutoTable.finalY + 10;
-                        }
-                    }
-                });
-
-                // Footer
-                doc.setFontSize(8);
-                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, yOffset, { align: "center" });
-
-                if (filteredMattresses.length > 0) {
-                    const firstMattress = filteredMattresses[0];
-                    const fileName = `${firstMattress.mattress}.pdf`.replace(/[\/:*?"<>|]/g, ""); // Remove invalid characters
-                    doc.save(fileName);
-                } else {
-                    doc.save("mattresses_report_with_details.pdf"); // Fallback if nothing is selected
-                }
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching mattress details:", error);
-        })
-        .finally(() => setLoadingPDF(false));
-};
-
-
-
-
-    const filteredMattresses = mattresses.filter(mattress =>
-        mattress.order_commessa.includes(orderFilter) &&
-        mattress.mattress.includes(mattressFilter)
-    );
-
+// Custom Pagination Component to Disable Scrolling
+const CustomPagination = (props) => {
     return (
-        <Box p={3}>
-            <Typography variant="h4" gutterBottom>Mattress Report</Typography>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                <TextField
-                    label="Filter by Order"
-                    variant="outlined"
-                    value={orderFilter}
-                    onChange={(e) => setOrderFilter(e.target.value)}
-                />
-                <TextField
-                    label="Filter by Mattress"
-                    variant="outlined"
-                    value={mattressFilter}
-                    onChange={(e) => setMattressFilter(e.target.value)}
-                />
-<Button 
-    variant="contained" 
-    color="primary" 
-    onClick={generatePDF} 
-    disabled={loadingPDF || Object.values(selectedItems).every(value => !value)} 
-    sx={{
-        backgroundColor: loadingPDF ? "#ccc" : "#1976d2",
-        color: "#fff",
-        fontSize: "16px",
-        fontWeight: "bold",
-        padding: "10px 20px",
-        borderRadius: "8px",
-        transition: "all 0.3s ease",
-        "&:hover": {
-            backgroundColor: loadingPDF ? "#ccc" : "#1565c0",
-        },
-        "&:disabled": {
-            backgroundColor: "#bdbdbd",
-            color: "#757575",
-        },
-    }}
->
-    Generate PDF
-</Button>
-
-            </Box>
-            {loading ? (
-                <CircularProgress />
-            ) : (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Select</TableCell>
-                                <TableCell>#</TableCell>
-                                <TableCell>Mattress</TableCell>
-                                <TableCell>Order</TableCell>
-                                <TableCell>Fabric Type</TableCell>
-                                <TableCell>Fabric Code</TableCell>
-                                <TableCell>Color</TableCell>
-                                <TableCell>Dye Lot</TableCell>
-                                <TableCell>Item Type</TableCell>
-                                <TableCell>Spreading</TableCell>
-                                <TableCell>Created At</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {filteredMattresses.map((mattress, index) => {
-                                const uniqueKey = getUniqueKey(mattress.order_commessa, mattress.mattress);
-                                return (
-                                    <TableRow key={index}>
-                                        <TableCell>
-                                            <Checkbox
-                                                checked={!!selectedItems[uniqueKey]} // Check if item is selected
-                                                onChange={() => handleSelectItem(mattress.order_commessa, mattress.mattress)} // Toggle selection
-                                            />
-                                        </TableCell>
-                                        <TableCell>{index + 1}</TableCell>
-                                        <TableCell>{mattress.mattress}</TableCell>
-                                        <TableCell>{mattress.order_commessa}</TableCell>
-                                        <TableCell>{mattress.fabric_type}</TableCell>
-                                        <TableCell>{mattress.fabric_code}</TableCell>
-                                        <TableCell>{mattress.fabric_color}</TableCell>
-                                        <TableCell>{mattress.dye_lot}</TableCell>
-                                        <TableCell>{mattress.item_type}</TableCell>
-                                        <TableCell>{mattress.spreading_method}</TableCell>
-                                        <TableCell>{mattress.created_at}</TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            )}
+        <Box
+            sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                padding: 2,
+                overflow: 'hidden',
+                minHeight: '52px' 
+            }}
+        >
+            <TablePagination
+                {...props}
+                component="div"
+                sx={{
+                    overflow: 'hidden',
+                    minHeight: '52px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    fontSize: '1.2rem',
+                    '.MuiTablePagination-actions button': {
+                        fontSize: '1.2rem',
+                        minWidth: '48px',
+                        padding: '10px'
+                    },
+                    '.MuiTablePagination-select': {
+                        fontSize: '1.2rem'
+                    }
+                }}
+            />
         </Box>
     );
 };
-export default Print; 
+
+const MattressTable = () => {
+    const [mattresses, setMattresses] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filterText, setFilterText] = useState("");
+    const [tableHeight, setTableHeight] = useState(window.innerHeight - 200);
+    const [selectedMattresses, setSelectedMattresses] = useState([]);  
+
+    // ✅ Adjust table height dynamically when the window resizes
+    useEffect(() => {
+        const handleResize = () => {
+            setTableHeight(window.innerHeight - 200); // ✅ Adjust based on viewport height
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const handleSelectionChange = (newSelection) => {
+        if (!newSelection.length) {
+            setSelectedMattresses([]); // ✅ If nothing is selected, clear state
+            return;
+        }
+    
+        // ✅ Find selected mattresses from `mattresses` array
+        const selected = mattresses.filter(m => newSelection.includes(m.mattress));
+    
+        console.log("New Selection:", selected); // 🔍 Debugging - shows selected objects
+    
+        setSelectedMattresses(selected); // ✅ Store selected objects
+    };
+
+    const fetchMattresses = () => {
+        setLoading(true);
+        axios.get('http://127.0.0.1:5000/api/mattress/all_with_details')
+            .then((response) => {
+                console.log("API Response:", response.data);
+                if (response.data.success) {
+                    const updatedMattresses = response.data.data.map(mattress => {
+                        const printTravelStatus = mattress.details.length > 0 
+                            ? mattress.details[0].print_travel 
+                            : false;
+    
+                        const printMarkerStatus = mattress.details.length > 0 
+                            ? mattress.details[0].print_marker 
+                            : false;
+    
+                        return {
+                            ...mattress,
+                            print_travel: printTravelStatus,
+                            print_marker: printMarkerStatus
+                        };
+                    });
+    
+                    setMattresses(updatedMattresses);
+                } else {
+                    console.error("Failed to fetch mattress data.");
+                }
+            })
+            .catch((error) => console.error("Error fetching mattresses:", error))
+            .finally(() => setLoading(false));
+    };
+
+    // Call fetchMattresses inside useEffect
+    useEffect(() => {
+        fetchMattresses();
+    }, []);
+
+    // Filter data locally
+    const filteredMattresses = mattresses.filter(mattress =>
+        Object.values(mattress).some(value =>
+            value.toString().toLowerCase().includes(filterText.toLowerCase())
+        )
+    );
+
+    const handlePrint = async () => {
+        if (!selectedMattresses || selectedMattresses.length === 0) {
+            alert("No mattress selected. Please select a mattress first.");
+            return;
+        }
+    
+        const mattress = selectedMattresses[0];
+    
+        if (!mattress || Object.keys(mattress).length === 0) {
+            alert("Selected mattress is empty. Check selection logic.");
+            return;
+        }
+
+        // ✅ Get mattress ID
+        const mattressId = mattress.id; // ✅ Now we store the mattress_id for updates
+    
+        // ✅ Helper function to ensure string conversion
+        const ensureString = (value) => (value !== null && value !== undefined ? value.toString() : "N/A");
+    
+        // ✅ Convert all fields to strings
+        const mattressName = ensureString(mattress.mattress);
+        const orderCommessa = ensureString(mattress.order_commessa);
+        const fabricType = ensureString(mattress.fabric_type);
+        const fabricColor = ensureString(mattress.fabric_color);
+        const dyeLot = ensureString(mattress.dye_lot);
+        const spreadingMethod = ensureString(mattress.spreading_method);
+    
+        // ✅ Get mattress details safely
+        const mattressDetails = mattress.details?.[0] || {};  
+        const mattressMarkers = mattress.markers?.[0] || {};  
+    
+        const layers = ensureString(mattressDetails.layers);
+        const consPlanned = ensureString(mattressDetails.cons_planned);
+        const extra = ensureString(mattressDetails.extra);
+        const pcsPerBundle = ensureString(mattressDetails.pcs_per_bundle);
+        const markerName = ensureString(mattressMarkers.marker_name);
+        const markerWidth = ensureString(mattressMarkers.marker_width);
+        const markerLength = ensureString(mattressMarkers.marker_length);
+
+        // ✅ Fetch marker lines from API
+        let markerLines = [];
+        try {
+            const response = await axios.get(`http://127.0.0.1:5000/api/markers/marker_pcs?marker_name=${markerName}`);
+            if (response.data.success) {
+                markerLines = response.data.marker_lines; 
+            }
+        } catch (error) {
+            console.error("Error fetching marker lines:", error);
+        }
+    
+        // ✅ Define order table (Left Side)
+        const orderTable = [
+            { label: "Mattress Name", value: mattressName },
+            { label: "Marker", value: markerName },
+            { label: "Order Commessa", value: orderCommessa },
+            { label: "Spreader", value: "" } // ✅ Empty field
+        ];
+    
+        // ✅ Define fabric table (Below Order Table)
+        const fabricTable = [
+            { label: "Overlapping", value: "" },
+            { label: "Marker Width", value: markerWidth },
+            { label: "Marker Length", value: markerLength },
+            { label: "Extra", value: extra },
+            { label: "Spreading Method", value: spreadingMethod },
+            { label: "Fabric", value: fabricType },
+            { label: "Color", value: fabricColor },
+            { label: "Dye Lot", value: dyeLot },
+            { label: "Pcs per Bundle", value: pcsPerBundle },
+            { label: "Keep Wastage", value: "" }
+        ];
+    
+        // ✅ Define Layers Table (Right Side)
+        const layersTable = [
+            { planned: layers, actual: "" } // ✅ Actual Layer input left blank
+        ];
+
+        const fabricTable2 = [
+            { label: "Fabric", value: fabricType },
+            { label: "Color", value: fabricColor },
+            { label: "Dye Lot", value: dyeLot }
+        ];
+    
+        // ✅ Setup PDF
+        const doc = new jsPDF({
+            orientation: "landscape",
+            unit: "mm",
+            format: "a4"
+        });
+    
+        const startX = 10; 
+        const startY = 10;
+        const rowHeight = 8;
+        const firstColumnWidth = 40;
+        const secondColumnWidth = 80;
+    
+        doc.setFontSize(10);
+    
+        // ✅ Draw Order Table (Left)
+        orderTable.forEach((field, index) => {
+            const yPos = startY + index * rowHeight;
+    
+            doc.rect(startX, yPos, firstColumnWidth, rowHeight);
+            doc.rect(startX + firstColumnWidth, yPos, secondColumnWidth, rowHeight);
+    
+            doc.setFont('helvetica', 'bold');
+            doc.text(field.label, startX + 2, yPos + 5);
+    
+            doc.setFont('helvetica', 'normal');
+            doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
+        });
+    
+        // ✅ Fabric Table (Below Order Table)
+        const fabricTableStartY = startY + orderTable.length * rowHeight + 8; // ✅ Space after Order Table
+    
+        fabricTable.forEach((field, index) => {
+            const yPos = fabricTableStartY + index * rowHeight;
+    
+            doc.rect(startX, yPos, firstColumnWidth, rowHeight);
+            doc.rect(startX + firstColumnWidth, yPos, secondColumnWidth, rowHeight);
+    
+            doc.setFont('helvetica', 'bold');
+            doc.text(field.label, startX + 2, yPos + 5);
+    
+            doc.setFont('helvetica', 'normal');
+            doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
+        });
+    
+        // ✅ Layers Table (Right Side)
+        const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10; // ✅ Position it further right
+        const layersStartY = startY; 
+    
+        doc.setFont('helvetica', 'bold');
+        
+        const columnWidth = 35; // ✅ Reduce width
+        const headerHeight = rowHeight; // Keep header height
+
+        doc.rect(layersStartX, layersStartY, columnWidth, headerHeight);
+        doc.rect(layersStartX + columnWidth, layersStartY, columnWidth, headerHeight);
+
+        doc.text("Planned Layers", layersStartX + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
+        doc.text("Actual Layers", layersStartX + columnWidth + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
+    
+        // ✅ Draw rows with centered text
+        layersTable.forEach((field, index) => {
+            const yPos = layersStartY + (index + 1) * rowHeight;
+
+            doc.rect(layersStartX, yPos, columnWidth, rowHeight);
+            doc.rect(layersStartX + columnWidth, yPos, columnWidth, rowHeight);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(field.planned, layersStartX + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+            doc.text(field.actual, layersStartX + columnWidth + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+        });
+
+        // ✅ Position the Spreading & Cutting tables below the Layers Table
+        const manualTableStartY = layersStartY + 2 * rowHeight + 8; // Position after Layers Table
+
+        const manualEntryTables = [
+            { title: "Spreading", yOffset: 0 },
+            { title: "Cutting", yOffset: 40 } // Space between tables
+        ];
+
+        manualEntryTables.forEach((section) => {
+            const sectionY = manualTableStartY + section.yOffset;
+
+            // ✅ Title row
+            doc.setFont('helvetica', 'bold');
+            doc.rect(layersStartX, sectionY, columnWidth * 2, rowHeight); // Same width as Layers Table
+            doc.text(section.title, layersStartX + columnWidth, sectionY + rowHeight / 2 + 2, { align: "center" });
+
+            // ✅ Labels
+            const labels = ["Date", "Hour", "Operator"];
+            labels.forEach((label, index) => {
+                const yPos = sectionY + (index + 1) * rowHeight;
+
+                // ✅ Label column
+                doc.setFont('helvetica', 'normal');
+                doc.rect(layersStartX, yPos, columnWidth, rowHeight);
+                doc.text(label, layersStartX + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+
+                // ✅ Empty input space for operator
+                doc.rect(layersStartX + columnWidth, yPos, columnWidth, rowHeight);
+            });
+        });
+
+        // ✅ Positioning for the comment box
+        const commentBoxStartY = manualTableStartY + 2 * 40; // ✅ Adjusted Y position
+        const commentBoxHeight = 32;  // ✅ Enough height for writing
+        const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
+
+        // ✅ Draw the comment box
+        doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
+
+        // ✅ Add "Comments" title
+        doc.setFont('helvetica', 'bold');
+        doc.text("Comments", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
+
+        // ✅ Marker Details Table (Bottom)
+        const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
+        const markerColumnWidth = 40;
+
+        doc.setFont('helvetica', 'bold');
+
+        // Header Row
+        doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
+        doc.rect(startX + markerColumnWidth, markerTableStartY, markerColumnWidth, rowHeight);
+        doc.rect(startX + markerColumnWidth * 2, markerTableStartY, markerColumnWidth, rowHeight);
+
+        doc.text("Style", startX + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+        doc.text("Size", startX + markerColumnWidth + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+        doc.text("Pcs per Layer", startX + markerColumnWidth * 2 + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+
+        // Fill Data
+        markerLines.forEach((row, index) => {
+            const yPos = markerTableStartY + (index + 1) * rowHeight;
+
+            doc.rect(startX, yPos, markerColumnWidth, rowHeight);
+            doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight);
+            doc.rect(startX + markerColumnWidth * 2, yPos, markerColumnWidth, rowHeight);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(row.style, startX + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+            doc.text(row.size, startX + markerColumnWidth + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+            doc.text(row.pcs_on_layer.toString(), startX + markerColumnWidth * 2 + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+        });
+
+        // ✅ Position for the vertical line further right
+        const separatorX = layersStartX + 80; // Move it further to the right
+        const separatorStartY = startY;
+        const separatorEndY = 200 // Extends to the bottom
+
+        // ✅ Set line style (dotted or dashed)
+        doc.setLineDash([1, 1]); // ✅ Dashed line pattern (adjust values for spacing)
+        doc.line(separatorX, separatorStartY, separatorX, separatorEndY); // ✅ Draw vertical line
+
+        // ✅ Reset line dash after drawing to avoid affecting other elements
+        doc.setLineDash([]);
+
+        // ✅ Define the rotated table position (Bottom-Right)
+        const rotatedStartX = separatorX + 10; // Adjust right position
+        const rotatedStartY = startY + 70; // Move it to the bottom
+
+        const rotatedRowHeight = 8;  // Simulated "column" height
+
+        // ✅ Loop through orderTable in a rotated manner
+        orderTable.forEach((field, index) => {
+            const xPos = rotatedStartX + index * rotatedRowHeight; // Move **right** (acts like rows)
+            const yPos = rotatedStartY; // Fixed Y position (acts like left margin)
+
+            // ✅ Swap width & height to create a rotated effect
+            doc.rect(xPos, yPos, rotatedRowHeight, secondColumnWidth);
+            doc.rect(xPos, yPos + secondColumnWidth, rotatedRowHeight, firstColumnWidth);
+
+            // ✅ Draw text in rotated orientation (simulated)
+            doc.setFont('helvetica', 'bold');
+            doc.text(field.label, xPos + 5, yPos + 118, { angle: 90 });
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(field.value, xPos + 5, yPos + secondColumnWidth - 3, { angle: 90 });
+        });
+
+        const ColumnWidth = 29.5;
+
+        // ✅ Loop through orderTable in a rotated manner
+        fabricTable2.forEach((field, index) => {
+            const xPos = rotatedStartX + index * rotatedRowHeight; // Move **right** (acts like rows)
+            const yPos = startY; // Fixed Y position (acts like left margin)
+
+            // ✅ Swap width & height to create a rotated effect
+            doc.rect(xPos, yPos, rotatedRowHeight, ColumnWidth);
+            doc.rect(xPos, yPos + ColumnWidth, rotatedRowHeight, ColumnWidth);
+
+            // ✅ Draw text in rotated orientation (simulated)
+            doc.setFont('helvetica', 'bold');
+            doc.text(field.label, xPos + 5, yPos + 57, { angle: 90 });
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(field.value, xPos + 5, yPos + ColumnWidth - 3, { angle: 90 });
+        });
+
+    
+        doc.save(`Mattress_Travel_Doc_${mattressName}.pdf`);
+
+        try {
+            // ✅ API Call to Update Print Status
+            await axios.put(`http://127.0.0.1:5000/api/mattress/update_print_travel`, {
+                mattress_id: mattressId,
+                print_travel: true // ✅ Set as printed
+            });
+    
+            console.log("Print status updated successfully.");
+            
+            // ✅ Refresh the table to reflect the new status
+            fetchMattresses();
+        } catch (error) {
+            console.error("Error updating print status:", error);
+        }
+    };
+    
+
+    // Table Columns
+    const columns = [
+        { field: 'mattress', headerName: 'Mattress', width: 250 },
+        { field: 'order_commessa', headerName: 'Order Commessa', width: 180 },
+        { field: 'fabric_type', headerName: 'Fabric Type', width: 130 },
+        { field: 'fabric_code', headerName: 'Fabric Code', width: 140 },
+        { field: 'fabric_color', headerName: 'Fabric Color', width: 140 },
+        { field: 'dye_lot', headerName: 'Dye Lot', width: 130 },
+        { field: 'item_type', headerName: 'Item Type', width: 100 },
+        { field: 'spreading_method', headerName: 'Spreading Method', width: 180 },
+        { 
+            field: 'print_travel', 
+            headerName: 'Printed Travel Doc', 
+            width: 160, 
+            renderCell: (params) => (
+                params.value ? "✅ Printed" : ""
+            ) 
+        }
+    ];
+
+    return (
+        <MainCard
+            title="Mattress Travel Document"
+            secondary={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {/* Filter Input */}
+                    <TextField
+                        label="Filter"
+                        variant="outlined"
+                        size="small"
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                        sx={{ '& input': { fontWeight: 'normal' } }}
+                    />
+    
+                    {/* Print Button */}
+                    <Button 
+                        variant="contained" 
+                        sx={{
+                            backgroundColor: '#1976D2', // ✅ Blue color (Material UI Primary)
+                            color: 'white', 
+                            '&:hover': { backgroundColor: '#1565C0' } // ✅ Darker blue on hover
+                        }}
+                        onClick={handlePrint} // ✅ Calls the print function
+                        startIcon={<Print />} // ✅ Uses a Print icon
+                    >
+                        Print
+                    </Button>
+                </Box>
+            }
+        >
+            {loading ? (
+                <Box display="flex" justifyContent="center" alignItems="center" height="300px">
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <Box sx={{ display: 'flex', flexGrow: 1, minHeight: tableHeight, width: '100%' }}>
+                    <DataGrid
+                        rows={filteredMattresses} // Use filtered data
+                        columns={columns}
+                        pageSize={25}
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                        pagination
+                        checkboxSelection
+                        onRowSelectionModelChange={handleSelectionChange} // ✅ Correct event listener
+                        rowSelectionModel={selectedMattresses.map(m => m.mattress)}
+                        getRowId={(row) => row.mattress}
+                        disableSelectionOnClick
+                        sx={{
+                            '& .MuiTablePagination-root': {
+                                overflow: 'hidden',
+                                minHeight: '52px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end'
+                            }
+                        }}
+                        components={{
+                            Pagination: CustomPagination
+                        }}
+                    />
+                </Box>
+            )}
+        </MainCard>
+    );
+    
+};
+
+export default MattressTable;
