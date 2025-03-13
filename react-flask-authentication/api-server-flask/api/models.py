@@ -122,9 +122,10 @@ class MarkerHeader(db.Model):
     model = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     variant = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     status = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True, default='ACTIVE')
-    created_at = db.Column(db.DateTime, nullable=True)
-    updated_at = db.Column(db.DateTime, nullable=True)
     creation_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
 
     # Relationship to marker_lines
     relation_lines = db.relationship('MarkerLine', backref='header', cascade="all, delete-orphan", lazy=True)
@@ -139,8 +140,8 @@ class MarkerLine(db.Model):
     size = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     style_size = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     pcs_on_layer = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime)
-    updated_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     
 
 class OrderLinesView(db.Model):
