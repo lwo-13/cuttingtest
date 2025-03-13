@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { DataGrid } from '@mui/x-data-grid';
-import { CircularProgress, Box } from '@mui/material';
+import { CircularProgress, Box, Button } from '@mui/material';
+import { Block } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import TablePagination from '@mui/material/TablePagination';
 
@@ -47,9 +48,21 @@ const CustomPagination = (props) => {
 const MarkerDB = () => {
     const [markers, setMarkers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
+    const [selectedMarkers, setSelectedMarkers] = useState([]);
 
-    // Fetch data from Flask API
+    // ✅ Adjust table height dynamically when the window resizes
     useEffect(() => {
+        const handleResize = () => {
+            setTableHeight(window.innerHeight - 260); // ✅ Adjust based on viewport height
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const fetchMarkers = () => {
+        setLoading(true);
         axios.get('http://127.0.0.1:5000/api/markers/marker_headers') // Adjust URL if needed
             .then((response) => {
                 if (response.data.success) {
@@ -60,7 +73,55 @@ const MarkerDB = () => {
             })
             .catch((error) => console.error("Error fetching marker data:", error))
             .finally(() => setLoading(false));
+    };
+    
+    // ✅ Call fetchMarkers in useEffect
+    useEffect(() => {
+        fetchMarkers();
     }, []);
+
+    // Handle Selection Change
+    const handleSelectionChange = (newSelection) => {
+        console.log("Selection Model:", newSelection); // 🔍 Debugging
+    
+        if (!newSelection.length) {
+            setSelectedMarkers([]); // ✅ Clear selection if none
+            return;
+        }
+    
+        // ✅ Extract selected marker IDs from `newSelection` directly
+        setSelectedMarkers(newSelection);
+        
+        console.log("Selected Marker IDs:", newSelection); // 🔍 Debugging
+    };
+
+    const handleSetNotActive = async () => {
+        if (!selectedMarkers.length) return;
+    
+        console.log("Sending marker IDs:", selectedMarkers); // ✅ Debugging
+    
+        try {
+            const response = await axios.post('http://127.0.0.1:5000/api/markers/set_not_active', {
+                marker_ids: selectedMarkers  // ✅ Send the ID array directly
+            });
+    
+            if (response.data.success) {
+                console.log("Markers updated successfully");
+    
+                // ✅ Re-fetch markers after update
+                fetchMarkers();
+    
+                // ✅ Clear selection
+                setSelectedMarkers([]);
+            } else {
+                console.error("Failed to update markers:", response.data.message);
+            }
+        } catch (error) {
+            console.error("Error updating markers:", error);
+        }
+    };
+    
+    
 
     // Table Columns
     const columns = [
@@ -76,20 +137,33 @@ const MarkerDB = () => {
     ];
 
     return (
-        <MainCard title="Marker Database">
+        <MainCard title="Marker Database" secondary={
+             <Button 
+                variant="contained" 
+                color="secondary"
+                onClick={handleSetNotActive} // ✅ Calls the function to set as NOT ACTIVE
+                startIcon={<Block />} // ✅ Uses a Print icon
+                disabled={!selectedMarkers.length} // ✅ Disable if no selection
+            >
+                Set NOT ACTIVE
+            </Button>
+        }>
             {loading ? (
                 <Box display="flex" justifyContent="center" alignItems="center" height="300px">
                     <CircularProgress />
                 </Box>
             ) : (
-                <div style={{ height: 500, width: '100%' }}>
+                <div style={{ height: tableHeight, width: '100%' }}>
                     <DataGrid
                         rows={markers}
                         columns={columns}
                         pageSize={10}
                         rowsPerPageOptions={[10, 25, 50, 100]} // Allow user selection
                         pagination
-                        disableSelectionOnClick
+                        checkboxSelection
+                        onRowSelectionModelChange={(newSelection) => {
+                            setSelectedMarkers(newSelection);
+                        }}
                         sx={{
                             '& .MuiTablePagination-root': {
                                 overflow: 'hidden', // ✅ Prevents pagination scrolling

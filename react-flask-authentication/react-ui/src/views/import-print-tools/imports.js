@@ -14,7 +14,6 @@ import MainCard from '../../ui-component/cards/MainCard';
 
 const CombinedImports = () => {
   const [selectedXML, setSelectedXML] = useState(null);
-  const [selectedMattress, setSelectedMattress] = useState(null);
   const [markerInfo, setMarkerInfo] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importStatus, setImportStatus] = useState("");
@@ -106,20 +105,6 @@ const CombinedImports = () => {
     }
   };
 
-  // Handle Mattress File Selection
-  const handleMattressChange = (event) => {
-    setSelectedMattress(event.target.files[0]);
-  };
-
-  const handleMattressImport = () => {
-    if (selectedMattress) {
-      console.log('Mattress Excel File:', selectedMattress);
-      alert(`Mattress Excel File "${selectedMattress.name}" selected for import!`);
-    } else {
-      alert('Please select a Mattress Excel file first.');
-    }
-  };
-
   const handleDialogClose = () => {
     setDialogOpen(false);
     setMarkerInfo([]);
@@ -130,14 +115,11 @@ const CombinedImports = () => {
   };
 
   return (
-    <MainCard>
-      <Typography variant="h3" align="center" gutterBottom sx={{ mb: 2 }}>
-        Import Files
-      </Typography>
-      <Grid container spacing={4}>
+    <MainCard title="Imports">
+      <Grid container spacing={2} justifyContent="center">
         {/* XML Import Section */}
-        <Grid item xs={12} md={6}>
-          <Card variant="outlined" style={{ textAlign: 'center' }}>
+        <Grid item xs={12}>
+          <Card variant="outlined" style={{ textAlign: 'center', width: '100%'  }}>
             <CardContent>
               <Typography variant="h5" gutterBottom>
                 Import Marker (<strong>XML</strong> file)
@@ -173,50 +155,6 @@ const CombinedImports = () => {
                 color="primary"
                 onClick={handleOpenDialog}
                 disabled={!selectedXML}
-                style={{ marginTop: '8px' }}
-              >
-                Import
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Excel Import Section */}
-        <Grid item xs={12} md={6}>
-          <Card variant="outlined" style={{ textAlign: 'center' }}>
-            <CardContent>
-              <Typography variant="h5" gutterBottom>
-                Import Mattress Plan (<strong>Excel</strong> file)
-              </Typography>
-
-              <input
-                type="file"
-                accept=".xlsx, .xls"
-                id="mattress-file-input"
-                onChange={handleMattressChange}
-                style={{ display: 'none' }}
-              />
-
-              <Button
-                variant="outlined"
-                component="label"
-                htmlFor="mattress-file-input"
-                style={{ marginTop: '8px' }}
-              >
-                Choose File
-              </Button>
-
-              <Box mt={2}>
-                <Typography variant="body2" align="center">
-                  {selectedMattress ? `${selectedMattress.name}` : 'No file chosen'}
-                </Typography>
-              </Box>
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleMattressImport}
-                disabled={!selectedMattress}
                 style={{ marginTop: '8px' }}
               >
                 Import

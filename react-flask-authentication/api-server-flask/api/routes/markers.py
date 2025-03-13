@@ -266,3 +266,22 @@ class MarkerPcs(Resource):
         except Exception as e:
             print(f"❌ API Error: {str(e)}")  # ✅ Debugging log
             return {"success": False, "msg": f"An unexpected error occurred: {str(e)}"}, 500
+        
+# ===================== Set NOT ACTIVE ==========================
+@markers_api.route('/set_not_active', methods=['POST'])
+class NotActive(Resource):
+    def post(self):
+        data = request.json
+        marker_ids = data.get("marker_ids", [])
+
+        if not marker_ids:
+            return {"success": False, "message": "No marker IDs provided"}, 400
+
+        # ✅ Update the database
+        markers_to_update = MarkerHeader.query.filter(MarkerHeader.id.in_(marker_ids)).all()
+        for marker in markers_to_update:
+            marker.status = "NOT ACTIVE"
+
+        db.session.commit()
+
+        return {"success": True, "message": "Markers updated successfully"}

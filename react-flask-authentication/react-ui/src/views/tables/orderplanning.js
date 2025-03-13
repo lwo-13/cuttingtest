@@ -33,10 +33,11 @@ const OrderPlanning = () => {
     const [alongExtra, setalongExtra] = useState("");
     const [markerOptions, setMarkerOptions] = useState([]);
     const [spreadingMethod, setSpreadingMethod] = useState(null);
-    const [overlapping, setOverlapping] = useState(null);
+    const [allowance, setAllowance] = useState("");
     const [collarettoType, setcollarettoType] = useState(null);
     const [deletedMattresses, setDeletedMattresses] = useState([]);
     const [unsavedChanges, setUnsavedChanges] = useState(false);
+    const [avgConsumption, setAvgConsumption] = useState({});
     
     const [tables, setTables] = useState([]); 
 
@@ -267,6 +268,7 @@ const OrderPlanning = () => {
                                 fabricCode: mattress.fabric_code,
                                 fabricColor: mattress.fabric_color,
                                 spreadingMethod: mattress.spreading_method,
+                                allowance: parseFloat(mattress.allowance) || 0,
                                 rows: []
                             };
                         }
@@ -280,7 +282,6 @@ const OrderPlanning = () => {
                             width: markerDetails ? markerDetails.marker_width : "",
                             markerName: mattress.marker_name,
                             markerLength: markerDetails ? markerDetails.marker_length : "",
-                            allowance: parseFloat(mattress.allowance) || 0,
                             efficiency: markerDetails ? markerDetails.efficiency : "",
                             piecesPerSize: markerDetails ? markerDetails.size_quantities || {} : {},
                             layers: mattress.layers || "",
@@ -302,14 +303,18 @@ const OrderPlanning = () => {
                         });
                     }, 100); // Small delay to ensure state update has completed
 
+                    setUnsavedChanges(false);
+
                 } else {
                     console.error("❌ Error fetching mattresses or markers");
                     setTables([]);
+                    setUnsavedChanges(false);
                 }
             })
             .catch(error => {
                 console.error("❌ Error in parallel fetch:", error);
                 setTables([]);
+                setUnsavedChanges(false);
             });
         } else {
             setSelectedOrder(null);
@@ -321,10 +326,12 @@ const OrderPlanning = () => {
             setAlongTables([]);
             setFabricType(null);
             setSpreadingMethod(null);
-            setOverlapping(null);
+            setAllowance("");
             setSelectedStyle("");
             setSelectedSeason("");
             setSelectedColorCode("");
+
+            setUnsavedChanges(false);
         }
     };
     
@@ -345,7 +352,6 @@ const OrderPlanning = () => {
                                     return acc;
                                 }, {}),
                                 markerLength: "",
-                                allowance: "",
                                 efficiency: "",
                                 layers: "",
                                 expectedConsumption: "",
@@ -593,22 +599,34 @@ const OrderPlanning = () => {
         setTables(prevTables => {
             const updatedTables = [...prevTables];
     
-            // Clear any existing timeout
+            // ✅ Clear existing timeout
             clearTimeout(updatedTables[tableIndex].rows[rowIndex].timeout);
     
             updatedTables[tableIndex].rows[rowIndex].timeout = setTimeout(() => {
-                const userAllowance = parseFloat(updatedTables[tableIndex].rows[rowIndex].allowance) || 0;
-                const markerLength = (parseFloat(updatedTables[tableIndex].rows[rowIndex].markerLength) || 0) + userAllowance;
+                const tableAllowance = parseFloat(updatedTables[tableIndex].allowance) || 0;
+                const markerLength = (parseFloat(updatedTables[tableIndex].rows[rowIndex].markerLength) || 0) + tableAllowance;
                 const layers = parseInt(updatedTables[tableIndex].rows[rowIndex].layers) || 0;
     
+                // ✅ Update expected consumption first
                 updatedTables[tableIndex].rows[rowIndex].expectedConsumption = (markerLength * layers).toFixed(1);
-                
-                setTables([...updatedTables]); // ✅ Update state
+    
+                // ✅ Update tables first
+                setTables([...updatedTables]);
+    
+                // ✅ Then update avgConsumption for the affected table
             }, 500);
-            
+    
             return updatedTables;
         });
     };
+
+    useEffect(() => {
+        if (!tables || tables.length === 0) return; // ✅ Prevent unnecessary runs
+    
+        const newAvgConsumption = tables.map(table => calculateTableAverageConsumption(table));
+    
+        setAvgConsumption([...newAvgConsumption]); // ✅ Ensures a new state reference
+    }, [tables]);
 
     const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
@@ -657,8 +675,7 @@ const OrderPlanning = () => {
                 // ✅ Ensure numerical values are properly handled (convert empty strings to 0)
                 const layers = parseFloat(row.layers) || 0;
                 const markerLength = parseFloat(row.markerLength) || 0;
-                const userAllowance = parseFloat(row.allowance) || 0;
-                const lengthMattress = markerLength + userAllowance; // ✅ Corrected calculation
+                const lengthMattress = markerLength + (parseFloat(table.allowance) || 0); // ✅ Corrected calculation
                 const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
                 
 
@@ -674,7 +691,7 @@ const OrderPlanning = () => {
                     layers: layers,
                     length_mattress: lengthMattress, // ✅ Updated: markerLength + allowance
                     cons_planned: consPlanned, // ✅ Auto-calculated
-                    extra: userAllowance,
+                    extra: parseFloat(table.allowance) || 0,
                     marker_name: row.markerName,
                     marker_width: parseFloat(row.width) || 0,
                     marker_length: markerLength,
@@ -746,6 +763,26 @@ const OrderPlanning = () => {
         return plannedQuantities;
     };
 
+    /* Function to Calculate Average Consumption for a Specific Table */
+    const calculateTableAverageConsumption = (table) => {
+        if (!table || !table.rows || table.rows.length === 0) return 0; // ✅ Prevent crashes
+    
+        // ✅ Get planned quantities safely
+        const plannedQuantities = getTablePlannedQuantities(table) || {};
+        const totalPlannedPcs = Object.values(plannedQuantities).reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
+    
+        // ✅ Sum all expected consumption for this table
+        const totalConsPlanned = table.rows.reduce(
+            (sum, row) => sum + (parseFloat(row.expectedConsumption) || 0), 0
+        );
+    
+        if (totalPlannedPcs === 0) {
+            return 0;
+        }
+        const avgConsumption = totalConsPlanned / totalPlannedPcs;
+        return avgConsumption.toFixed(2); // ✅ Ensure 2 decimal places
+    };
+    
     useEffect(() => {
         const style = document.createElement("style");
         style.innerHTML = `
@@ -933,24 +970,58 @@ const OrderPlanning = () => {
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 <Typography variant="h3">{`Mattress Group ${tableIndex + 1}`}</Typography>
 
-                                {/* Table-Specific Planned Quantities */}
-                                <Box display="flex" gap={2} sx={{ backgroundColor: "#EFEFEF", padding: "4px 8px", borderRadius: "8px" }}>
-                                    {Object.entries(getTablePlannedQuantities(table)).map(([size, qty]) => {
-                                        // ✅ Find the total ordered quantity for the specific size from orderSizes
-                                        const sizeData = orderSizes.find(s => s.size === size);
-                                        const totalOrdered = sizeData ? sizeData.qty : 1; // ✅ Use actual qty, default to 1 if not found
+                                {/* Middle Section: Avg. Consumption - Only Show if > 0 */}
+                                {avgConsumption[tableIndex] && avgConsumption[tableIndex] > 0 ? (
+                                    <Box 
+                                        p={1} 
+                                        sx={{ 
+                                            background: "#D6EAF8", 
+                                            padding: "4px 8px", 
+                                            borderRadius: "8px", 
+                                            minWidth: "140px",  
+                                            textAlign: "center",
+                                            flexShrink: 0,  
+                                            margin: "0 auto",
+                                        }}
+                                    >
+                                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                            Avg. Consumption: {avgConsumption[tableIndex]} m/pc
+                                        </Typography>
+                                    </Box>
+                                ) : null}  {/* ✅ Prevents rendering when avgConsumption is 0 */}
 
-                                        // ✅ Calculate percentage (prevent NaN by checking totalOrdered)
-                                        const percentage = totalOrdered ? ((qty / totalOrdered) * 100).toFixed(1) : "N/A";
+                                {/* Right Section: Table-Specific Planned Quantities - Hide if Empty */}
+                                {Object.keys(getTablePlannedQuantities(table)).length > 0 && (
+                                    <Box 
+                                        display="flex" 
+                                        gap={2} 
+                                        sx={{ 
+                                            backgroundColor: "#EFEFEF", 
+                                            padding: "4px 8px", 
+                                            borderRadius: "8px", 
+                                            flexWrap: "wrap", // ✅ Prevents pushing "Avg. Consumption"
+                                            maxWidth: "50%",   // ✅ Prevents excessive width from breaking layout
+                                            justifyContent: "flex-end",  // ✅ Keeps it right-aligned
+                                            overflow: "hidden", // ✅ Prevents layout breaking when content grows
+                                            textOverflow: "ellipsis"
+                                        }}
+                                    >
+                                        {Object.entries(getTablePlannedQuantities(table)).map(([size, qty]) => {
+                                            const sizeData = orderSizes.find(s => s.size === size);
+                                            const totalOrdered = sizeData ? sizeData.qty : 1; // ✅ Use actual qty, default to 1 if not found
 
-                                        return (
-                                            <Typography key={size} variant="body2" sx={{ fontWeight: "bold" }}>
-                                                {size}: {qty} ({percentage !== "NaN" ? percentage + "%" : "N/A"})
-                                            </Typography>
-                                        );
-                                    })}
-                                </Box>
+                                            const percentage = totalOrdered ? ((qty / totalOrdered) * 100).toFixed(1) : "N/A";
+
+                                            return (
+                                                <Typography key={size} variant="body2" sx={{ fontWeight: "bold" }}>
+                                                    {size}: {qty} ({percentage !== "NaN" ? percentage + "%" : "N/A"})
+                                                </Typography>
+                                            );
+                                        })}
+                                    </Box>
+                                )}
                             </Box>
+
                         }
                     >
                     <Box p={1}>
@@ -969,6 +1040,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
                                         sx={{
@@ -992,6 +1064,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         sx={{
                                             width: '100%',
@@ -1014,6 +1087,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         sx={{
                                             width: '100%',
@@ -1035,6 +1109,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], spreadingMethod: newValue };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }} // ✅ Update table-specific state
                                         renderInput={(params) => (
                                             <TextField {...params} label="Spreading Method" variant="outlined" />
@@ -1047,26 +1122,39 @@ const OrderPlanning = () => {
                                     />
                                 </Grid>
 
-                                {/* Overlapping (Dropdown) */}
+                                {/* Allowance */}
                                 <Grid item xs={1.5} sm={1.5} md={1.5}>
-                                    <Autocomplete
-                                        options={["YES", "NO"]} // ✅ Defined options
-                                        getOptionLabel={(option) => option} 
-                                        value={tables[tableIndex].overlapping || null} // ✅ Table-specific value
-                                        onChange={(event, newValue) => {
+                                    <TextField
+                                        label="Allowance [m]"
+                                        variant="outlined"
+                                        value={tables[tableIndex]?.allowance || ""} 
+                                        onChange={(e) => {
+                                            const value = e.target.value
+                                                .replace(/[^0-9.,]/g, '')  // ✅ Allow only digits, dot (.), and comma (,)
+                                                .replace(/[,]+/g, '.')     // ✅ Convert multiple commas to a single dot
+                                                .replace(/(\..*)\./g, '$1') // ✅ Prevent multiple dots
+                                                .slice(0, 4);  // ✅ Limit total length (adjust if needed)
+                                
                                             setTables(prevTables => {
                                                 const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], overlapping: newValue };
+                                                updatedTables[tableIndex] = {
+                                                    ...updatedTables[tableIndex],
+                                                    allowance: value  // ✅ Update table-specific allowance
+                                                };
+
+                                                // ✅ Trigger `updateExpectedConsumption` for all rows in the table
+                                                updatedTables[tableIndex].rows.forEach((_, rowIndex) => {
+                                                    updateExpectedConsumption(tableIndex, rowIndex);
+                                                });
+
                                                 return updatedTables;
                                             });
-                                        }} // ✅ Update table-specific state
-                                        renderInput={(params) => (
-                                            <TextField {...params} label="Overlapping" variant="outlined" />
-                                        )}
+                                            setUnsavedChanges(true);
+                                        }}
                                         sx={{
                                             width: '100%',
                                             minWidth: '60px',
-                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+                                            "& input": { fontWeight: "normal" }
                                         }}
                                     />
                                 </Grid>
@@ -1090,7 +1178,6 @@ const OrderPlanning = () => {
                                                 ))
                                             }
                                             <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px' }}>Length [m]</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '130px'  }}>Allowance [m]</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center', minWidth: '70px'  }}>Eff %</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center' }}>Layers</TableCell>
                                             <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px'   }}>Cons [m]</TableCell>
@@ -1218,30 +1305,6 @@ const OrderPlanning = () => {
                                                     <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
                                                         {row.markerLength}
                                                     </Typography>
-                                                </TableCell>
-
-                                                {/* Allowance (Text Input) */}
-                                                <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={tables[tableIndex]?.rows[rowIndex]?.allowance || ""} 
-                                                        onChange={(e) => {
-                                                            const value = e.target.value
-                                                                .replace(/[^0-9.,]/g, '')  // ✅ Allow only digits, dot (.), and comma (,)
-                                                                .replace(/[,]+/g, '.')     // ✅ Convert multiple commas to a single dot
-                                                                .replace(/(\..*)\./g, '$1') // ✅ Prevent multiple dots
-                                                                .slice(0, 4);  // ✅ Limit total length (adjust if needed)
-                                                            handleInputChange(tableIndex, rowIndex, "allowance", value);
-                                                            updateExpectedConsumption(tableIndex, rowIndex);
-                                                        }}
-                                                        sx={{
-                                                            width: '100%',
-                                                            minWidth: '65px', // ✅ Ensures a minimum width
-                                                            maxWidth: '80px', // ✅ Prevents expanding too much
-                                                            textAlign: 'center',
-                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                        }}
-                                                    />
                                                 </TableCell>
 
                                                 {/* Efficiency (Auto-Filled & Read-only) */}

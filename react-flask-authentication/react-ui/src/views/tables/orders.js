@@ -47,6 +47,17 @@ const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterText, setFilterText] = useState(""); // For frontend filtering
+    const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
+
+    // ✅ Adjust table height dynamically when the window resizes
+    useEffect(() => {
+        const handleResize = () => {
+            setTableHeight(window.innerHeight - 260); // ✅ Adjust based on viewport height
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     // Fetch all data from API (only once)
     useEffect(() => {
@@ -103,7 +114,7 @@ const Orders = () => {
                     <CircularProgress />
                 </Box>
             ) : (
-                <div style={{ height: 600, width: '100%' }}>
+                <div style={{ height: tableHeight, width: '100%' }}>
                     <DataGrid
                         rows={filteredOrders} // Use filtered data
                         columns={columns}
