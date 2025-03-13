@@ -141,7 +141,7 @@ const MattressTable = () => {
         // ✅ Convert all fields to strings
         const mattressName = ensureString(mattress.mattress);
         const orderCommessa = ensureString(mattress.order_commessa);
-        const fabricType = ensureString(mattress.fabric_type);
+        const fabricCode = ensureString(mattress.fabric_code);
         const fabricColor = ensureString(mattress.fabric_color);
         const dyeLot = ensureString(mattress.dye_lot);
         const spreadingMethod = ensureString(mattress.spreading_method);
@@ -184,7 +184,7 @@ const MattressTable = () => {
             { label: "Marker Length", value: markerLength },
             { label: "Extra", value: extra },
             { label: "Spreading Method", value: spreadingMethod },
-            { label: "Fabric", value: fabricType },
+            { label: "Fabric", value: fabricCode },
             { label: "Color", value: fabricColor },
             { label: "Dye Lot", value: dyeLot },
             { label: "Pcs per Bundle", value: pcsPerBundle },
@@ -197,7 +197,7 @@ const MattressTable = () => {
         ];
 
         const fabricTable2 = [
-            { label: "Fabric", value: fabricType },
+            { label: "Fabric", value: fabricCode },
             { label: "Color", value: fabricColor },
             { label: "Dye Lot", value: dyeLot }
         ];
@@ -441,7 +441,7 @@ const MattressTable = () => {
         // ✅ Convert all fields to strings
         const mattressName = ensureString(mattress.mattress);
         const orderCommessa = ensureString(mattress.order_commessa);
-        const fabricType = ensureString(mattress.fabric_type);
+        const fabricCode = ensureString(mattress.fabric_code);
         const fabricColor = ensureString(mattress.fabric_color);
         const dyeLot = ensureString(mattress.dye_lot);
         const spreadingMethod = ensureString(mattress.spreading_method);
@@ -484,7 +484,7 @@ const MattressTable = () => {
             { label: "Дъл. настил", value: markerLength },
             { label: "Extra", value: extra },
             { label: "Начин на настилане", value: spreadingMethod },
-            { label: "Плат", value: fabricType },
+            { label: "Плат", value: fabricCode },
             { label: "Цвят", value: fabricColor },
             { label: "Баня", value: dyeLot },
             { label: "Бройки в бъндел", value: pcsPerBundle },
@@ -497,7 +497,7 @@ const MattressTable = () => {
         ];
 
         const fabricTable2 = [
-            { label: "Плат", value: fabricType },
+            { label: "Плат", value: fabricCode },
             { label: "Цвят", value: fabricColor },
             { label: "Баня", value: dyeLot }
         ];
