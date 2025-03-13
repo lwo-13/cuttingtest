@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { DataGrid } from '@mui/x-data-grid';
-import { CircularProgress, Box, Button } from '@mui/material';
+import { CircularProgress, Box, Button } from "@mui/material";
 import { Block } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import TablePagination from '@mui/material/TablePagination';
@@ -120,8 +120,6 @@ const MarkerDB = () => {
             console.error("Error updating markers:", error);
         }
     };
-    
-    
 
     // Table Columns
     const columns = [
