@@ -32,6 +32,14 @@ const tables = {
       icon: IconTemplate,    // Choose your icon
       breadcrumbs: false
     },
+    {
+      id: 'padprints',           // Unique ID for your page
+      title: 'Pad Prints',         // Label in the sidebar
+      type: 'item',                 // It's a single link
+      url: '/tables/padprints', // URL route (adjust as needed)
+      icon: IconTemplate,    // Choose your icon
+      breadcrumbs: false
+    },
   ]
 };
 
