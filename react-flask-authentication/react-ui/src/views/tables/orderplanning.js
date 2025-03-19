@@ -52,6 +52,8 @@ const OrderPlanning = () => {
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
 
+    const [padPrintInfo, setPadPrintInfo] = useState(null); 
+
     const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
 
     const handleCloseError = (event, reason) => {
@@ -239,6 +241,19 @@ const OrderPlanning = () => {
             setSelectedColorCode(newValue.colorCode);
     
             console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
+
+            // ✅ Fetch Pad Print Info based on order attributes
+            axios.get(`http://127.0.0.1:5000/api/padprint/all`)
+            .then(response => {
+                const padPrint = response.data.find((p) =>
+                    p.season === newValue.season &&
+                    p.style === newValue.style &&
+                    p.color === newValue.colorCode
+                );
+                setPadPrintInfo(padPrint || null);
+                console.log("🎨 PadPrint Info:", padPrint);
+            })
+            .catch(err => console.error("❌ Error fetching pad print:", err));
     
             // Fetch mattresses and markers in parallel
             Promise.all([
@@ -331,6 +346,7 @@ const OrderPlanning = () => {
             setSelectedStyle("");
             setSelectedSeason("");
             setSelectedColorCode("");
+            setPadPrintInfo(null);
 
             setUnsavedChanges(false);
         }
@@ -830,6 +846,8 @@ const OrderPlanning = () => {
         `;
         document.head.appendChild(style);
     }, []);
+
+
     
     const handlePrint = () => {
         // Temporarily collapse menu
@@ -839,6 +857,23 @@ const OrderPlanning = () => {
             window.print();
             document.body.classList.remove("print-mode"); // Restore after printing
         }, 300);
+    };
+
+    const fetchPadPrintInfo = async (season, style, color) => {
+        try {
+            const response = await axios.get("http://127.0.0.1:5000/api/padprint/all");
+            const data = response.data;
+    
+            const matchingPadPrint = data.find((p) =>
+                p.season === season &&
+                p.style === style &&
+                p.color === color
+            );
+    
+            setPadPrintInfo(matchingPadPrint || null);
+        } catch (err) {
+            console.error("Error fetching pad print:", err);
+        }
     };
 
     return (
@@ -998,46 +1033,45 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
-            <MainCard title="Pad Print" sx={{ position: 'relative' }}>
-                {/* Save Button (Positioned at the Top-Right) */}
+            {padPrintInfo && (
+                <MainCard title="Pad Print">
+                    <Grid container spacing={2} alignItems="center">
 
-                <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
+                        <Grid item xs={3} sm={2} md={1.5}>
+                            <TextField
+                                label="Pattern"
+                                variant="outlined"
+                                value={padPrintInfo.pattern || ""}
+                                InputProps={{ readOnly: true }}
+                                sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+                            />
+                        </Grid>
 
-                    {/* Laboratorio Selection (Searchable) */}
-                    <Grid item xs={6} sm={4} md={2.5}>
-                        <Autocomplete
-                            options={sampleLaboratorio}
-                            getOptionLabel={(option) => option.name}
-                            value={sampleLaboratorio.find(lab => lab.name === selectedLaboratorio) || null}
-                            onChange={(event, newValue) => setSelectedLaboratorio(newValue ? newValue.name : null)}
-                            renderInput={(params) => (
-                                <TextField {...params} label="Laboratorio" variant="outlined" />
-                            )}
-                            sx={{
-                                width: '100%',
-                                "& .MuiAutocomplete-input": { fontWeight: 'normal' }
-                            }}
-                        />
+                        <Grid item xs={3} sm={2} md={1.5}>
+                            <TextField
+                                label="Pad Print Color"
+                                variant="outlined"
+                                value={padPrintInfo.padprint_color || ""}
+                                InputProps={{ readOnly: true }}
+                                sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+                            />
+                        </Grid>
+
+                        {/* ✅ Image Box */}
+                        {padPrintInfo.image_url && (
+                            <Grid item xs={12} sm={4} md={3}>
+                                <Box
+                                    component="img"
+                                    src={`http://127.0.0.1:5000/api/padprint/uploads/${padPrintInfo.image_url.split('/').pop()}`}
+                                    alt="Pad Print"
+                                    sx={{ width: '100%', maxHeight: '75px', objectFit: 'contain', border: '1px solid #ddd', borderRadius: '4px' }}
+                                />
+                            </Grid>
+                        )}
+
                     </Grid>
-
-                    {/* Read-Only Fields for Line, Style, Season */}
-                    <Grid item xs={3} sm={2} md={1.5}>
-                        <TextField
-                            label="Season"
-                            variant="outlined"
-                            value={selectedSeason || ""}
-                            slotProps={{ input: { readOnly: true } }}
-                            sx={{ 
-                                width: '100%', 
-                                minWidth: '60px', 
-                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
-                            }}      
-                        />
-                    </Grid>
-
-                </Grid>
-
-            </MainCard>
+                </MainCard>
+            )}
 
             <Box mt={2} />
 
@@ -2120,19 +2154,6 @@ const OrderPlanning = () => {
                         onClick={handleAddCollaretto}
                     >
                         Add Collaretto Weft or Bias
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        sx={{
-                            backgroundColor: "#B71C1C", // ✅ Deep Blood Red
-                            color: "white",
-                            "&:hover": { backgroundColor: "#7F0000" } // ✅ Darker red on hover
-                        }}
-                        startIcon={<AddCircleOutline />}
-                        onClick={handleAddCollaretto}
-                    >
-                        Add Pad Print
                     </Button>
                 </Box>
             )}
