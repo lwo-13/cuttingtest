@@ -1,5 +1,5 @@
 // assets
-import { IconClipboardList, IconLayoutCollage, IconTemplate } from '@tabler/icons';
+import { IconClipboardList, IconLayoutCollage, IconTemplate, IconBrandAppleArcade } from '@tabler/icons';
 
 //-----------------------|| TABLES MENU ITEMS ||-----------------------//
 
@@ -33,13 +33,41 @@ const tables = {
       breadcrumbs: false
     },
     {
-      id: 'padprints',           // Unique ID for your page
-      title: 'Pad Prints',         // Label in the sidebar
-      type: 'item',                 // It's a single link
-      url: '/tables/padprints', // URL route (adjust as needed)
-      icon: IconTemplate,    // Choose your icon
-      breadcrumbs: false
-    },
+      id: 'padprints',
+      title: 'Pad Prints',
+      type: 'collapse',
+      icon: IconBrandAppleArcade,
+      children: [
+        {
+          id: 'calzedonia-padprint',
+          title: 'Calzedonia',
+          type: 'item',
+          url: '/tables/padprints/calzedonia',
+          breadcrumbs: true
+        },
+        {
+          id: 'falconeri-padprint',
+          title: 'Falconeri',
+          type: 'item',
+          url: '/tables/padprints/falconeri',
+          breadcrumbs: true
+        },
+        {
+          id: 'intimissimi-padprint',
+          title: 'Intimissimi',
+          type: 'item',
+          url: '/tables/padprints/intimissimi',
+          breadcrumbs: true
+        },
+        {
+          id: 'tezenis-padprint',
+          title: 'Tezenis',
+          type: 'item',
+          url: '/tables/padprints/tezenis',
+          breadcrumbs: true
+        }
+      ]
+    }
   ]
 };
 

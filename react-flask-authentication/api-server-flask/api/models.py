@@ -287,8 +287,8 @@ class MattressMarker(db.Model):
     marker = db.relationship('MarkerHeader', backref=db.backref('mattress_markers'))
 
 class ZalliItemsView(db.Model):
-    __tablename__ = 'zalli_items_view'  # This should match your SQL view name
-    __table_args__ = {'info': {'read_only': True}}  # Make it read-only
+    __tablename__ = 'zalli_items_view'
+    __table_args__ = {'info': {'read_only': True}}
 
     item_no = db.Column(db.String(50), primary_key=True, nullable=False)
     description = db.Column(db.String(255), nullable=True)

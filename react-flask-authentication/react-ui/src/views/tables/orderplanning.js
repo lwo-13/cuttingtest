@@ -23,6 +23,7 @@ const OrderPlanning = () => {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [selectedLaboratorio, setSelectedLaboratorio] = useState(null);
     const [selectedStyle, setSelectedStyle] = useState("");
+    const [selectedBrand, setSelectedBrand] = useState("");
     const [selectedSeason, setSelectedSeason] = useState("");
     const [selectedColorCode, setSelectedColorCode] = useState("");
     const [orderSizes, setOrderSizes] = useState([]); // ✅ Stores full objects (for qty display)
@@ -543,16 +544,17 @@ const OrderPlanning = () => {
             const pieces = parseFloat(updatedRow.pieces) || 0;
             const theoreticalConsumption = parseFloat(updatedRow.theoreticalConsumption) || 0;
             const extraPercentage = parseFloat(updatedRow.extraPercentage) || 1; // Default 1 (100%)
+            const scrap = parseFloat(updatedRow.scrapRoll) || 0;
     
             // ✅ Calculate Koturi per Roll (round down)
-            updatedRow.koturiPerRoll = collarettoWidth > 0 ? Math.floor(usableWidth / collarettoWidth) : 0;
+            updatedRow.rolls = collarettoWidth > 0 ? Math.floor(usableWidth / collarettoWidth) - scrap : 0;
     
             // ✅ Calculate Meters of Collaretto
-            updatedRow.metersCollaretto = pieces * theoreticalConsumption * extraPercentage;
+            updatedRow.metersCollaretto = (pieces * theoreticalConsumption * extraPercentage).toFixed(1);
     
             // ✅ Calculate Consumption
-            updatedRow.consumption = updatedRow.koturiPerRoll > 0
-                ? (updatedRow.metersCollaretto / updatedRow.koturiPerRoll).toFixed(2) // Round to 2 decimals
+            updatedRow.consumption = updatedRow.rolls > 0
+                ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(1) // Round to 1 decimals
                 : "0";
     
             // ✅ Save updated row in copied array
@@ -579,11 +581,11 @@ const OrderPlanning = () => {
                 const theoreticalConsumption = parseFloat(row.theoreticalConsumption) || 0;
     
                 // ✅ Apply Extra % increase
-                row.metersCollaretto = pieces * theoreticalConsumption * extraMultiplier;
+                row.metersCollaretto = (pieces * theoreticalConsumption * extraMultiplier).toFixed(1);
     
                 // ✅ Update `consumption`
-                row.consumption = row.koturiPerRoll > 0
-                    ? (row.metersCollaretto / row.koturiPerRoll).toFixed(2)
+                row.consumption = row.rolls > 0
+                    ? (row.metersCollaretto / row.rolls).toFixed(1)
                     : "0";
     
                 return row;
@@ -592,7 +594,6 @@ const OrderPlanning = () => {
             return updatedTables;
         });
     };
-    
     
     // ✅ New function to handle delayed calculation
     const updateExpectedConsumption = (tableIndex, rowIndex) => {
@@ -906,6 +907,21 @@ const OrderPlanning = () => {
                         />
                     </Grid>
 
+                    {/* Read-Only Fields for Line, Style, Season */}
+                    <Grid item xs={3} sm={2} md={1.5}>
+                        <TextField
+                            label="Brand"
+                            variant="outlined"
+                            value={selectedBrand || ""}
+                            slotProps={{ input: { readOnly: true } }}
+                            sx={{ 
+                                width: '100%', 
+                                minWidth: '60px', 
+                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
+                            }}      
+                        />
+                    </Grid>
+
                     <Grid item xs={3} sm={2} md={1.5}>
                         <TextField
                             label="Style"
@@ -985,7 +1001,7 @@ const OrderPlanning = () => {
                                         }}
                                     >
                                         <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-                                            Avg. Consumption: {avgConsumption[tableIndex]} m/pc
+                                            Avg. Cons: {avgConsumption[tableIndex]} m/pc
                                         </Typography>
                                     </Box>
                                 ) : null}  {/* ✅ Prevents rendering when avgConsumption is 0 */}
@@ -1420,6 +1436,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
                                         sx={{
@@ -1443,6 +1460,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
@@ -1461,6 +1479,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
@@ -1472,7 +1491,10 @@ const OrderPlanning = () => {
                                         label="Extra %"
                                         variant="outlined"
                                         value={table.alongExtra || ""}
-                                        onChange={(e) => handleExtraChange(tableIndex, e.target.value.slice(0, 2))}
+                                        onChange={(e) => {
+                                            handleExtraChange(tableIndex, e.target.value.slice(0, 2));
+                                            setUnsavedChanges(true);
+                                        }}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
                                 </Grid>
@@ -1490,10 +1512,10 @@ const OrderPlanning = () => {
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
-                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Koturi</TableCell>
-                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Koturi per Roll</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Rolls</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Rolls</TableCell>
                                             <TableCell align="center" sx={{ padding: "2px 6px" }}>Total Collaretto [m]</TableCell>
-                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Consumption</TableCell>
+                                            <TableCell align="center" sx={{ padding: "2px 6px" }}>Cons [m]</TableCell>
                                             <TableCell></TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -1505,7 +1527,10 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={row.bagno || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
+                                                        onChange={(e) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "bagno", e.target.value);
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         sx={{
                                                             width: '100%',
                                                             minWidth: '90px',
@@ -1521,7 +1546,10 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={row.usableWidth || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3))}
+                                                        onChange={(e) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3));
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         sx={{
                                                             width: '100%',
                                                             minWidth: '90px', // ✅ Ensures a minimum width
@@ -1537,7 +1565,10 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={row.pieces || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7))}
+                                                        onChange={(e) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7));
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         sx={{
                                                             width: '100%',
                                                             minWidth: '90px',
@@ -1553,7 +1584,10 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={row.theoreticalConsumption || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "theoreticalConsumption", e.target.value.replace(/[^0-9.,]/g, ''))}
+                                                        onChange={(e) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "theoreticalConsumption", e.target.value.replace(/[^0-9.,]/g, ''));
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         sx={{
                                                             width: '100%',
                                                             minWidth: '90px', // ✅ Ensures a minimum width
@@ -1569,7 +1603,10 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={row.collarettoWidth || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        onChange={(e) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4));
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         sx={{
                                                             width: '100%',
                                                             minWidth: '65px', // ✅ Ensures a minimum width
@@ -1580,12 +1617,15 @@ const OrderPlanning = () => {
                                                     />
                                                 </TableCell>
 
-                                                {/* Srap Koturi */}
+                                                {/* Srap Roll */}
                                                 <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
                                                     <TextField
                                                         variant="outlined"
-                                                        value={row.collarettoWidth || ""}
-                                                        onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                        value={row.scrapRoll || ""}
+                                                        onChange={(e) => {
+                                                            handleAlongRowChange(tableIndex, rowIndex, "scrapRoll", e.target.value.replace(/\D/g, '').slice(0, 1));
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         sx={{
                                                             width: '100%',
                                                             minWidth: '65px', // ✅ Ensures a minimum width
@@ -1598,7 +1638,7 @@ const OrderPlanning = () => {
 
                                                 {/* Koturi per Roll */}
                                                 <TableCell align="center">
-                                                    <Typography>{row.koturiPerRoll || ""}</Typography>
+                                                    <Typography>{row.rolls || ""}</Typography>
                                                 </TableCell>
 
                                                 {/* Meters of Collaretto */}
@@ -1608,13 +1648,16 @@ const OrderPlanning = () => {
 
                                                 {/* Consumption */}
                                                 <TableCell align="center">
-                                                    <Typography>{row.consumption && row.consumption !== "0.00" ? row.consumption : ""}</Typography>
+                                                    <Typography>{row.consumption && row.consumption !== "0.0" ? row.consumption : ""}</Typography>
                                                 </TableCell>
 
                                                 {/* Delete Button */}
                                                 <TableCell>
                                                     <IconButton 
-                                                        onClick={() => handleRemoveAlongRow(tableIndex, rowIndex)}
+                                                        onClick={() => {
+                                                            handleRemoveAlongRow(tableIndex, rowIndex);
+                                                            setUnsavedChanges(true);
+                                                        }}
                                                         color="error"
                                                         disabled={alongTables[tableIndex].rows.length === 1} // ✅ Disable when only 1 row left
                                                     >
@@ -1634,7 +1677,10 @@ const OrderPlanning = () => {
                                     variant="contained"
                                     color="primary"
                                     startIcon={<AddCircleOutline />}
-                                    onClick={() => handleAddRowAlong(tableIndex)} // ✅ Pass the specific table index
+                                    onClick={() => {
+                                        handleAddRowAlong(tableIndex);
+                                        setUnsavedChanges(true);                                    
+                                    }} // ✅ Pass the specific table index
                                 >
                                     Add Row
                                 </Button>
@@ -1643,7 +1689,10 @@ const OrderPlanning = () => {
                                 <Button 
                                     variant="outlined" 
                                     color="error" 
-                                    onClick={() => handleRemoveAlong(table.id)}
+                                    onClick={() => {
+                                        handleRemoveAlong(table.id);
+                                        setUnsavedChanges(true); 
+                                    }}
                                 >
                                     Remove
                                 </Button>
