@@ -998,6 +998,49 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
+            <MainCard title="Pad Print" sx={{ position: 'relative' }}>
+                {/* Save Button (Positioned at the Top-Right) */}
+
+                <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
+
+                    {/* Laboratorio Selection (Searchable) */}
+                    <Grid item xs={6} sm={4} md={2.5}>
+                        <Autocomplete
+                            options={sampleLaboratorio}
+                            getOptionLabel={(option) => option.name}
+                            value={sampleLaboratorio.find(lab => lab.name === selectedLaboratorio) || null}
+                            onChange={(event, newValue) => setSelectedLaboratorio(newValue ? newValue.name : null)}
+                            renderInput={(params) => (
+                                <TextField {...params} label="Laboratorio" variant="outlined" />
+                            )}
+                            sx={{
+                                width: '100%',
+                                "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+                            }}
+                        />
+                    </Grid>
+
+                    {/* Read-Only Fields for Line, Style, Season */}
+                    <Grid item xs={3} sm={2} md={1.5}>
+                        <TextField
+                            label="Season"
+                            variant="outlined"
+                            value={selectedSeason || ""}
+                            slotProps={{ input: { readOnly: true } }}
+                            sx={{ 
+                                width: '100%', 
+                                minWidth: '60px', 
+                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
+                            }}      
+                        />
+                    </Grid>
+
+                </Grid>
+
+            </MainCard>
+
+            <Box mt={2} />
+
             {/* Mattress Group Section */}
             {tables.length > 0 && tables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>

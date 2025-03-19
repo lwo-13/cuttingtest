@@ -286,30 +286,6 @@ class MattressMarker(db.Model):
     mattress = db.relationship('Mattresses', backref=db.backref('mattress_markers', cascade='all, delete-orphan'))
     marker = db.relationship('MarkerHeader', backref=db.backref('mattress_markers'))
 
-class ZalliItemsView(db.Model):
-    __tablename__ = 'zalli_items_view'
-    __table_args__ = {'info': {'read_only': True}}
-
-    item_no = db.Column(db.String(50), primary_key=True, nullable=False)
-    description = db.Column(db.String(255), nullable=True)
-    search_description = db.Column(db.String(255), nullable=True)
-    description_2 = db.Column(db.String(255), nullable=True)
-    brand = db.Column(db.String(50), nullable=True)
-    image_url = db.Column(db.String(500), nullable=True)  # Add image_url
-
-    def to_dict(self):
-        """Convert row data to dictionary format."""
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
-
-class ItemImage(db.Model):
-    __tablename__ = 'item_images'
-
-    item_no = db.Column(db.String(50), primary_key=True)  # Assuming item_no is the primary key
-    image_url = db.Column(db.String(255), nullable=False)  # The image URL will be stored here
-
-    def __repr__(self):
-        return f'<ItemImage {self.item_no}, {self.image_url}>'
-    
 class PadPrint(db.Model):
     __tablename__ = 'padprint'
     
@@ -341,3 +317,18 @@ class PadPrint(db.Model):
             'date': self.date.isoformat() if self.date else None,
             'image_url': self.image_url
         }
+
+class ZalliItemsView(db.Model):
+    __tablename__ = 'zalli_items_view'
+    __table_args__ = {'info': {'read_only': True}}
+
+    item_no = db.Column(db.String(50), primary_key=True, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    search_description = db.Column(db.String(255), nullable=True)
+    description_2 = db.Column(db.String(255), nullable=True)
+    brand = db.Column(db.String(50), nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)  # Add image_url
+
+    def to_dict(self):
+        """Convert row data to dictionary format."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

@@ -43,28 +43,28 @@ const tables = {
           title: 'Calzedonia',
           type: 'item',
           url: '/tables/padprints/calzedonia',
-          breadcrumbs: true
+          breadcrumbs: false
         },
         {
           id: 'falconeri-padprint',
           title: 'Falconeri',
           type: 'item',
           url: '/tables/padprints/falconeri',
-          breadcrumbs: true
+          breadcrumbs: false
         },
         {
           id: 'intimissimi-padprint',
           title: 'Intimissimi',
           type: 'item',
           url: '/tables/padprints/intimissimi',
-          breadcrumbs: true
+          breadcrumbs: false
         },
         {
           id: 'tezenis-padprint',
           title: 'Tezenis',
           type: 'item',
           url: '/tables/padprints/tezenis',
-          breadcrumbs: true
+          breadcrumbs: false
         }
       ]
     }
