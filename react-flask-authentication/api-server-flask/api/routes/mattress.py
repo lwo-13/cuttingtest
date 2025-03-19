@@ -1,10 +1,9 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize
 from flask_restx import Namespace, Resource
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
-
 
 @mattress_api.route('/add_mattress_row', methods=['POST'])
 class MattressResource(Resource):
@@ -58,6 +57,27 @@ class MattressResource(Resource):
                 db.session.commit()
                 print(f"✅ Mattress Updated (ID: {mattress_id})")
 
+                # ✅ Update mattress sizes if provided (for existing mattress)
+                if "sizes" in data:
+                    for size_data in data["sizes"]:
+                        mattress_size = MattressSize.query.filter_by(mattress_id=mattress_id, size=size_data["size"]).first()
+                        if mattress_size:
+                            # If size exists, update it
+                            mattress_size.pcs_layer = size_data["pcs_layer"]
+                            mattress_size.pcs_planned = size_data["pcs_planned"]
+                            mattress_size.pcs_actual = None  # Leave it as None initially
+                        else:
+                            # Otherwise, add new mattress size
+                            new_mattress_size = MattressSize(
+                                mattress_id=mattress_id,
+                                style=size_data["style"],
+                                size=size_data["size"],
+                                pcs_layer=size_data["pcs_layer"],
+                                pcs_planned=size_data["pcs_planned"],
+                                pcs_actual=None  # Leave it as None initially
+                            )
+                            db.session.add(new_mattress_size)
+
             else:
                 # ✅ Insert new mattress
                 print(f"➕ Inserting new mattress: {data['mattress']}")
@@ -96,6 +116,19 @@ class MattressResource(Resource):
 
                 db.session.commit()
                 print(f"✅ Mattress Added (ID: {mattress_id})")
+
+                # ✅ Insert mattress sizes if provided (for new mattress)
+                if "sizes" in data:
+                    for size_data in data["sizes"]:
+                        new_mattress_size = MattressSize(
+                            mattress_id=mattress_id,
+                            style=size_data["style"],
+                            size=size_data["size"],
+                            pcs_layer=size_data["pcs_layer"],
+                            pcs_planned=size_data["pcs_planned"],
+                            pcs_actual=None  # Leave it as None initially
+                        )
+                        db.session.add(new_mattress_size)
 
             # ✅ Find marker_id based on marker_name
             marker = MarkerHeader.query.filter_by(marker_name=data["marker_name"]).first()

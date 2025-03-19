@@ -719,7 +719,7 @@ const OrderPlanning = () => {
                 const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
                 
 
-                payloads.push({
+                const mattressData = {
                     mattress: mattressName,
                     order_commessa: selectedOrder,
                     fabric_type: table.fabricType,
@@ -736,7 +736,23 @@ const OrderPlanning = () => {
                     marker_width: parseFloat(row.width) || 0,
                     marker_length: markerLength,
                     operator: username
-                });
+                };
+
+                // ✅ Generate mattress_sizes data if you have row.piecesPerSize
+                if (row.piecesPerSize) {
+                    Object.entries(row.piecesPerSize).forEach(([size, pcs_layer]) => {
+                        mattressData.sizes = mattressData.sizes || []; // Initialize the sizes array if not already present
+                        mattressData.sizes.push({
+                            style : selectedStyle,
+                            size: size,
+                            pcs_layer: pcs_layer,
+                            pcs_planned: pcs_layer * layers, // Total planned pcs
+                            pcs_actual: null                // Will be filled later
+                        });
+                    });
+                }
+
+                payloads.push(mattressData);
             });
         });
     
@@ -756,6 +772,7 @@ const OrderPlanning = () => {
                     throw error; // ✅ Ensure Promise.all rejects if an error occurs
                 })
         ))
+        
         .then(() => {
             // ✅ Delete Only Rows That Were Removed from UI
             console.log("🗑️ Mattresses to delete:", deletedMattresses);
@@ -773,6 +790,7 @@ const OrderPlanning = () => {
                     })
             ));
         })
+
         .then(() => {
             // ✅ Reset state after successful save
             setDeletedMattresses([]);

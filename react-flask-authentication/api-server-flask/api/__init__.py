@@ -5,7 +5,7 @@ Copyright (c) 2019 - present AppSeed.us
 
 import os
 from flask import Flask, request
-import json as py_json
+import json
 from flask_cors import CORS
 from api.models import db
 from api.routes import register_blueprints, rest_api

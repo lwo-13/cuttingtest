@@ -78,7 +78,6 @@ class Users(db.Model):
     def toJSON(self):
         return self.toDICT()
 
-
 class JWTTokenBlocklist(db.Model):
     __tablename__ = 'jwt_token_blocklist'
 
@@ -130,7 +129,6 @@ class MarkerHeader(db.Model):
     # Relationship to marker_lines
     relation_lines = db.relationship('MarkerLine', backref='header', cascade="all, delete-orphan", lazy=True)
 
-
 class MarkerLine(db.Model):
     __tablename__ = 'marker_lines'
 
@@ -143,7 +141,6 @@ class MarkerLine(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     
-
 class OrderLinesView(db.Model):
     __tablename__ = 'order_lines_view'  # SQL View
     __table_args__ = {'info': {'read_only': True}}  # Read-only view
@@ -163,7 +160,6 @@ class OrderLinesView(db.Model):
     # Convert row data to dictionary
     def to_dict(self):
         return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
-
 
 class Mattresses(db.Model):
     __tablename__ = 'mattresses'
@@ -214,7 +210,6 @@ class Mattresses(db.Model):
         """Fetch mattresses by order_commessa."""
         return cls.query.filter_by(order_commessa=order_commessa).all()
 
-
 class MattressPhase(db.Model):
     __tablename__ = 'mattress_phases'
 
@@ -231,7 +226,6 @@ class MattressPhase(db.Model):
         """Save phase record to the database."""
         db.session.add(self)
         db.session.commit()
-
 
 class MattressDetail(db.Model):
     __tablename__ = 'mattress_details'
@@ -260,7 +254,6 @@ class MattressDetail(db.Model):
         return result
 
     mattress = db.relationship('Mattresses', backref=db.backref('details', cascade='all, delete-orphan'))
-
 
 class MattressMarker(db.Model):
     __tablename__ = 'mattress_markers'
@@ -316,6 +309,35 @@ class PadPrint(db.Model):
             'season': self.season,
             'date': self.date.isoformat() if self.date else None,
             'image_url': self.image_url
+        }
+
+class MattressSize(db.Model):
+    __tablename__ = 'mattress_sizes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False)
+    style = db.Column(db.String(255), nullable=False)
+    size = db.Column(db.String(255), nullable=False)
+    pcs_layer = db.Column(db.Float, nullable=False)
+    pcs_planned = db.Column(db.Float, nullable=False)
+    pcs_actual = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp(), nullable=False)
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp(), nullable=False)
+
+    # Optional: Relationship to the Mattress model if you need backref
+    mattress = db.relationship('Mattresses', backref=db.backref('sizes', lazy=True, cascade="all, delete-orphan"))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "mattress_id": self.mattress_id,
+            "style": self.style,
+            "size": self.size,
+            "pcs_layer": self.pcs_layer,
+            "pcs_planned": self.pcs_planned,
+            "pcs_actual": self.pcs_actual,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 class ZalliItemsView(db.Model):
