@@ -309,3 +309,35 @@ class ItemImage(db.Model):
 
     def __repr__(self):
         return f'<ItemImage {self.item_no}, {self.image_url}>'
+    
+class PadPrint(db.Model):
+    __tablename__ = 'padprint'
+    
+    # Add a primary key column:
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    
+    brand = db.Column(db.String(255), nullable=True)
+    style = db.Column(db.String(255), nullable=True)
+    color = db.Column(db.String(255), nullable=True)
+    padprint_color = db.Column(db.String(255), nullable=True)
+    pattern = db.Column(db.String(255), nullable=True)
+    season = db.Column(db.String(255), nullable=True)
+    date = db.Column(db.DateTime, nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)
+    
+    __table_args__ = (
+        db.UniqueConstraint('brand', 'style', 'color', 'padprint_color', 'pattern', 'season', name='UQ_padprint'),
+    )
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'brand': self.brand,
+            'style': self.style,
+            'color': self.color,
+            'padprint_color': self.padprint_color,
+            'pattern': self.pattern,
+            'season': self.season,
+            'date': self.date.isoformat() if self.date else None,
+            'image_url': self.image_url
+        }

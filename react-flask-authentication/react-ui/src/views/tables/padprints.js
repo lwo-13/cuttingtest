@@ -43,13 +43,13 @@ const CustomPagination = (props) => {
 };
 
 const PadPrints = () => {
-    const [items, setItems] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [padPrints, setPadPrints] = useState([]);  // ✅ State for pad prints
+    const [loading, setLoading] = useState(true);  // ✅ Loading state to manage fetching
     const [filterText, setFilterText] = useState("");
-    const [selectedItems, setSelectedItems] = useState([]);  // Store selected items (array of item_no)
+    const [selectedItems, setSelectedItems] = useState([]);  // Store selected row ids
     const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
     const [selectedFile, setSelectedFile] = useState(null);
-    const [itemNo, setItemNo] = useState("");  // This will be set based on row selection
+    const [selectedId, setSelectedId] = useState("");  // Unique id based on selection
 
     // Adjust table height dynamically
     useEffect(() => {
@@ -61,87 +61,94 @@ const PadPrints = () => {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    useEffect(() => {
-        const fetchItems = async () => {
-            try {
-                const response = await axios.get("http://127.0.0.1:5000/api/zalli/items");
-                const filteredItems = response.data.filter(item =>
-                    item.item_no.startsWith("AK") ||
-                    item.item_no.startsWith("AY") ||
-                    item.item_no.startsWith("ETI")
-                );
+    // Fetch PadPrint items from the API
+    const fetchItems = async () => {
+        try {
+            const response = await fetch("http://127.0.0.1:5000/api/padprint/all");
+            const data = await response.json();
+            console.log("Fetched data:", data); // Debugging
 
-                // Ensure each row has a unique 'id' property
-                const itemsWithId = filteredItems.map(item => ({
-                    ...item,
-                    id: item.item_no // Use 'item_no' as the unique id
-                }));
-
-                setItems(itemsWithId);
-            } catch (error) {
-                console.error("Failed to fetch data:", error);
-            } finally {
-                setLoading(false);
+            if (!Array.isArray(data)) {
+                throw new Error("Unexpected response format, expected an array");
             }
-        };
 
+            setPadPrints(data);  // ✅ Successfully set data in state
+            setLoading(false);  // ✅ Update loading state after data fetch
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+            setLoading(false);  // Ensure loading state is false even in case of error
+        }
+    };
+
+    useEffect(() => {
         fetchItems();
-    }, []);
+    }, []);  // Fetch data on component mount
 
-    // Filtered items based on the filter text
-    const filteredItems = items.filter(item =>
+    // Filter items based on filter text
+    const filteredItems = padPrints.filter(item =>
         Object.values(item).some(value =>
-            value.toString().toLowerCase().includes(filterText.toLowerCase())
+            String(value).toLowerCase().includes(filterText.toLowerCase())
         )
     );
 
-    // Table Columns
+    // Define DataGrid columns
     const columns = [
-        { field: 'item_no', headerName: 'Item No', width: 180 },
-        { field: 'description', headerName: 'Description', width: 250 },
-        { field: 'quantity', headerName: 'Quantity', width: 120 },
-{
-        field: 'image_url',
-        headerName: 'Image',
-        width: 150,
-        renderCell: (params) => {
-            if (!params.value) {
-                return "No image";
+        { field: 'id', headerName: 'ID', width: 80 },
+        { field: 'brand', headerName: 'Brand', width: 150 },
+        { field: 'style', headerName: 'Style', width: 150 },
+        { field: 'color', headerName: 'Color', width: 120 },
+        { field: 'padprint_color', headerName: 'PadPrint Color', width: 150 },
+        { field: 'pattern', headerName: 'Pattern', width: 150 },
+        { field: 'season', headerName: 'Season', width: 120 },
+        { 
+            field: 'date',
+            headerName: 'Date',
+            width: 150,
+            valueGetter: (params) => {
+                // Ensure params.row is defined and has a valid 'date' property
+                const date = params.row && params.row.date ? new Date(params.row.date) : null;
+                return date && !isNaN(date.getTime()) ? date.toLocaleDateString() : "N/A"; // Return formatted date or "N/A"
             }
-    
-            // Ensure correct image URL
-            const imageUrl = params.value.startsWith("http")
-                ? params.value
-                : `http://127.0.0.1:5000/${params.value}`;
-    
-            return (
-                <img
-                    src={imageUrl}
-                    alt={params.row.description}
-                    style={{ width: '50px', height: '50px', objectFit: 'contain' }}
-                    onError={(e) => { 
-                        if (!e.target.dataset.retry) {
-                            e.target.dataset.retry = "true";  // Set flag to prevent infinite loop
-                            e.target.src = "http://127.0.0.1:5000/static/placeholder.png"; 
-                        }
-                    }}
-                />
-            );
-        }
-    }
-    ];
-    
+        },
+        {
+            field: 'image_url',
+            headerName: 'Image',
+            width: 150,
+            renderCell: (params) => {
+                if (!params.value) {
+                    return "No image";
+                }
+                const imageUrl = params.value.startsWith("http")
+                    ? params.value
+                    : `http://127.0.0.1:5000/${params.value}`;
 
-    // Handle file selection separately
+                return (
+                    <img
+                        src={imageUrl}
+                        alt={`${params.row.brand} ${params.row.style}`}
+                        style={{ width: '50px', height: '50px', objectFit: 'contain' }}
+                        onError={(e) => { 
+                            if (!e.target.dataset.retry) {
+                                e.target.dataset.retry = "true";
+                                e.target.src = "http://127.0.0.1:5000/static/placeholder.png"; 
+                            }
+                        }}
+                    />
+                );
+            }
+        }
+    ];
+
+    // Handle file selection
     const handleFileChange = (e) => {
-        if(e.target.files.length > 0) {
+        if (e.target.files.length > 0) {
             setSelectedFile(e.target.files[0]);
         }
     };
 
-    // Handle image upload after file is selected and an item is chosen
+    // Handle image upload
     const handleImageUpload = async () => {
-        if (!selectedFile || !itemNo.trim()) {
+        if (!selectedFile || !selectedId.toString().trim()) {
             console.error("Please select a file and choose an item.");
             return;
         }
@@ -149,19 +156,11 @@ const PadPrints = () => {
         const formData = new FormData();
         formData.append('file', selectedFile);
 
-        // Debug logs to ensure correct values
-        console.log('Selected file:', selectedFile);
-        console.log('Uploading for item number:', itemNo);
-
         try {
             const response = await axios.post(
-                `http://127.0.0.1:5000/api/image-upload/upload-image/${itemNo}`,  // URL with itemNo
+                `http://127.0.0.1:5000/api/image-upload/upload-image/${selectedId}`,
                 formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
             );
             console.log('Image uploaded successfully:', response.data);
         } catch (error) {
@@ -169,13 +168,13 @@ const PadPrints = () => {
         }
     };
 
-    // Update selection and set itemNo if one row is selected
+    // Update selected rows and set the selected id
     const handleSelectionChange = (newSelection) => {
         setSelectedItems(newSelection);
         if (newSelection.length === 1) {
-            setItemNo(newSelection[0]);  // Because id is item_no
+            setSelectedId(newSelection[0]);
         } else {
-            setItemNo("");
+            setSelectedId("");
         }
     };
 
@@ -195,13 +194,8 @@ const PadPrints = () => {
                     size="small"
                     value={filterText}
                     onChange={(e) => setFilterText(e.target.value)}
-                    sx={{
-                        width: 250,
-                        '& input': { fontWeight: 'normal' }
-                    }}
+                    sx={{ width: 250, '& input': { fontWeight: 'normal' } }}
                 />
-
-                {/* File Selection Button */}
                 <Button
                     variant="contained"
                     component="label"
@@ -215,8 +209,6 @@ const PadPrints = () => {
                         accept="image/*"
                     />
                 </Button>
-
-                {/* Only show the Upload button if a file is selected */}
                 {selectedFile && (
                     <Button
                         variant="contained"
@@ -244,18 +236,7 @@ const PadPrints = () => {
                         checkboxSelection
                         onRowSelectionModelChange={handleSelectionChange}
                         selectionModel={selectedItems}
-                        sx={{
-                            '& .MuiTablePagination-root': {
-                                overflow: 'hidden',
-                                minHeight: '52px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end'
-                            }
-                        }}
-                        components={{
-                            Pagination: CustomPagination
-                        }}
+                        components={{ Pagination: CustomPagination }}
                     />
                 </div>
             )}
