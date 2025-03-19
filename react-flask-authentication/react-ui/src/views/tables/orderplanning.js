@@ -521,13 +521,36 @@ const OrderPlanning = () => {
         setCollarettoTables(prevTables => {
             const updatedTables = [...prevTables];
             const updatedRows = [...updatedTables[tableIndex].rows];
+            const updatedRow = { ...updatedRows[rowIndex], [field]: value };
     
-            updatedRows[rowIndex] = { ...updatedRows[rowIndex], [field]: value };
+            // Auto-calculate pcsSeamtoSeam if usableWidth and grossLength are available
+            const usableWidth = parseFloat(field === "usableWidth" ? value : updatedRow.usableWidth) || 0;
+            const grossLength = parseFloat(field === "grossLength" ? value : updatedRow.grossLength) || 0;
     
-            updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
+            if (usableWidth > 0 && grossLength > 0) {
+                updatedRow.pcsSeamtoSeam = usableWidth > 0 && grossLength > 0
+                    ? ((usableWidth / 100) / grossLength).toFixed(1)
+                    : "";
+            } else {
+                updatedRow.pcsSeamtoSeam = ""; // Reset if incomplete
+            }
 
+            if (field === "panelLength" || field === "collarettoWidth" || field === "scrapRoll") {
+                const panelLength = parseFloat(field === "panelLength" ? value : updatedRow.panelLength) || 0;  // cm
+                const collarettoWidthMM = parseFloat(field === "collarettoWidth" ? value : updatedRow.collarettoWidth) || 1;
+                const collarettoWidthCM = collarettoWidthMM / 10; // mm → cm
+                const scrap = parseFloat(field === "scrapRoll" ? value : updatedRow.scrapRoll) || 0;
+            
+                updatedRow.koturiPerRoll = collarettoWidthCM > 0
+                    ? Math.floor(panelLength / collarettoWidthCM) - scrap
+                    : 0;
+            }
+    
+            updatedRows[rowIndex] = updatedRow;
+            updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
             return updatedTables;
         });
+        setUnsavedChanges(true);
     };
 
     const handleAlongRowChange = (tableIndex, rowIndex, field, value) => {
@@ -1722,6 +1745,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
                                         sx={{ width: '100%', minWidth: '60px' }}
@@ -1741,6 +1765,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
@@ -1759,6 +1784,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
@@ -1769,8 +1795,11 @@ const OrderPlanning = () => {
                                     <TextField
                                         label="Extra %"
                                         variant="outlined"
-                                        value={table.alongExtra || ""}
-                                        onChange={(e) => handleExtraChange(tableIndex, e.target.value.slice(0, 2))}
+                                        value={table.collarettoExtra || ""}
+                                        onChange={(e) => {
+                                            handleExtraChange(tableIndex, e.target.value.slice(0, 2));
+                                            setUnsavedChanges(true);
+                                        }}
                                         sx={{ width: '100%', minWidth: '60px' }}
                                     />
                                 </Grid>
@@ -1787,6 +1816,7 @@ const OrderPlanning = () => {
                                                 updatedTables[tableIndex] = { ...updatedTables[tableIndex], collarettoType: newValue };
                                                 return updatedTables;
                                             });
+                                            setUnsavedChanges(true);
                                         }} // ✅ Update table-specific state
                                         renderInput={(params) => (
                                             <TextField {...params} label="Collaretto Type" variant="outlined" />
@@ -1807,26 +1837,33 @@ const OrderPlanning = () => {
                                     <Table>
                                         <TableHead>
                                             <TableRow sx={{ height: "50px" }}>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>IT Cons. [m/pc]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Pcs Seam to Seam</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Panel Length [cm]</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Koturi per Roll</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Rolls</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Rolls</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Total Collaretto [m]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Consumption</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Cons [m]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
                                                 <TableCell></TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {table.rows.map((row, rowIndex) => (
                                                 <TableRow key={rowIndex}>
-                                                    {/* Bagno (Editable Text Field) */}
+
+                                                    {/* Pieces (Editable Text Field) */}
                                                     <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
                                                         <TextField
                                                             variant="outlined"
-                                                            value={row.bagno || ""}
-                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "bagno", e.target.value)}
+                                                            value={row.pieces || ""}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7));
+                                                                setUnsavedChanges(true);
+                                                            }}
                                                             sx={{
                                                                 width: '100%',
                                                                 minWidth: '90px',
@@ -1842,7 +1879,10 @@ const OrderPlanning = () => {
                                                         <TextField
                                                             variant="outlined"
                                                             value={row.usableWidth || ""}
-                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3))}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3));
+                                                                setUnsavedChanges(true);
+                                                            }}
                                                             sx={{
                                                                 width: '100%',
                                                                 minWidth: '90px', // ✅ Ensures a minimum width
@@ -1853,28 +1893,39 @@ const OrderPlanning = () => {
                                                         />
                                                     </TableCell>
 
-                                                    {/* Pieces (Editable Text Field) */}
-                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
+                                                    {/* Gross Length */}
+                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
                                                         <TextField
                                                             variant="outlined"
-                                                            value={row.pieces || ""}
-                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7))}
+                                                            value={row.grossLength || ""}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "grossLength", e.target.value.replace(/[^0-9.,]/g, ''));
+                                                                setUnsavedChanges(true);
+                                                            }}
                                                             sx={{
                                                                 width: '100%',
-                                                                minWidth: '90px',
-                                                                maxWidth: '120px',
+                                                                minWidth: '90px', // ✅ Ensures a minimum width
+                                                                maxWidth: '120px', // ✅ Prevents expanding too much
                                                                 textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" }
+                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
                                                             }}
                                                         />
                                                     </TableCell>
 
-                                                    {/* Theoretical Consumption (Editable Text Field) */}
+                                                    {/* Pcs Seam to Seam */}
+                                                    <TableCell align="center">
+                                                        <Typography>{row.pcsSeamtoSeam || ""}</Typography>
+                                                    </TableCell>
+
+                                                    {/* Panel Length */}
                                                     <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
                                                         <TextField
                                                             variant="outlined"
-                                                            value={row.theoreticalConsumption || ""}
-                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "theoreticalConsumption", e.target.value.replace(/[^0-9.,]/g, ''))}
+                                                            value={row.panelLength || ""}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "panelLength", e.target.value.replace(/\D/g, '').slice(0, 3));
+                                                                setUnsavedChanges(true);
+                                                            }}
                                                             sx={{
                                                                 width: '100%',
                                                                 minWidth: '90px', // ✅ Ensures a minimum width
@@ -1890,7 +1941,10 @@ const OrderPlanning = () => {
                                                         <TextField
                                                             variant="outlined"
                                                             value={row.collarettoWidth || ""}
-                                                            onChange={(e) => handleAlongRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4));
+                                                                setUnsavedChanges(true);
+                                                            }}
                                                             sx={{
                                                                 width: '100%',
                                                                 minWidth: '65px', // ✅ Ensures a minimum width
@@ -1901,7 +1955,26 @@ const OrderPlanning = () => {
                                                         />
                                                     </TableCell>
 
-                                                    {/* Koturi per Roll */}
+                                                    {/* Srap Roll */}
+                                                    <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.scrapRoll || ""}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "scrapRoll", e.target.value.replace(/\D/g, '').slice(0, 1));
+                                                                setUnsavedChanges(true);
+                                                            }}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '65px', // ✅ Ensures a minimum width
+                                                                maxWidth: '150px', // ✅ Prevents expanding too much
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {/* N° Rolls */}
                                                     <TableCell align="center">
                                                         <Typography>{row.koturiPerRoll || ""}</Typography>
                                                     </TableCell>
@@ -1914,6 +1987,25 @@ const OrderPlanning = () => {
                                                     {/* Consumption */}
                                                     <TableCell align="center">
                                                         <Typography>{row.consumption && row.consumption !== "0.00" ? row.consumption : ""}</Typography>
+                                                    </TableCell>
+
+                                                    {/* Bagno (Editable Text Field) */}
+                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
+                                                        <TextField
+                                                            variant="outlined"
+                                                            value={row.bagno || ""}
+                                                            onChange={(e) => {
+                                                                handleCollarettoRowChange(tableIndex, rowIndex, "bagno", e.target.value);
+                                                                setUnsavedChanges(true);
+                                                            }}
+                                                            sx={{
+                                                                width: '100%',
+                                                                minWidth: '90px',
+                                                                maxWidth: '120px',
+                                                                textAlign: 'center',
+                                                                "& input": { textAlign: "center", fontWeight: "normal" }
+                                                            }}
+                                                        />
                                                     </TableCell>
 
                                                     {/* Delete Button */}

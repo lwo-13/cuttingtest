@@ -42,7 +42,7 @@ const CustomPagination = (props) => {
     );
 };
 
-const PadPrints = () => {
+const PadPrints_clz = () => {
     const [padPrints, setPadPrints] = useState([]);  // ✅ State for pad prints
     const [loading, setLoading] = useState(true);  // ✅ Loading state to manage fetching
     const [filterText, setFilterText] = useState("");
@@ -244,4 +244,4 @@ const PadPrints = () => {
     );
 };
 
-export default PadPrints;
+export default PadPrints_clz;
