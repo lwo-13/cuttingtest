@@ -47,19 +47,19 @@ def create_app():
 
         if int(response.status_code) >= 400:
             try:
-                response_data = json.loads(response.get_data())
+                response_data = py_json.loads(response.get_data())  # Use py_json instead of json
                 if "errors" in response_data:
                     response_data = {
                         "success": False,
                         "msg": list(response_data["errors"].items())[0][1]
                     }
-                    response.set_data(json.dumps(response_data))
+                    response.set_data(py_json.dumps(response_data))  # Use py_json.dumps()
             except Exception:
                 response_data = {
                     "success": False,
                     "msg": "An unexpected error occurred. Invalid response format."
                 }
-                response.set_data(json.dumps(response_data))
+                response.set_data(py_json.dumps(response_data))  # Use py_json.dumps()
 
             response.headers.add('Content-Type', 'application/json')
         return response
