@@ -8,7 +8,8 @@ from .orders import orders_bp, orders_api
 from .root import root_bp
 from .mattress import mattress_bp, mattress_api
 from .items import zalli_bp, zalli_api  # Existing module
-from .padprint import padprint_bp, padprint_api  # New module for padprint
+from .padprint import padprint_bp, padprint_api
+from .collaretto import collaretto_bp, collaretto_api
 
 # Define the main RESTx API with Swagger documentation settings
 rest_api = Api(
@@ -28,6 +29,7 @@ def register_blueprints(app):
     app.register_blueprint(mattress_bp, url_prefix="/api/mattress")
     app.register_blueprint(zalli_bp, url_prefix="/api/zalli")
     app.register_blueprint(padprint_bp, url_prefix="/api/padprint")
+    app.register_blueprint(collaretto_bp, url_prefix="/api/collaretto")
     
     # Attach Namespaces so they appear in the Swagger docs
     rest_api.add_namespace(auth_api, path="/api/users")
@@ -36,3 +38,4 @@ def register_blueprints(app):
     rest_api.add_namespace(mattress_api, path="/api/mattress")
     rest_api.add_namespace(zalli_api, path="/api/zalli")
     rest_api.add_namespace(padprint_api, path="/api/padprint")
+    rest_api.add_namespace(collaretto_api, path="/api/collaretto")

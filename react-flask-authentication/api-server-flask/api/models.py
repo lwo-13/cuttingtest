@@ -340,6 +340,87 @@ class MattressSize(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+class Collaretto(db.Model):
+    __tablename__ = 'collaretto'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    collaretto = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
+    order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    fabric_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    fabric_code = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    fabric_color = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    dye_lot = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # ✅ Now nullable
+    item_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def __repr__(self):
+        return f"<Collaretto {self.collaretto}, Order {self.order_commessa}>"
+
+    def save(self):
+        """Save the collaretto record to the database."""
+        db.session.add(self)
+        db.session.commit()
+
+    def to_dict(self):
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result
+    
+class CollarettoDetail(db.Model):
+    __tablename__ = 'collaretto_details'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    collaretto_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('collaretto.id', ondelete='CASCADE'), 
+        nullable=False, unique=True
+    )
+
+    mattress_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('mattresses.id', ondelete='CASCADE'), 
+        nullable=True
+    )
+
+    pieces = db.Column(db.Float, nullable=False)
+    usable_width = db.Column(db.Float, nullable=False)
+    roll_width = db.Column(db.Float, nullable=False)
+    gross_length = db.Column(db.Float, nullable=False)
+    scrap_rolls = db.Column(db.Float, nullable=True)
+    rolls_planned = db.Column(db.Float, nullable=True)
+    rolls_actual = db.Column(db.Float, nullable=True)
+    cons_planned = db.Column(db.Float, nullable=True)
+    cons_actual = db.Column(db.Float, nullable=True)
+    extra = db.Column(db.Float, nullable=True)
+    total_collaretto = db.Column(db.Float, nullable=True)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def __repr__(self):
+        return f"<CollarettoDetail CollarettoID={self.collaretto_id} MattressID={self.mattress_id}>"
+
+    def to_dict(self):
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result
+
+    # Optional Relationships (if you want easy access to parent objects)
+    collaretto = db.relationship('Collaretto', backref=db.backref('details', cascade='all, delete-orphan'))
+    mattress = db.relationship('Mattresses', backref=db.backref('collaretto_details', cascade='all, delete-orphan'))
+
 class ZalliItemsView(db.Model):
     __tablename__ = 'zalli_items_view'
     __table_args__ = {'info': {'read_only': True}}
