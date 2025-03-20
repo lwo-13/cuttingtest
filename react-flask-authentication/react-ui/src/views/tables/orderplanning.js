@@ -694,7 +694,7 @@ const OrderPlanning = () => {
             // ✅ Auto-calculate panels if pieces and rolls exist
             const pieces = parseFloat(field === "pieces" ? value : updatedRow.pieces);
             const rolls = parseFloat(updatedRow.rolls);
-            const extra = parseFloat(updatedTables[tableIndex].collarettoExtra) || 0; // Extra comes from table level
+            const extra = parseFloat(updatedTables[tableIndex].weftExtra) || 0; // Extra comes from table level
 
             if (!isNaN(pieces) && !isNaN(rolls) && rolls > 0 && !isNaN(extra)) {
                 const multiplier = 1 + (extra / 100);
@@ -786,7 +786,7 @@ const OrderPlanning = () => {
     const handleWeftExtraChange = (tableIndex, value) => {
         setWeftTables(prevTables => {
             const updatedTables = [...prevTables];
-            const updatedTable = { ...updatedTables[tableIndex], collarettoExtra: value };
+            const updatedTable = { ...updatedTables[tableIndex], weftExtra: value };
 
             // ✅ Recalculate panels and consumption for each row if possible
             updatedTable.rows = updatedTable.rows.map(row => {
@@ -918,6 +918,28 @@ const OrderPlanning = () => {
             return;
         }
 
+        const hasInvalidWeftData = weftTables.some((table, tableIndex) => {
+            if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.weftExtra) {
+                invalidWeftRow = `Collaretto Weft ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color, or Extra)`;
+                return true;
+            }
+        
+            return table.rows.some((row, rowIndex) => {
+                if (!row.pieces || !row.usableWidth || !row.grossLength || !row.panelLength || !row.collarettoWidth || !row.scrapRoll) {
+                    invalidWeftRow = `Collaretto Weft ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
+                    return true;
+                }
+                return false;
+            });
+        });
+
+        // 🚨 Error Handling for Weft
+        if (hasInvalidWeftData) {
+            setErrorMessage(invalidWeftRow);
+            setOpenError(true);
+            return;
+        }
+
         // ✅ Proceed with valid mattress processing
         tables.forEach((table) => {
             table.rows.forEach((row, rowIndex) => {
@@ -1007,7 +1029,47 @@ const OrderPlanning = () => {
                 allongPayloads.push(payload);
             });
         });
-    
+
+        weftTables.forEach((table) => {
+            table.rows.forEach((row, rowIndex) => {
+                // ✅ Build unique collaretto (weft) name WITH padded index
+                const collarettoWeftName = `${selectedOrder}-CW-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
+                newWeftNames.add(collarettoWeftName);
+
+                const mattressName = `${selectedOrder}-PLOCE-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
+        
+                // ✅ Build the payload for this weft row
+                const payload = {
+                    collaretto: collarettoWeftName,
+                    mattress: mattressName,
+                    order_commessa: selectedOrder,
+                    fabric_type: table.fabricType,
+                    fabric_code: table.fabricCode,
+                    fabric_color: table.fabricColor,
+                    dye_lot: row.bagno || null,  // ✅ Pull bagno directly from the row
+                    item_type: "CW",  // ✅ Custom type for Collaretto Weft
+                    details: [
+                        {
+                            pieces: parseFloat(row.pieces) || 0,
+                            usable_width: parseFloat(row.usableWidth) || 0,
+                            gross_length: parseFloat(row.grossLength) || 0,
+                            panel_length: parseFloat(row.panelLength) || 0,
+                            roll_width: parseFloat(row.collarettoWidth) || 0,
+                            scrap_rolls: parseFloat(row.scrapRoll) || 0,
+                            rolls_planned: parseFloat(row.rolls) || null,
+                            rolls_actual: null,
+                            panels_planned: parseFloat(row.panels) || null,
+                            cons_planned: parseFloat(row.consumption) || null,
+                            cons_actual: null,
+                            extra: parseFloat(table.weftExtra) || 0
+                        }
+                    ]
+                };
+        
+                weftPayloads.push(payload);
+            });
+        });
+                     
         // ✅ Send Update Requests
         Promise.all(payloads.map(payload =>
             axios.post('http://127.0.0.1:5000/api/mattress/add_mattress_row', payload)
@@ -1039,6 +1101,23 @@ const OrderPlanning = () => {
                 .catch(error => {
                     console.error(`❌ Error saving along row ${payload.collaretto}:`, error);
                     throw error; // Ensures Promise.all stops on failure
+                })
+        ))
+
+        // ✅ Send Weft Update Requests
+        Promise.all(weftPayloads.map(payload =>
+            axios.post('http://127.0.0.1:5000/api/collaretto/add_weft_row', payload)
+                .then(response => {
+                    if (response.data.success) {
+                        console.log(`✅ Weft Row ${payload.collaretto} saved successfully.`);
+                    } else {
+                        console.warn(`⚠️ Failed to save weft row ${payload.collaretto}:`, response.data.message);
+                        throw new Error(`Failed to save weft row ${payload.collaretto}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`❌ Error saving weft row ${payload.collaretto}:`, error);
+                    throw error; // ✅ Ensures Promise.all stops on failure
                 })
         ))
         
@@ -2190,7 +2269,7 @@ const OrderPlanning = () => {
                                     <TextField
                                         label="Extra %"
                                         variant="outlined"
-                                        value={table.collarettoExtra || ""}
+                                        value={table.weftExtra || ""}
                                         onChange={(e) => {
                                             const value = e.target.value.replace(/\D/g, '').slice(0, 2); // ✅ Only digits, max 2
                                             handleWeftExtraChange(tableIndex, value);

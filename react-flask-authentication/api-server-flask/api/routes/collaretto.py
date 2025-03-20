@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import db, Collaretto, CollarettoDetail
+from api.models import db, Collaretto, CollarettoDetail, Mattresses
 from flask_restx import Namespace, Resource
 from datetime import datetime
 
@@ -157,4 +157,107 @@ class GetCollarettoByOrder(Resource):
         except Exception as e:
             print(f"❌ Error fetching collaretto by order: {str(e)}")
             return jsonify({"success": False, "message": "Failed to fetch collaretto data.", "error": str(e)})
+
+@collaretto_api.route('/add_weft_row', methods=['POST'])
+class CollarettoWeft(Resource):
+    def post(self):
+        data = request.get_json()
+
+        collaretto_name = data.get('collaretto')
+        mattress_name = data.get('mattress')
+        order_commessa = data.get('order_commessa')
+        fabric_type = data.get('fabric_type')
+        fabric_code = data.get('fabric_code')
+        fabric_color = data.get('fabric_color')
+        dye_lot = data.get('dye_lot')
+        item_type = data.get('item_type')
+        details = data.get('details', [])
+            
+        try:
+            # ✅ Check if mattress already exists
+            existing_mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
+            if existing_mattress:
+                print(f"🔄 Updating existing mattress: {mattress_name}")
+                existing_mattress.order_commessa = order_commessa
+                existing_mattress.fabric_type = fabric_type
+                existing_mattress.fabric_code = fabric_code
+                existing_mattress.fabric_color = fabric_color
+                existing_mattress.dye_lot = dye_lot
+                existing_mattress.item_type = 'PLOCE'
+                existing_mattress.updated_at = datetime.now()
+                db.session.flush()
+            else:
+                print(f"➕ Creating new mattress: {mattress_name}")
+                existing_mattress = Mattresses(
+                    mattress=mattress_name,
+                    order_commessa=order_commessa,
+                    fabric_type=fabric_type,
+                    fabric_code=fabric_code,
+                    fabric_color=fabric_color,
+                    dye_lot=dye_lot,
+                    item_type='PLOCE',
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.session.add(existing_mattress)
+                db.session.flush()  # ✅ Get mattress.id
+
+            # ✅ Check if collaretto exists
+            existing_collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
+            if existing_collaretto:
+                print(f"🔄 Updating existing collaretto: {collaretto_name}")
+                existing_collaretto.order_commessa = order_commessa
+                existing_collaretto.fabric_type = fabric_type
+                existing_collaretto.fabric_code = fabric_code
+                existing_collaretto.fabric_color = fabric_color
+                existing_collaretto.dye_lot = dye_lot
+                existing_collaretto.item_type = item_type
+                existing_collaretto.updated_at = datetime.now()
+                db.session.flush()
+            else:
+                print(f"➕ Creating new collaretto: {collaretto_name}")
+                existing_collaretto = Collaretto(
+                    collaretto=collaretto_name,
+                    order_commessa=order_commessa,
+                    fabric_type=fabric_type,
+                    fabric_code=fabric_code,
+                    fabric_color=fabric_color,
+                    dye_lot=dye_lot,
+                    item_type=item_type,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.session.add(existing_collaretto)
+                db.session.flush()  # ✅ Get collaretto.id
+            
+# ✅ CREATE MATTRESS_DETAILS
+# ✅ CREATE MATTRESS_PHASES
+
+            # ✅ Process the details and link mattress_id TAKE INTO CONISDERATION IF DETIASL EXIST OR NOT
+            for detail in details:
+                new_detail = CollarettoDetail(
+                    collaretto_id=existing_collaretto.id,
+                    mattress_id=existing_mattress.id,  # ✅ Store mattress_id
+                    pieces=detail.get('pieces'),
+                    usable_width=detail.get('usable_width'),
+                    gross_length=detail.get('gross_length'),
+                    panel_length=detail.get('panel_length'),
+                    roll_width=detail.get('roll_width'),
+                    scrap_rolls=detail.get('scrap_rolls'),
+                    rolls_planned=detail.get('rolls_planned'),
+                    rolls_actual=detail.get('rolls_actual'),
+                    panels_planned=detail.get('panels_planned'),
+                    cons_planned=detail.get('cons_planned'),
+                    cons_actual=detail.get('cons_actual'),
+                    extra=detail.get('extra'),
+                )
+                db.session.add(new_detail)
+
+            db.session.commit()
+            return jsonify({"success": True, "message": "Collaretto Weft Row saved successfully"})
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error saving collaretto weft row:", e)
+            return jsonify({"success": False, "message": str(e)})
 
