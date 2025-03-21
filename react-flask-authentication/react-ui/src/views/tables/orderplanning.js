@@ -794,7 +794,6 @@ const OrderPlanning = () => {
             updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
             return updatedTables;
         });
-        setUnsavedChanges(true);
     };
 
     const handleAlongRowChange = (tableIndex, rowIndex, field, value) => {
@@ -1306,7 +1305,7 @@ const OrderPlanning = () => {
         style.innerHTML = `
             @media print {
                 body {
-                    zoom: 60%; /* Adjust if necessary */
+                    zoom: 50%; /* Adjust if necessary */
                 }
                 .scrollbar-container, .navbar, .buttons, .floating-action-button, .MuiButtonBase-root {
                     display: none !important;
