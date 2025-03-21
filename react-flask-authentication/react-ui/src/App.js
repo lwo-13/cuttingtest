@@ -3,6 +3,8 @@ import { useSelector } from 'react-redux';
 
 import { ThemeProvider, CssBaseline, StyledEngineProvider } from '@mui/material';
 
+import { GlobalStyles } from '@mui/material';
+
 // routing
 import Routes from './routes';
 
@@ -21,6 +23,15 @@ const App = () => {
         <StyledEngineProvider injectFirst>
             <ThemeProvider theme={theme(customization)}>
                 <CssBaseline />
+
+                {/* ✅ Edge fix for password reveal and clear */}
+                <GlobalStyles
+                styles={{
+                    'input::-ms-reveal': { display: 'none' },
+                    'input::-ms-clear': { display: 'none' }
+                }}
+                />
+                
                 <NavigationScroll>
                     <Routes />
                 </NavigationScroll>

@@ -77,7 +77,7 @@ const UpgradePlanCard = () => {
                             <AnimateButton>
                                 <Button
                                     component={Link}
-                                    href="https://appseed.us/product/berry-dashboard/api-server-flask/react/"
+                                    href="https://app.powerbi.com/groups/43372a6e-1426-47c4-b649-c4e5a7b442c9/reports/d0c8200d-b5b6-4e13-9bdd-59d6971ed2e8?ctid=6059e369-43c9-4383-8894-23a9d5957ceb&pbi_source=linkShare"
                                     target="_blank"
                                     variant="contained"
                                     className={classes.button}

@@ -5,6 +5,7 @@ import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
+import LockOutlined from '@mui/icons-material/LockOutlined';
 
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
@@ -172,22 +173,31 @@ const OrderPlanning = () => {
 
     const handleRemoveTable = (id) => {
         setTables(prevTables => {
-            const updatedTables = prevTables.filter(table => table.id !== id);
+            const tableToRemove = prevTables.find(table => table.id === id);
     
-            // ✅ Find the table being removed
-            const removedTable = prevTables.find(table => table.id === id);
+            // ✅ If the table doesn't exist, just return the previous state
+            if (!tableToRemove) return prevTables;
     
-            if (removedTable) {
-                // ✅ Push ALL mattressNames of this table to deletedMattresses
-                removedTable.rows.forEach(row => {
-                    if (row.mattressName) {
-                        setDeletedMattresses(prev => [...prev, row.mattressName]);
-                    }
-                });
+            // ✅ Check if the table contains any non-editable rows
+            const hasLockedRow = tableToRemove.rows.some(row => !row.isEditable);
+    
+            if (hasLockedRow) {
+                console.warn("❌ Cannot delete this table: contains a locked mattress (already in production).");
+                // Optional: Show a toast or UI alert
+                // toast.error("You cannot delete this group. One or more mattresses are already in production.");
+                return prevTables; // Block deletion
             }
     
+            // ✅ Safe to delete: add mattressNames to the deleted list
+            tableToRemove.rows.forEach(row => {
+                if (row.mattressName) {
+                    setDeletedMattresses(prev => [...prev, row.mattressName]);
+                }
+            });
+    
             setUnsavedChanges(true);
-            return updatedTables;
+            // ✅ Remove the table
+            return prevTables.filter(table => table.id !== id);
         });
     };
 
@@ -357,6 +367,9 @@ const OrderPlanning = () => {
                                 rows: []
                             };
                         }
+
+                        // ✅ Store phase_status and create a boolean for easy checks
+                        const isEditable = mattress.phase_status === "0 - NOT SET";
     
                         // Get marker details for this mattress
                         const markerDetails = markersMap[mattress.marker_name];
@@ -371,7 +384,8 @@ const OrderPlanning = () => {
                             piecesPerSize: markerDetails ? markerDetails.size_quantities || {} : {},
                             layers: mattress.layers || "",
                             expectedConsumption: "",
-                            bagno: mattress.dye_lot
+                            bagno: mattress.dye_lot,
+                            isEditable
                         });
                     });
     
@@ -528,7 +542,6 @@ const OrderPlanning = () => {
     };
     
     // Function to add a new row
-    /* fix this */
     const handleAddRow = (tableIndex) => {
         setTables(prevTables => {
             return prevTables.map((table, index) => {
@@ -548,7 +561,8 @@ const OrderPlanning = () => {
                                 efficiency: "",
                                 layers: "",
                                 expectedConsumption: "",
-                                bagno: ""
+                                bagno: "",
+                                isEditable: true  // ✅ Newly added row is editable by default
                             }
                         ]
                     };
@@ -623,6 +637,11 @@ const OrderPlanning = () => {
             return prevTables.map((table, tIndex) => {
                 if (tIndex === tableIndex) {
                     const deletedRow = table.rows[rowIndex];
+
+                    // ✅ Prevent deletion if the row is not editable (phase is locked)
+                    if (!deletedRow.isEditable) {
+                        return table; // Return table unchanged
+                    }
     
                     // ✅ If the row has a valid mattress name, add it to the delete list
                     if (deletedRow.mattressName) {
@@ -1316,6 +1335,10 @@ const OrderPlanning = () => {
         }, 300);
     };
 
+    const isTableEditable = (table) => {
+        return table.rows.every(row => row.isEditable);
+    };
+
     return (
         <>
             <MainCard title="Order Planning" sx={{ position: 'relative' }}>
@@ -1570,6 +1593,7 @@ const OrderPlanning = () => {
                                         )}
                                         getOptionLabel={(option) => option}
                                         value={tables[tableIndex].fabricType || null}
+                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
                                         onChange={(event, newValue) => {
                                             setTables(prevTables => {
                                                 const updatedTables = [...prevTables];
@@ -1593,6 +1617,7 @@ const OrderPlanning = () => {
                                         label="Fabric Code"
                                         variant="outlined"
                                         value={tables[tableIndex].fabricCode || ""}
+                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
                                         onChange={(e) => {
                                             const value = e.target.value.replace(/[^a-zA-Z0-9 ]/g, '').toUpperCase().slice(0, 8);
                                             setTables(prevTables => {
@@ -1616,6 +1641,7 @@ const OrderPlanning = () => {
                                         label="Fabric Color"
                                         variant="outlined"
                                         value={tables[tableIndex].fabricColor || ""}
+                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
                                         onChange={(e) => {
                                             const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
                                             setTables(prevTables => {
@@ -1639,6 +1665,7 @@ const OrderPlanning = () => {
                                         options={["FACE UP", "FACE DOWN", "FACE TO FACE"]} // ✅ Defined options
                                         getOptionLabel={(option) => option} 
                                         value={tables[tableIndex].spreadingMethod || null} // ✅ Table-specific value
+                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
                                         onChange={(event, newValue) => {
                                             setTables(prevTables => {
                                                 const updatedTables = [...prevTables];
@@ -1664,6 +1691,7 @@ const OrderPlanning = () => {
                                         label="Allowance [m]"
                                         variant="outlined"
                                         value={tables[tableIndex]?.allowance || ""} 
+                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
                                         onChange={(e) => {
                                             const value = e.target.value
                                                 .replace(/[^0-9.,]/g, '')  // ✅ Allow only digits, dot (.), and comma (,)
@@ -1732,6 +1760,7 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].width || ""}
+                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
                                                         onChange={(e) => {
                                                             const value = e.target.value.replace(/\D/g, '').slice(0, 3);  // ✅ Remove non-numeric & limit to 4 digits
                                                             
@@ -1783,6 +1812,7 @@ const OrderPlanning = () => {
                                                             </li>
                                                         )}
                                                         value={markerOptions.find(m => m.marker_name === row.markerName) || null}
+                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
                                                         onChange={(_, newValue) => {
                                                             setTables(prevTables => {
                                                                 const updatedTables = [...prevTables];
@@ -1855,6 +1885,7 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].layers || ""}
+                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
                                                         onChange={(e) => {
                                                             const value = e.target.value.replace(/\D/g, '').slice(0, 4);  // ✅ Remove non-numeric & limit to 4 digits
                                                             handleInputChange(tableIndex, rowIndex, "layers", value);
@@ -1881,6 +1912,7 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].bagno || ""}
+                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
                                                         onChange={(e) => handleInputChange(tableIndex, rowIndex, "bagno", e.target.value)}
                                                         sx={{
                                                             width: '100%',
@@ -1892,15 +1924,21 @@ const OrderPlanning = () => {
                                                     />
                                                 </TableCell>
 
-                                                {/* Delete Button */}
+                                                {/* Delete or Lock Button */}
                                                 <TableCell>
-                                                    <IconButton 
-                                                        onClick={() => handleRemoveRow(tableIndex, rowIndex)}
-                                                        color="error"
-                                                        disabled={tables[tableIndex].rows.length === 1} // ✅ Disable when only 1 row left
-                                                    >
-                                                        <DeleteOutline />
-                                                    </IconButton>
+                                                    {tables[tableIndex].rows[rowIndex].isEditable ? (
+                                                        <IconButton 
+                                                            onClick={() => handleRemoveRow(tableIndex, rowIndex)}
+                                                            color="error"
+                                                            disabled={tables[tableIndex].rows.length === 1} // ✅ Disable if only 1 row left
+                                                        >
+                                                            <DeleteOutline />
+                                                        </IconButton>
+                                                    ) : (
+                                                        <IconButton disabled>
+                                                            <LockOutlined color="disabled" /> {/* ✅ Lock icon when not editable */}
+                                                        </IconButton>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -1943,13 +1981,15 @@ const OrderPlanning = () => {
                                     </Button>
 
                                     {/* Remove Table Button */}
-                                    <Button 
-                                        variant="outlined" 
-                                        color="error" 
-                                        onClick={() => handleRemoveTable(table.id)}
-                                    >
-                                        Remove
-                                    </Button>
+                                    {isTableEditable(table) && (
+                                        <Button 
+                                            variant="outlined" 
+                                            color="error" 
+                                            onClick={() => handleRemoveTable(table.id)}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
                                 </Box>
                             </Box>
                         </Box>

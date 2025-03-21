@@ -190,11 +190,14 @@ class GetMattressesByOrder(Resource):
                 Mattresses,
                 MattressDetail.layers,  # Fetch `layers` from mattress_details
                 MattressDetail.extra,
-                MattressMarker.marker_name  # Fetch `marker_name` from mattress_markers
+                MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
+                MattressPhase.status.label('phase_status')
             ).outerjoin(
                 MattressDetail, Mattresses.id == MattressDetail.mattress_id
             ).outerjoin(
                 MattressMarker, Mattresses.id == MattressMarker.mattress_id
+            ).outerjoin(
+                MattressPhase, db.and_(Mattresses.id == MattressPhase.mattress_id, MattressPhase.active == True)
             ).filter(
                 Mattresses.order_commessa == order_commessa,
                 Mattresses.item_type == 'AS'
@@ -204,9 +207,10 @@ class GetMattressesByOrder(Resource):
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers, extra, marker_name in mattresses:
+            for mattress, layers, extra, marker_name, phase_status  in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
+                    "phase_status": phase_status,
                     "fabric_type": mattress.fabric_type,
                     "fabric_code": mattress.fabric_code,
                     "fabric_color": mattress.fabric_color,
