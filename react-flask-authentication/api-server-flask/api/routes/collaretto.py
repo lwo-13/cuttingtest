@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import db, Collaretto, CollarettoDetail, Mattresses
+from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDetail, MattressPhase
 from flask_restx import Namespace, Resource
 from datetime import datetime
 
@@ -120,7 +120,7 @@ class GetCollarettoByOrder(Resource):
     def get(self, order_commessa):
         try:
             # ✅ Fetch collaretto rows linked to this order
-            collaretto_rows = Collaretto.query.filter_by(order_commessa=order_commessa).all()
+            collaretto_rows = Collaretto.query.filter_by(order_commessa=order_commessa, item_type='CA').all()
 
             if not collaretto_rows:
                 return jsonify({"success": True, "data": []})  # ✅ No collaretto, still return success
@@ -174,6 +174,7 @@ class CollarettoWeft(Resource):
         details = data.get('details', [])
             
         try:
+            new_mattress_created = False
             # ✅ Check if mattress already exists
             existing_mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
             if existing_mattress:
@@ -183,7 +184,8 @@ class CollarettoWeft(Resource):
                 existing_mattress.fabric_code = fabric_code
                 existing_mattress.fabric_color = fabric_color
                 existing_mattress.dye_lot = dye_lot
-                existing_mattress.item_type = 'PLOCE'
+                existing_mattress.item_type = 'ASW'
+                existing_mattress.spreading_method='FACE UP'
                 existing_mattress.updated_at = datetime.now()
                 db.session.flush()
             else:
@@ -195,12 +197,67 @@ class CollarettoWeft(Resource):
                     fabric_code=fabric_code,
                     fabric_color=fabric_color,
                     dye_lot=dye_lot,
-                    item_type='PLOCE',
+                    item_type='ASW',
+                    spreading_method='FACE UP',
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
                 db.session.add(existing_mattress)
-                db.session.flush()  # ✅ Get mattress.id
+                db.session.flush()
+                new_mattress_created = True
+            
+            # ✅ If new mattress, insert default MattressPhases
+            if new_mattress_created:
+                print(f"➕ Inserting default MattressPhases for mattress_id {existing_mattress.id}")
+                phases = [
+                    MattressPhase(
+                        mattress_id=existing_mattress.id,
+                        status="0 - NOT SET",
+                        active=True,
+                        operator=data.get("operator"),
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    ),
+                    MattressPhase(
+                        mattress_id=existing_mattress.id,
+                        status="1 - TO LOAD",
+                        active=False,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    ),
+                    MattressPhase(
+                        mattress_id=existing_mattress.id,
+                        status="2 - COMPLETED",
+                        active=False,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                ]
+                db.session.add_all(phases)
+
+            # ✅ Loop through details - update or insert MattressDetail
+            for detail in details:
+                existing_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+
+                if existing_detail:
+                    print(f"🔄 Updating existing mattress_detail for mattress_id {existing_mattress.id}")
+                    existing_detail.layers = detail.get('panels_planned') or 0
+                    existing_detail.cons_planned = detail.get('cons_planned') or 0
+                    existing_detail.extra = 0
+                    existing_detail.updated_at = datetime.now()
+                    db.session.flush()
+                else:
+                    print(f"➕ Creating new mattress_detail for mattress_id {existing_mattress.id}")
+                    new_detail = MattressDetail(
+                        mattress_id=existing_mattress.id,
+                        layers=detail.get('panels_planned') or 0,
+                        length_mattress=detail.get('panel_length') or 0,
+                        cons_planned=detail.get('cons_planned') or 0,
+                        extra=0,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.session.add(new_detail)
 
             # ✅ Check if collaretto exists
             existing_collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
@@ -229,29 +286,42 @@ class CollarettoWeft(Resource):
                 )
                 db.session.add(existing_collaretto)
                 db.session.flush()  # ✅ Get collaretto.id
-            
-# ✅ CREATE MATTRESS_DETAILS
-# ✅ CREATE MATTRESS_PHASES
 
-            # ✅ Process the details and link mattress_id TAKE INTO CONISDERATION IF DETIASL EXIST OR NOT
             for detail in details:
-                new_detail = CollarettoDetail(
+                existing_collaretto_detail = CollarettoDetail.query.filter_by(
                     collaretto_id=existing_collaretto.id,
-                    mattress_id=existing_mattress.id,  # ✅ Store mattress_id
-                    pieces=detail.get('pieces'),
-                    usable_width=detail.get('usable_width'),
-                    gross_length=detail.get('gross_length'),
-                    panel_length=detail.get('panel_length'),
-                    roll_width=detail.get('roll_width'),
-                    scrap_rolls=detail.get('scrap_rolls'),
-                    rolls_planned=detail.get('rolls_planned'),
-                    rolls_actual=detail.get('rolls_actual'),
-                    panels_planned=detail.get('panels_planned'),
-                    cons_planned=detail.get('cons_planned'),
-                    cons_actual=detail.get('cons_actual'),
-                    extra=detail.get('extra'),
-                )
-                db.session.add(new_detail)
+                    mattress_id=existing_mattress.id
+                ).first()
+
+                if existing_collaretto_detail:
+                    print(f"🔄 Updating existing collaretto_detail for collaretto_id {existing_collaretto.id}")
+                    existing_collaretto_detail.pieces = detail.get('pieces')
+                    existing_collaretto_detail.usable_width = detail.get('usable_width')
+                    existing_collaretto_detail.gross_length = detail.get('gross_length')
+                    existing_collaretto_detail.roll_width = detail.get('roll_width')
+                    existing_collaretto_detail.scrap_rolls = detail.get('scrap_rolls')
+                    existing_collaretto_detail.rolls_planned = detail.get('rolls_planned')
+                    existing_collaretto_detail.cons_planned = detail.get('cons_planned')
+                    existing_collaretto_detail.extra = detail.get('extra')
+                    existing_collaretto_detail.updated_at = datetime.now()
+                    db.session.flush()
+                else:
+                    print(f"➕ Inserting new collaretto_detail for collaretto_id {existing_collaretto.id}")
+                    new_detail = CollarettoDetail(
+                        collaretto_id=existing_collaretto.id,
+                        mattress_id=existing_mattress.id,  # ✅ Store mattress_id
+                        pieces=detail.get('pieces'),
+                        usable_width=detail.get('usable_width'),
+                        gross_length=detail.get('gross_length'),
+                        roll_width=detail.get('roll_width'),
+                        scrap_rolls=detail.get('scrap_rolls'),
+                        rolls_planned=detail.get('rolls_planned'),
+                        cons_planned=detail.get('cons_planned'),
+                        extra=detail.get('extra'),
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.session.add(new_detail)
 
             db.session.commit()
             return jsonify({"success": True, "message": "Collaretto Weft Row saved successfully"})
@@ -261,3 +331,82 @@ class CollarettoWeft(Resource):
             print("❌ Error saving collaretto weft row:", e)
             return jsonify({"success": False, "message": str(e)})
 
+@collaretto_api.route('/delete_weft/<string:collaretto_name>', methods=['DELETE'])
+class DeleteWeft(Resource):
+    def delete(self, collaretto_name):
+        try:
+            # ✅ Check if the collaretto exists
+            collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
+            if not collaretto:
+                return jsonify({"success": False, "message": "Weft not found"})
+
+            print(f"🔎 Found weft: {collaretto_name}, deleting attached mattress...")
+
+            # ✅ Fetch ONE mattress_id from collaretto_details
+            detail = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).first()
+            if detail and detail.mattress_id:
+                mattress = Mattresses.query.get(detail.mattress_id)
+                if mattress:
+                    print(f"🗑️ Deleting mattress: {mattress.mattress}")
+                    db.session.delete(mattress)  # ✅ CASCADE takes care of MattressDetails and Phases
+
+            # ✅ Delete the collaretto itself (cascade handles collaretto_details)
+            db.session.delete(collaretto)
+
+            db.session.commit()
+            return jsonify({"success": True, "message": f"Weft {collaretto_name} and linked mattress deleted successfully"})
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error deleting weft {collaretto_name}: {e}")
+            return jsonify({"success": False, "message": str(e)})
+        
+@collaretto_api.route('/get_weft_by_order/<order_id>', methods=['GET'])
+class GetWeftByOrder(Resource):
+    def get(self, order_id):
+        try:
+            # ✅ Fetch all Collaretto Weft rows (item_type = 'CW') for the order
+            wefts = Collaretto.query.filter_by(order_commessa=order_id, item_type='CW').all()
+
+            if not wefts:
+                return jsonify({"success": False, "message": "No Collaretto Weft found for this order", "data": []})
+
+            result = []
+            for weft in wefts:
+                # ✅ Get the first collaretto_detail linked to this weft
+                detail = CollarettoDetail.query.filter_by(collaretto_id=weft.id).first()
+                if not detail:
+                    continue  # Skip if no detail exists
+
+                # ✅ Fetch mattress_id from collaretto_detail
+                mattress_id = detail.mattress_id
+
+                # ✅ Fetch the corresponding MattressDetail (panel_length and panels_planned are here)
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+
+                result.append({
+                    "collaretto": weft.collaretto,
+                    "fabric_type": weft.fabric_type,
+                    "fabric_code": weft.fabric_code,
+                    "fabric_color": weft.fabric_color,
+                    "dye_lot": weft.dye_lot,
+                    "details": {
+                        "pieces": detail.pieces,
+                        "usable_width": detail.usable_width,
+                        "gross_length": detail.gross_length,
+                        "roll_width": detail.roll_width,
+                        "scrap_rolls": detail.scrap_rolls,
+                        "rolls_planned": detail.rolls_planned,
+                        "cons_planned": detail.cons_planned,
+                        "extra": detail.extra,
+                        # ✅ Pull these from MattressDetail
+                        "panel_length": mattress_detail.length_mattress if mattress_detail else None,
+                        "panels_planned": mattress_detail.layers if mattress_detail else None
+                    }
+                })
+
+            return jsonify({"success": True, "data": result})
+
+        except Exception as e:
+            print(f"❌ Error fetching weft by order: {e}")
+            return jsonify({"success": False, "message": str(e)})

@@ -124,7 +124,7 @@ const MarkerDB = () => {
     // Table Columns
     const columns = [
         { field: 'id', headerName: 'ID', width: 50 },
-        { field: 'marker_name', headerName: 'Marker Name', width: 250 },
+        { field: 'marker_name', headerName: 'Marker Name', width: 300 },
         { field: 'marker_width', headerName: 'Width', width: 100 },
         { field: 'marker_length', headerName: 'Length', width: 100 },
         { field: 'efficiency', headerName: 'Efficiency (%)', width: 130 },

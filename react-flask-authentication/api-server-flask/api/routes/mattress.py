@@ -196,7 +196,8 @@ class GetMattressesByOrder(Resource):
             ).outerjoin(
                 MattressMarker, Mattresses.id == MattressMarker.mattress_id
             ).filter(
-                Mattresses.order_commessa == order_commessa
+                Mattresses.order_commessa == order_commessa,
+                Mattresses.item_type == 'AS'
             ).all()
 
             if not mattresses:

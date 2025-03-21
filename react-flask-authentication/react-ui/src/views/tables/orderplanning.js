@@ -326,9 +326,10 @@ const OrderPlanning = () => {
             Promise.all([
                 axios.get(`http://127.0.0.1:5000/api/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
                 axios.get(`http://127.0.0.1:5000/api/markers/marker_headers_planning?style=${newValue.style}`),  // Fetch markers
-                axios.get(`http://127.0.0.1:5000/api/collaretto/get_by_order/${newValue.id}`) 
+                axios.get(`http://127.0.0.1:5000/api/collaretto/get_by_order/${newValue.id}`),
+                axios.get(`http://127.0.0.1:5000/api/collaretto/get_weft_by_order/${newValue.id}`)
             ])
-            .then(([mattressResponse, markerResponse, alongResponse]) => {
+            .then(([mattressResponse, markerResponse, alongResponse, weftResponse]) => {
                 if (mattressResponse.data.success && markerResponse.data.success) {
                     console.log("✅ Mattresses Loaded:", mattressResponse.data.data);
                     console.log("✅ Markers Loaded:", markerResponse.data.data);
@@ -423,6 +424,63 @@ const OrderPlanning = () => {
                         setAlongTables([]);
                     }
 
+                    let loadedWeftTables = [];
+                    if (weftResponse.data.success) {
+                        console.log("✅ Weft (Collaretto Weft) Loaded:", weftResponse.data.data);
+                    
+                        // ✅ Group weft by fabric type
+                        const weftTablesByFabricType = {};
+                    
+                        weftResponse.data.data.forEach((weft) => {
+                            const fabricType = weft.fabric_type;
+                    
+                            if (!weftTablesByFabricType[fabricType]) {
+                                weftTablesByFabricType[fabricType] = {
+                                    id: Object.keys(weftTablesByFabricType).length + 1,
+                                    fabricType: fabricType,
+                                    fabricCode: weft.fabric_code,
+                                    fabricColor: weft.fabric_color,
+                                    weftExtra: weft.details.extra,  // ✅ Optional: same as along logic
+                                    rows: []
+                                };
+                            }
+                    
+                            // ✅ Push the row inside the correct fabric group
+                            weftTablesByFabricType[fabricType].rows.push({
+                                collarettoName: weft.collaretto,
+                                pieces: weft.details.pieces,
+                                usableWidth: weft.details.usable_width,
+                                grossLength: weft.details.gross_length,
+                                panelLength: weft.details.panel_length,
+                                collarettoWidth: weft.details.roll_width,
+                                scrapRoll: weft.details.scrap_rolls,
+                                rolls: weft.details.rolls_planned,
+                                panels: weft.details.panels_planned,
+                                consumption: weft.details.cons_planned,
+                                bagno: weft.dye_lot
+                            });
+                        });
+                    
+                        // ✅ Convert to array
+                        const loadedWeftTables = Object.values(weftTablesByFabricType);
+                        setWeftTables(loadedWeftTables);
+
+                        setTimeout(() => {
+                            setWeftTables(prevTables => {
+                                prevTables.forEach((table, tableIndex) => {
+                                    table.rows.forEach((row, rowIndex) => {
+                                        handleWeftRowChange(tableIndex, rowIndex, "usableWidth", row.usableWidth || "0");
+                                    });
+                                });
+                                return prevTables;
+                            });
+                        }, 100);  // Delay allows React to update the state first
+
+                    } else {
+                        console.warn("⚠️ No weft (collaretto weft) rows found");
+                        setWeftTables([]);
+                    }                    
+
                     // ✅ Automatically update expected consumption for all rows
                     setTimeout(() => {
                         loadedTables.forEach((table, tableIndex) => {
@@ -438,6 +496,7 @@ const OrderPlanning = () => {
                     console.error("❌ Error fetching mattresses or markers");
                     setTables([]);
                     setAlongTables([]);
+                    setWeftTables([]);
                     setUnsavedChanges(false);
                 }
             })
@@ -445,6 +504,7 @@ const OrderPlanning = () => {
                 console.error("❌ Error in parallel fetch:", error);
                 setTables([]);
                 setAlongTables([]);
+                setWeftTables([]);
                 setUnsavedChanges(false);
             });
         } else {
@@ -683,9 +743,9 @@ const OrderPlanning = () => {
             const scrap = parseFloat(field === "scrapRoll" ? value : updatedRow.scrapRoll);
             
             if (!isNaN(panelLength) && !isNaN(collarettoWidthMM) && !isNaN(scrap)) {
-                const collarettoWidthCM = collarettoWidthMM / 10; // Convert mm to cm
-                updatedRow.rolls = collarettoWidthCM > 0
-                    ? Math.floor(panelLength / collarettoWidthCM) - scrap
+                const collarettoWidthM = collarettoWidthMM / 1000; // Convert mm to m
+                updatedRow.rolls = collarettoWidthM > 0
+                    ? Math.floor(panelLength / collarettoWidthM) - scrap
                     : 0;
             } else {
                 updatedRow.rolls = "";
@@ -706,7 +766,7 @@ const OrderPlanning = () => {
              // ✅ Calculate consumption: panels * panelLength (if both are valid)
             const panels = parseFloat(updatedRow.panels);
             if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
-                updatedRow.consumption = (panels * (panelLength/100)).toFixed(1);
+                updatedRow.consumption = (panels * (panelLength)).toFixed(1);
             } else {
                 updatedRow.consumption = "";
             }
@@ -807,7 +867,7 @@ const OrderPlanning = () => {
                 // ✅ Recalculate consumption if panels and panelLength exist
                 const panels = parseFloat(updatedRow.panels);
                 if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
-                    updatedRow.consumption = (panels * (panelLength / 100)).toFixed(2);  // cm to meters
+                    updatedRow.consumption = (panels * (panelLength)).toFixed(1);  // cm to meters
                 } else {
                     updatedRow.consumption = "";
                 }
@@ -857,11 +917,6 @@ const OrderPlanning = () => {
     const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
     const handleSave = () => {
-        if (!selectedOrder || !tables.length) {
-            setErrorMessage("Please select an order and enter at least one mattress entry.");
-            setOpenError(true);
-            return;
-        }
     
         const newMattressNames = new Set();
         const newAlongNames = new Set(); 
@@ -1036,7 +1091,7 @@ const OrderPlanning = () => {
                 const collarettoWeftName = `${selectedOrder}-CW-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
                 newWeftNames.add(collarettoWeftName);
 
-                const mattressName = `${selectedOrder}-PLOCE-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
+                const mattressName = `${selectedOrder}-ASW-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
         
                 // ✅ Build the payload for this weft row
                 const payload = {
@@ -1158,9 +1213,28 @@ const OrderPlanning = () => {
         })
 
         .then(() => {
+            // ✅ Delete Only Weft Rows Removed from the UI
+            console.log("🗑️ Weft Rows to delete:", deletedWeft);
+        
+            const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
+        
+            return Promise.all(weftToDelete.map(weft =>
+                axios.delete(`http://127.0.0.1:5000/api/collaretto/delete_weft/${weft}`)
+                    .then(() => {
+                        console.log(`🗑️ Deleted weft row: ${weft}`);
+                    })
+                    .catch(error => {
+                        console.error(`❌ Error deleting weft row: ${weft}`, error);
+                        throw error; // ✅ Ensures Promise.all rejects if any deletion fails
+                    })
+            ));
+        })
+
+        .then(() => {
             // ✅ Reset state after successful save
             setDeletedMattresses([]);
             setDeletedAlong([]);    
+            setDeletedWeft([]);   
             setUnsavedChanges(false);
 
             // ✅ Show success message
@@ -1450,7 +1524,7 @@ const OrderPlanning = () => {
                         key={table.id} 
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                <Typography variant="h3">{`Mattress Group ${tableIndex + 1}`}</Typography>
+                                {`Mattress Group ${tableIndex + 1}`}
 
                                 {/* Right Section: Table-Specific Planned Quantities - Hide if Empty */}
                                 {Object.keys(getTablePlannedQuantities(table)).length > 0 && (
@@ -2295,7 +2369,7 @@ const OrderPlanning = () => {
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Pcs Seam to Seam</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Panel Length [cm]</TableCell>
+                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Panel Length [m]</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Rolls</TableCell>
                                                 <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Rolls</TableCell>
@@ -2377,7 +2451,10 @@ const OrderPlanning = () => {
                                                             variant="outlined"
                                                             value={row.panelLength || ""}
                                                             onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "panelLength", e.target.value.replace(/\D/g, '').slice(0, 3));
+                                                                let value = e.target.value.replace(',', '.');  // ✅ Replace comma with dot
+                                                                // ✅ Remove all except numbers and dots, prevent multiple dots
+                                                                value = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                                                                handleWeftRowChange(tableIndex, rowIndex, "panelLength", value.slice(0, 4));
                                                                 setUnsavedChanges(true);
                                                             }}
                                                             sx={{
