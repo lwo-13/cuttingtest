@@ -10,7 +10,6 @@ padprint_api = Namespace('padprint', description="PadPrint Operations")
 
 UPLOAD_FOLDER = 'static/uploads'
 
-
 # ✅ GET All PadPrints
 @padprint_api.route('/all')
 class PadPrintList(Resource):
@@ -21,6 +20,23 @@ class PadPrintList(Resource):
         except Exception as e:
             return {'error': str(e)}, 500
 
+# ✅ GET Filtered PadPrints by season, style, and color
+@padprint_api.route('/filter')
+class PadPrintFilter(Resource):
+    def get(self):
+        season = request.args.get('season')
+        style = request.args.get('style')
+        color = request.args.get('color')
+        
+        if not (season and style and color):
+            return {'success': False, 'message': 'Missing query parameters (season, style, color)'}, 400
+        
+        try:
+            padprints = PadPrint.query.filter_by(season=season, style=style, color=color).all()
+            # Return an empty array with a 200 status if no data is found
+            return {'success': True, 'data': [p.to_dict() for p in padprints]}, 200
+        except Exception as e:
+            return {'success': False, 'error': str(e)}, 500
 
 # ✅ POST Upload Image to a PadPrint
 @padprint_api.route('/upload-image/<int:id>')
@@ -82,7 +98,7 @@ class PadPrintCreate(Resource):
         except Exception as e:
             db.session.rollback()  # Rollback on error
             return {'error': str(e)}, 500
-        
+
 @padprint_api.route('/<int:id>')
 class PadPrintDetail(Resource):
     def put(self, id):
