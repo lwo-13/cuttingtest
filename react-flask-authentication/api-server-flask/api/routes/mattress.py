@@ -417,22 +417,30 @@ class UpdateDeviceResource(Resource):
 
             phase.device = new_device
 
-            # ✅ Upsert into mattress_kanban
-            kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
-            if not kanban:
-                # Calculate next position
-                max_position = db.session.query(db.func.max(MattressKanban.position)).filter_by(day=day, shift=shift).scalar() or 0
-                kanban = MattressKanban(
-                    mattress_id=mattress_id,
-                    day=day,
-                    shift=shift,
-                    position=max_position + 1
-                )
-                db.session.add(kanban)
+            # If moved to SP0, delete the mattress from mattress_kanban
+            if new_device == "SP0":
+                kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+                if kanban:
+                    db.session.delete(kanban)
+                    db.session.commit()
+                    return {"success": True, "message": "Device moved to SP0, Kanban entry deleted"}, 200
             else:
-                # Optional: update shift/day if needed
-                kanban.day = day
-                kanban.shift = shift
+                # ✅ Upsert into mattress_kanban when not moved to SP0
+                kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+                if not kanban:
+                    # Calculate next position for the Kanban board based on the day and shift
+                    max_position = db.session.query(db.func.max(MattressKanban.position)).filter_by(day=day, shift=shift).scalar() or 0
+                    kanban = MattressKanban(
+                        mattress_id=mattress_id,
+                        day=day,
+                        shift=shift,
+                        position=max_position + 1
+                    )
+                    db.session.add(kanban)
+                else:
+                    # Update the shift and day if mattress_kanban entry exists
+                    kanban.day = day
+                    kanban.shift = shift
 
             db.session.commit()
             return {"success": True, "message": "Device and Kanban updated"}, 200
