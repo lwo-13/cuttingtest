@@ -421,6 +421,18 @@ class CollarettoDetail(db.Model):
     collaretto = db.relationship('Collaretto', backref=db.backref('details', cascade='all, delete-orphan'))
     mattress = db.relationship('Mattresses', backref=db.backref('collaretto_details', cascade='all, delete-orphan'))
 
+class MattressKanban(db.Model):
+    __tablename__ = 'mattress_kanban'
+
+    id = db.Column(db.Integer, primary_key=True)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id', ondelete='CASCADE'), nullable=False, unique=True)
+    day = db.Column(db.String(20), nullable=False)    # 'today' or 'tomorrow'
+    shift = db.Column(db.String(20), nullable=False)  # '1shift' or '2shift'
+    position = db.Column(db.Integer, nullable=False)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
 class ZalliItemsView(db.Model):
     __tablename__ = 'zalli_items_view'
     __table_args__ = {'info': {'read_only': True}}

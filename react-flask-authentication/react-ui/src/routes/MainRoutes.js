@@ -14,6 +14,7 @@ const KanbanBoard = Loadable(lazy(() => import('../views/dashboard/kanbanboard')
 const Orders = Loadable(lazy(() => import('../views/tables/orders')));
 const MarkerDB = Loadable(lazy(() => import('../views/tables/markerdb')));
 const OrderPlanning = Loadable(lazy(() => import('../views/tables/orderplanning')));
+const MattressApproval = Loadable(lazy(() => import('../views/tables/mattress_approval')));
 const PadPrints = Loadable(lazy(() => import('../views/tables/padprints')));
 
 // tools routing
@@ -44,6 +45,7 @@ const MainRoutes = () => {
                 '/tables/orders',
                 '/tables/markerdb',
                 '/tables/orderplanning',
+                '/tables/mattressapproval',
                 '/tables/padprints/:brand',
 
                 '/import-print-tools/imports',
@@ -67,6 +69,7 @@ const MainRoutes = () => {
                         <Route path="/tables/orders" component={Orders} />
                         <Route path="/tables/markerdb" component={MarkerDB} />
                         <Route path="/tables/orderplanning" component={OrderPlanning} />
+                        <Route path="/tables/mattressapproval" component={MattressApproval} />
                         <Route path="/tables/padprints/:brand" component={PadPrints}/>
 
                         <Route path="/import-print-tools/imports" component={Imports} />

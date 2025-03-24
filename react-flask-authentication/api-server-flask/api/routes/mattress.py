@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban
 from flask_restx import Namespace, Resource
+from sqlalchemy import func
+from collections import defaultdict
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
@@ -256,36 +258,86 @@ class GetAllMattressesResource(Resource):
 @ mattress_api.route('/kanban')
 class GetKanbanMattressesResource(Resource):
     def get(self):
-        """Fetch only active PHASE first, then filter 'TO LOAD' status."""
+        """Fetch all necessary info for Kanban - active TO LOAD phases with device, operator, marker, layers, fabric, sizes"""
         try:
+            # Base query for mattress and phase
             query = db.session.query(
                 MattressPhase.mattress_id,
                 MattressPhase.status,
                 MattressPhase.device,
-                MattressPhase.operator,
                 Mattresses.mattress,
                 Mattresses.order_commessa,
-                Mattresses.fabric_type
+                Mattresses.fabric_type,
+                Mattresses.fabric_code,
+                Mattresses.fabric_color,
+                Mattresses.dye_lot,
+                Mattresses.spreading_method,
+                MattressMarker.marker_name,
+                MattressMarker.marker_length,
+                MattressMarker.marker_width,
+                MattressDetail.layers,
+                MattressDetail.cons_planned,
+                # Adding left join on mattress_kanban
+                db.func.coalesce(MattressKanban.day, 'Not Assigned').label('day'),
+                db.func.coalesce(MattressKanban.shift, 'Not Assigned').label('shift'),
+                db.func.coalesce(MattressKanban.position, 0).label('position')
             ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
-            .filter(MattressPhase.active == True) \
-            .filter(MattressPhase.status.in_(["TO LOAD"])) \
-            .all()
+             .join(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
+             .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
+             .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \
+             .filter(MattressPhase.active == True) \
+             .filter(MattressPhase.status == "1 - TO LOAD") \
+             .order_by(MattressKanban.day, MattressKanban.shift, MattressKanban.position) \
+             .all()
 
-            result = [
-                {
+            # Grab sizes separately
+            size_rows = db.session.query(
+                MattressSize.mattress_id,
+                MattressSize.size,
+                MattressSize.pcs_layer
+            ).all()
+
+            # Prepare size mapping
+            size_dict = {}
+            pcs_sum_dict = {}
+            for row in size_rows:
+                pcs = int(row.pcs_layer) if row.pcs_layer.is_integer() else row.pcs_layer
+                size_dict.setdefault(row.mattress_id, []).append(f"{row.size} - {pcs}")
+                pcs_sum_dict[row.mattress_id] = pcs_sum_dict.get(row.mattress_id, 0) + pcs
+
+            # Build final result
+            result = []
+            for row in query:
+                pcs_per_layer = pcs_sum_dict.get(row.mattress_id, 0)
+                total_pcs = pcs_per_layer * row.layers if pcs_per_layer else 0
+
+                result.append({
                     "id": row.mattress_id,
                     "mattress": row.mattress,
                     "status": row.status,
-                    "device": row.device if row.device else "SP0",  # Default to SP0 if device is missing
-                    "operator": row.operator,
+                    "device": row.device if row.device else "SP0",
                     "order_commessa": row.order_commessa,
                     "fabric_type": row.fabric_type,
-                }
-                for row in query
-            ]
+                    "fabric_code": row.fabric_code,
+                    "fabric_color": row.fabric_color,
+                    "dye_lot": row.dye_lot,
+                    "spreading_method": row.spreading_method,
+                    "marker": row.marker_name,
+                    "marker_length": row.marker_length,
+                    "width": row.marker_width,
+                    "layers": row.layers,
+                    "consumption": row.cons_planned,
+                    "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
+                    "total_pcs": total_pcs,
+                    "day": row.day,  # Includes 'Not Assigned' if not found in mattress_kanban
+                    "shift": row.shift,  # Includes 'Not Assigned' if not found in mattress_kanban
+                    "position": row.position  # Defaults to 0 if not found in mattress_kanban
+                })
 
             return {"success": True, "data": result}, 200
+
         except Exception as e:
+            db.session.rollback()
             return {"success": False, "message": str(e)}, 500
 
 @ mattress_api.route('/all_with_details')
@@ -341,3 +393,148 @@ class UpdatePrintTravelStatus(Resource):
             db.session.rollback()
             return {"success": False, "msg": str(e)}, 500
 
+@mattress_api.route('/update_device/<int:mattress_id>', methods=['PUT'])
+class UpdateDeviceResource(Resource):
+    def put(self, mattress_id):
+        data = request.get_json()
+        new_device = data.get('device')
+        day = data.get('day', 'today')      # Optional, defaults to 'today'
+        shift = data.get('shift', '1shift') # Optional, defaults to '1shift'
+
+        if not new_device:
+            return {"success": False, "message": "Device is required"}, 400
+
+        try:
+            # Update the device inside mattress_phase
+            phase = db.session.query(MattressPhase).filter_by(
+                mattress_id=mattress_id,
+                active=True,
+                status='1 - TO LOAD'
+            ).first()
+
+            if not phase:
+                return {"success": False, "message": "Mattress not found"}, 404
+
+            phase.device = new_device
+
+            # ✅ Upsert into mattress_kanban
+            kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+            if not kanban:
+                # Calculate next position
+                max_position = db.session.query(db.func.max(MattressKanban.position)).filter_by(day=day, shift=shift).scalar() or 0
+                kanban = MattressKanban(
+                    mattress_id=mattress_id,
+                    day=day,
+                    shift=shift,
+                    position=max_position + 1
+                )
+                db.session.add(kanban)
+            else:
+                # Optional: update shift/day if needed
+                kanban.day = day
+                kanban.shift = shift
+
+            db.session.commit()
+            return {"success": True, "message": "Device and Kanban updated"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": str(e)}, 500
+    
+@mattress_api.route('/approval')
+class MattressApproval(Resource):
+    def get(self):
+        try:
+            # Step 1: Fetch sizes separately
+            size_rows = db.session.query(
+                MattressSize.mattress_id,
+                MattressSize.size,
+                MattressSize.pcs_layer
+            ).all()
+
+            # Step 2: Build a dictionary of sizes per mattress_id
+            size_dict = defaultdict(list)
+            for row in size_rows:
+                pcs = int(row.pcs_layer) if row.pcs_layer.is_integer() else row.pcs_layer
+                size_dict[row.mattress_id].append(f"{row.size} - {pcs}")
+
+            # Step 3: Fetch the main mattress info
+            query = db.session.query(
+                MattressPhase.mattress_id,
+                Mattresses.mattress,
+                Mattresses.order_commessa,
+                Mattresses.fabric_code,
+                Mattresses.fabric_color,
+                Mattresses.fabric_type,
+                Mattresses.dye_lot,
+                MattressMarker.marker_name,
+                MattressMarker.marker_length,
+                MattressMarker.marker_width,
+                MattressDetail.layers,
+                MattressDetail.cons_planned.label('consumption')
+            ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
+             .join(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
+             .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
+             .filter(MattressPhase.status == "0 - NOT SET") \
+             .filter(MattressPhase.active == True) \
+             .all()
+
+            # Step 4: Build the final result, inserting the sizes string from the dict
+            result = []
+            for row in query:
+                result.append({
+                    "id": row.mattress_id,
+                    "mattress": row.mattress,
+                    "order_commessa": row.order_commessa,
+                    "fabric_code": row.fabric_code,
+                    "fabric_color": row.fabric_color,
+                    "fabric_type": row.fabric_type,
+                    "dye_lot": row.dye_lot,
+                    "marker": row.marker_name,
+                    "marker_length": row.marker_length,
+                    "width": row.marker_width,
+                    "layers": row.layers,
+                    "sizes": '; '.join(size_dict.get(row.mattress_id, [])),
+                    "consumption": row.consumption
+                })
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/approve')
+class ApproveMattressesResource(Resource):
+    def post(self):
+        mattress_ids = request.json.get('mattress_ids', [])
+        operator = request.json.get('operator', 'Unknown')  # ✅ Get operator from frontend
+        print("Received mattress_ids:", mattress_ids, "Operator:", operator)
+
+        if not mattress_ids:
+            return {"success": False, "message": "No mattress IDs provided"}, 400
+
+        try:
+            # Deactivate the '0 - NOT SET' phase
+            deactivated = db.session.query(MattressPhase).filter(
+                MattressPhase.mattress_id.in_(mattress_ids),
+                MattressPhase.status == "0 - NOT SET",
+                MattressPhase.active == True
+            ).update({"active": False}, synchronize_session='evaluate')
+
+            # Activate '1 - TO LOAD' and set operator name
+            activated = db.session.query(MattressPhase).filter(
+                MattressPhase.mattress_id.in_(mattress_ids),
+                MattressPhase.status == "1 - TO LOAD"
+            ).update({"active": True, "operator": operator}, synchronize_session='evaluate')
+
+            db.session.commit()
+
+            return {"success": True, "message": f"Deactivated: {deactivated}, Activated: {activated}"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500

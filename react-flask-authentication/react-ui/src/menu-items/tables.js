@@ -1,5 +1,5 @@
 // assets
-import { IconClipboardList, IconLayoutCollage, IconTemplate, IconBrandAppleArcade } from '@tabler/icons';
+import { IconClipboardList, IconLayoutCollage, IconTemplate, IconBrandAppleArcade, IconSquareRoundedCheck } from '@tabler/icons';
 
 //-----------------------|| TABLES MENU ITEMS ||-----------------------//
 
@@ -30,6 +30,14 @@ const tables = {
       type: 'item',                 // It's a single link
       url: '/tables/orderplanning', // URL route (adjust as needed)
       icon: IconTemplate,    // Choose your icon
+      breadcrumbs: false
+    },
+    {
+      id: 'mattress_approval',           // Unique ID for your page
+      title: 'Mattress Approval',         // Label in the sidebar
+      type: 'item',                 // It's a single link
+      url: '/tables/mattressapproval', // URL route (adjust as needed)
+      icon: IconSquareRoundedCheck,    // Choose your icon
       breadcrumbs: false
     },
     {
