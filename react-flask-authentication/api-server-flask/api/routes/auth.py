@@ -75,8 +75,8 @@ class Register(Resource):
         req_data = request.get_json()
         _username, _email, _password, _role = req_data["username"], req_data["email"], req_data["password"], req_data.get("role", "Planner")
 
-        if Users.get_by_email(_email):
-            return {"success": False, "msg": "Email already taken"}, 400
+        if Users.query.filter_by(username=_username).first():
+            return {"success": False, "msg": "Username already taken"}, 400
 
         new_user = Users(username=_username, email=_email, role=_role)
         new_user.set_password(_password)
