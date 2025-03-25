@@ -31,7 +31,7 @@ import axios from 'axios';
 // project imports
 import MainCard from '../../../../ui-component/cards/MainCard';
 import Transitions from '../../../../ui-component/extended/Transitions';
-import { LOGOUT } from './../../../../store/actions';
+import { logoutUser } from '../../../../store/accountActions';
 
 // assets
 import { IconLogout, IconSearch, IconSettings } from '@tabler/icons';
@@ -132,27 +132,7 @@ const ProfileSection = () => {
     const anchorRef = React.useRef(null);
 
     const handleLogout = () => {
-        const berryAccount = JSON.parse(localStorage.getItem("berry-account") || "{}");
-        const token = berryAccount.token || localStorage.getItem("token");
-    
-        if (!token) {
-            console.log("DEBUG: No token found in local storage!");
-            return;
-        }
-    
-        console.log("DEBUG: Sending token in logout request:", token);
-    
-        axios
-            .post(configData.API_SERVER + "users/logout", {}, {
-                headers: { Authorization: `Bearer ${token.replace(/"/g, '')}` } // 🛠️ Ensure no quotes
-            })
-            .then((response) => {
-                console.log("Logout successful:", response.data);
-                dispatcher({ type: LOGOUT });
-            })
-            .catch((error) => {
-                console.log("Logout API error:", error.response ? error.response.data : error);
-            });
+        dispatcher(logoutUser());   // ✅ Trigger the logout action (Redux handles API + state)
     };
     
 

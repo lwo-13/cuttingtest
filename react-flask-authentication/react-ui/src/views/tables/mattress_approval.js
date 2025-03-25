@@ -99,11 +99,21 @@ const MattressApproval = () => {
         { field: 'fabric_code', headerName: 'Fabric Code', width: 140 },
         { field: 'fabric_color', headerName: 'Fabric Color', width: 140 },
         { field: 'dye_lot', headerName: 'Dye Lot', width: 130 },
-        { field: 'marker', headerName: 'Marker', width: 280 },
+        { 
+            field: 'marker', 
+            headerName: 'Marker', 
+            width: 280,
+            valueGetter: (params) => params?.row?.marker || '--'
+        },
         { field: 'marker_length', headerName: 'Marker Length [m]', width: 160 },
         { field: 'width', headerName: 'Width [cm]', width: 120 },
         { field: 'layers', headerName: 'Layers', width: 100 },
-        { field: 'sizes', headerName: 'Sizes', width: 230 },
+        { 
+            field: 'sizes', 
+            headerName: 'Sizes', 
+            width: 230,
+            valueGetter: (params) => params?.row?.sizes || '--'
+        },
         { field: 'consumption', headerName: 'Cons. [m]', width: 120 },
       ];
 

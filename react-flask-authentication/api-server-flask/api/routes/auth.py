@@ -141,9 +141,13 @@ class LogoutUser(Resource):
 
     @token_required
     def post(self, current_user):
+        _jwt_token = request.headers.get("authorization")
+        
+        if not _jwt_token:
+            # Token missing, maybe session expired, consider this a successful logout
+            return {"success": True, "message": "No token found, already logged out"}, 200
 
-        _jwt_token = request.headers["authorization"]
-
+        # Block the token if present
         jwt_block = JWTTokenBlocklist(jwt_token=_jwt_token, created_at=datetime.now(timezone.utc))
         jwt_block.save()
 

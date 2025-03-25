@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
@@ -280,14 +280,17 @@ class GetKanbanMattressesResource(Resource):
                 MattressMarker.marker_width,
                 MattressDetail.layers,
                 MattressDetail.cons_planned,
+                MattressDetail.length_mattress,
+                CollarettoDetail.usable_width,
                 # Adding left join on mattress_kanban
                 db.func.coalesce(MattressKanban.day, 'Not Assigned').label('day'),
                 db.func.coalesce(MattressKanban.shift, 'Not Assigned').label('shift'),
                 db.func.coalesce(MattressKanban.position, 0).label('position')
             ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
-             .join(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
+             .outerjoin(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
              .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \
+             .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
              .filter(MattressPhase.active == True) \
              .filter(MattressPhase.status == "1 - TO LOAD")
             
@@ -334,8 +337,8 @@ class GetKanbanMattressesResource(Resource):
                     "dye_lot": row.dye_lot,
                     "spreading_method": row.spreading_method,
                     "marker": row.marker_name,
-                    "marker_length": row.marker_length,
-                    "width": row.marker_width,
+                    "marker_length": row.marker_length or row.length_mattress,
+                    "width": row.marker_width or row.usable_width,
                     "layers": row.layers,
                     "consumption": row.cons_planned,
                     "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
@@ -490,10 +493,13 @@ class MattressApproval(Resource):
                 MattressMarker.marker_length,
                 MattressMarker.marker_width,
                 MattressDetail.layers,
-                MattressDetail.cons_planned.label('consumption')
+                MattressDetail.cons_planned.label('consumption'),
+                MattressDetail.length_mattress,
+                CollarettoDetail.usable_width
             ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
-             .join(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
+             .outerjoin(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
+             .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
              .filter(MattressPhase.status == "0 - NOT SET") \
              .filter(MattressPhase.active == True) \
              .all()
@@ -510,8 +516,8 @@ class MattressApproval(Resource):
                     "fabric_type": row.fabric_type,
                     "dye_lot": row.dye_lot,
                     "marker": row.marker_name,
-                    "marker_length": row.marker_length,
-                    "width": row.marker_width,
+                    "marker_length": row.marker_length or row.length_mattress,
+                    "width": row.marker_width or row.usable_width,
                     "layers": row.layers,
                     "sizes": '; '.join(size_dict.get(row.mattress_id, [])),
                     "consumption": row.consumption

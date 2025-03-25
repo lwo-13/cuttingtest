@@ -196,17 +196,40 @@ const KanbanBoard = () => {
         <strong>Marker Length:</strong> {mattress.marker_length} m<br />
         <strong>Marker Width:</strong> {mattress.width} cm<br />
         <strong>Layers:</strong> {mattress.layers} <br />
-        <strong>Sizes:</strong> {mattress.sizes} <br />
-        <strong>Total pcs:</strong> {mattress.total_pcs} <br />
-        <strong>Consumption:</strong> {mattress.consumption} m<br />
+
+        {mattress.sizes && mattress.sizes !== '--' && (
+          <Box><strong>Sizes:</strong> {mattress.sizes}</Box>
+        )}
+
+        {(mattress.total_pcs && mattress.total_pcs !== 0) 
+          ? <><strong>Total pcs:</strong> {mattress.total_pcs} <br /></> 
+          : null}
+
+        <strong> Consumption:</strong> {mattress.consumption} m<br />
         <strong>Spreading Method:</strong> {mattress.spreading_method} <br />
       </Box>
     );
   
     const content = (
-      <MainCard ref={drag} sx={{ p: 2, mb: 2, opacity: isDragging ? 0.5 : 1 }}>
+      <MainCard
+        ref={drag}
+        sx={{
+          p: 2,
+          mb: 2,
+          opacity: isDragging ? 0.5 : 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          textAlign: 'center'
+        }}
+      >
         <strong>Mattress:</strong> {mattress.mattress} <br />
-        <strong>Marker:</strong> {mattress.marker} <br />
+        {mattress.marker && mattress.marker !== '--' && (
+          <>
+            <strong>Marker:</strong> {mattress.marker} <br />
+          </>
+        )}
       </MainCard>
     );
   

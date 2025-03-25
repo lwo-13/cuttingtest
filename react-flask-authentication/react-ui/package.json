@@ -49,6 +49,7 @@
         "react-scripts": "^5.0.1",
         "redux": "^4.0.5",
         "redux-persist": "^6.0.0",
+        "redux-thunk": "^2.4.2",
         "serialize-javascript": "^6.0.2",
         "svgo": "^2.0.0",
         "uuid": "^11.1.0",

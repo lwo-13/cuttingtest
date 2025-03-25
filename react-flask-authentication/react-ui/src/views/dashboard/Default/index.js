@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 // material-ui
-import { Grid } from '@mui/material';
+import { Box, Grid, Typography } from '@mui/material';
+import ConstructionIcon from '@mui/icons-material/Construction';
 
 // project imports
 import EarningCard from './EarningCard';
@@ -22,7 +23,7 @@ const Dashboard = () => {
 
     return (
         <Grid container spacing={gridSpacing}>
-            <Grid item xs={12}>
+            {/*<Grid item xs={12}>
                 <Grid container spacing={gridSpacing}>
                     <Grid item lg={4} md={6} sm={6} xs={12}>
                         <EarningCard isLoading={isLoading} />
@@ -51,7 +52,35 @@ const Dashboard = () => {
                         <PopularCard isLoading={isLoading} />
                     </Grid>
                 </Grid>
-            </Grid>
+            </Grid> */}
+            <Box 
+                sx={{
+                    width: '100%',
+                    height: '100%',
+                    height: '90vh',              // Adjust to '100vh' if you want full screen
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}
+            >
+                <Box
+                    sx={{
+                        textAlign: 'center',
+                        p: 10,
+                        border: '2px dashed #ccc',
+                        borderRadius: 2,
+                        backgroundColor: '#f9f9f9'
+                    }}
+                >
+                    <ConstructionIcon sx={{ fontSize: 80, color: 'orange' }} />
+                    <Typography variant="h4" sx={{ mt: 2 }}>
+                        WORK IN PROGRESS
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ mt: 1 }}>
+                        Cutting λν - ZALLI
+                    </Typography>
+                </Box>
+            </Box>
         </Grid>
     );
 };
