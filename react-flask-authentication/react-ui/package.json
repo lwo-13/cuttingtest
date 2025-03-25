@@ -30,6 +30,7 @@
         "formik": "^2.2.6",
         "framer-motion": "^4.1.13",
         "html2canvas": "^1.4.1",
+        "jsbarcode": "^3.11.6",
         "jspdf": "^3.0.0",
         "jspdf-autotable": "^5.0.2",
         "material-ui-popup-state": "^1.8.0",

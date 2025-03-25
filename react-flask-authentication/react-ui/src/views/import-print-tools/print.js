@@ -5,6 +5,7 @@ import { CircularProgress, Box, TextField, Typography, TablePagination, Button, 
 import MainCard from '../../ui-component/cards/MainCard';
 import { Print } from '@mui/icons-material';
 import jsPDF from "jspdf";
+import JsBarcode from 'jsbarcode';
 import RobotoBold from "../../assets/fonts/Roboto-Bold-bold";
 import RobotoRegular from "../../assets/fonts/Roboto-Regular-normal";
 
@@ -165,6 +166,45 @@ const MattressTable = () => {
                 } catch (error) {
                     console.error("Error fetching marker lines:", error);
                 }
+
+                // Variables to hold season, style, and color.
+                let season, style, color;
+
+                try {
+                // Query the order_lines endpoint using order_commessa.
+                const orderLinesResponse = await axios.get(
+                    `http://127.0.0.1:5000/api/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
+                );
+
+                if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
+                    // Use the first record from the order_lines.
+                    const data = orderLinesResponse.data.data[0];
+                    console.log('Order lines data:', data);
+                    season = data.season;        
+                    style = data.style;
+                    color = data.color_code;     
+                } else {
+                    console.error("No order lines found for order_commessa:", orderCommessa);
+                }
+                } catch (error) {
+                console.error("Error fetching order lines:", error);
+                }
+
+                let padPrintData = [];
+
+                try {
+                // Query the padprint endpoint using the extracted season, style, and color.
+                const padPrintResponse = await axios.get(
+                    `http://127.0.0.1:5000/api/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
+                );
+                if (padPrintResponse.data.success) {
+                    padPrintData = padPrintResponse.data.data; // Array of padprint objects.
+                } else {
+                    console.error("Padprint API returned a non-success response.");
+                }
+                } catch (error) {
+                console.error("Error fetching padprint data:", error);
+                }
     
                 // ✅ Define order table (Left Side)
                 const orderTable = [
@@ -186,6 +226,9 @@ const MattressTable = () => {
                     { label: "Dye Lot", value: dyeLot },
                     { label: "Consumption [m]", value: consPlanned }
                 ];
+
+                // Define headers for the padprint table.
+                const padPrintHeaders = ["Pattern", "PadPrint Color"];
     
                 // ✅ Define Layers Table (Right Side)
                 const layersTable = [{ planned: layers, actual: "" }]; // ✅ Actual Layer input left blank
@@ -243,7 +286,7 @@ const MattressTable = () => {
     
                 // ✅ Layers Table (Right Side)
                 const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10; // ✅ Position it further right
-                const layersStartY = startY;
+                const layersStartY = startY + 24;
     
                 doc.setFont("helvetica", "bold");
     
@@ -328,10 +371,45 @@ const MattressTable = () => {
                         doc.rect(layersStartX + columnWidth, yPos, columnWidth, rowHeight);
                     });
                 });
+
+                // Determine the starting Y position for the padprint table (positioned below the marker table).
+                const padPrintTableStartY = manualTableStartY + 2 * 40;
+
+                // Draw the header row for the padprint table.
+                padPrintHeaders.forEach((header, i) => {
+                const cellX = layersStartX + i * columnWidth;
+                doc.rect(cellX, padPrintTableStartY, columnWidth, rowHeight);
+                doc.setFont("helvetica", "bold");
+                doc.text(
+                    header,
+                    cellX + columnWidth / 2,
+                    padPrintTableStartY + rowHeight / 2 + 2,
+                    { align: "center" }
+                );
+                });
+
+                // Draw the padprint data rows.
+                padPrintData.forEach((item, index) => {
+                const yPos = padPrintTableStartY + (index + 1) * rowHeight;
+                // Extract only 'pattern' and 'padprint_color' from each padprint item.
+                const rowData = [item.pattern, item.padprint_color];
+
+                rowData.forEach((cell, i) => {
+                    const cellX = layersStartX + i * columnWidth;
+                    doc.rect(cellX, yPos, columnWidth, rowHeight);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(
+                    cell.toString(),
+                    cellX + columnWidth / 2,
+                    yPos + rowHeight / 2 + 2,
+                    { align: "center" }
+                    );
+                });
+                });
     
                 // ✅ Positioning for the comment box
-                const commentBoxStartY = manualTableStartY + 2 * 40; // ✅ Adjusted Y position
-                const commentBoxHeight = 32; // ✅ Enough height for writing
+                const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
+                const commentBoxHeight = 37; // ✅ Enough height for writing
                 const commentBoxWidth = columnWidth * 2; // ✅ Same width as Spreading & Cutting tables
     
                 // ✅ Draw the comment box
@@ -348,9 +426,9 @@ const MattressTable = () => {
     
                 // ✅ Marker Details Table (Bottom)
                 const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
-                const markerColumnWidth = 40;
     
                 doc.setFont("helvetica", "bold");
+                const markerColumnWidth = 40;
     
                 // Header Row for Marker Table
                 doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
@@ -415,96 +493,6 @@ const MattressTable = () => {
                     );
                 });
     
-                // ----------------------------------------------------------------------------------
-                // Add Pad Print Table (New Section)
-                // ----------------------------------------------------------------------------------
-    
-// Extract order_commessa from the mattress object.
-// Variables for season, style, and color.
-
-
-// Variables to hold season, style, and color.
-let season, style, color;
-
-try {
-  // Query the order_lines endpoint using order_commessa.
-  const orderLinesResponse = await axios.get(
-    `http://127.0.0.1:5000/api/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
-  );
-  if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
-    // Use the first record from the order_lines.
-    const data = orderLinesResponse.data.data[0];
-    console.log('Order lines data:', data); // Debug logging
-    season = data.season;        // Should be "24CC" based on your database
-    style = data.style;
-    color = data.color_code;     // if needed, depending on your field naming
-  } else {
-    console.error("No order lines found for order_commessa:", orderCommessa);
-  }
-} catch (error) {
-  console.error("Error fetching order lines:", error);
-}
-
-// Log the values to verify they're correct before the padprint call.
-console.log('Using season:', season, 'style:', style, 'color:', color);
-
-let padPrintData = [];
-try {
-  // Query the padprint endpoint using the extracted season, style, and color.
-  const padPrintResponse = await axios.get(
-    `http://127.0.0.1:5000/api/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
-  );
-  if (padPrintResponse.data.success) {
-    padPrintData = padPrintResponse.data.data; // Array of padprint objects.
-  } else {
-    console.error("Padprint API returned a non-success response.");
-  }
-} catch (error) {
-  console.error("Error fetching padprint data:", error);
-}
-
-
-
-// Now, render only the padprint data (pattern and padprint_color) on the PDF.
-
-// Define headers for the padprint table.
-const padPrintHeaders = ["Pattern", "Padprint Color"];
-
-// Determine the starting Y position for the padprint table (positioned below the marker table).
-const padPrintTableStartY = markerTableStartY + (markerLines.length + 1) * rowHeight + 5;
-
-// Draw the header row for the padprint table.
-padPrintHeaders.forEach((header, i) => {
-  const cellX = startX + i * markerColumnWidth;
-  doc.rect(cellX, padPrintTableStartY, markerColumnWidth, rowHeight);
-  doc.setFont("helvetica", "bold");
-  doc.text(
-    header,
-    cellX + markerColumnWidth / 2,
-    padPrintTableStartY + rowHeight / 2 + 2,
-    { align: "center" }
-  );
-});
-
-// Draw the padprint data rows.
-padPrintData.forEach((item, index) => {
-  const yPos = padPrintTableStartY + (index + 1) * rowHeight;
-  // Extract only 'pattern' and 'padprint_color' from each padprint item.
-  const rowData = [item.pattern, item.padprint_color];
-
-  rowData.forEach((cell, i) => {
-    const cellX = startX + i * markerColumnWidth;
-    doc.rect(cellX, yPos, markerColumnWidth, rowHeight);
-    doc.setFont("helvetica", "normal");
-    doc.text(
-      cell.toString(),
-      cellX + markerColumnWidth / 2,
-      yPos + rowHeight / 2 + 2,
-      { align: "center" }
-    );
-  });
-});
-    
                 // ✅ Position for the vertical line further right
                 const separatorX = layersStartX + 80; // Move it further to the right
                 const separatorStartY = startY;
@@ -544,7 +532,7 @@ padPrintData.forEach((item, index) => {
     
                 // Loop through fabricTable2 in a rotated manner
                 fabricTable2.forEach((field, index) => {
-                    const xPos = rotatedStartX + index * rotatedRowHeight; // Move right (acts like rows)
+                    const xPos = rotatedStartX + 24 + index * rotatedRowHeight; // Move right (acts like rows)
                     const yPos = startY; // Fixed Y position (acts like left margin)
     
                     // Swap width & height to create a rotated effect
@@ -558,6 +546,29 @@ padPrintData.forEach((item, index) => {
                     doc.setFont("helvetica", "normal");
                     doc.text(field.value, xPos + 5, yPos + ColumnWidth - 3, { angle: 90 });
                 });
+
+                // ✅ Generate barcode for mattressName
+                const barcodeCanvas = document.createElement('canvas');
+                document.body.appendChild(barcodeCanvas);
+
+                JsBarcode(barcodeCanvas, mattressName, {
+                    format: "CODE128",
+                    displayValue: false,   // No text below barcode
+                    fontSize: 14,
+                    height: 30,
+                    width: 2
+                });
+
+                // ✅ Convert canvas to image
+                const barcodeImg = barcodeCanvas.toDataURL('image/png');
+
+                // ✅ Add the barcode to the PDF (adjust coordinates)
+                doc.addImage(barcodeImg, 'PNG', layersStartX, startY, 70, 20);
+
+                doc.addImage(barcodeImg, 'PNG', rotatedStartX + 20, startY + 40, 60, 20, undefined, 'FAST', 90);
+
+                // ✅ Remove the canvas if you want
+                document.body.removeChild(barcodeCanvas);
     
                 // Save the PDF file
                 doc.save(`Mattress_Travel_Doc_${mattressName}.pdf`);
@@ -623,6 +634,40 @@ padPrintData.forEach((item, index) => {
                 } catch (error) {
                     console.error("Error fetching marker lines:", error);
                 }
+
+                // Variables to hold season, style, and color.
+                let season, style, color;
+
+                try {
+                const orderLinesResponse = await axios.get(
+                    `http://127.0.0.1:5000/api/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
+                );
+                if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
+                    const data = orderLinesResponse.data.data[0];
+                    season = data.season;        // Should be "24CC" based on your database
+                    style = data.style;
+                    color = data.color_code;     // if needed, depending on your field naming
+                } else {
+                    console.error("No order lines found for order_commessa:", orderCommessa);
+                }
+                } catch (error) {
+                console.error("Error fetching order lines:", error);
+                }
+
+                let padPrintData = [];
+                try {
+                // Query the padprint endpoint using the extracted season, style, and color.
+                const padPrintResponse = await axios.get(
+                    `http://127.0.0.1:5000/api/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
+                );
+                if (padPrintResponse.data.success) {
+                    padPrintData = padPrintResponse.data.data; // Array of padprint objects.
+                } else {
+                    console.error("Padprint API returned a non-success response.");
+                }
+                } catch (error) {
+                console.error("Error fetching padprint data:", error);
+                }
             
                 // ✅ Define order table (Left Side)
                 const orderTable = [
@@ -655,6 +700,9 @@ padPrintData.forEach((item, index) => {
                     { label: "Цвят", value: fabricColor },
                     { label: "Баня", value: dyeLot }
                 ];
+
+                // Define headers for the padprint table.
+                const padPrintHeaders = ["Падпринт", "Цвят"];
             
                 // ✅ Setup PDF
                 const doc = new jsPDF({
@@ -710,7 +758,7 @@ padPrintData.forEach((item, index) => {
             
                 // ✅ Layers Table (Right Side)
                 const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10; // ✅ Position it further right
-                const layersStartY = startY; 
+                const layersStartY = startY + 24; 
             
                 doc.setFont('Roboto-Bold', 'bold');
                 
@@ -766,9 +814,44 @@ padPrintData.forEach((item, index) => {
                     });
                 });
 
+                // Determine the starting Y position for the padprint table (positioned below the marker table).
+                const padPrintTableStartY = manualTableStartY + 2 * 40;
+
+                // Draw the header row for the padprint table.
+                padPrintHeaders.forEach((header, i) => {
+                const cellX = layersStartX + i * columnWidth;
+                doc.rect(cellX, padPrintTableStartY, columnWidth, rowHeight);
+                doc.setFont("Roboto-Bold", "bold");
+                doc.text(
+                    header,
+                    cellX + columnWidth / 2,
+                    padPrintTableStartY + rowHeight / 2 + 2,
+                    { align: "center" }
+                );
+                });
+
+                // Draw the padprint data rows.
+                padPrintData.forEach((item, index) => {
+                const yPos = padPrintTableStartY + (index + 1) * rowHeight;
+                // Extract only 'pattern' and 'padprint_color' from each padprint item.
+                const rowData = [item.pattern, item.padprint_color];
+
+                rowData.forEach((cell, i) => {
+                    const cellX = layersStartX + i * columnWidth;
+                    doc.rect(cellX, yPos, columnWidth, rowHeight);
+                    doc.setFont("Roboto-Regular", "normal");
+                    doc.text(
+                    cell.toString(),
+                    cellX + columnWidth / 2,
+                    yPos + rowHeight / 2 + 2,
+                    { align: "center" }
+                    );
+                });
+                });
+
                 // ✅ Positioning for the comment box
-                const commentBoxStartY = manualTableStartY + 2 * 40; // ✅ Adjusted Y position
-                const commentBoxHeight = 32;  // ✅ Enough height for writing
+                const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
+                const commentBoxHeight = 37;  // ✅ Enough height for writing
                 const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
 
                 // ✅ Draw the comment box
@@ -807,85 +890,6 @@ padPrintData.forEach((item, index) => {
                     doc.text(row.pcs_on_layer.toString(), startX + markerColumnWidth * 2 + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
                 });
 
-                            // ----------------------------------------------------------------------------------
-                // Add Pad Print Table (New Section)
-                // ----------------------------------------------------------------------------------
-    
-// Extract order_commessa from the mattress object.
-// Variables for season, style, and color.
-
-
-// Variables to hold season, style, and color.
-let season, style, color;
-
-try {
-  // Query the order_lines endpoint using order_commessa.
-  const orderLinesResponse = await axios.get(
-    `http://127.0.0.1:5000/api/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
-  );
-  if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
-    // Use the first record from the order_lines.
-    const data = orderLinesResponse.data.data[0];
-    console.log('Order lines data:', data); // Debug logging
-    season = data.season;        // Should be "24CC" based on your database
-    style = data.style;
-    color = data.color_code;     // if needed, depending on your field naming
-  } else {
-    console.error("No order lines found for order_commessa:", orderCommessa);
-  }
-} catch (error) {
-  console.error("Error fetching order lines:", error);
-}
-
-// Log the values to verify they're correct before the padprint call.
-console.log('Using season:', season, 'style:', style, 'color:', color);
-
-let padPrintData = [];
-try {
-  // Query the padprint endpoint using the extracted season, style, and color.
-  const padPrintResponse = await axios.get(
-    `http://127.0.0.1:5000/api/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
-  );
-  if (padPrintResponse.data.success) {
-    padPrintData = padPrintResponse.data.data; // Array of padprint objects.
-  } else {
-    console.error("Padprint API returned a non-success response.");
-  }
-} catch (error) {
-  console.error("Error fetching padprint data:", error);
-}
-
-
-
-// Now, render only the padprint data (pattern and padprint_color) on the PDF.
-
-// Define headers for the padprint table.
-const padPrintHeaders = ["Падпринт", "Цвят"];
-
-// Determine the starting Y position for the padprint table (positioned below the marker table).
-const padPrintTableStartY = markerTableStartY + (markerLines.length + 1) * rowHeight + 5; // Adjust for some padding
-
-// Draw the header row for the padprint table.
-padPrintHeaders.forEach((header, i) => {
-    const cellX = startX + i * markerColumnWidth; // Use markerColumnWidth for column size
-    doc.rect(cellX, padPrintTableStartY, markerColumnWidth, rowHeight);
-    doc.setFont("Roboto-Bold", "bold"); // Use Roboto-Bold for the header
-    doc.text(header, cellX + markerColumnWidth / 2, padPrintTableStartY + rowHeight / 2 + 2, { align: "center" });
-});
-
-// Draw data rows for the padprint table
-padPrintData.forEach((padPrint, index) => {
-    const yPos = padPrintTableStartY + (index + 1) * rowHeight; // Calculate Y position for each row
-
-    // Draw Падпринт (Pattern)
-    doc.rect(startX, yPos, markerColumnWidth, rowHeight); // Left column for Падпринт
-    doc.setFont("Roboto-Regular", "normal"); // Use Roboto-Regular for data
-    doc.text(padPrint.pattern, startX + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
-
-    // Draw Цвят (Padprint Color)
-    doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight); // Right column for Цвят
-    doc.text(padPrint.padprint_color, startX + markerColumnWidth + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
-});
                 // ✅ Position for the vertical line further right
                 const separatorX = layersStartX + 80; // Move it further to the right
                 const separatorStartY = startY;
@@ -925,7 +929,7 @@ padPrintData.forEach((padPrint, index) => {
 
                 // ✅ Loop through orderTable in a rotated manner
                 fabricTable2.forEach((field, index) => {
-                    const xPos = rotatedStartX + index * rotatedRowHeight; // Move **right** (acts like rows)
+                    const xPos = rotatedStartX + 24 + index * rotatedRowHeight; // Move **right** (acts like rows)
                     const yPos = startY; // Fixed Y position (acts like left margin)
 
                     // ✅ Swap width & height to create a rotated effect
@@ -940,6 +944,28 @@ padPrintData.forEach((padPrint, index) => {
                     doc.text(field.value, xPos + 5, yPos + ColumnWidth - 3, { angle: 90 });
                 });
 
+                // ✅ Generate barcode for mattressName
+                const barcodeCanvas = document.createElement('canvas');
+                document.body.appendChild(barcodeCanvas);
+
+                JsBarcode(barcodeCanvas, mattressName, {
+                    format: "CODE128",
+                    displayValue: false,   // No text below barcode
+                    fontSize: 14,
+                    height: 30,
+                    width: 2
+                });
+
+                // ✅ Convert canvas to image
+                const barcodeImg = barcodeCanvas.toDataURL('image/png');
+
+                // ✅ Add the barcode to the PDF (adjust coordinates)
+                doc.addImage(barcodeImg, 'PNG', layersStartX, startY, 70, 20);
+
+                doc.addImage(barcodeImg, 'PNG', rotatedStartX + 20, startY + 40, 60, 20, undefined, 'FAST', 90);
+
+                // ✅ Remove the canvas if you want
+                document.body.removeChild(barcodeCanvas);
             
                 doc.save(`Капак_${mattressName}.pdf`);
 
@@ -979,6 +1005,7 @@ padPrintData.forEach((padPrint, index) => {
             ) 
         }
     ];
+
 
     return (
         <MainCard
