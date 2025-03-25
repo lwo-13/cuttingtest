@@ -193,7 +193,6 @@ const KanbanBoard = () => {
         <strong>Order:</strong> {mattress.order_commessa} <br />
         <strong>Fabric:</strong> {mattress.fabric_code} &nbsp;&nbsp; {mattress.fabric_color} <br />
         <strong>Bagno:</strong> {mattress.dye_lot} <br />
-        <strong>Marker:</strong> {mattress.marker} <br />
         <strong>Marker Length:</strong> {mattress.marker_length} m<br />
         <strong>Marker Width:</strong> {mattress.width} cm<br />
         <strong>Layers:</strong> {mattress.layers} <br />

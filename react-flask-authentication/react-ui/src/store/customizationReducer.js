@@ -8,6 +8,7 @@ export const initialState = {
     isOpen: [], //for active default menu
     fontFamily: config.fontFamily,
     borderRadius: config.borderRadius,
+    fontSize: config.fontSize || 14,
     opened: true
 };
 
@@ -35,6 +36,11 @@ const customizationReducer = (state = initialState, action) => {
             return {
                 ...state,
                 borderRadius: action.borderRadius
+            };
+        case actionTypes.SET_FONT_SIZE:
+            return {
+                ...state,
+                fontSize: action.fontSize
             };
         default:
             return state;

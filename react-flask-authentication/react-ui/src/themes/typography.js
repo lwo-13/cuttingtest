@@ -3,35 +3,37 @@
  * @param {JsonObject} theme theme customization object
  */
 export function themeTypography(theme) {
+    const baseFontSize = theme.fontSize || 14;
     return {
         fontFamily: theme.customization.fontFamily,
+        fontSize: baseFontSize,
         h6: {
             fontWeight: 500,
             color: theme.heading,
-            fontSize: '0.75rem'
+            fontSize: `${baseFontSize - 4}px`
         },
         h5: {
-            fontSize: '0.875rem',
+            fontSize: `${baseFontSize - 2}px`,
             color: theme.heading,
             fontWeight: 500
         },
         h4: {
-            fontSize: '1rem',
+            fontSize: `${baseFontSize}px`,
             color: theme.heading,
             fontWeight: 600
         },
         h3: {
-            fontSize: '1.25rem',
+            fontSize: `${baseFontSize + 2}px`,
             color: theme.heading,
             fontWeight: 600
         },
         h2: {
-            fontSize: '1.5rem',
+            fontSize: `${baseFontSize + 4}px`,
             color: theme.heading,
             fontWeight: 700
         },
         h1: {
-            fontSize: '2.125rem',
+            fontSize: `${baseFontSize + 8}px`,
             color: theme.heading,
             fontWeight: 700
         },
@@ -51,7 +53,7 @@ export function themeTypography(theme) {
             fontWeight: 400
         },
         body1: {
-            fontSize: '0.875rem',
+            fontSize: `${baseFontSize}px`,
             fontWeight: 400,
             lineHeight: '1.334em'
         },

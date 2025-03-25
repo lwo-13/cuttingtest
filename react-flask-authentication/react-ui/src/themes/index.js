@@ -51,7 +51,7 @@ export function theme(customization) {
                 xl: 1920
             }
         },
-        typography: themeTypography(themeOption),
+        typography: themeTypography({ ...themeOption, fontSize: customization.fontSize }),
         components: componentStyleOverrides(themeOption)
     });
 }

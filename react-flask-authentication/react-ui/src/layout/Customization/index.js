@@ -23,7 +23,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar';
 // project imports
 import SubCard from '../../ui-component/cards/SubCard';
 import AnimateButton from '../../ui-component/extended/AnimateButton';
-import { SET_BORDER_RADIUS, SET_FONT_FAMILY } from '../../store/actions'; // THEME_RTL
+import { SET_BORDER_RADIUS, SET_FONT_FAMILY, SET_FONT_SIZE } from '../../store/actions'; // THEME_RTL
 import { gridSpacing } from '../../store/constant';
 
 // assets
@@ -40,6 +40,7 @@ const Customization = () => {
     const theme = useTheme();
     const dispatch = useDispatch();
     const customization = useSelector((state) => state.customization);
+    const [fontSize, setFontSize] = React.useState(customization.fontSize || 14);
 
     // drawer on/off
     const [open, setOpen] = React.useState(false);
@@ -56,6 +57,10 @@ const Customization = () => {
     useEffect(() => {
         dispatch({ type: SET_BORDER_RADIUS, borderRadius: borderRadius });
     }, [dispatch, borderRadius]);
+
+    useEffect(() => {
+        dispatch({ type: SET_FONT_SIZE, fontSize: fontSize });
+    }, [dispatch, fontSize]);
 
     let initialFont;
     switch (customization.fontFamily) {
@@ -171,8 +176,8 @@ const Customization = () => {
                                 </FormControl>
                             </SubCard>
                         </Grid>
-                        <Grid item xs={12}>
-                            {/* border radius */}
+                        {/*<Grid item xs={12}>
+                            {/* border radius 
                             <SubCard title="Border Radius">
                                 <Grid item xs={12} container spacing={2} alignItems="center" sx={{ mt: 2.5 }}>
                                     <Grid item>
@@ -191,6 +196,42 @@ const Customization = () => {
                                             marks
                                             step={2}
                                             min={4}
+                                            max={24}
+                                            color="secondary"
+                                            sx={{
+                                                '& .MuiSlider-valueLabel': {
+                                                    color: 'secondary.light'
+                                                }
+                                            }}
+                                        />
+                                    </Grid>
+                                    <Grid item>
+                                        <Typography variant="h6" color="secondary">
+                                            24px
+                                        </Typography>
+                                    </Grid>
+                                </Grid>
+                            </SubCard>
+                        </Grid> */}
+                        <Grid item xs={12}>
+                            <SubCard title="Font Size">
+                                <Grid item xs={12} container spacing={2} alignItems="center" sx={{ mt: 2.5 }}>
+                                    <Grid item>
+                                        <Typography variant="h6" color="secondary">
+                                            12px
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs>
+                                        <Slider
+                                            size="small"
+                                            value={fontSize}
+                                            onChange={(e, newValue) => setFontSize(newValue)}
+                                            getAriaValueText={valueText}
+                                            valueLabelDisplay="on"
+                                            aria-labelledby="discrete-slider-small-steps"
+                                            marks
+                                            step={1}
+                                            min={12}
                                             max={24}
                                             color="secondary"
                                             sx={{

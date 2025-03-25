@@ -14,6 +14,8 @@ import { MENU_OPEN, SET_MENU } from '../../../../../store/actions';
 // assets
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
+import { useLocation } from 'react-router-dom';
+
 // style constant
 const useStyles = makeStyles((theme) => ({
     listIcon: {
@@ -52,6 +54,7 @@ const NavItem = ({ item, level }) => {
     const dispatch = useDispatch();
     const customization = useSelector((state) => state.customization);
     const matchesSM = useMediaQuery((theme) => theme.breakpoints.down('md'));
+    const location = useLocation();
 
     const Icon = item.icon;
     const itemIcon = item.icon ? (
@@ -101,7 +104,7 @@ const NavItem = ({ item, level }) => {
             disabled={item.disabled}
             className={level > 1 ? classes.listItemNoBack : classes.listItem}
             sx={{ borderRadius: customization.borderRadius + 'px' }}
-            selected={customization.isOpen.findIndex((id) => id === item.id) > -1}
+            selected={location.pathname === item.url}
             onClick={() => itemHandler(item.id)}
             target={itemTarget}
             style={{ paddingLeft: level * 23 + 'px' }}

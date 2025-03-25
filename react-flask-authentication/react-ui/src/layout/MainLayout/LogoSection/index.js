@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 
 // material-ui
 import { ButtonBase } from '@mui/material';
@@ -11,8 +11,11 @@ import Logo from './../../../ui-component/Logo';
 //-----------------------|| MAIN LOGO ||-----------------------//
 
 const LogoSection = () => {
+
+    const history = useHistory();
+
     return (
-        <ButtonBase disableRipple component={Link} to={config.defaultPath}>
+        <ButtonBase disableRipple onClick={() => history.push(config.defaultPath)}>
             <Logo />
         </ButtonBase>
     );
