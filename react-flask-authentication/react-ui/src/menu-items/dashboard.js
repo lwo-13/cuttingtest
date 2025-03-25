@@ -21,14 +21,6 @@ export const dashboard = {
             url: '/dashboard/default',
             icon: icons['IconDashboard'],
             breadcrumbs: false
-        },
-        {
-            id: 'kanban',
-            title: 'Board',
-            type: 'item',
-            url: '/dashboard/kanbanboard',
-            icon: IconLayoutKanban,
-            breadcrumbs: false
         }
     ]
 };

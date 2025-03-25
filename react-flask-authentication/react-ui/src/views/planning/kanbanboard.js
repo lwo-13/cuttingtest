@@ -23,7 +23,7 @@ const FilterBar = ({ selectedDay, setSelectedDay }) => {
     >
       <Button
         variant={selectedDay === "Today" ? "contained" : "outlined"}
-        color={selectedDay === "Today" ? "primary" : "primary"}  // ✅ Use primary color
+        color="primary"
         onClick={() => setSelectedDay("Today")}
         sx={{ mr: 2 }}
       >
@@ -31,7 +31,7 @@ const FilterBar = ({ selectedDay, setSelectedDay }) => {
       </Button>
       <Button
         variant={selectedDay === "Tomorrow" ? "contained" : "outlined"}
-        color={selectedDay === "Tomorrow" ? "primary" : "primary"}
+        color="secondary"  // ✅ Now uses the secondary color
         onClick={() => setSelectedDay("Tomorrow")}
       >
         Tomorrow
@@ -45,7 +45,7 @@ const KanbanBoard = () => {
   const [selectedDay, setSelectedDay] = useState("Today");
 
   useEffect(() => {
-    axios.get("http://127.0.0.1:5000/api/mattress/kanban") // Fetch only "TO LOAD" mattresses
+    axios.get(`http://127.0.0.1:5000/api/mattress/kanban?day=${selectedDay.toLowerCase()}`)
       .then((res) => {
         if (res.data.success) {
           console.log("Kanban Data:", res.data.data); // Debugging
@@ -55,7 +55,7 @@ const KanbanBoard = () => {
         }
       })
       .catch((err) => console.error("API Error:", err));
-  }, []);
+  }, [selectedDay]);  // <-- Re-run every time day changes
 
   const moveMattress = (id, newDevice, shift) => {
     const prevMattresses = [...mattresses]; // Store previous state
@@ -85,12 +85,11 @@ const KanbanBoard = () => {
 
       <DndProvider backend={HTML5Backend}>
         <Box
-          display="grid"
+          display="flex"
           gap={2}                                // ✅ This is the space between columns (padding effect)
-          p={2}
+          p={0}
           sx={{
-            gridAutoFlow: 'column',
-            gridAutoColumns: 'minmax(250px, 1fr)',
+            width: '100%', 
             overflowX: 'auto',
             alignItems: 'start',
             scrollbarWidth: 'thin',               // Optional: nicer scrollbar on Firefox
@@ -131,23 +130,50 @@ const KanbanBoard = () => {
     });
   
     return (
-      <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '400px' }}>
-        <Paper elevation={2} sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 1 }}>
+      <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '100%' }}>
+        <Paper 
+          sx={{ 
+            p: 1, 
+            bgcolor: 'white', 
+            textAlign: 'center', 
+            fontWeight: 'bold', 
+            fontSize: '1.1rem', 
+            borderRadius: 2, 
+            mb: 2,
+            height: 60,           // ✅ Fixed height in pixels
+            display: 'flex',      // ✅ Center vertically
+            alignItems: 'center', // ✅ Center vertically
+            justifyContent: 'center' // ✅ Center horizontally (optional)
+          }}
+        >
           {device === "SP0" ? "To Assign" : device}
         </Paper>
   
         {isSpreader ? (
           <>
-            <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#e0e0e0", flexGrow: 1, borderRadius: 2, minHeight: 200, mb: 2 }} elevation={3}>
+            {/* ✅ 1st Shift Box */}
+            <Paper 
+              ref={dropFirst} 
+              sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, mb: 2 }} 
+            >
+              <Box sx={{ fontWeight: 'bold', mb: 1 }}>1st Shift</Box>
               {firstShift.map((m) => <KanbanItem key={m.id} mattress={m} />)}
             </Paper>
-  
-            <Paper ref={dropSecond} sx={{ p: 2, bgcolor: isOverSecond ? "green.200" : "#cfcfcf", flexGrow: 1, borderRadius: 2, minHeight: 200 }} elevation={3}>
+
+            {/* ✅ 2nd Shift Box */}
+            <Paper 
+              ref={dropSecond} 
+              sx={{ p: 2, bgcolor: isOverSecond ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200 }} 
+            >
+              <Box sx={{ fontWeight: 'bold', mb: 1 }}>2nd Shift</Box>
               {secondShift.map((m) => <KanbanItem key={m.id} mattress={m} />)}
             </Paper>
           </>
         ) : (
-          <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 300 }} elevation={3}>
+          <Paper 
+            ref={dropFirst} 
+            sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 300 }} 
+          >
             {mattresses.map((m) => <KanbanItem key={m.id} mattress={m} />)}
           </Paper>
         )}

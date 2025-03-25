@@ -261,6 +261,9 @@ class GetKanbanMattressesResource(Resource):
         """Fetch all necessary info for Kanban - active TO LOAD phases with device, operator, marker, layers, fabric, sizes"""
         try:
             # Base query for mattress and phase
+
+            day_filter = request.args.get('day', None)
+
             query = db.session.query(
                 MattressPhase.mattress_id,
                 MattressPhase.status,
@@ -286,9 +289,17 @@ class GetKanbanMattressesResource(Resource):
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
              .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \
              .filter(MattressPhase.active == True) \
-             .filter(MattressPhase.status == "1 - TO LOAD") \
-             .order_by(MattressKanban.day, MattressKanban.shift, MattressKanban.position) \
-             .all()
+             .filter(MattressPhase.status == "1 - TO LOAD")
+            
+            if day_filter:
+                query = query.filter(
+                    db.or_(
+                        MattressKanban.day == day_filter,
+                        MattressKanban.day.is_(None)  # Not assigned
+                    )
+                )
+
+            query = query.order_by(MattressKanban.day, MattressKanban.shift, MattressKanban.position).all()
 
             # Grab sizes separately
             size_rows = db.session.query(
