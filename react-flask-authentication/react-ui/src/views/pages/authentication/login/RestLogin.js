@@ -96,12 +96,12 @@ const RestLogin = (props, { ...others }) => {
         <React.Fragment>
             <Formik
                 initialValues={{
-                    email: '',
+                    username: '',
                     password: '',
                     submit: null
                 }}
                 validationSchema={Yup.object().shape({
-                    email: Yup.string().email('Must be a valid email').max(255).required('Email is required'),
+                    username: Yup.string().max(255).required('Username is required'),
                     password: Yup.string().max(255).required('Password is required')
                 })}
                 onSubmit={(values, { setErrors, setStatus, setSubmitting }) => {
@@ -109,7 +109,7 @@ const RestLogin = (props, { ...others }) => {
                         axios
                             .post( configData.API_SERVER + 'users/login', {
                                 password: values.password,
-                                email: values.email
+                                username: values.username
                             })
                             .then(function (response) {
                                 console.log("Raw API response:", response);
@@ -148,26 +148,27 @@ const RestLogin = (props, { ...others }) => {
             >
                 {({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
                     <form noValidate onSubmit={handleSubmit} {...others}>
-                        <FormControl fullWidth error={Boolean(touched.email && errors.email)} className={classes.loginInput}>
-                            <InputLabel htmlFor="outlined-adornment-email-login">Email</InputLabel>
+                        <FormControl fullWidth error={Boolean(touched.username && errors.username)} className={classes.loginInput}>
+                            <InputLabel htmlFor="outlined-adornment-username-login">Username</InputLabel>
                             <OutlinedInput
-                                id="outlined-adornment-email-login"
-                                type="email"
-                                value={values.email}
-                                name="email"
+                                id="outlined-adornment-username-login"
+                                type="text"
+                                value={values.username}
+                                name="username"
                                 onBlur={handleBlur}
                                 onChange={handleChange}
-                                label="Email Address"
+                                label="Username"
+                                autoComplete="off"
                                 inputProps={{
                                     classes: {
                                         notchedOutline: classes.notchedOutline
                                     }
                                 }}
                             />
-                            {touched.email && errors.email && (
-                                <FormHelperText error id="standard-weight-helper-text-email-login">
+                            {touched.username && errors.username && (
+                                <FormHelperText error id="standard-weight-helper-text-username-login">
                                     {' '}
-                                    {errors.email}{' '}
+                                    {errors.username}{' '}
                                 </FormHelperText>
                             )}
                         </FormControl>

@@ -22,7 +22,7 @@ signup_model = auth_api.model('SignUpModel', {
 })
 
 login_model = auth_api.model('LoginModel', {
-    "email": fields.String(required=True, min_length=4, max_length=64),
+    "username": fields.String(required=True, min_length=2, max_length=32),
     "password": fields.String(required=True, min_length=4, max_length=16)
 })
 
@@ -50,7 +50,7 @@ def token_required(f):
 
         try:
             data = jwt.decode(token, BaseConfig.SECRET_KEY, algorithms=["HS256"])
-            current_user = Users.get_by_email(data["email"])
+            current_user = Users.query.filter_by(username=data["username"]).first()
 
             if not isinstance(current_user, Users):  # ✅ Ensure it's a User object
                 print(f"DEBUG: User lookup failed for token: {token}")
@@ -96,21 +96,21 @@ class Login(Resource):
 
         req_data = request.get_json()
 
-        _email = req_data.get("email")
+        _username = req_data.get("username")
         _password = req_data.get("password")
 
-        user_exists = Users.get_by_email(_email)
+        user_exists = Users.query.filter_by(username=_username).first()
 
         if not user_exists:
             return {"success": False,
-                    "msg": "This email does not exist."}, 400
+                    "msg": "This username does not exist."}, 400
 
         if not user_exists.check_password(_password):
             return {"success": False,
                     "msg": "Wrong credentials."}, 400
 
         # create access token uwing JWT
-        token = jwt.encode({'email': _email, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
+        token = jwt.encode({'username': _username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
 
         user_exists.set_jwt_auth_active(True)
         user_exists.save()
@@ -141,7 +141,7 @@ class LogoutUser(Resource):
 
     @token_required
     def post(self, current_user):
-        _jwt_token = request.headers.get("authorization")
+        _jwt_token = request.headers.get("Authorization")
         
         if not _jwt_token:
             # Token missing, maybe session expired, consider this a successful logout
