@@ -109,7 +109,6 @@ const OrderPlanning = () => {
         }
       };
 
-    /* fix this */
     const handleAddTable = () => {
         setTables(prevTables => [
             ...prevTables,
@@ -119,16 +118,17 @@ const OrderPlanning = () => {
                 fabricCode: "",
                 fabricColor: "",
                 spreadingMethod: "",
+                allowance: "",  // ✅ (Optional but useful if you're reading this later)
                 rows: [{
                     width: "",
                     markerName: "",
                     piecesPerSize: {},
                     markerLength: "",
-                    allowance: "",
                     efficiency: "",
                     layers: "",
                     expectedConsumption: "",
-                    bagno: ""
+                    bagno: "",
+                    isEditable: true  // ✅ Default to true so the first row is editable
                 }]
             }
         ]);
@@ -1777,7 +1777,7 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].width || ""}
-                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
+                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
                                                         onChange={(e) => {
                                                             const value = e.target.value.replace(/\D/g, '').slice(0, 3);  // ✅ Remove non-numeric & limit to 4 digits
                                                             
@@ -1829,7 +1829,7 @@ const OrderPlanning = () => {
                                                             </li>
                                                         )}
                                                         value={markerOptions.find(m => m.marker_name === row.markerName) || null}
-                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
+                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
                                                         onChange={(_, newValue) => {
                                                             setTables(prevTables => {
                                                                 const updatedTables = [...prevTables];
@@ -1902,7 +1902,7 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].layers || ""}
-                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
+                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
                                                         onChange={(e) => {
                                                             const value = e.target.value.replace(/\D/g, '').slice(0, 4);  // ✅ Remove non-numeric & limit to 4 digits
                                                             handleInputChange(tableIndex, rowIndex, "layers", value);
@@ -1929,7 +1929,7 @@ const OrderPlanning = () => {
                                                     <TextField
                                                         variant="outlined"
                                                         value={tables[tableIndex].rows[rowIndex].bagno || ""}
-                                                        disabled={!tables[tableIndex].rows[rowIndex].isEditable}  // ✅ Disable input if NOT editable
+                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
                                                         onChange={(e) => handleInputChange(tableIndex, rowIndex, "bagno", e.target.value)}
                                                         sx={{
                                                             width: '100%',
