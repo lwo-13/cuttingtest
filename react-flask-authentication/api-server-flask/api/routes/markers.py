@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
-from api.models import db, MarkerHeader, MarkerLine
+from api.models import db, MarkerHeader, MarkerLine, MarkerLineRotation
 import json
 import xml.etree.ElementTree as ET
 import os
@@ -177,53 +177,66 @@ class ImportMarker(Resource):
  
             db.session.add(new_marker)
             db.session.commit()  # Commit the new_marker before proceeding
- 
+
             # Save MarkerLines (Variants)
-            if marker_content is not None:
-                for i, variant in enumerate(marker_content.findall('.//NewVariant')):
-                    size_element = variant.find('Size')
-                    quantity_element = variant.find('Quantity')
- 
-                    if size_element is not None:
-                        size = size_element.attrib.get('Value', '').strip()
-                    else:
-                        size = ''  # Default if size is missing
- 
-                    if quantity_element is not None:
-                        quantity = quantity_element.attrib.get('Value', '0').strip()
-                    else:
-                        quantity = '0'  # Default if quantity is missing
- 
-                    try:
-                        pcs_on_layer = float(quantity) if quantity else 0.0
-                    except ValueError:
-                        pcs_on_layer = 0.0  # Default to 0 if quantity is not a valid number
- 
-                    # Check if a MarkerLine already exists with the same style and size
+            if updated_data:
+                for line in updated_data:
+                    size = line.get('size', '').strip()
+                    style = line.get('style', '').strip()
+                    pcs_on_layer = float(line.get('qty', 0))
+
+                    # Save MarkerLine
                     existing_marker_line = MarkerLine.query.filter_by(
-                        marker_header_id=new_marker.id, style=new_marker.model, size=size).first()
- 
+                        marker_header_id=new_marker.id, style=style, size=size
+                    ).first()
+
                     if existing_marker_line:
-                        # If it exists, sum the pcs_on_layer values
                         existing_marker_line.pcs_on_layer += pcs_on_layer
                     else:
-                        # If not, create a new MarkerLine
                         new_marker_line = MarkerLine(
                             marker_header_id=new_marker.id,
-                            style=new_marker.model,
+                            style=style,
                             size=size,
-                            style_size=f"{new_marker.model} {size}",
+                            style_size=f"{style} {size}",
                             pcs_on_layer=pcs_on_layer
                         )
                         db.session.add(new_marker_line)
- 
-                db.session.commit()
+
+                    # Save MarkerLineRotation with direction logic
+                    existing_rotation_false = MarkerLineRotation.query.filter_by(
+                        marker_header_id=new_marker.id,
+                        style=style,
+                        size=size,
+                        rotation180=False
+                    ).first()
+
+                    if not existing_rotation_false:
+                        new_rotation_line = MarkerLineRotation(
+                            marker_header_id=new_marker.id,
+                            style=style,
+                            size=size,
+                            style_size=f"{style} {size}",
+                            rotation180=False,
+                            pcs_on_layer=pcs_on_layer
+                        )
+                        db.session.add(new_rotation_line)
+                    else:
+                        new_rotation_line = MarkerLineRotation(
+                            marker_header_id=new_marker.id,
+                            style=style,
+                            size=size,
+                            style_size=f"{style} {size}",
+                            rotation180=True,
+                            pcs_on_layer=pcs_on_layer
+                        )
+                        db.session.add(new_rotation_line)
+
+            db.session.commit()
  
             return {"success": True, "msg": f"Marker '{marker_name}' imported"}, 201
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
         
-
 # ===================== Fecth Marker Pieces ==========================
 @markers_api.route('/marker_pcs', methods=['GET'])
 class MarkerPcs(Resource):

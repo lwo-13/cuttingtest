@@ -140,6 +140,18 @@ class MarkerLine(db.Model):
     pcs_on_layer = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+class MarkerLineRotation(db.Model):
+    __tablename__ = 'marker_lines_rotation'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    marker_header_id = db.Column(db.Integer, db.ForeignKey('marker_headers.id', ondelete='CASCADE'), nullable=False)
+    style = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    size = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    style_size = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    rotation180 = db.Column(db.Boolean, nullable=False, default=False)
+    pcs_on_layer = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     
 class OrderLinesView(db.Model):
     __tablename__ = 'order_lines_view'  # SQL View

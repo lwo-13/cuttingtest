@@ -1256,12 +1256,12 @@ const OrderPlanning = () => {
             setUnsavedChanges(false);
 
             // ✅ Show success message
-            setSuccessMessage("Saving completed successfully!");
+            setSuccessMessage("✅ Saving completed successfully!");
             setOpenSuccess(true);
         })
         .catch(() => {
             // ❌ Show error if any API request fails
-            setErrorMessage("An error occurred while saving. Please try again.");
+            setErrorMessage("⚠️ An error occurred while saving. Please try again.");
             setOpenError(true);
         });
     };

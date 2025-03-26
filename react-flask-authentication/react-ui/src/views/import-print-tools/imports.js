@@ -4,7 +4,7 @@ import axios from 'axios';
 // material-ui
 import { Typography, Button, Card, CardContent, Grid, Box, Dialog, DialogTitle, DialogContent,
   DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField,
-  Select, MenuItem, InputLabel, FormControl
+  Select, MenuItem, InputLabel, FormControl, Snackbar, Alert
 } from '@mui/material';
 
 // project imports
@@ -19,6 +19,14 @@ const CombinedImports = () => {
   const [importStatus, setImportStatus] = useState("");
   const [hasEdits, setHasEdits] = useState(false);
   const [creationType, setCreationType] = useState('');
+
+  const [openError, setOpenError] = useState(false);
+  const [openSuccess, setOpenSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleCloseError = () => setOpenError(false);
+  const handleCloseSuccess = () => setOpenSuccess(false);
 
   // Handle XML File Selection
   const handleXMLChange = (event) => {
@@ -55,53 +63,73 @@ const CombinedImports = () => {
   };
 
   // Handle updates to editable fields
-  const handleFieldChange = (index, field, value) => {
-    const updatedMarkerInfo = [...markerInfo];
-    updatedMarkerInfo[index][field] = value;
-    setMarkerInfo(updatedMarkerInfo);
+  const handleFieldChange = (summaryIndex, field, value, isSummary = false) => {
+    if (isSummary) {
+      const summarizedData = summarizeMarkerInfo();
+      const { style: oldStyle, size: oldSize } = summarizedData[summaryIndex];
+  
+      const updatedMarkerInfo = markerInfo.map((line) => {
+        if (line.style === oldStyle && line.size === oldSize) {
+          return { ...line, [field]: value };  // Apply the change to RAW data
+        }
+        return line;
+      });
+  
+      setMarkerInfo(updatedMarkerInfo);
+    } else {
+      // Optional raw line edit (if you ever allow raw editing)
+      const updatedMarkerInfo = [...markerInfo];
+      updatedMarkerInfo[summaryIndex][field] = value;
+      setMarkerInfo(updatedMarkerInfo);
+    }
     setHasEdits(true);
   };
+  
 
   // Handle Creation Type Change
   const handleCreationTypeChange = (event) => {
     setCreationType(event.target.value);
   };
 
+  // Display summarized table but send RAW data
+  const summarizeMarkerInfo = () => {
+    const summary = {};
+    markerInfo.forEach(({ style, size, qty }) => {
+      const key = `${style}-${size}`;
+      if (!summary[key]) {
+        summary[key] = { style, size, qty: 0 };
+      }
+      summary[key].qty += Number(qty); // Force numeric addition
+    });
+    return Object.values(summary);
+  };
+
   // Perform the actual import when clicking "Import" inside the dialog
   const handleXMLImport = async () => {
-    if (!selectedXML) {
-      alert('Please select an XML file first.');
-      return;
-    }
+    if (!selectedXML) return alert('Please select an XML file first.');
 
     const formData = new FormData();
     formData.append("file", selectedXML);
-    formData.append("updatedData", JSON.stringify(markerInfo)); // Send updated data
-    formData.append("hasEdits", hasEdits); // Indicate if there were edits
+    formData.append("updatedData", JSON.stringify(markerInfo)); // RAW Data
+    formData.append("hasEdits", hasEdits);
     formData.append("creationType", creationType);
 
     try {
       const response = await axios.post("http://127.0.0.1:5000/api/markers/import_marker", formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       if (response.data.success) {
-        setImportStatus("✅ XML imported successfully!");
-        setTimeout(() => {
-          handleDialogClose(); 
-        }, 3000);
+        setSuccessMessage(`✅ ${response.data.msg}`);
+        setOpenSuccess(true);
+        setTimeout(() => handleDialogClose(), 3000);
       } else {
-        setImportStatus(`⚠️ Error: ${response.data.msg}`);
+        setErrorMessage(`⚠️ ${response.data.msg}`);
+        setOpenError(true);
       }
     } catch (error) {
-      if (error.response && error.response.status === 409) {
-        // ✅ Marker already exists
-        setImportStatus(`⚠️ ${error.response.data.msg}`);
-      } else {
-        setImportStatus(`❌ Upload failed: ${error.response?.data?.msg || error.message}`);
-      }
+      setErrorMessage(`❌ Upload failed: ${error.response?.data?.msg || error.message}`);
+      setOpenError(true);
     }
   };
 
@@ -200,37 +228,31 @@ const CombinedImports = () => {
                     <TableCell sx={{ width: '30%' }}><strong>Quantity</strong></TableCell>
                   </TableRow>
                 </TableHead>
-                <TableBody>
-                  {markerInfo.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <TextField
-                          value={item.style}
-                          onChange={(e) => handleFieldChange(index, 'style', e.target.value)}
-                          variant="standard"
-                          sx={{ width: '150px' }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ maxWidth: 60 }}>
-                        <TextField
-                          value={item.size}
-                          onChange={(e) => handleFieldChange(index, 'size', e.target.value)}
-                          variant="standard"
-                          sx={{ width: '80px' }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ maxWidth: 60 }}>
-                        <TextField
-                          value={item.qty}
-                          type="number"
-                          onChange={(e) => handleFieldChange(index, 'qty', e.target.value)}
-                          variant="standard"
-                          sx={{ width: '80px' }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                  <TableBody>
+                    {summarizeMarkerInfo().map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <TextField
+                            value={item.style}
+                            onChange={(e) => handleFieldChange(index, 'style', e.target.value, true)} // true means summarized edit
+                            variant="standard"
+                            sx={{ width: '150px' }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            value={item.size}
+                            onChange={(e) => handleFieldChange(index, 'size', e.target.value, true)}
+                            variant="standard"
+                            sx={{ width: '80px' }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography>{item.qty}</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
               </Table>
             </TableContainer>
           ) : (
@@ -260,6 +282,31 @@ const CombinedImports = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ✅ Success Snackbar */}
+      <Snackbar 
+        open={openSuccess} 
+        autoHideDuration={5000} 
+        onClose={handleCloseSuccess} 
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSuccess} severity="success" sx={{ width: '100%' }}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
+
+      {/* ❌ Error Snackbar */}
+      <Snackbar 
+        open={openError} 
+        autoHideDuration={5000} 
+        onClose={handleCloseError} 
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+          {errorMessage}
+        </Alert>
+      </Snackbar>
+
     </MainCard>
   );
 };
