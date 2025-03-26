@@ -49,11 +49,19 @@ const CombinedImports = () => {
 
       // Extract data from <NewVariant> elements inside <MarkerContent>
       const newVariants = Array.from(xmlDoc.getElementsByTagName("NewVariant"));
-      const extractedData = newVariants.map((variant) => ({
-        style: variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A", // Extract Model as Style
-        size: variant.getElementsByTagName("Size")[0]?.getAttribute("Value") || "N/A",
-        qty: variant.getElementsByTagName("Quantity")[0]?.getAttribute("Value") || "0"
-      }));
+      const extractedData = newVariants.map((variant) => {
+        let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
+        
+        // ✅ Trim season: keep everything after the first "_"
+        const styleParts = fullStyle.split('_');
+        const style = styleParts.slice(1).join('_');  // Removes season part
+      
+        return {
+          style,  // Use the trimmed style
+          size: variant.getElementsByTagName("Size")[0]?.getAttribute("Value") || "N/A",
+          qty: variant.getElementsByTagName("Quantity")[0]?.getAttribute("Value") || "0"
+        };
+      });
 
       setMarkerInfo(extractedData);
       setDialogOpen(true);
