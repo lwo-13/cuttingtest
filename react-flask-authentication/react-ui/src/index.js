@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import './i18n';
 
 // third party
 import { BrowserRouter } from 'react-router-dom';

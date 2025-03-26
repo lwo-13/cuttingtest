@@ -7,6 +7,8 @@ import { Button, Card, CardContent, Grid, Link, Stack, Typography } from '@mui/m
 // project imports
 import AnimateButton from './../../../../ui-component/extended/AnimateButton';
 
+import { useTranslation } from 'react-i18next';
+
 // style constant
 const useStyles = makeStyles((theme) => ({
     card: {
@@ -57,6 +59,7 @@ const useStyles = makeStyles((theme) => ({
 
 const UpgradePlanCard = () => {
     const classes = useStyles();
+    const { t } = useTranslation();
 
     return (
         <Card className={classes.card}>
@@ -64,12 +67,12 @@ const UpgradePlanCard = () => {
                 <Grid container direction="column" spacing={2}>
                     <Grid item>
                         <Typography variant="h4">
-                            Cutting BI Analytics
+                            {t('sidebar.cuttingBIAnalytics')}
                         </Typography>
                     </Grid>
                     <Grid item>
                         <Typography variant="subtitle2" className={classes.tagLine}>
-                            Fabric Consumption Tracking 
+                            {t('sidebar.fabricConsumptionTracking')}
                         </Typography>
                     </Grid>
                     <Grid item>

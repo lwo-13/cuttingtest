@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 
 import configData from '../../../../config';
 
@@ -92,6 +93,8 @@ const RestLogin = (props, { ...others }) => {
         event.preventDefault();
     };
 
+    const { t } = useTranslation();
+
     return (
         <React.Fragment>
             <Formik
@@ -101,8 +104,8 @@ const RestLogin = (props, { ...others }) => {
                     submit: null
                 }}
                 validationSchema={Yup.object().shape({
-                    username: Yup.string().max(255).required('Username is required'),
-                    password: Yup.string().max(255).required('Password is required')
+                    username: Yup.string().max(255).required(t('login.usernameRequired')),
+                    password: Yup.string().max(255).required(t('login.passwordRequired'))
                 })}
                 onSubmit={(values, { setErrors, setStatus, setSubmitting }) => {
                     try {
@@ -149,7 +152,7 @@ const RestLogin = (props, { ...others }) => {
                 {({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
                     <form noValidate onSubmit={handleSubmit} {...others}>
                         <FormControl fullWidth error={Boolean(touched.username && errors.username)} className={classes.loginInput}>
-                            <InputLabel htmlFor="outlined-adornment-username-login">Username</InputLabel>
+                            <InputLabel htmlFor="outlined-adornment-username-login">{t('login.username')}</InputLabel>
                             <OutlinedInput
                                 id="outlined-adornment-username-login"
                                 type="text"
@@ -157,7 +160,7 @@ const RestLogin = (props, { ...others }) => {
                                 name="username"
                                 onBlur={handleBlur}
                                 onChange={handleChange}
-                                label="Username"
+                                label={t('login.username')}
                                 autoComplete="off"
                                 inputProps={{
                                     classes: {
@@ -174,7 +177,7 @@ const RestLogin = (props, { ...others }) => {
                         </FormControl>
 
                         <FormControl fullWidth error={Boolean(touched.password && errors.password)} className={classes.loginInput}>
-                            <InputLabel htmlFor="outlined-adornment-password-login">Password</InputLabel>
+                            <InputLabel htmlFor="outlined-adornment-password-login">{t('login.password')}</InputLabel>
                             <OutlinedInput
                                 id="outlined-adornment-password-login"
                                 type={showPassword ? 'text' : 'password'}
@@ -194,7 +197,7 @@ const RestLogin = (props, { ...others }) => {
                                         </IconButton>
                                     </InputAdornment>
                                 }
-                                label="Password"
+                                label={t('login.password')}
                                 inputProps={{
                                     classes: {
                                         notchedOutline: classes.notchedOutline
@@ -218,7 +221,7 @@ const RestLogin = (props, { ...others }) => {
                                         color="primary"
                                     />
                                 }
-                                label="Remember me"
+                                label={t('login.rememberMe')}
                             />
                         </Stack>
                         {errors.submit && (
@@ -246,7 +249,7 @@ const RestLogin = (props, { ...others }) => {
                                     variant="contained"
                                     color="secondary"
                                 >
-                                    Sign IN
+                                    {t('login.signIn')}
                                 </Button>
                             </AnimateButton>
                         </Box>

@@ -15,6 +15,8 @@ import LogoSection from '../LogoSection';
 import MenuCard from './MenuCard';
 import { drawerWidth } from './../../../store/constant';
 
+import { useTranslation } from 'react-i18next';
+
 // style constant
 const useStyles = makeStyles((theme) => ({
     drawer: {
@@ -54,6 +56,8 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
     const classes = useStyles();
     const theme = useTheme();
     const matchUpMd = useMediaQuery(theme.breakpoints.up('md'));
+
+    const { t } = useTranslation();
 
     const drawer = (
         <React.Fragment>

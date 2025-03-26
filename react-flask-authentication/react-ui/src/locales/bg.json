@@ -1,0 +1,30 @@
+{
+  "login": {
+    "username": "Потребителско име",
+    "password": "Парола",
+    "signIn": "Вход",
+    "rememberMe": "Запомни ме",
+    "usernameRequired": "Необходимо е потребителско име",
+    "passwordRequired": "Необходима е парола",
+    "welcomeBack": "Добре дошли",
+    "enterCredentials": "Въведете своите данни за вход",
+    "contactAdmin": "Свържете се с администратора за достъп до акаунта"
+  },
+  "sidebar": {
+    "dashboard": "Табло за управление",
+    "kpiDashboard": "KPI Табло",
+    "planning": "Планиране",
+    "board": "Дъска",
+    "orderPlanning": "Планиране на поръчки",
+    "tables": "Масички",
+    "orders": "Поръчки",
+    "markerDatabase": "База данни с маркери",
+    "mattressApproval": "Одобрение на матраци",
+    "padPrints": "Отпечатъци на подложки",
+    "importPrintTools": "Импорт и печатни инструменти",
+    "imports": "Импорти",
+    "print": "Печат",
+    "cuttingBIAnalytics": "Анализ на BI на рязане",
+    "fabricConsumptionTracking": "Проследяване на консумацията на тъкани"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "login": {
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign In",
+    "rememberMe": "Remember me",
+    "usernameRequired": "Username is required",
+    "passwordRequired": "Password is required",
+    "welcomeBack": "Hi, Welcome Back",
+    "enterCredentials": "Enter your credentials to continue",
+    "contactAdmin": "Contact admin for account access"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "kpiDashboard": "KPI Dashboard",
+    "planning": "Planning",
+    "board": "Board",
+    "orderPlanning": "Order Planning",
+    "tables": "Tables",
+    "orders": "Orders",
+    "markerDatabase": "Marker Database",
+    "mattressApproval": "Mattress Approval",
+    "padPrints": "Pad Prints",
+    "importPrintTools": "Import & Print Tools",
+    "imports": "Imports",
+    "print": "Print",
+    "cuttingBIAnalytics": "Cutting BI Analytics",
+    "fabricConsumptionTracking": "Fabric Consumption Tracking"
+  }
+}

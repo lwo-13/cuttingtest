@@ -12,13 +12,15 @@ import AuthCardWrapper from './../AuthCardWrapper';
 import RestLogin from './RestLogin';
 import AuthFooter from './../../../../ui-component/cards/AuthFooter';
 
-// assets
+// third-party
+import { useTranslation } from 'react-i18next';
 
 //================================|| LOGIN MAIN ||================================//
 
 const Login = () => {
     const theme = useTheme();
     const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
+    const { t } = useTranslation();
 
     return (
         <AuthWrapper1>
@@ -47,10 +49,10 @@ const Login = () => {
                                                         gutterBottom
                                                         variant={matchDownSM ? 'h3' : 'h2'}
                                                     >
-                                                        Hi, Welcome Back
+                                                        {t('login.welcomeBack')}
                                                     </Typography>
                                                     <Typography variant="caption" fontSize="16px" textAlign={matchDownSM ? 'center' : ''}>
-                                                        Enter your credentials to continue
+                                                        {t('login.enterCredentials')}
                                                     </Typography>
                                                 </Stack>
                                             </Grid>
@@ -68,7 +70,7 @@ const Login = () => {
                                                 variant="subtitle1"
                                                 sx={{ textDecoration: 'none' }}
                                             >
-                                                Contact <strong>admin</strong> for account acess
+                                                {t('login.contactAdmin')}
                                             </Typography>
                                         </Grid>
                                     </Grid>

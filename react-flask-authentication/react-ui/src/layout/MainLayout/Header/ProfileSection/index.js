@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import configData from '../../../../config';
+import { useTranslation } from 'react-i18next';
 
 // material-ui
 import { makeStyles, useTheme } from '@mui/styles';
@@ -20,7 +21,10 @@ import {
     Paper,
     Popper,
     Switch,
-    Typography
+    Typography,
+    Select,
+    MenuItem
+
 } from '@mui/material';
 import ListItemButton from '@mui/material/ListItemButton';
 
@@ -130,6 +134,8 @@ const ProfileSection = () => {
 
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
+
+    const { i18n } = useTranslation();
 
     const handleLogout = () => {
         dispatcher(logoutUser());   // ✅ Trigger the logout action (Redux handles API + state)
@@ -269,6 +275,20 @@ const ProfileSection = () => {
                                                     </Grid>
                                                 </CardContent>
                                             </Card>
+
+                                            {/* 🌐 Language Switcher */}
+                                            <Select
+                                                value={i18n.language}
+                                                onChange={(e) => i18n.changeLanguage(e.target.value)}
+                                                variant="outlined"
+                                                size="small"
+                                                sx={{ m: 2, width: '120px' }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                >
+                                                <MenuItem value="en">EN</MenuItem>
+                                                <MenuItem value="bg">BG</MenuItem>
+                                            </Select>
+
                                             <Divider />
                                             <List component="nav" className={classes.navContainer}>
                                                 <ListItemButton
