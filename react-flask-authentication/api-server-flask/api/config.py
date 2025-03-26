@@ -25,7 +25,7 @@ class BaseConfig():
     DB_ENGINE = 'mssql+pyodbc'
     DB_USERNAME = 'sa'
     DB_PASS = 'sqladmin'
-    DB_HOST = '172.27.57.202'
+    DB_HOST = '172.27.57.201'
     DB_PORT = '1433'  # Default SQL Server port
     DB_NAME = 'CuttingRoom'
 
