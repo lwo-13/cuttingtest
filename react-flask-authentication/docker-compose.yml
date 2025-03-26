@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./react-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
+
+  backend:
+    build: ./flask-api
+    ports:
+      - "5000:5000"
+    restart: always
+ 
