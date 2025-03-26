@@ -14,3 +14,16 @@ class ZalliItemsResource(Resource):
             return jsonify([item.to_dict() for item in items])
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
+
+@zalli_api.route("/get_brand/<string:style_code>")
+class ZalliGetBrandResource(Resource):
+    def get(self, style_code):
+        """Fetch the brand by style_code (item_no)"""
+        try:
+            item = ZalliItemsView.query.filter_by(item_no=style_code).first()
+            if item:
+                return {"success": True, "brand": item.brand}
+            else:
+                return {"success": False, "msg": "Style not found"}
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500

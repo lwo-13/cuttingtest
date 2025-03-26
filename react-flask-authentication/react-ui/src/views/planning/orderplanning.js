@@ -95,6 +95,20 @@ const OrderPlanning = () => {
         });
     };
 
+    const fetchBrandForStyle = async (styleCode) => {
+        try {
+          const response = await axios.get(`http://127.0.0.1:5000/api/zalli/get_brand/${styleCode}`);
+          if (response.data.success) {
+            setSelectedBrand(response.data.brand || "");
+          } else {
+            setSelectedBrand("");
+          }
+        } catch (error) {
+          console.error("Failed to fetch brand", error);
+          setSelectedBrand("");
+        }
+      };
+
     /* fix this */
     const handleAddTable = () => {
         setTables(prevTables => [
@@ -331,6 +345,9 @@ const OrderPlanning = () => {
 
             // ✅ Fetch Pad Print Info based on order attributes
             fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
+
+            // ✅ Fetch brand directly with style
+            fetchBrandForStyle(newValue.style);
     
             // Fetch mattresses and markers in parallel
             Promise.all([
@@ -534,6 +551,7 @@ const OrderPlanning = () => {
             setAllowance("");
             setSelectedStyle("");
             setSelectedSeason("");
+            setSelectedBrand("");
             setSelectedColorCode("");
             setPadPrintInfo(null);
 
@@ -1256,7 +1274,7 @@ const OrderPlanning = () => {
             setUnsavedChanges(false);
 
             // ✅ Show success message
-            setSuccessMessage("✅ Saving completed successfully!");
+            setSuccessMessage("Saving completed successfully!");
             setOpenSuccess(true);
         })
         .catch(() => {
@@ -1396,7 +1414,7 @@ const OrderPlanning = () => {
                     </Grid>
 
                     {/* Laboratorio Selection (Searchable) */}
-                    <Grid item xs={6} sm={4} md={2.5}>
+                    {/*<Grid item xs={6} sm={4} md={2.5}>
                         <Autocomplete
                             options={sampleLaboratorio}
                             getOptionLabel={(option) => option.name}
@@ -1410,7 +1428,7 @@ const OrderPlanning = () => {
                                 "& .MuiAutocomplete-input": { fontWeight: 'normal' }
                             }}
                         />
-                    </Grid>
+                    </Grid>*/}
 
                     {/* Read-Only Fields for Line, Style, Season */}
                     <Grid item xs={3} sm={2} md={1.5}>
