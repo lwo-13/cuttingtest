@@ -49,8 +49,8 @@ const Header = ({ handleLeftDrawerToggle }) => {
         <React.Fragment>
             {/* logo & toggler button */}
             <div className={classes.boxContainer}>
-                <Box component="span" sx={{ display: { xs: 'none', md: 'block' }, flexGrow: 1, ml: 3.5 }}>
-                    <LogoSection />
+                <Box component="span" sx={{ display: { xs: 'none', md: 'block' }, flexGrow: 1, ml: 1 }}>
+                    <LogoSection/>
                 </Box>
                 <ButtonBase sx={{ borderRadius: '12px', overflow: 'hidden' }}>
                     <Avatar variant="rounded" className={classes.headerAvatar} onClick={handleLeftDrawerToggle} color="inherit">
