@@ -1,14 +1,22 @@
-# Step 1: Use official NGINX image
-FROM nginx:stable-alpine
+# pull official base image
+FROM node:14-alpine
 
-# Step 2: Clean default NGINX static files
-RUN rm -rf /usr/share/nginx/html/*
+# set working directory
+WORKDIR /app
 
-# Step 3: Copy React build folder into NGINX
-COPY build /usr/share/nginx/html
+# add `/app/node_modules/.bin` to $PATH
+ENV PATH /app/node_modules/.bin:$PATH
 
-# Step 4: Expose NGINX port
-EXPOSE 80
+# install app dependencies
+COPY package.json ./
+RUN npm install --silent
+RUN npm install react-scripts@4.0.0 -g --silent
 
-# Step 5: Run NGINX
-CMD ["nginx", "-g", "daemon off;"]
+# add app
+COPY . ./
+
+# Expose port
+EXPOSE 3000
+
+# start app
+CMD ["npm", "start"]
