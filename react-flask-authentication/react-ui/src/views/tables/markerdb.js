@@ -63,7 +63,7 @@ const MarkerDB = () => {
 
     const fetchMarkers = () => {
         setLoading(true);
-        axios.get('http://127.0.0.1:5000/api/markers/marker_headers') // Adjust URL if needed
+        axios.get('http://172.27.57.210:500/api/markers/marker_headers') // Adjust URL if needed
             .then((response) => {
                 if (response.data.success) {
                     setMarkers(response.data.data);
@@ -101,7 +101,7 @@ const MarkerDB = () => {
         console.log("Sending marker IDs:", selectedMarkers); // ✅ Debugging
     
         try {
-            const response = await axios.post('http://127.0.0.1:5000/api/markers/set_not_active', {
+            const response = await axios.post('http://172.27.57.210:500/api/markers/set_not_active', {
                 marker_ids: selectedMarkers  // ✅ Send the ID array directly
             });
     
