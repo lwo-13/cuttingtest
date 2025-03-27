@@ -94,7 +94,7 @@ const RestLogin = (props, { ...others }) => {
     };
 
     const { t } = useTranslation();
-
+    
     return (
         <React.Fragment>
             <Formik
@@ -136,7 +136,11 @@ const RestLogin = (props, { ...others }) => {
                             })
                             .catch(function (error) {
                                 setStatus({ success: false });
-                                setErrors({ submit: error.response.data.msg });
+                                const errorMsg =
+                                    error?.response?.data?.msg ||
+                                    error?.response?.statusText ||
+                                    "Unexpected error occurred. Please try again.";
+                                setErrors({ submit: errorMsg });
                                 setSubmitting(false);
                             });
                     } catch (err) {
