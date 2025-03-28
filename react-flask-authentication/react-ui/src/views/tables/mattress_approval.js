@@ -59,7 +59,7 @@ const MattressApproval = () => {
 
     const fetchMattresses = () => {
         setLoading(true);
-        axios.get('http://172.27.57.210:500/api/mattress/approval')
+        axios.get('http://172.27.57.210:5000/api/mattress/approval')
             .then((response) => {
                 if (response.data.success) {
                     setMattresses(response.data.data);  // ✅ Directly set the data
@@ -76,7 +76,7 @@ const MattressApproval = () => {
     const handleApproveMattresses = async () => {
         if (!selectedMattresses.length) return;
         try {
-            const response = await axios.post('http://172.27.57.210:500/api/mattress/approve', {
+            const response = await axios.post('http://172.27.57.210:5000/api/mattress/approve', {
                 mattress_ids: selectedMattresses,
                 operator: username
             });

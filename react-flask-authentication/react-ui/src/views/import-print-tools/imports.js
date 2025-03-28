@@ -123,7 +123,7 @@ const CombinedImports = () => {
     formData.append("creationType", creationType);
 
     try {
-      const response = await axios.post("http://172.27.57.210:500/api/markers/import_marker", formData, {
+      const response = await axios.post("http://172.27.57.210:5000/api/markers/import_marker", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

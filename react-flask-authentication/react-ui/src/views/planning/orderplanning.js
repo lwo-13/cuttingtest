@@ -97,7 +97,7 @@ const OrderPlanning = () => {
 
     const fetchBrandForStyle = async (styleCode) => {
         try {
-          const response = await axios.get(`http://172.27.57.210:500/api/zalli/get_brand/${styleCode}`);
+          const response = await axios.get(`http://172.27.57.210:5000/api/zalli/get_brand/${styleCode}`);
           if (response.data.success) {
             setSelectedBrand(response.data.brand || "");
           } else {
@@ -259,7 +259,7 @@ const OrderPlanning = () => {
 
     const fetchPadPrintInfo = async (season, style, color) => {
         try {
-            const response = await axios.get("http://172.27.57.210:500/api/padprint/all");
+            const response = await axios.get("http://172.27.57.210:5000/api/padprint/all");
             const data = response.data;
     
             const matchingPadPrint = data.find((p) =>
@@ -276,7 +276,7 @@ const OrderPlanning = () => {
 
     // Fetch order data from Flask API 
     useEffect(() => {
-        axios.get('http://172.27.57.210:500/api/orders/order_lines')
+        axios.get('http://172.27.57.210:5000/api/orders/order_lines')
             .then(response => {
                 if (response.data.success) {
                     const ordersMap = new Map();
@@ -319,7 +319,7 @@ const OrderPlanning = () => {
     
         console.log("Fetching marker headers...");  // ✅ Debugging
     
-        axios.get(`http://172.27.57.210:500/api/markers/marker_headers_planning?style=${encodeURIComponent(selectedStyle)}`)  // ✅ Fetch only when order changes
+        axios.get(`http://172.27.57.210:5000/api/markers/marker_headers_planning?style=${encodeURIComponent(selectedStyle)}`)  // ✅ Fetch only when order changes
             .then((response) => {
                 console.log("API Response:", response.data);  // ✅ Debugging
                 if (response.data.success) {
@@ -351,10 +351,10 @@ const OrderPlanning = () => {
     
             // Fetch mattresses and markers in parallel
             Promise.all([
-                axios.get(`http://172.27.57.210:500/api/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
-                axios.get(`http://172.27.57.210:500/api/markers/marker_headers_planning?style=${newValue.style}`),  // Fetch markers
-                axios.get(`http://172.27.57.210:500/api/collaretto/get_by_order/${newValue.id}`),
-                axios.get(`http://172.27.57.210:500/api/collaretto/get_weft_by_order/${newValue.id}`)
+                axios.get(`http://172.27.57.210:5000/api/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
+                axios.get(`http://172.27.57.210:5000/api/markers/marker_headers_planning?style=${newValue.style}`),  // Fetch markers
+                axios.get(`http://172.27.57.210:5000/api/collaretto/get_by_order/${newValue.id}`),
+                axios.get(`http://172.27.57.210:5000/api/collaretto/get_weft_by_order/${newValue.id}`)
             ])
             .then(([mattressResponse, markerResponse, alongResponse, weftResponse]) => {
                 if (mattressResponse.data.success && markerResponse.data.success) {
@@ -1163,7 +1163,7 @@ const OrderPlanning = () => {
                      
         // ✅ Send Update Requests
         Promise.all(payloads.map(payload =>
-            axios.post('http://172.27.57.210:500/api/mattress/add_mattress_row', payload)
+            axios.post('http://172.27.57.210:5000/api/mattress/add_mattress_row', payload)
                 .then(response => {
                     if (response.data.success) {
                         console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
@@ -1180,7 +1180,7 @@ const OrderPlanning = () => {
 
         // ✅ Send Along Update Requests
         Promise.all(allongPayloads.map(payload =>
-            axios.post('http://172.27.57.210:500/api/collaretto/add_along_row', payload)
+            axios.post('http://172.27.57.210:5000/api/collaretto/add_along_row', payload)
                 .then(response => {
                     if (response.data.success) {
                         console.log(`✅ Along Row ${payload.collaretto} saved successfully.`);
@@ -1197,7 +1197,7 @@ const OrderPlanning = () => {
 
         // ✅ Send Weft Update Requests
         Promise.all(weftPayloads.map(payload =>
-            axios.post('http://172.27.57.210:500/api/collaretto/add_weft_row', payload)
+            axios.post('http://172.27.57.210:5000/api/collaretto/add_weft_row', payload)
                 .then(response => {
                     if (response.data.success) {
                         console.log(`✅ Weft Row ${payload.collaretto} saved successfully.`);
@@ -1219,7 +1219,7 @@ const OrderPlanning = () => {
             const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
 
             return Promise.all(mattressesToDelete.map(mattress =>
-                axios.delete(`http://172.27.57.210:500/api/mattress/delete/${mattress}`)
+                axios.delete(`http://172.27.57.210:5000/api/mattress/delete/${mattress}`)
                     .then(() => {
                         console.log(`🗑️ Deleted mattress: ${mattress}`);
                     })
@@ -1237,7 +1237,7 @@ const OrderPlanning = () => {
             const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
         
             return Promise.all(alongToDelete.map(along =>
-                axios.delete(`http://172.27.57.210:500/api/collaretto/delete/${along}`)
+                axios.delete(`http://172.27.57.210:5000/api/collaretto/delete/${along}`)
                     .then(() => {
                         console.log(`🗑️ Deleted along row: ${along}`);
                     })
@@ -1255,7 +1255,7 @@ const OrderPlanning = () => {
             const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
         
             return Promise.all(weftToDelete.map(weft =>
-                axios.delete(`http://172.27.57.210:500/api/collaretto/delete_weft/${weft}`)
+                axios.delete(`http://172.27.57.210:5000/api/collaretto/delete_weft/${weft}`)
                     .then(() => {
                         console.log(`🗑️ Deleted weft row: ${weft}`);
                     })
@@ -1542,7 +1542,7 @@ const OrderPlanning = () => {
                             <Grid item xs={12} sm={4} md={3}>
                                 <Box
                                     component="img"
-                                    src={`http://172.27.57.210:500/api/padprint/uploads/${padPrintInfo.image_url.split('/').pop()}`}
+                                    src={`http://172.27.57.210:5000/api/padprint/uploads/${padPrintInfo.image_url.split('/').pop()}`}
                                     alt="Pad Print"
                                     sx={{ width: '100%', maxHeight: '75px', objectFit: 'contain', border: '1px solid #ddd', borderRadius: '4px' }}
                                 />

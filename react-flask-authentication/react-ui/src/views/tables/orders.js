@@ -62,7 +62,7 @@ const Orders = () => {
     // Fetch all data from API (only once)
     useEffect(() => {
         setLoading(true);
-        axios.get(`http://172.27.57.210:500/api/orders/order_lines`)
+        axios.get(`http://172.27.57.210:5000/api/orders/order_lines`)
             .then((response) => {
                 if (response.data.success) {
                     setOrders(response.data.data);

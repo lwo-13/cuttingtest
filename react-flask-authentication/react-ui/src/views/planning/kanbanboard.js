@@ -45,7 +45,7 @@ const KanbanBoard = () => {
   const [selectedDay, setSelectedDay] = useState("Today");
 
   useEffect(() => {
-    axios.get(`http://172.27.57.210:500/api/mattress/kanban?day=${selectedDay.toLowerCase()}`)
+    axios.get(`http://172.27.57.210:5000/api/mattress/kanban?day=${selectedDay.toLowerCase()}`)
       .then((res) => {
         if (res.data.success) {
           console.log("Kanban Data:", res.data.data); // Debugging
@@ -66,7 +66,7 @@ const KanbanBoard = () => {
     );
 
     // API call — now passing shift and selectedDay
-    axios.put(`http://172.27.57.210:500/api/mattress/update_device/${id}`, {
+    axios.put(`http://172.27.57.210:5000/api/mattress/update_device/${id}`, {
       device: newDevice,
       shift: shift,
       day: selectedDay.toLowerCase()  // 'today' or 'tomorrow'
