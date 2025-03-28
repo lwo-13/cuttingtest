@@ -110,7 +110,7 @@ const RestLogin = (props, { ...others }) => {
                 onSubmit={(values, { setErrors, setStatus, setSubmitting }) => {
                     try {
                         axios
-                            .post( configData.API_SERVER + 'users/login', {
+                            .post(configData.API_SERVER + 'users/login', {
                                 password: values.password,
                                 username: values.username
                             })
