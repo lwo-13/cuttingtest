@@ -1,21 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert } from '@mui/material';
 import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
-import MainCard from '../../ui-component/cards/MainCard';
+import MainCard from 'ui-component/cards/MainCard';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
 import LockOutlined from '@mui/icons-material/LockOutlined';
 import { useBadgeCount } from '../../contexts/BadgeCountContext';
 
-const sampleLaboratorio = [
-    { id: "VEN000", name: "ZALLI" },
-    { id: "VEN001", name: "DELITSIYA FASHION LTD" },
-    { id: "VEN002", name: "IDEAL FASHION LTD" },
-    { id: "VEN003", name: "SYNA FASHION LTD" },
-    { id: "VEN004", name: "VEGA TEX LTD" },
-    { id: "VEN005", name: "ZEYNTEX OOD" },
-];
+// Order Planning Components
+import OrderActionBar from 'views/planning/OrderPlanning/components/OrderActionBar';
+import OrderToolbar from 'views/planning/OrderPlanning/components/OrderToolbar';
+import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuantities';
+
+// Pad Print Components
+import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
+
+// Mattress Components
+import MattressGroupCard from 'views/planning/OrderPlanning/components/MattressGroupCard';
+import PlannedQuantityBar from 'views/planning/OrderPlanning/components/PlannedQuantityBar';
+import MattressTableHeader from 'views/planning/OrderPlanning/components/MattressTableHeader';
+import MattressRow from 'views/planning/OrderPlanning/components/MattressRow';
+import MattressActionRow from 'views/planning/OrderPlanning/components/MattressActionRow';
+
+// Hooks 
+import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
+import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
@@ -23,9 +33,7 @@ const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
 const OrderPlanning = () => {
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
-    const [selectedLaboratorio, setSelectedLaboratorio] = useState(null);
     const [selectedStyle, setSelectedStyle] = useState("");
-    const [selectedBrand, setSelectedBrand] = useState("");
     const [selectedSeason, setSelectedSeason] = useState("");
     const [selectedColorCode, setSelectedColorCode] = useState("");
     const [orderSizes, setOrderSizes] = useState([]); // ✅ Stores full objects (for qty display)
@@ -55,8 +63,13 @@ const OrderPlanning = () => {
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
 
-    const [padPrintInfo, setPadPrintInfo] = useState(null); 
+    // Fetch Pad Print
+    const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
 
+    // Fetch Brand
+    const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
+
+    // Update Mattress Approval
     const { refreshMattressCount } = useBadgeCount();
 
     const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
@@ -97,20 +110,6 @@ const OrderPlanning = () => {
             return sizeA.localeCompare(sizeB);
         });
     };
-
-    const fetchBrandForStyle = async (styleCode) => {
-        try {
-          const response = await axios.get(`http://127.0.0.1:5000/api/zalli/get_brand/${styleCode}`);
-          if (response.data.success) {
-            setSelectedBrand(response.data.brand || "");
-          } else {
-            setSelectedBrand("");
-          }
-        } catch (error) {
-          console.error("Failed to fetch brand", error);
-          setSelectedBrand("");
-        }
-      };
 
     const handleAddTable = () => {
         setTables(prevTables => [
@@ -258,23 +257,6 @@ const OrderPlanning = () => {
             setUnsavedChanges(true);
             return updatedTables;
         });
-    };
-
-    const fetchPadPrintInfo = async (season, style, color) => {
-        try {
-            const response = await axios.get("http://127.0.0.1:5000/api/padprint/all");
-            const data = response.data;
-    
-            const matchingPadPrint = data.find((p) =>
-                p.season === season &&
-                p.style === style &&
-                p.color === color
-            );
-    
-            setPadPrintInfo(matchingPadPrint || null);
-        } catch (err) {
-            console.error("Error fetching pad print:", err);
-        }
     };
 
     // Fetch order data from Flask API 
@@ -554,9 +536,9 @@ const OrderPlanning = () => {
             setAllowance("");
             setSelectedStyle("");
             setSelectedSeason("");
-            setSelectedBrand("");
             setSelectedColorCode("");
-            setPadPrintInfo(null);
+            clearBrand();
+            clearPadPrintInfo();
 
             setUnsavedChanges(false);
         }
@@ -1364,199 +1346,34 @@ const OrderPlanning = () => {
     return (
         <>
             <MainCard title="Order Planning" sx={{ position: 'relative' }}>
-                {/* Save Button (Positioned at the Top-Right) */}
-                <Box sx={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                
+                {/* Order Actions Bar */}
+                <OrderActionBar 
+                    unsavedChanges={unsavedChanges} 
+                    handleSave={handleSave} 
+                    handlePrint={handlePrint}
+                />
 
-                    {/* ✅ Show "Unsaved Changes" only if needed */}
-                    {unsavedChanges && (
-                        <Typography color="error" sx={{ fontWeight: 'bold' }}>
-                            Unsaved Changes
-                        </Typography>
-                    )}
-
-                    {/* Save Button */}
-                    <Button 
-                        variant="contained" 
-                        sx={{
-                            backgroundColor: unsavedChanges ? '#707070' : '#B0B0B0', // ✅ Darker color when unsaved changes exist
-                            color: 'white', 
-                            '&:hover': { backgroundColor: unsavedChanges ? '#505050' : '#A0A0A0' } // ✅ Even darker on hover if unsaved
-                        }}
-                        onClick={handleSave}
-                        startIcon={<Save />}
-                    >
-                        Save
-                    </Button>
-
-                    {/* Print Button */}
-                    <Button 
-                        variant="contained" 
-                        color="primary"
-                        onClick={handlePrint} // ✅ Calls the print function
-                        startIcon={<Print />} // ✅ Uses a Print icon
-                    >
-                        Print
-                    </Button>
-                </Box>
-
-                <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
-
-                    {/* Order Selection (Searchable) */}
-                    <Grid item xs={6} sm={4} md={2.5}>
-                        <Autocomplete
-                            options={orderOptions}
-                            getOptionLabel={(option) => option.id}
-                            value={orderOptions.find(order => order.id === selectedOrder) || null}
-                            onChange={handleOrderChange}
-                            renderInput={(params) => (
-                                <TextField {...params} label="Order/Commessa" variant="outlined" />
-                            )}
-                            sx={{
-                                width: '100%',
-                                "& .MuiAutocomplete-input": { fontWeight: 'normal' }
-                            }}
-                        />
-                    </Grid>
-
-                    {/* Laboratorio Selection (Searchable) */}
-                    {/*<Grid item xs={6} sm={4} md={2.5}>
-                        <Autocomplete
-                            options={sampleLaboratorio}
-                            getOptionLabel={(option) => option.name}
-                            value={sampleLaboratorio.find(lab => lab.name === selectedLaboratorio) || null}
-                            onChange={(event, newValue) => setSelectedLaboratorio(newValue ? newValue.name : null)}
-                            renderInput={(params) => (
-                                <TextField {...params} label="Laboratorio" variant="outlined" />
-                            )}
-                            sx={{
-                                width: '100%',
-                                "& .MuiAutocomplete-input": { fontWeight: 'normal' }
-                            }}
-                        />
-                    </Grid>*/}
-
-                    {/* Read-Only Fields for Line, Style, Season */}
-                    <Grid item xs={3} sm={2} md={1.5}>
-                        <TextField
-                            label="Season"
-                            variant="outlined"
-                            value={selectedSeason || ""}
-                            slotProps={{ input: { readOnly: true } }}
-                            sx={{ 
-                                width: '100%', 
-                                minWidth: '60px', 
-                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
-                            }}      
-                        />
-                    </Grid>
-
-                    {/* Read-Only Fields for Line, Style, Season */}
-                    <Grid item xs={3} sm={2} md={1.5}>
-                        <TextField
-                            label="Brand"
-                            variant="outlined"
-                            value={selectedBrand || ""}
-                            slotProps={{ input: { readOnly: true } }}
-                            sx={{ 
-                                width: '100%', 
-                                minWidth: '60px', 
-                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
-                            }}      
-                        />
-                    </Grid>
-
-                    <Grid item xs={3} sm={2} md={1.5}>
-                        <TextField
-                            label="Style"
-                            variant="outlined"
-                            value={selectedStyle || ""}
-                            slotProps={{ input: { readOnly: true } }}
-                            sx={{ 
-                                width: '100%', 
-                                minWidth: '60px', 
-                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
-                            }}       
-                        />
-                    </Grid>
-
-                    <Grid item xs={3} sm={2} md={1.5}> 
-                        <TextField
-                            label="Color"
-                            variant="outlined"
-                            value={selectedColorCode || ""}
-                            slotProps={{ input: { readOnly: true } }}
-                            sx={{ 
-                                width: '100%', 
-                                minWidth: '60px', 
-                                "& .MuiInputBase-input": { fontWeight: 'normal' } 
-                            }}                            
-                        />
-                    </Grid>
-                </Grid>
+                {/* Order Toolbar */}  
+                <OrderToolbar
+                    orderOptions={orderOptions}
+                    selectedOrder={selectedOrder}
+                    onOrderChange={handleOrderChange}
+                    selectedSeason={selectedSeason}
+                    selectedBrand={brand}
+                    selectedStyle={selectedStyle}
+                    selectedColorCode={selectedColorCode}
+                />
 
                 {/* Order Quantities Section */}
-                {orderSizes.length > 0 && (
-                    <Box mt={3} p={2} sx={{ background: '#f5f5f5', borderRadius: '8px' }}>
-                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 'normal' }}>Quantities</Typography>
-                        <Grid container spacing={2}>
-                            {orderSizes.map((size, index) => (
-                                <Grid item xs={6} sm={4} md={2} key={index}>
-                                    <TextField
-                                        label={`Size: ${size.size}`}
-                                        variant="outlined"
-                                        value={size.qty}
-                                        slotProps={{ input: { readOnly: true } }}
-                                        sx={{ width: '100%' }}
-                                    />
-                                </Grid>
-                            ))}
-                        </Grid>
-                    </Box>
-                )}
+                <OrderQuantities orderSizes={orderSizes} />
 
             </MainCard>
 
             <Box mt={2} />
-
-            {padPrintInfo && (
-                <MainCard title="Pad Print">
-                    <Grid container spacing={2} alignItems="center">
-
-                        <Grid item xs={3} sm={2} md={1.5}>
-                            <TextField
-                                label="Pattern"
-                                variant="outlined"
-                                value={padPrintInfo.pattern || ""}
-                                InputProps={{ readOnly: true }}
-                                sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-                            />
-                        </Grid>
-
-                        <Grid item xs={3} sm={2} md={1.5}>
-                            <TextField
-                                label="Pad Print Color"
-                                variant="outlined"
-                                value={padPrintInfo.padprint_color || ""}
-                                InputProps={{ readOnly: true }}
-                                sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-                            />
-                        </Grid>
-
-                        {/* ✅ Image Box */}
-                        {padPrintInfo.image_url && (
-                            <Grid item xs={12} sm={4} md={3}>
-                                <Box
-                                    component="img"
-                                    src={`http://127.0.0.1:5000/api/padprint/uploads/${padPrintInfo.image_url.split('/').pop()}`}
-                                    alt="Pad Print"
-                                    sx={{ width: '100%', maxHeight: '75px', objectFit: 'contain', border: '1px solid #ddd', borderRadius: '4px' }}
-                                />
-                            </Grid>
-                        )}
-
-                    </Grid>
-                </MainCard>
-            )}
+            
+            {/* Pad Print Section */}
+            <PadPrintInfo padPrintInfo={padPrintInfo} />
 
             <Box mt={2} />
 
@@ -1571,449 +1388,65 @@ const OrderPlanning = () => {
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 {`Mattress Group ${tableIndex + 1}`}
 
-                                {/* Right Section: Table-Specific Planned Quantities - Hide if Empty */}
-                                {Object.keys(getTablePlannedQuantities(table)).length > 0 && (
-                                    <Box 
-                                        display="flex" 
-                                        gap={2} 
-                                        sx={{ 
-                                            backgroundColor: "#EFEFEF", 
-                                            padding: "4px 8px", 
-                                            borderRadius: "8px", 
-                                            flexWrap: "wrap", // ✅ Prevents pushing "Avg. Consumption"
-                                            maxWidth: "50%",   // ✅ Prevents excessive width from breaking layout
-                                            justifyContent: "flex-end",  // ✅ Keeps it right-aligned
-                                            overflow: "hidden", // ✅ Prevents layout breaking when content grows
-                                            textOverflow: "ellipsis"
-                                        }}
-                                    >
-                                        {Object.entries(getTablePlannedQuantities(table)).map(([size, qty]) => {
-                                            const sizeData = orderSizes.find(s => s.size === size);
-                                            const totalOrdered = sizeData ? sizeData.qty : 1; // ✅ Use actual qty, default to 1 if not found
-
-                                            const percentage = totalOrdered ? ((qty / totalOrdered) * 100).toFixed(1) : "N/A";
-
-                                            return (
-                                                <Typography key={size} variant="body2" sx={{ fontWeight: "bold" }}>
-                                                    {size}: {qty} ({percentage !== "NaN" ? percentage + "%" : "N/A"})
-                                                </Typography>
-                                            );
-                                        })}
-                                    </Box>
-                                )}
+                                {/* Table-Specific Planned Quantities - Hide if Empty */}
+                                <PlannedQuantityBar
+                                    table={table}
+                                    orderSizes={orderSizes}
+                                    getTablePlannedQuantities={getTablePlannedQuantities}
+                                />
                             </Box>
 
                         }
                     >
-                    <Box p={1}>
-                            <Grid container spacing={2}>
-                                {/* Fabric Type (Dropdown) */}
-                                <Grid item xs={3} sm={2} md={1.5}>
-                                    <Autocomplete
-                                        options={fabricTypeOptions.filter(option => 
-                                            !tables.some((t, i) => i !== tableIndex && t.fabricType === option) // ✅ Exclude selected options from other tables
-                                        )}
-                                        getOptionLabel={(option) => option}
-                                        value={tables[tableIndex].fabricType || null}
-                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
-                                        onChange={(event, newValue) => {
-                                            setTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Fabric Code (Text Input) */}
-                                <Grid item xs={3} sm={2} md={2}>
-                                    <TextField
-                                        label="Fabric Code"
-                                        variant="outlined"
-                                        value={tables[tableIndex].fabricCode || ""}
-                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/[^a-zA-Z0-9 ]/g, '').toUpperCase().slice(0, 8);
-                                            setTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& input": { fontWeight: "normal" } // ✅ Set font weight to normal
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Fabric Color (Text Input) */}
-                                <Grid item xs={3} sm={2} md={1.5}>
-                                    <TextField
-                                        label="Fabric Color"
-                                        variant="outlined"
-                                        value={tables[tableIndex].fabricColor || ""}
-                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
-                                            setTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& input": { fontWeight: "normal" }
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Spreading Method (Dropdown) */}
-                                <Grid item xs={3} sm={2} md={2}>
-                                    <Autocomplete
-                                        options={["FACE UP", "FACE DOWN", "FACE TO FACE"]} // ✅ Defined options
-                                        getOptionLabel={(option) => option} 
-                                        value={tables[tableIndex].spreadingMethod || null} // ✅ Table-specific value
-                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
-                                        onChange={(event, newValue) => {
-                                            setTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], spreadingMethod: newValue };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }} // ✅ Update table-specific state
-                                        renderInput={(params) => (
-                                            <TextField {...params} label="Spreading Method" variant="outlined" />
-                                        )}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Allowance */}
-                                <Grid item xs={1.5} sm={1.5} md={1.5}>
-                                    <TextField
-                                        label="Allowance [m]"
-                                        variant="outlined"
-                                        value={tables[tableIndex]?.allowance || ""} 
-                                        disabled={!isTableEditable(table)}  // ✅ Disable if locked
-                                        onChange={(e) => {
-                                            const value = e.target.value
-                                                .replace(/[^0-9.,]/g, '')  // ✅ Allow only digits, dot (.), and comma (,)
-                                                .replace(/[,]+/g, '.')     // ✅ Convert multiple commas to a single dot
-                                                .replace(/(\..*)\./g, '$1') // ✅ Prevent multiple dots
-                                                .slice(0, 4);  // ✅ Limit total length (adjust if needed)
-                                
-                                            setTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = {
-                                                    ...updatedTables[tableIndex],
-                                                    allowance: value  // ✅ Update table-specific allowance
-                                                };
-
-                                                // ✅ Trigger `updateExpectedConsumption` for all rows in the table
-                                                updatedTables[tableIndex].rows.forEach((_, rowIndex) => {
-                                                    updateExpectedConsumption(tableIndex, rowIndex);
-                                                });
-
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& input": { fontWeight: "normal" }
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </Box>
+                        
+                    <MattressGroupCard
+                        table={table}
+                        tables={tables}
+                        tableIndex={tableIndex}
+                        fabricTypeOptions={fabricTypeOptions}
+                        isTableEditable={isTableEditable}
+                        setTables={setTables}
+                        setUnsavedChanges={setUnsavedChanges}
+                        updateExpectedConsumption={updateExpectedConsumption}
+                    />
 
                         {/* Table Section */}
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px'}}>Width [cm]</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '400px'}}>Marker Name</TableCell>
-                                            {/* ✅ Correctly Mapping Sizes */}
-                                            {orderSizes.length > 0 &&
-                                                orderSizes.map((size, index) => (
-                                                    <TableCell align="center" sx={{ textAlign: 'center' }} key={index}>
-                                                        {size.size || "N/A"}
-                                                    </TableCell>
-                                                ))
-                                            }
-                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px' }}>Length [m]</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '70px'  }}>Eff %</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Layers</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center', minWidth: '100px'   }}>Cons [m]</TableCell>
-                                            <TableCell align="center" sx={{ textAlign: 'center' }}>Bagno</TableCell>
-                                            <TableCell></TableCell>
-                                        </TableRow>
-                                    </TableHead>
+                                    <MattressTableHeader orderSizes={orderSizes} />
                                     <TableBody>
-                                        {tables[tableIndex].rows.map((row, rowIndex) => (
-                                            <TableRow key={rowIndex}>
-
-                                                {/* Width, Marker Length, Layers, Expected Consumption, Bagno */}
-
-                                                {/* Width (Auto-Filled or Input) */}
-                                                <TableCell sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={tables[tableIndex].rows[rowIndex].width || ""}
-                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
-                                                        onChange={(e) => {
-                                                            const value = e.target.value.replace(/\D/g, '').slice(0, 3);  // ✅ Remove non-numeric & limit to 4 digits
-                                                            
-                                                            setTables(prevTables => {
-                                                                const updatedTables = [...prevTables];
-                                                                const updatedRows = [...updatedTables[tableIndex].rows];
-                                                
-                                                                updatedRows[rowIndex] = {
-                                                                    ...updatedRows[rowIndex],
-                                                                    width: value,
-                                                                    markerName: "" // ✅ Clear selected marker when width changes
-                                                                };
-                                                
-                                                                updatedTables[tableIndex] = {
-                                                                    ...updatedTables[tableIndex],
-                                                                    rows: updatedRows
-                                                                };
-                                                
-                                                                return updatedTables;
-                                                            });
-                                                
-                                                            setUnsavedChanges(true);  // ✅ Mark as unsaved when width is edited
-                                                        }}
-                                                        sx={{
-                                                            width: '100%',
-                                                            minWidth: '60px',
-                                                            maxWidth: '70px',
-                                                            textAlign: 'center',
-                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                        }}
-                                                    />
-                                                </TableCell>
-
-                                                {/* Marker Name (Dropdown) */}
-                                                <TableCell sx={{ padding: '4px', minWidth: '350px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    <Autocomplete
-                                                        options={row.width
-                                                            ? [...markerOptions]
-                                                                .filter(marker => parseFloat(marker.marker_width) === parseFloat(row.width))
-                                                                .sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency)) // ✅ Sort by efficiency (Descending)
-                                                            : [...markerOptions].sort((a, b) => parseFloat(b.efficiency) - parseFloat(a.efficiency))} // ✅ Sort all markers when no width is entered
-                                                        getOptionLabel={(option) => option.marker_name} // Keep only marker name here
-                                                        renderOption={(props, option) => (
-                                                            <li {...props}>
-                                                                <span>{option.marker_name}</span>
-                                                                <span style={{ color: "gray", marginLeft: "10px", fontSize: "0.85em" }}>
-                                                                    ({option.efficiency}%)
-                                                                </span>
-                                                            </li>
-                                                        )}
-                                                        value={markerOptions.find(m => m.marker_name === row.markerName) || null}
-                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
-                                                        onChange={(_, newValue) => {
-                                                            setTables(prevTables => {
-                                                                const updatedTables = [...prevTables];
-                                                                const newRows = [...updatedTables[tableIndex].rows];
-                                                    
-                                                                if (newValue) {
-                                                                    newRows[rowIndex] = {
-                                                                        ...newRows[rowIndex],
-                                                                        markerName: newValue.marker_name,
-                                                                        width: newValue.marker_width,        // ✅ Auto-fill Width
-                                                                        markerLength: newValue.marker_length, // ✅ Auto-fill Marker Length
-                                                                        efficiency: newValue.efficiency,      // ✅ Auto-fill Efficiency
-                                                                        piecesPerSize: newValue.size_quantities || {} // ✅ Auto-fill Sizes Quantities
-                                                                    };
-                                                                } else {
-                                                                    newRows[rowIndex] = {
-                                                                        ...newRows[rowIndex],
-                                                                        markerName: "",
-                                                                        width: "",        // ✅ Clear Width if empty
-                                                                        markerLength: "", // ✅ Clear Marker Length if empty
-                                                                        efficiency: "",   // ✅ Clear Efficiency if empty
-                                                                        piecesPerSize: {} // ✅ Clear Size Quantities if empty
-                                                                    };
-                                                                }
-                                                    
-                                                                updatedTables[tableIndex] = {
-                                                                    ...updatedTables[tableIndex],
-                                                                    rows: newRows
-                                                                };
-                                                    
-                                                                return updatedTables;
-                                                            });
-                                                        }}
-                                                        renderInput={(params) => <TextField {...params} variant="outlined" />}
-                                                        sx={{
-                                                            width: '100%',
-                                                            "& .MuiAutocomplete-input": { fontWeight: 'normal' }
-                                                        }}
-                                                    />
-                                                </TableCell>
-
-                                                {/* Pieces Per Size (Auto-Filled & Read-only) */}
-                                                {orderSizes.map((size) => (
-                                                    <TableCell
-                                                        sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}
-                                                        key={size.size}
-                                                    >
-                                                        <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
-                                                            {tables[tableIndex].rows[rowIndex].piecesPerSize[size.size] || 0}
-                                                        </Typography>
-                                                    </TableCell>
-                                                ))}
-
-                                                {/* Marker Length (Auto-Filled & Read-only) */}
-                                                <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-                                                    <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
-                                                        {row.markerLength}
-                                                    </Typography>
-                                                </TableCell>
-
-                                                {/* Efficiency (Auto-Filled & Read-only) */}
-                                                <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-                                                    <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
-                                                        {row.efficiency}
-                                                    </Typography>
-                                                </TableCell>
-
-                                                {/* Layers (Text Input) */}
-                                                <TableCell sx={{ minWidth: '65x', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={tables[tableIndex].rows[rowIndex].layers || ""}
-                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
-                                                        onChange={(e) => {
-                                                            const value = e.target.value.replace(/\D/g, '').slice(0, 4);  // ✅ Remove non-numeric & limit to 4 digits
-                                                            handleInputChange(tableIndex, rowIndex, "layers", value);
-                                                        }}
-                                                        sx={{
-                                                            width: '100%',
-                                                            minWidth: '65px', // ✅ Ensures a minimum width
-                                                            maxWidth: '80px', // ✅ Prevents expanding too much
-                                                            textAlign: 'center',
-                                                            "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                        }}
-                                                    />
-                                                </TableCell>
-
-                                                {/* Expected Consumption (Read-Only & Auto-Calculated) */}
-                                                <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-                                                    <Typography variant="body1" sx={{ fontWeight: "normal", textAlign: "center" }}>
-                                                        {row.expectedConsumption}
-                                                </Typography>
-                                                </TableCell>
-
-                                                {/* Bagno (Text Input) */}
-                                                <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '4px' }}>
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={tables[tableIndex].rows[rowIndex].bagno || ""}
-                                                        disabled={tables[tableIndex].rows[rowIndex].isEditable === false}  // ✅ Disable input if NOT editable
-                                                        onChange={(e) => handleInputChange(tableIndex, rowIndex, "bagno", e.target.value)}
-                                                        sx={{
-                                                            width: '100%',
-                                                            minWidth: '90px',
-                                                            maxWidth: '120px',
-                                                            textAlign: 'center',
-                                                            "& input": { textAlign: "center", fontWeight: "normal" }
-                                                        }}
-                                                    />
-                                                </TableCell>
-
-                                                {/* Delete or Lock Button */}
-                                                <TableCell>
-                                                    {tables[tableIndex].rows[rowIndex].isEditable ? (
-                                                        <IconButton 
-                                                            onClick={() => handleRemoveRow(tableIndex, rowIndex)}
-                                                            color="error"
-                                                            disabled={tables[tableIndex].rows.length === 1} // ✅ Disable if only 1 row left
-                                                        >
-                                                            <DeleteOutline />
-                                                        </IconButton>
-                                                    ) : (
-                                                        <IconButton disabled>
-                                                            <LockOutlined color="disabled" /> {/* ✅ Lock icon when not editable */}
-                                                        </IconButton>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
+                                        {table.rows.map((row, rowIndex) => (
+                                            <MattressRow
+                                            key={rowIndex}
+                                            row={row}
+                                            rowIndex={rowIndex}
+                                            tableIndex={tableIndex}
+                                            table={table}
+                                            orderSizes={orderSizes}
+                                            markerOptions={markerOptions}
+                                            isTableEditable={isTableEditable}
+                                            setTables={setTables}
+                                            handleInputChange={handleInputChange}
+                                            handleRemoveRow={handleRemoveRow}
+                                            updateExpectedConsumption={updateExpectedConsumption}
+                                            setUnsavedChanges={setUnsavedChanges}
+                                            />
                                         ))}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
                             
                             {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
-                            <Box mt={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-    
-                                {/* Middle Section: Avg. Consumption - Only Show if > 0 */}
-                                {avgConsumption[tableIndex] && avgConsumption[tableIndex] > 0 ? (
-                                   <Box 
-                                        p={1}
-                                        sx={{ 
-                                            padding: "4px 8px", 
-                                            minWidth: "140px",  
-                                            textAlign: "center",
-                                            width: "fit-content",
-                                        }}
-                                    >
-                                        <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-                                            Avg Cons: {avgConsumption[tableIndex]} m/pc
-                                        </Typography>
-                                    </Box>
-                                ) : (
-                                    // ✅ Empty placeholder to reserve space
-                                    <Box sx={{ minWidth: "140px" }} />
-                                )}
-                                {/* Button Container (Flexbox for alignment) */}
-                                <Box display="flex" justifyContent="flex-end" gap={2}>
-                                    {/* Add Row Button */}
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        startIcon={<AddCircleOutline />}
-                                        onClick={() => handleAddRow(tableIndex)} // ✅ Pass the specific table index
-                                    >
-                                        Add Row
-                                    </Button>
+                            <MattressActionRow
+                                avgConsumption={avgConsumption}
+                                tableIndex={tableIndex}
+                                isTableEditable={isTableEditable}
+                                table={table}
+                                handleAddRow={handleAddRow}
+                                handleRemoveTable={handleRemoveTable}
+                            />
 
-                                    {/* Remove Table Button */}
-                                    {isTableEditable(table) && (
-                                        <Button 
-                                            variant="outlined" 
-                                            color="error" 
-                                            onClick={() => handleRemoveTable(table.id)}
-                                        >
-                                            Remove
-                                        </Button>
-                                    )}
-                                </Box>
-                            </Box>
                         </Box>
                     </MainCard>
                     </React.Fragment>
