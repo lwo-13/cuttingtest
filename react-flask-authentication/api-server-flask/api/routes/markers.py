@@ -90,7 +90,7 @@ class ImportMarker(Resource):
  
             # Extract <Marker> Data
             marker_elem = root.find('Marker')
-            full_marker_name = marker_elem.attrib.get('Name', '').upper()
+            full_marker_name = marker_elem.attrib.get('Name', '').replace('\\', '/').upper()
             marker_name = os.path.splitext(os.path.basename(full_marker_name))[0]
            
             if MarkerHeader.query.filter_by(marker_name=marker_name).first():
@@ -129,7 +129,7 @@ class ImportMarker(Resource):
             angles = int(statistics_elem.find('Angles').attrib.get('Value', 0))
             notches = int(statistics_elem.find('Notches').attrib.get('Value', 0))
             cut_perimeter = float(statistics_elem.find('CutPerimeter').attrib.get('Value', 0).replace(',', '.'))
-            total_pieces = int(statistics_elem.find('TotalPieces').attrib.get('Value', 0))
+            total_pieces = int(sum(float(line.get('qty', 0)) for line in updated_data))
  
             # Extract <MarkerContent> - Important for model and variant
             marker_content = root.find('.//MarkerContent')
