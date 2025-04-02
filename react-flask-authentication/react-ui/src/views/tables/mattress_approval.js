@@ -6,6 +6,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import MainCard from '../../ui-component/cards/MainCard';
 import TablePagination from '@mui/material/TablePagination';
 import { useSelector } from "react-redux";
+import { useBadgeCount } from '../../contexts/BadgeCountContext';
 
 const CustomPagination = (props) => {
     return (
@@ -51,6 +52,8 @@ const MattressApproval = () => {
 
     const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
+    const { refreshMattressCount } = useBadgeCount();
+
     useEffect(() => {
         const handleResize = () => setTableHeight(window.innerHeight - 260);
         window.addEventListener("resize", handleResize);
@@ -84,6 +87,7 @@ const MattressApproval = () => {
                 console.log("Mattresses approved");
                 fetchMattresses(); // ✅ Refresh table
                 setSelectedMattresses([]);
+                refreshMattressCount(); 
             } else {
                 console.error("Approval failed:", response.data.message);
             }

@@ -30,7 +30,8 @@ const tables = {
       type: 'item',                 // It's a single link
       url: '/tables/mattressapproval', // URL route (adjust as needed)
       icon: IconSquareRoundedCheck,    // Choose your icon
-      breadcrumbs: false
+      breadcrumbs: false,
+      badgeContent: 0
     },
     {
       id: 'padprints',

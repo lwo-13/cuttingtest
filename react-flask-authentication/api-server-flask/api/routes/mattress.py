@@ -563,3 +563,22 @@ class ApproveMattressesResource(Resource):
             import traceback
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/mattress_to_approve_count', methods=['GET'])
+class MattressToApproveCount(Resource):
+    def get(self):
+        try:
+            count = db.session.query(MattressPhase).filter_by(
+                status='0 - NOT SET',
+                active='True'
+            ).count()
+
+            return {
+                "success": True,
+                "count": count
+            }, 200
+        except Exception as e:
+            return {
+                "success": False,
+                "msg": f"Error fetching mattress count: {str(e)}"
+            }, 500

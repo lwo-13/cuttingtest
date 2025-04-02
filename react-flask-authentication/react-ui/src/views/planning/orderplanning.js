@@ -6,6 +6,7 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
 import LockOutlined from '@mui/icons-material/LockOutlined';
+import { useBadgeCount } from '../../contexts/BadgeCountContext';
 
 const sampleLaboratorio = [
     { id: "VEN000", name: "ZALLI" },
@@ -55,6 +56,8 @@ const OrderPlanning = () => {
     const [openSuccess, setOpenSuccess] = useState(false);
 
     const [padPrintInfo, setPadPrintInfo] = useState(null); 
+
+    const { refreshMattressCount } = useBadgeCount();
 
     const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
 
@@ -1272,6 +1275,8 @@ const OrderPlanning = () => {
             setDeletedAlong([]);    
             setDeletedWeft([]);   
             setUnsavedChanges(false);
+
+            refreshMattressCount();
 
             // ✅ Show success message
             setSuccessMessage("Saving completed successfully!");
