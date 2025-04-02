@@ -130,7 +130,7 @@ const CombinedImports = () => {
       if (response.data.success) {
         setSuccessMessage(`✅ ${response.data.msg}`);
         setOpenSuccess(true);
-        setTimeout(() => handleDialogClose(), 3000);
+        setTimeout(() => handleDialogClose(), 2000);
       } else {
         setErrorMessage(`⚠️ ${response.data.msg}`);
         setOpenError(true);

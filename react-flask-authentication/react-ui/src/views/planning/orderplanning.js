@@ -166,7 +166,7 @@ const OrderPlanning = () => {
                 fabricType: "",
                 fabricCode: "",
                 fabricColor: "",
-                alongExtra: "3",  // ✅ Default Extra % to 3 if you want
+                alongExtra: "",  // ✅ Default Extra % to 3 if you want
                 rows: [
                     {
                         pieces: "",
