@@ -147,6 +147,7 @@ const MattressApproval = () => {
                         pageSize={10}
                         rowsPerPageOptions={[10, 25, 50]}
                         checkboxSelection
+                        disableRowSelectionOnClick
                         pagination
                         onRowSelectionModelChange={(newSelection) => setSelectedMattresses(newSelection)}
                         sx={{
