@@ -129,7 +129,7 @@ class ImportMarker(Resource):
             angles = int(statistics_elem.find('Angles').attrib.get('Value', 0))
             notches = int(statistics_elem.find('Notches').attrib.get('Value', 0))
             cut_perimeter = float(statistics_elem.find('CutPerimeter').attrib.get('Value', 0).replace(',', '.'))
-            total_pieces = int(statistics_elem.find('TotalPieces').attrib.get('Value', 0))
+            total_pieces = int(sum(float(line.get('qty', 0)) for line in updated_data))
  
             # Extract <MarkerContent> - Important for model and variant
             marker_content = root.find('.//MarkerContent')

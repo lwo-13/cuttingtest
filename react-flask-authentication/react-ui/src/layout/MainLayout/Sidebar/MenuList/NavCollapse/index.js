@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
@@ -77,6 +78,7 @@ const useStyles = makeStyles((theme) => ({
 const NavCollapse = ({ menu, level }) => {
     const classes = useStyles();
     const customization = useSelector((state) => state.customization);
+    const location = useLocation();
 
     const [open, setOpen] = React.useState(false);
     const [selected, setSelected] = React.useState(null);
@@ -119,14 +121,14 @@ const NavCollapse = ({ menu, level }) => {
             <ListItemButton
                 className={level > 1 ? classes.listItemNoBack : classes.listItem}
                 sx={{ borderRadius: customization.borderRadius + 'px' }}
-                selected={selected === menu.id}
+                selected={menu.children?.some((child) => location.pathname === child.url)}
                 onClick={handleClick}
                 style={{ paddingLeft: level * 23 + 'px' }}
             >
                 <ListItemIcon className={menuIconClass}>{menuIcon}</ListItemIcon>
                 <ListItemText
                     primary={
-                        <Typography variant={selected === menu.id ? 'h5' : 'body1'} color="inherit" className={classes.listItemTypography}>
+                        <Typography variant="body1" sx={{ fontWeight: menu.children?.some((child) => location.pathname === child.url) ? 600 : 400 }}>
                             {menu.title}
                         </Typography>
                     }

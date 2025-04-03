@@ -1057,6 +1057,7 @@ const MattressTable = () => {
                         rowsPerPageOptions={[10, 25, 50, 100]}
                         pagination
                         checkboxSelection
+                        disableRowSelectionOnClick
                         onRowSelectionModelChange={handleSelectionChange} // ✅ Correct event listener
                         rowSelectionModel={selectedMattresses.map(m => m.mattress)}
                         getRowId={(row) => row.mattress}

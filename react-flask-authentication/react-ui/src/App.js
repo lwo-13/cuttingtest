@@ -1,9 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 
-import { ThemeProvider, CssBaseline, StyledEngineProvider } from '@mui/material';
-
-import { GlobalStyles } from '@mui/material';
+import { ThemeProvider, CssBaseline, StyledEngineProvider, GlobalStyles } from '@mui/material';
 
 // routing
 import Routes from './routes';
@@ -13,6 +11,7 @@ import theme from './themes';
 
 // project imports
 import NavigationScroll from './layout/NavigationScroll';
+import { BadgeCountProvider } from './contexts/BadgeCountContext';
 
 //-----------------------|| APP ||-----------------------//
 
@@ -31,10 +30,11 @@ const App = () => {
                     'input::-ms-clear': { display: 'none' }
                 }}
                 />
-                
-                <NavigationScroll>
-                    <Routes />
-                </NavigationScroll>
+                <BadgeCountProvider>
+                    <NavigationScroll>
+                        <Routes />
+                    </NavigationScroll>
+                </BadgeCountProvider>
             </ThemeProvider>
         </StyledEngineProvider>
     );

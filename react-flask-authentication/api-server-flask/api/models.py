@@ -172,6 +172,28 @@ class OrderLinesView(db.Model):
     # Convert row data to dictionary
     def to_dict(self):
         return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+    
+class OrderRatio(db.Model): 
+    __tablename__ = 'order_ratios'
+
+    order_commessa = db.Column(db.String(50), primary_key=True, nullable=False)
+    size = db.Column(db.String(10), primary_key=True, nullable=False)
+
+    quantity = db.Column(db.Float, nullable=True)
+    real_ratio = db.Column(db.Float, nullable=True)
+    theoretical_ratio = db.Column(db.Float, nullable=False)
+
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            "order_commessa": self.order_commessa,
+            "size": self.size,
+            "theoretical_ratio": self.theoretical_ratio,
+            "quantity": self.quantity,
+            "real_ratio": self.real_ratio
+        }
 
 class Mattresses(db.Model):
     __tablename__ = 'mattresses'

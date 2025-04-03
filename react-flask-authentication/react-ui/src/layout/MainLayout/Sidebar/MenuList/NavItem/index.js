@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
-import { Avatar, Chip, ListItemIcon, ListItemText, Typography, useMediaQuery } from '@mui/material';
+import { Avatar, Chip, ListItemIcon, ListItemText, Typography, useMediaQuery, Badge } from '@mui/material';
 import ListItemButton from '@mui/material/ListItemButton';
 
 // project imports
@@ -104,7 +104,11 @@ const NavItem = ({ item, level }) => {
             disabled={item.disabled}
             className={level > 1 ? classes.listItemNoBack : classes.listItem}
             sx={{ borderRadius: customization.borderRadius + 'px' }}
-            selected={location.pathname === item.url}
+            selected={
+                item.children
+                  ? item.children.some((child) => location.pathname === child.url)
+                  : location.pathname === item.url
+              }
             onClick={() => itemHandler(item.id)}
             target={itemTarget}
             style={{ paddingLeft: level * 23 + 'px' }}
@@ -112,7 +116,14 @@ const NavItem = ({ item, level }) => {
             <ListItemIcon className={itemIconClass}>{itemIcon}</ListItemIcon>
             <ListItemText
                 primary={
-                    <Typography variant={customization.isOpen.findIndex((id) => id === item.id) > -1 ? 'h5' : 'body1'} color="inherit">
+                    <Typography
+                        variant="body1"
+                        color="inherit"
+                        sx={{
+                            fontWeight: customization.isOpen.includes(item.id) ? 600 : 400,
+                            transition: 'all 0.2s ease-in-out'
+                        }}
+                    >
                         {item.title}
                     </Typography>
                 }
@@ -132,6 +143,9 @@ const NavItem = ({ item, level }) => {
                     label={item.chip.label}
                     avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
                 />
+            )}
+            {item.badgeContent > 0 && (
+                <Badge badgeContent={item.badgeContent} color="secondary" max={99} sx={{ ml: 'auto', mr: 1 }} />
             )}
         </ListItemButton>
     );
