@@ -1,7 +1,7 @@
-import axios from 'utils/axiosInstance';
+import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://127.0.0.1:5000/api' // change here when needed
+  baseURL: process.env.REACT_APP_BACKEND_SERVER || 'http://127.0.0.1:5000/api'
 });
 
 export default axiosInstance;
