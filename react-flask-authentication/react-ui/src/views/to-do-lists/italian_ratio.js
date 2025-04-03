@@ -3,23 +3,51 @@ import { Typography, Autocomplete, TextField, Grid, Button, Box } from '@mui/mat
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
+import OrderToolbar from 'views/planning/OrderPlanning/components/OrderToolbar';
+import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
+
 const ItalianRatio = () => {
   const [orderOptions, setOrderOptions] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [ratios, setRatios] = useState([]);
 
+  // Additional order context
+  const [selectedSeason, setSelectedSeason] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('');
+  const [selectedColorCode, setSelectedColorCode] = useState('');
+
+  const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
+
   useEffect(() => {
-    axios.get('/orders/ratios/todo').then((res) => {
+    axios.get('/orders/order_lines/without_ratios').then((res) => {
       const options = res.data.orders.map((id) => ({ id }));
       setOrderOptions(options);
     });
   }, []);
 
   useEffect(() => {
-    if (!selectedOrder) return;
-    axios.get(`/orders/ratios/${selectedOrder}`).then((res) => {
-      setRatios(res.data.data);
+    if (!selectedOrder) {
+      clearBrand();  // Reset the brand if no order is selected
+      return;
+    }
+  
+    // Get basic order info
+    axios.get(`/orders/order_lines?order_commessa=${selectedOrder}`).then((res) => {
+      const lines = res.data.data;
+      if (lines.length > 0) {
+        setSelectedSeason(lines[0].season || '');  // Set Season
+        setSelectedStyle(lines[0].style || '');  // Set Style
+        setSelectedColorCode(lines[0].color_code || '');  // Set Color Code
+  
+        // Fetch Brand if Style is found
+        if (lines[0].style) {
+          fetchBrandForStyle(lines[0].style);
+        }
+      }
     });
+  
+    // Reset ratios when the order is selected
+    setRatios([{ size: '', theoretical_ratio: '' }]);
   }, [selectedOrder]);
 
   const handleRatioChange = (index, value) => {
@@ -29,13 +57,18 @@ const ItalianRatio = () => {
   };
 
   const handleSave = () => {
+    const dataToSend = ratios.map((row) => ({
+      order_commessa: selectedOrder,
+      ...row
+    }));
+
     axios
-      .patch('/orders/ratios/update', { data: ratios })
+      .patch('/orders/ratios/update', { data: dataToSend })
       .then(() => {
         alert('Ratios saved!');
         setSelectedOrder(null);
         setRatios([]);
-        axios.get('/orders/ratios/todo').then((res) => {
+        axios.get('/orders/order_lines/without_ratios').then((res) => {
           const options = res.data.orders.map((id) => ({ id }));
           setOrderOptions(options);
         });
@@ -45,56 +78,73 @@ const ItalianRatio = () => {
 
   return (
     <>
-      {/* Card 1 - Order Selection */}
+      {/* Card 1 - Order Selection with Details */}
       <MainCard title="Italian Ratio">
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={4}>
-            <Autocomplete
-              options={orderOptions}
-              getOptionLabel={(option) => option.id}
-              value={orderOptions.find((order) => order.id === selectedOrder) || null}
-              onChange={(event, newValue) => setSelectedOrder(newValue?.id || null)}
-              renderInput={(params) => <TextField {...params} label="Select Order" variant="outlined" />}
-              fullWidth
-            />
-          </Grid>
-        </Grid>
+        <OrderToolbar
+          orderOptions={orderOptions}
+          selectedOrder={selectedOrder}
+          onOrderChange={(event, newValue) => setSelectedOrder(newValue?.id || null)}
+          selectedSeason={selectedSeason}
+          selectedBrand={brand}
+          selectedStyle={selectedStyle}
+          selectedColorCode={selectedColorCode}
+        />
       </MainCard>
 
       <Box mt={2} />
 
       {/* Card 2 - Theoretical Ratio Entry */}
-      {selectedOrder && ratios.length > 0 && (
+      {selectedOrder && (
         <MainCard>
-            <Grid container direction="column" spacing={2}>
+          <Grid container direction="column" spacing={2}>
             {ratios.map((row, index) => (
-                <Grid item container spacing={2} key={index} alignItems="center">
+              <Grid item container spacing={2} key={index} alignItems="center">
                 <Grid item xs={6} sm={3}>
-                    <Typography>Size: {row.size}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                    <TextField
-                    label="Theoretical %"
-                    type="number"
-                    value={row.theoretical_ratio}
-                    onChange={(e) => handleRatioChange(index, parseFloat(e.target.value) || 0)}
+                  <TextField
+                    label="Size"
+                    value={row.size}
+                    onChange={(e) => {
+                      const updated = [...ratios];
+                      updated[index].size = e.target.value.toUpperCase();
+                      setRatios(updated);
+                    }}
                     fullWidth
-                    />
+                  />
                 </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField
+                    label="Theoretical %"
+                    type="text"
+                    value={row.theoretical_ratio}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      handleRatioChange(index, value);
+                    }}
+                    fullWidth
+                  />
                 </Grid>
+              </Grid>
             ))}
 
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                onClick={() => setRatios([...ratios, { size: '', theoretical_ratio: '' }])}
+              >
+                + Add Size
+              </Button>
+            </Grid>
+
             <Grid item sx={{ mt: 2 }}>
-                <Button variant="contained" color="primary" onClick={handleSave}>
+              <Button variant="contained" color="primary" onClick={handleSave}>
                 Save Ratios
-                </Button>
+              </Button>
             </Grid>
-            </Grid>
-  </MainCard>
+          </Grid>
+        </MainCard>
       )}
     </>
   );
 };
 
 export default ItalianRatio;
-

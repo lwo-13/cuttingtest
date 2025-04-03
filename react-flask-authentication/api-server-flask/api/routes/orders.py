@@ -29,77 +29,22 @@ class OrderLines(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-
-@orders_api.route('/sync_all_ratios')
-class SyncAllRatios(Resource):
-    def post(self):
-        try:
-
-            # Step 1: Get all orders that start with 25
-            order_lines = OrderLinesView.query.filter(OrderLinesView.order_commessa.startswith("25")).all()
-
-            # Step 2: Group by order_commessa
-            grouped = {}
-            for line in order_lines:
-                if line.order_commessa not in grouped:
-                    grouped[line.order_commessa] = []
-                grouped[line.order_commessa].append(line)
-
-            # Step 3: Sync each group
-            for order_commessa, lines in grouped.items():
-                total_qty = sum(line.quantity for line in lines if line.quantity)
-
-                for line in lines:
-                    size = line.size
-                    qty = line.quantity or 0
-                    real_ratio = qty / total_qty if total_qty else 0
-
-                    ratio = OrderRatio.query.get((order_commessa, size))
-                    if not ratio:
-                        ratio = OrderRatio(
-                            order_commessa=order_commessa,
-                            size=size,
-                            theoretical_ratio=0.0  # to be filled later
-                        )
-
-                    ratio.quantity = qty
-                    ratio.real_ratio = real_ratio
-                    db.session.add(ratio)
-
-            db.session.commit()
-            return {"success": True, "msg": "All ratios synced for orders starting with '25'"}, 200
-
-        except Exception as e:
-            return {"success": False, "msg": str(e)}, 500
         
-@orders_api.route('/ratios/todo')
-class GetRatiosToDo(Resource):
+@orders_api.route('/order_lines/without_ratios')
+class OrdersWithoutRatios(Resource):
     def get(self):
         try:
-            # Get all order_commessa where any theoretical_ratio is NULL or 0
-            from sqlalchemy import or_
+            all_orders = db.session.query(OrderLinesView.order_commessa)\
+                .filter(OrderLinesView.order_commessa.like('25%')).distinct().all()
+            all_orders_set = {row[0] for row in all_orders}
 
-            incomplete_orders = (
-                db.session.query(OrderRatio.order_commessa)
-                .filter(or_(OrderRatio.theoretical_ratio == 0.0, OrderRatio.theoretical_ratio == None))
-                .distinct()
-                .all()
-            )
+            existing_orders = db.session.query(OrderRatio.order_commessa).distinct().all()
+            existing_orders_set = {row[0] for row in existing_orders}
 
-            commesse_list = [row.order_commessa for row in incomplete_orders]
+            orders_to_do = list(all_orders_set - existing_orders_set)
 
-            return {"success": True, "orders": commesse_list}, 200
-        except Exception as e:
-            return {"success": False, "msg": str(e)}, 500
+            return {"success": True, "orders": orders_to_do}, 200
 
-@orders_api.route('/ratios/<string:order_commessa>')
-class GetOrderRatios(Resource):
-    def get(self, order_commessa):
-        try:
-            ratios = OrderRatio.query.filter_by(order_commessa=order_commessa).all()
-            data = [r.to_dict() for r in ratios]
-
-            return {"success": True, "data": data}, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
                
