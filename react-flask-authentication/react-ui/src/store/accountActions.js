@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 import { LOGOUT } from './actions'; // ✅ Points to your actions.js
 
 // Async Logout Action Creator

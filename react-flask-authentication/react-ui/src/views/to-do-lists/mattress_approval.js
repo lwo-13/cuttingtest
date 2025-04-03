@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 import { DataGrid } from '@mui/x-data-grid';
 import { CircularProgress, Box, Button } from "@mui/material";
 import CheckIcon from '@mui/icons-material/Check';
@@ -62,7 +62,7 @@ const MattressApproval = () => {
 
     const fetchMattresses = () => {
         setLoading(true);
-        axios.get('http://172.27.57.210:5000/api/mattress/approval')
+        axios.get('/mattress/approval')
             .then((response) => {
                 if (response.data.success) {
                     setMattresses(response.data.data);  // ✅ Directly set the data
@@ -79,7 +79,7 @@ const MattressApproval = () => {
     const handleApproveMattresses = async () => {
         if (!selectedMattresses.length) return;
         try {
-            const response = await axios.post('http://172.27.57.210:5000/api/mattress/approve', {
+            const response = await axios.post('/mattress/approve', {
                 mattress_ids: selectedMattresses,
                 operator: username
             });

@@ -1,4 +1,4 @@
-let BACKEND_SERVER = "http://172.27.57.210:5000/api/";
+let BACKEND_SERVER = "/";
 
 const config = {
     // basename: only at build time to set, and don't add '/' at end off BASENAME for breadcrumbs, also don't put only '/' use blank('') instead,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 import { DataGrid } from '@mui/x-data-grid';
 import { CircularProgress, Box, TextField, Typography, TablePagination, Button, CheckCircleOutline } from '@mui/material';
 import MainCard from '../../ui-component/cards/MainCard';
@@ -79,7 +79,7 @@ const MattressTable = () => {
 
     const fetchMattresses = () => {
         setLoading(true);
-        axios.get('http://172.27.57.210:5000/api/mattress/all_with_details')
+        axios.get('/mattress/all_with_details')
             .then((response) => {
                 console.log("API Response:", response.data);
                 if (response.data.success) {
@@ -158,7 +158,7 @@ const MattressTable = () => {
                 let markerLines = [];
                 try {
                     const response = await axios.get(
-                        `http://172.27.57.210:5000/api/markers/marker_pcs?marker_name=${markerName}`
+                        `/markers/marker_pcs?marker_name=${markerName}`
                     );
                     if (response.data.success) {
                         markerLines = response.data.marker_lines;
@@ -173,7 +173,7 @@ const MattressTable = () => {
                 try {
                 // Query the order_lines endpoint using order_commessa.
                 const orderLinesResponse = await axios.get(
-                    `http://172.27.57.210:5000/api/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
+                    `/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
                 );
 
                 if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
@@ -195,7 +195,7 @@ const MattressTable = () => {
                 try {
                 // Query the padprint endpoint using the extracted season, style, and color.
                 const padPrintResponse = await axios.get(
-                    `http://172.27.57.210:5000/api/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
+                    `/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
                 );
                 if (padPrintResponse.data.success) {
                     padPrintData = padPrintResponse.data.data; // Array of padprint objects.
@@ -574,7 +574,7 @@ const MattressTable = () => {
                 doc.save(`Mattress_Travel_Doc_${mattressName}.pdf`);
     
                 // ✅ API Call to Update Print Status
-                await axios.put(`http://172.27.57.210:5000/api/mattress/update_print_travel`, {
+                await axios.put(`/mattress/update_print_travel`, {
                     mattress_id: mattressId,
                     print_travel: true // ✅ Set as printed
                 });
@@ -627,7 +627,7 @@ const MattressTable = () => {
                 // ✅ Fetch marker lines from API
                 let markerLines = [];
                 try {
-                    const response = await axios.get(`http://172.27.57.210:5000/api/markers/marker_pcs?marker_name=${markerName}`);
+                    const response = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
                     if (response.data.success) {
                         markerLines = response.data.marker_lines; 
                     }
@@ -640,7 +640,7 @@ const MattressTable = () => {
 
                 try {
                 const orderLinesResponse = await axios.get(
-                    `http://172.27.57.210:5000/api/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
+                    `/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`
                 );
                 if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
                     const data = orderLinesResponse.data.data[0];
@@ -658,7 +658,7 @@ const MattressTable = () => {
                 try {
                 // Query the padprint endpoint using the extracted season, style, and color.
                 const padPrintResponse = await axios.get(
-                    `http://172.27.57.210:5000/api/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
+                    `/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
                 );
                 if (padPrintResponse.data.success) {
                     padPrintData = padPrintResponse.data.data; // Array of padprint objects.
@@ -971,7 +971,7 @@ const MattressTable = () => {
 
                 
                 // ✅ API Call to Update Print Status
-                await axios.put(`http://172.27.57.210:5000/api/mattress/update_print_travel`, {
+                await axios.put(`/mattress/update_print_travel`, {
                     mattress_id: mattressId,
                     print_travel: true // ✅ Set as printed
                 });
