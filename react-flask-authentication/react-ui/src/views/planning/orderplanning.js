@@ -5,7 +5,6 @@ import MainCard from 'ui-component/cards/MainCard';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
-import LockOutlined from '@mui/icons-material/LockOutlined';
 import { useBadgeCount } from '../../contexts/BadgeCountContext';
 
 // Order Planning Components

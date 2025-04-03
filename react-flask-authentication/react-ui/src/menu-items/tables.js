@@ -25,15 +25,6 @@ const tables = {
       breadcrumbs: false
     },
     {
-      id: 'mattress_approval',           // Unique ID for your page
-      title: 'Mattress Approval',         // Label in the sidebar
-      type: 'item',                 // It's a single link
-      url: '/tables/mattressapproval', // URL route (adjust as needed)
-      icon: IconSquareRoundedCheck,    // Choose your icon
-      breadcrumbs: false,
-      badgeContent: 0
-    },
-    {
       id: 'padprints',
       title: 'Pad Prints',
       type: 'collapse',

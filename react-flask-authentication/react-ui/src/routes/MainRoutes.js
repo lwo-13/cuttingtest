@@ -13,10 +13,13 @@ const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default'
 const KanbanBoard = Loadable(lazy(() => import('../views/planning/kanbanboard')));
 const OrderPlanning = Loadable(lazy(() => import('../views/planning/orderplanning')));
 
+// to do lists routing
+const MattressApproval = Loadable(lazy(() => import('../views/to-do-lists/mattress_approval')));
+const ItalianRatio = Loadable(lazy(() => import('../views/to-do-lists/italian_ratio')));
+
 // tables routing
 const Orders = Loadable(lazy(() => import('../views/tables/orders')));
 const MarkerDB = Loadable(lazy(() => import('../views/tables/markerdb')));
-const MattressApproval = Loadable(lazy(() => import('../views/tables/mattress_approval')));
 const PadPrints = Loadable(lazy(() => import('../views/tables/padprints')));
 
 // tools routing
@@ -46,11 +49,13 @@ const MainRoutes = () => {
                 '/planning/kanbanboard',
                 '/planning/orderplanning',
 
+                '/to-do-lists/italian-ratio',
+                '/to-do-lists/mattressapproval',
+
                 '/tables/orders',
                 '/tables/markerdb',
-                '/tables/mattressapproval',
+                
                 '/tables/padprints/:brand',
-
                 '/import-print-tools/imports',
                 '/import-print-tools/print',
 
@@ -71,9 +76,11 @@ const MainRoutes = () => {
                         <Route path="/planning/kanbanboard" component={KanbanBoard} />
                         <Route path="/planning/orderplanning" component={OrderPlanning} />
 
+                        <Route path="/to-do-lists/mattressapproval" component={MattressApproval} />
+                        <Route path="/to-do-lists/italian-ratio" component={ItalianRatio} />
+
                         <Route path="/tables/orders" component={Orders} />
                         <Route path="/tables/markerdb" component={MarkerDB} />
-                        <Route path="/tables/mattressapproval" component={MattressApproval} />
                         <Route path="/tables/padprints/:brand" component={PadPrints}/>
 
                         <Route path="/import-print-tools/imports" component={Imports} />
