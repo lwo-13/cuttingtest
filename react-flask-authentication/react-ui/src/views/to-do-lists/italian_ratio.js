@@ -9,7 +9,7 @@ const ItalianRatio = () => {
   const [ratios, setRatios] = useState([]);
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/orders/ratios/todo').then((res) => {
+    axios.get('http://172.27.57.210:5000/api/orders/ratios/todo').then((res) => {
       const options = res.data.orders.map((id) => ({ id }));
       setOrderOptions(options);
     });
@@ -17,7 +17,7 @@ const ItalianRatio = () => {
 
   useEffect(() => {
     if (!selectedOrder) return;
-    axios.get(`http://127.0.0.1:5000/api/orders/ratios/${selectedOrder}`).then((res) => {
+    axios.get(`http://172.27.57.210:5000/api/orders/ratios/${selectedOrder}`).then((res) => {
       setRatios(res.data.data);
     });
   }, [selectedOrder]);
@@ -30,12 +30,12 @@ const ItalianRatio = () => {
 
   const handleSave = () => {
     axios
-      .patch('http://127.0.0.1:5000/api/orders/ratios/update', { data: ratios })
+      .patch('http://172.27.57.210:5000/api/orders/ratios/update', { data: ratios })
       .then(() => {
         alert('Ratios saved!');
         setSelectedOrder(null);
         setRatios([]);
-        axios.get('http://127.0.0.1:5000/api/orders/ratios/todo').then((res) => {
+        axios.get('http://172.27.57.210:5000/api/orders/ratios/todo').then((res) => {
           const options = res.data.orders.map((id) => ({ id }));
           setOrderOptions(options);
         });

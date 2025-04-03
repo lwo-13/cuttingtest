@@ -8,7 +8,7 @@ export const BadgeCountProvider = ({ children }) => {
 
     const refreshMattressCount = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:5000/api/mattress/mattress_to_approve_count');
+            const res = await axios.get('http://172.27.57.210:5000/api/mattress/mattress_to_approve_count');
             setMattressPendingCount(res.data.count);
         } catch (err) {
             console.error("❌ Failed to fetch mattress count:", err);

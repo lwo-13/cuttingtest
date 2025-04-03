@@ -116,7 +116,7 @@ const MarkerDB = () => {
 
     const handleCheckPcsClick = async (markerName) => {
         try {
-          const res = await axios.get(`http://127.0.0.1:5000/api/markers/marker_pcs?marker_name=${markerName}`);
+          const res = await axios.get(`http://172.27.57.210:5000/api/markers/marker_pcs?marker_name=${markerName}`);
           if (res.data.success) {
             setMarkerLines(res.data.marker_lines);
             setSelectedMarkerName(markerName);

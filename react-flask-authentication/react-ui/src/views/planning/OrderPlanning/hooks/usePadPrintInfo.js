@@ -6,7 +6,7 @@ const usePadPrintInfo = () => {
 
     const fetchPadPrintInfo = useCallback(async (season, style, color) => {
         try {
-            const response = await axios.get("http://127.0.0.1:5000/api/padprint/all");
+            const response = await axios.get("http://172.27.57.210:5000/api/padprint/all");
             const data = response.data;
 
             const matchingPadPrint = data.find((p) =>

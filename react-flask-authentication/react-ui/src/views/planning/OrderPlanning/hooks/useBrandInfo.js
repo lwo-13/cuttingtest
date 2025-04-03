@@ -6,7 +6,7 @@ const useBrandInfo = () => {
 
   const fetchBrandForStyle = async (styleCode) => {
     try {
-      const response = await axios.get(`http://127.0.0.1:5000/api/zalli/get_brand/${styleCode}`);
+      const response = await axios.get(`http://172.27.57.210:5000/api/zalli/get_brand/${styleCode}`);
       if (response.data.success) {
         setBrand(response.data.brand || "");
       } else {
