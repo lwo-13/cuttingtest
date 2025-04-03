@@ -4,6 +4,8 @@ services:
     restart: always
     env_file: .env
     build: .
+    volumes:
+      - D:\cuttingtest\react-flask-authentication\api-server-flask\static\uploads:/app/static/uploads
     networks:
       - db_network
       - web_network

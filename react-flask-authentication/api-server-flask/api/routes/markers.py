@@ -90,7 +90,7 @@ class ImportMarker(Resource):
  
             # Extract <Marker> Data
             marker_elem = root.find('Marker')
-            full_marker_name = marker_elem.attrib.get('Name', '').upper()
+            full_marker_name = marker_elem.attrib.get('Name', '').replace('\\', '/').upper()
             marker_name = os.path.splitext(os.path.basename(full_marker_name))[0]
            
             if MarkerHeader.query.filter_by(marker_name=marker_name).first():
