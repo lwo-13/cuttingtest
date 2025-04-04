@@ -56,12 +56,15 @@ class UpdateOrderRatios(Resource):
             ratios = payload.get("data", [])
 
             for row in ratios:
-                ratio = OrderRatio.query.get((row["order_commessa"], row["size"]))
-                if ratio:
-                    ratio.theoretical_ratio = row["theoretical_ratio"]
+                ratio = OrderRatio(
+                    order_commessa=row["order_commessa"],
+                    size=row["size"],
+                    theoretical_ratio=row["theoretical_ratio"]
+                )
+                db.session.merge(ratio)  # Insert or update
 
             db.session.commit()
-            return {"success": True, "msg": "Ratios updated"}, 200
+            return {"success": True, "msg": "Ratios inserted/updated"}, 200
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500

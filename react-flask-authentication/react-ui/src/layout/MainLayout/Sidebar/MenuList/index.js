@@ -11,13 +11,16 @@ import { useBadgeCount } from '../../../../contexts/BadgeCountContext';
 //-----------------------|| SIDEBAR MENU LIST ||-----------------------//
 
 const MenuList = () => {
-    const { mattressPendingCount } = useBadgeCount();
+    const { mattressPendingCount, orderRatioPendingCount} = useBadgeCount();
 
     const updatedItems = menuItem.items.map((group) => ({
         ...group,
         children: group.children.map((item) => {
             if (item.id === 'mattress_approval') {
                 return { ...item, badgeContent: mattressPendingCount };
+            }
+            if (item.id === 'italian_ratio') {
+                return { ...item, badgeContent: orderRatioPendingCount };
             }
             return item;
         })
