@@ -1,8 +1,11 @@
 import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Box, Typography, Button} from '@mui/material';
+import PushPin from '@mui/icons-material/PushPin';
+import PushPinOutlined from '@mui/icons-material/PushPinOutlined';
+import IconButton from '@mui/material/IconButton';
 import { Save, Print } from '@mui/icons-material';
 
-const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint }) => {
+const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, setIsPinned }) => {
     return (
         <Box sx={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             {/* ✅ Show Unsaved Changes */}
@@ -35,6 +38,14 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint }) => {
             >
                 Print
             </Button>
+
+            <IconButton
+                onClick={() => setIsPinned((prev) => !prev)}
+                title={isPinned ? 'Unpin Header' : 'Pin Header'}
+                sx={{ color: '#1976d2' }} // optional: match icon color
+            >
+                {isPinned ? <PushPin /> : <PushPinOutlined />}
+            </IconButton>
         </Box>
     );
 };

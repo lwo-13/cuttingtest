@@ -71,6 +71,9 @@ const OrderPlanning = () => {
     // Update Mattress Approval
     const { refreshMattressCount } = useBadgeCount();
 
+    // Pin Order Planning Card
+    const [isPinned, setIsPinned] = useState(false);
+
     const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
 
     const handleCloseError = (event, reason) => {
@@ -1344,30 +1347,40 @@ const OrderPlanning = () => {
 
     return (
         <>
-            <MainCard title="Order Planning" sx={{ position: 'relative' }}>
-                
-                {/* Order Actions Bar */}
-                <OrderActionBar 
-                    unsavedChanges={unsavedChanges} 
-                    handleSave={handleSave} 
-                    handlePrint={handlePrint}
-                />
+            <Box
+                sx={{
+                    position: isPinned ? 'sticky' : 'relative',
+                    top: isPinned ? 5 : 'auto',
+                    zIndex: isPinned ? 1000 : 'auto',
+                }}
+            >
+                <MainCard title="Order Planning">
+                    
+                    {/* Order Actions Bar */}
+                    <OrderActionBar 
+                        unsavedChanges={unsavedChanges} 
+                        handleSave={handleSave} 
+                        handlePrint={handlePrint}
+                        isPinned={isPinned}
+                        setIsPinned={setIsPinned}
+                    />
 
-                {/* Order Toolbar */}  
-                <OrderToolbar
-                    orderOptions={orderOptions}
-                    selectedOrder={selectedOrder}
-                    onOrderChange={handleOrderChange}
-                    selectedSeason={selectedSeason}
-                    selectedBrand={brand}
-                    selectedStyle={selectedStyle}
-                    selectedColorCode={selectedColorCode}
-                />
+                    {/* Order Toolbar */}  
+                    <OrderToolbar
+                        orderOptions={orderOptions}
+                        selectedOrder={selectedOrder}
+                        onOrderChange={handleOrderChange}
+                        selectedSeason={selectedSeason}
+                        selectedBrand={brand}
+                        selectedStyle={selectedStyle}
+                        selectedColorCode={selectedColorCode}
+                    />
 
-                {/* Order Quantities Section */}
-                <OrderQuantities orderSizes={orderSizes} />
+                    {/* Order Quantities Section */}
+                    <OrderQuantities orderSizes={orderSizes} />
 
-            </MainCard>
+                </MainCard>
+            </Box>
 
             <Box mt={2} />
             
