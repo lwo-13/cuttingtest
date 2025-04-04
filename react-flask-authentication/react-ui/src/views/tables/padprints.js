@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from 'utils/axiosInstance';
 import { DataGrid } from '@mui/x-data-grid';
 import { CircularProgress, Box, Button, TextField, Dialog, DialogContent, IconButton, DialogTitle, DialogActions, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import MainCard from '../../ui-component/cards/MainCard';

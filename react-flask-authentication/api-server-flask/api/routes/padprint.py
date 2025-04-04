@@ -16,7 +16,7 @@ class PadPrintList(Resource):
     def get(self):
         try:
             padprints = PadPrint.query.all()
-            return [p.to_dict() for p in padprints], 200
+            return jsonify([p.to_dict() for p in padprints])
         except Exception as e:
             return {'error': str(e)}, 500
 
