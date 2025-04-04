@@ -24,7 +24,7 @@ import {
 // third party
 import * as Yup from 'yup';
 import { Formik } from 'formik';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 
 // project imports
 import useScriptRef from '../../../../hooks/useScriptRef';

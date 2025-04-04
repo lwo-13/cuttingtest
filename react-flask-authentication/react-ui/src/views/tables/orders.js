@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 import { DataGrid } from '@mui/x-data-grid';
 import { CircularProgress, Box, TextField, Typography, TablePagination } from '@mui/material';
 import MainCard from '../../ui-component/cards/MainCard';
@@ -62,7 +62,7 @@ const Orders = () => {
     // Fetch all data from API (only once)
     useEffect(() => {
         setLoading(true);
-        axios.get(`http://172.27.57.210:5000/api/orders/order_lines`)
+        axios.get(`/orders/order_lines`)
             .then((response) => {
                 if (response.data.success) {
                     setOrders(response.data.data);

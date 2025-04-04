@@ -30,7 +30,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 
 // third-party
 import PerfectScrollbar from 'react-perfect-scrollbar';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 
 // project imports
 import MainCard from '../../../../ui-component/cards/MainCard';

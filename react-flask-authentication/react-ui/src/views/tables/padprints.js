@@ -67,7 +67,7 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
   
     const handleSubmit = async () => {
       try {
-        const response = await axios.post("http://172.27.57.210:5000/api/padprint/", formData);
+        const response = await axios.post("/padprint/", formData);
         console.log("PadPrint created:", response.data);
         onCreated(response.data);
         handleClose();
@@ -129,7 +129,7 @@ const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated }) => {
 
   const handleSubmit = async () => {
     try {
-      const response = await axios.put(`http://172.27.57.210:5000/api/padprint/${padPrint.id}`, formData);
+      const response = await axios.put(`/padprint/${padPrint.id}`, formData);
       console.log("PadPrint updated:", response.data);
       onUpdated(response.data);
       handleClose();
@@ -185,7 +185,7 @@ const PadPrints = () => {
   // Fetch PadPrint items from the API
   const fetchItems = async () => {
     try {
-      const response = await fetch("http://172.27.57.210:5000/api/padprint/all");
+      const response = await fetch("/padprint/all");
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error("Unexpected response format");
       const filteredByBrand = brand
@@ -230,7 +230,7 @@ const PadPrints = () => {
       // Iterate over each selected item and upload the image
       for (const id of selectedItems) {
         const response = await axios.post(
-          `http://172.27.57.210:5000/api/padprint/upload-image/${id}`,
+          `/padprint/upload-image/${id}`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
@@ -262,7 +262,7 @@ const PadPrints = () => {
     if (!confirmDelete) return;
   
     try {
-      await axios.delete(`http://172.27.57.210:5000/api/padprint/${id}`);
+      await axios.delete(`/padprint/${id}`);
       setPadPrints(prev => prev.filter(item => item.id !== id));
     } catch (error) {
       console.error("Error deleting pad print:", error.response ? error.response.data : error.message);
@@ -296,7 +296,7 @@ const PadPrints = () => {
         if (!params.value) return "Missing Image";
         const imageUrl = params.value.startsWith("http")
           ? params.value
-          : `http://172.27.57.210:5000/api/padprint/uploads/${params.value.split('/').pop()}`;
+          : `/padprint/uploads/${params.value.split('/').pop()}`;
         return (
           <img
             src={imageUrl}

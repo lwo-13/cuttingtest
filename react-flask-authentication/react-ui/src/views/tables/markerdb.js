@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 import { DataGrid } from '@mui/x-data-grid';
 import {
     CircularProgress,
@@ -82,7 +82,7 @@ const MarkerDB = () => {
 
     const fetchMarkers = () => {
         setLoading(true);
-        axios.get('http://172.27.57.210:5000/api/markers/marker_headers') // Adjust URL if needed
+        axios.get('/markers/marker_headers') // Adjust URL if needed
             .then((response) => {
                 if (response.data.success) {
                     setMarkers(response.data.data);
@@ -116,7 +116,7 @@ const MarkerDB = () => {
 
     const handleCheckPcsClick = async (markerName) => {
         try {
-          const res = await axios.get(`http://172.27.57.210:5000/api/markers/marker_pcs?marker_name=${markerName}`);
+          const res = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
           if (res.data.success) {
             setMarkerLines(res.data.marker_lines);
             setSelectedMarkerName(markerName);
@@ -135,7 +135,7 @@ const MarkerDB = () => {
         console.log("Sending marker IDs:", selectedMarkers); // ✅ Debugging
     
         try {
-            const response = await axios.post('http://172.27.57.210:5000/api/markers/set_not_active', {
+            const response = await axios.post('/markers/set_not_active', {
                 marker_ids: selectedMarkers  // ✅ Send the ID array directly
             });
     
