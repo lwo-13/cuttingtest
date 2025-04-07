@@ -32,6 +32,7 @@ const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
 const OrderPlanning = () => {
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [styleOptions, setStyleOptions] = useState([]);
     const [selectedStyle, setSelectedStyle] = useState("");
     const [selectedSeason, setSelectedSeason] = useState("");
     const [selectedColorCode, setSelectedColorCode] = useState("");
@@ -49,6 +50,8 @@ const OrderPlanning = () => {
     const [deletedWeft, setDeletedWeft] = useState([]);
     const [unsavedChanges, setUnsavedChanges] = useState(false);
     const [avgConsumption, setAvgConsumption] = useState({});
+
+    const [styleTouched, setStyleTouched] = useState(false);
     
     const [tables, setTables] = useState([]); 
 
@@ -61,6 +64,8 @@ const OrderPlanning = () => {
 
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
+
+    
 
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
@@ -293,12 +298,21 @@ const OrderPlanning = () => {
                         sizes: sortSizes(order.sizes || [])
                     }));
                     setOrderOptions(sortedOrders);
+
+                    const uniqueStyles = [
+                        ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
+                      ];
+                      setStyleOptions(uniqueStyles);
                 } else {
                     console.error("Failed to fetch orders");
                 }
             })
             .catch(error => console.error("Error fetching order data:", error));
     }, []);
+
+    const filteredOrders = selectedStyle
+        ? orderOptions.filter(order => order.style === selectedStyle)
+        : orderOptions;
     
     // Fetch marker data from Flask API 
     useEffect(() => {
@@ -329,7 +343,9 @@ const OrderPlanning = () => {
             setSelectedOrder(newValue.id);
             setOrderSizes(sortSizes(newValue.sizes || []));
             setOrderSizeNames(sortSizes(newValue.sizes || []).map(size => size.size));
-            setSelectedStyle(newValue.style);
+            if (!styleTouched) {
+                setSelectedStyle(newValue.style);  // ✅ Auto-fill only if untouched
+            }
             setSelectedSeason(newValue.season);
             setSelectedColorCode(newValue.colorCode);
     
@@ -553,8 +569,23 @@ const OrderPlanning = () => {
             clearPadPrintInfo();
 
             setUnsavedChanges(false);
+            setStyleTouched(false);
         }
     };
+
+    // Handle Style Change
+    const handleStyleChange = (newStyle, touched = false) => {
+        setStyleTouched(touched);
+      
+        if (touched) {
+          handleOrderChange(null); // ✅ This resets everything already
+          setTimeout(() => {
+            setSelectedStyle(newStyle);
+          }, 0);
+        } else {
+          setSelectedStyle(newStyle);
+        }
+      };
     
     // Function to add a new row
     const handleAddRow = (tableIndex) => {
@@ -1396,12 +1427,14 @@ const OrderPlanning = () => {
 
                     {/* Order Toolbar */}  
                     <OrderToolbar
-                        orderOptions={orderOptions}
+                        styleOptions={styleOptions}
+                        selectedStyle={selectedStyle}
+                        onStyleChange={handleStyleChange}
+                        orderOptions={filteredOrders}
                         selectedOrder={selectedOrder}
                         onOrderChange={handleOrderChange}
                         selectedSeason={selectedSeason}
                         selectedBrand={brand}
-                        selectedStyle={selectedStyle}
                         selectedColorCode={selectedColorCode}
                     />
 
