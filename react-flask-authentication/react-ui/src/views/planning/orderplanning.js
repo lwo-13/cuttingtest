@@ -306,7 +306,12 @@ const OrderPlanning = () => {
     
         console.log("Fetching marker headers...");  // ✅ Debugging
     
-        axios.get(`/markers/marker_headers_planning?style=${encodeURIComponent(selectedStyle)}`)  // ✅ Fetch only when order changes
+        axios.get(`/markers/marker_headers_planning`, {
+            params: {
+              style: selectedStyle,
+              sizes: orderSizeNames.join(',')
+            }
+          })  // ✅ Fetch only when order changes
             .then((response) => {
                 console.log("API Response:", response.data);  // ✅ Debugging
                 if (response.data.success) {
@@ -339,7 +344,12 @@ const OrderPlanning = () => {
             // Fetch mattresses and markers in parallel
             Promise.all([
                 axios.get(`/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
-                axios.get(`/markers/marker_headers_planning?style=${newValue.style}`),  // Fetch markers
+                axios.get(`/markers/marker_headers_planning`, {
+                    params: {
+                      style: newValue.style,
+                      sizes: orderSizeNames.join(',')
+                    }
+                  }),  // Fetch markers
                 axios.get(`/collaretto/get_by_order/${newValue.id}`),
                 axios.get(`/collaretto/get_weft_by_order/${newValue.id}`)
             ])
@@ -1287,6 +1297,25 @@ const OrderPlanning = () => {
         return plannedQuantities;
     };
 
+    const getTablePlannedByBagno = (table) => {
+        const bagnoMap = {};
+    
+        table.rows.forEach(row => {
+            const bagno = row.bagno || 'Unknown';
+    
+            Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
+                const layers = parseInt(row.layers) || 0;
+                const pieces = parseInt(pcs) || 0;
+                const total = pieces * layers;
+    
+                if (!bagnoMap[bagno]) bagnoMap[bagno] = {};
+                bagnoMap[bagno][size] = (bagnoMap[bagno][size] || 0) + total;
+            });
+        });
+    
+        return bagnoMap;
+    };
+
     /* Function to Calculate Average Consumption for a Specific Table */
     const calculateTableAverageConsumption = (table) => {
         if (!table || !table.rows || table.rows.length === 0) return 0; // ✅ Prevent crashes
@@ -1405,6 +1434,7 @@ const OrderPlanning = () => {
                                     table={table}
                                     orderSizes={orderSizes}
                                     getTablePlannedQuantities={getTablePlannedQuantities}
+                                    getTablePlannedByBagno={getTablePlannedByBagno} 
                                 />
                             </Box>
 

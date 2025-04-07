@@ -56,6 +56,9 @@ const ItalianRatio = () => {
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedColorCode, setSelectedColorCode] = useState('');
 
+  const [styleOptions, setStyleOptions] = useState([]);
+  const [styleTouched, setStyleTouched] = useState(false);
+
   const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
 
   const [availableSizes, setAvailableSizes] = useState([]);
@@ -73,8 +76,12 @@ const ItalianRatio = () => {
 
   useEffect(() => {
     axios.get('/orders/order_lines/without_ratios').then((res) => {
-      const options = res.data.orders.map((id) => ({ id }));
-      setOrderOptions(options);
+      const orders = res.data.orders; // [{ id, style }]
+      setOrderOptions(orders);
+
+      // ✅ Derive unique styles from that list
+      const uniqueStyles = [...new Set(orders.map(order => order.style).filter(Boolean))];
+      setStyleOptions(uniqueStyles);
     });
   }, []);
 
@@ -92,7 +99,9 @@ const ItalianRatio = () => {
       const lines = res.data.data;
       if (lines.length > 0) {
         setSelectedSeason(lines[0].season || '');  // Set Season
-        setSelectedStyle(lines[0].style || '');    // Set Style
+        if (!styleTouched) {
+          setSelectedStyle(lines[0].style || '');
+        }
         setSelectedColorCode(lines[0].color_code || '');  // Set Color Code
   
         // Fetch Brand if Style is found
@@ -109,12 +118,11 @@ const ItalianRatio = () => {
         setAvailableSizes(matchedGroup ? matchedGroup[1] : []);
       }
     });
+
   
     // Reset ratios when the order is selected
     setRatios(Array.from({ length: 2 }, () => ({ size: '', theoretical_ratio: '' })));
   }, [selectedOrder]);
-
-  
 
   const handleRatioChange = (index, value) => {
     const updated = [...ratios];
@@ -166,6 +174,10 @@ const ItalianRatio = () => {
       });
   };
 
+  const filteredOrders = selectedStyle
+  ? orderOptions.filter(order => order?.style === selectedStyle)
+  : orderOptions;
+
   const handleCloseError = () => setOpenError(false);
   const handleCloseSuccess = () => setOpenSuccess(false);
 
@@ -173,15 +185,36 @@ const ItalianRatio = () => {
     <>
       {/* Card 1 - Order Selection with Details */}
       <MainCard title="Italian Ratio">
-        <OrderToolbar
-          orderOptions={orderOptions}
-          selectedOrder={selectedOrder}
-          onOrderChange={(event, newValue) => setSelectedOrder(newValue?.id || null)}
-          selectedSeason={selectedSeason}
-          selectedBrand={brand}
-          selectedStyle={selectedStyle}
-          selectedColorCode={selectedColorCode}
-        />
+        <Grid item xs={12} sm={6}>
+          <OrderToolbar
+            styleOptions={styleOptions}
+            selectedStyle={selectedStyle}
+            onStyleChange={(newStyle, touched = false) => {
+              setStyleTouched(touched);
+            
+              if (touched) {
+                // First reset order (trigger a re-render)
+                setSelectedOrder(null);
+            
+                // Then in next tick, apply the style — when order list is cleared
+                setTimeout(() => {
+                  setSelectedStyle(newStyle);
+                }, 0);
+              } else {
+                setSelectedStyle(newStyle);
+              }
+            }}
+            orderOptions={filteredOrders}
+            selectedOrder={selectedOrder}
+            onOrderChange={(event, newValue) => {
+              setSelectedOrder(newValue?.id || null);
+              setStyleTouched(false); // ✅ allow style to auto-update again on future orders
+            }}
+            selectedSeason={selectedSeason}
+            selectedBrand={brand}
+            selectedColorCode={selectedColorCode}
+          />
+        </Grid>
       </MainCard>
 
       <Box mt={2} />
@@ -212,7 +245,11 @@ const ItalianRatio = () => {
                     type="text"
                     value={row.theoretical_ratio}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      const rawValue = e.target.value;
+                      const value = rawValue
+                        .replace(/[^0-9.]/g, '')
+                        .replace(/^(\d*\.\d?).*$/, '$1')
+                        .slice(0, 4);
                       handleRatioChange(index, value);
                     }}
                     fullWidth

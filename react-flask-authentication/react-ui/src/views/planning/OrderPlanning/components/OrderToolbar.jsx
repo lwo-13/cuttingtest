@@ -2,11 +2,13 @@ import React from 'react';
 import { Grid, TextField, Autocomplete } from '@mui/material';
 
 const OrderToolbar = ({
+  styleOptions,
+  selectedStyle,
+  onStyleChange,
   orderOptions,
   selectedOrder,
   selectedSeason,
   selectedBrand,
-  selectedStyle,
   selectedColorCode,
   onOrderChange
 }) => {
@@ -23,6 +25,33 @@ const OrderToolbar = ({
             <TextField {...params} label="Order/Commessa" variant="outlined" />
           )}
           sx={{ width: '100%', "& .MuiAutocomplete-input": { fontWeight: 'normal' } }}
+        />
+      </Grid>
+
+      {/* Style Dropdown*/}
+      <Grid item xs={3} sm={2} md={1.5}>
+        <Autocomplete
+          options={styleOptions}
+          value={selectedStyle}
+          onChange={(e, newValue) => {
+            const newVal = newValue || '';
+            if (newVal !== selectedStyle) {
+              onStyleChange(newVal, true); // ✅ only fire when it changes
+            }
+          }}
+          renderInput={(params) => <TextField {...params} label="Style" variant="outlined" fullWidth />}
+          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+        />
+      </Grid>
+
+      {/* Color */}
+      <Grid item xs={3} sm={2} md={1.5}>
+        <TextField
+          label="Color"
+          variant="outlined"
+          value={selectedColorCode || ""}
+          inputProps={{ readOnly: true }}
+          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Grid>
 
@@ -48,27 +77,6 @@ const OrderToolbar = ({
         />
       </Grid>
 
-      {/* Style */}
-      <Grid item xs={3} sm={2} md={1.5}>
-        <TextField
-          label="Style"
-          variant="outlined"
-          value={selectedStyle || ""}
-          inputProps={{ readOnly: true }}
-          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-        />
-      </Grid>
-
-      {/* Color */}
-      <Grid item xs={3} sm={2} md={1.5}>
-        <TextField
-          label="Color"
-          variant="outlined"
-          value={selectedColorCode || ""}
-          inputProps={{ readOnly: true }}
-          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-        />
-      </Grid>
     </Grid>
   );
 };

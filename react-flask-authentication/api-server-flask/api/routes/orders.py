@@ -30,18 +30,34 @@ class OrderLines(Resource):
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
         
-@orders_api.route('/order_lines/without_ratios')
+@orders_api.route('/order_lines/without_ratios', methods=['GET'])
 class OrdersWithoutRatios(Resource):
     def get(self):
         try:
-            all_orders = db.session.query(OrderLinesView.order_commessa)\
-                .filter(OrderLinesView.order_commessa.like('25%')).distinct().all()
-            all_orders_set = {row[0] for row in all_orders}
+            # Step 1: Get all orders starting with '25' and their styles
+            all_order_pairs = db.session.query(
+                OrderLinesView.order_commessa,
+                OrderLinesView.style
+            ).filter(
+                OrderLinesView.order_commessa.like('25%')
+            ).distinct().all()  # Ex: [('25ABC', 'STYLE1'), ('25DEF', 'STYLE2')]
 
+            all_orders_dict = {
+                order_commessa: style
+                for order_commessa, style in all_order_pairs
+                if order_commessa and style
+            }
+
+            # Step 2: Get orders that already have ratios
             existing_orders = db.session.query(OrderRatio.order_commessa).distinct().all()
             existing_orders_set = {row[0] for row in existing_orders}
 
-            orders_to_do = list(all_orders_set - existing_orders_set)
+            # Step 3: Subtract to find orders still needing ratios
+            orders_to_do = [
+                {"id": oc, "style": st}
+                for oc, st in all_orders_dict.items()
+                if oc not in existing_orders_set
+            ]
 
             return {"success": True, "orders": orders_to_do}, 200
 
@@ -65,6 +81,24 @@ class UpdateOrderRatios(Resource):
 
             db.session.commit()
             return {"success": True, "msg": "Ratios inserted/updated"}, 200
+
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+        
+@orders_api.route('/order_lines/styles', methods=['GET'])
+class OrderLineStyles(Resource):
+    def get(self):
+        try:
+            # Query distinct styles from order lines
+            styles = db.session.query(OrderLinesView.style)\
+                .filter(OrderLinesView.style.isnot(None))\
+                .distinct()\
+                .all()
+
+            # Flatten the result
+            style_list = [s[0] for s in styles if s[0]]
+
+            return {"success": True, "styles": style_list}, 200
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500

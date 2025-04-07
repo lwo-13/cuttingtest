@@ -233,7 +233,7 @@ const MarkerDB = () => {
 
             <Dialog open={pcsDialogOpen} onClose={() => setPcsDialogOpen(false)} fullWidth maxWidth="sm">
                 <DialogTitle sx={{ textAlign: 'center', fontWeight: 'normal', fontSize: '1rem' }}>
-                    Marker: {selectedMarkerName}
+                    {selectedMarkerName}
                 </DialogTitle>
                 <DialogContent dividers>
                     {markerLines.length > 0 ? (

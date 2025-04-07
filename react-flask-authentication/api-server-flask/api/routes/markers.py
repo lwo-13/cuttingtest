@@ -38,9 +38,15 @@ class MarkerHeadersPlanning(Resource):
     def get(self):
         try:
             selected_style = request.args.get('style')  # 🔍 Get style from query parameters
+            sizes_param = request.args.get('sizes')
             
             if not selected_style:
                 return {"success": False, "msg": "Missing required style parameter"}, 400
+            
+            # Convert comma-separated sizes into a clean set
+            allowed_sizes = set()
+            if sizes_param:
+                allowed_sizes = set(size.strip() for size in sizes_param.split(',') if size.strip())
 
             # ✅ Fetch ACTIVE markers matching the style
             headers = MarkerHeader.query.filter(
@@ -53,7 +59,14 @@ class MarkerHeadersPlanning(Resource):
             for header in headers:
                 # ✅ Fetch Marker Lines for the current header
                 marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
-                
+
+                # ✅ Extract sizes used in this marker
+                marker_sizes = set(line.size for line in marker_lines)
+
+                # ✅ If sizes were provided, skip this marker if it uses a size not in the list
+                if allowed_sizes and not marker_sizes.issubset(allowed_sizes):
+                    continue
+
                 # ✅ Store size quantities in a dictionary
                 size_quantities = {line.size: line.pcs_on_layer for line in marker_lines}
 
@@ -63,7 +76,7 @@ class MarkerHeadersPlanning(Resource):
                     "marker_width": header.marker_width,
                     "marker_length": header.marker_length,
                     "efficiency": header.efficiency,
-                    "size_quantities": size_quantities  # ✅ Include size quantities
+                    "size_quantities": size_quantities
                 })
 
             return {"success": True, "data": result}, 200
