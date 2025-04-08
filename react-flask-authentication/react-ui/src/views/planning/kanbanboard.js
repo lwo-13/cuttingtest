@@ -3,7 +3,7 @@ import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Paper, Box, Grid, Button } from "@mui/material"; 
 import MainCard from "../../ui-component/cards/MainCard"; 
-import axios from "axios";
+import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
 
 // Devices as columns
@@ -201,10 +201,6 @@ const KanbanBoard = () => {
           <Box><strong>Sizes:</strong> {mattress.sizes}</Box>
         )}
 
-        {(mattress.total_pcs && mattress.total_pcs !== 0) 
-          ? <><strong>Total pcs:</strong> {mattress.total_pcs} <br /></> 
-          : null}
-
         <strong> Consumption:</strong> {mattress.consumption} m<br />
         <strong>Spreading Method:</strong> {mattress.spreading_method} <br />
       </Box>
@@ -230,6 +226,9 @@ const KanbanBoard = () => {
             <strong>Marker:</strong> {mattress.marker} <br />
           </>
         )}
+        {(mattress.total_pcs && mattress.total_pcs !== 0) 
+          ? <><strong>{mattress.total_pcs} pcs</strong><br /></> 
+          : null}
       </MainCard>
     );
   

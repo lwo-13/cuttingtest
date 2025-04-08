@@ -157,13 +157,13 @@ const MarkerDB = () => {
 
     // Table Columns
     const columns = [
-        { field: 'id', headerName: 'ID', width: 50 },
-        { field: 'marker_name', headerName: 'Marker Name', width: 300 },
+        { field: 'marker_name', headerName: 'Marker Name', width: 290 },
         { field: 'marker_width', headerName: 'Width', width: 100 },
         { field: 'marker_length', headerName: 'Length', width: 100 },
         { field: 'efficiency', headerName: 'Efficiency (%)', width: 130 },
         { field: 'total_pcs', headerName: 'Total Pieces', width: 120 },
-        { field: 'creation_type', headerName: 'Creation Type', width: 150 },
+        { field: 'fabric_type', headerName: 'Fabric Type', width: 100 },
+        { field: 'fabric_code', headerName: 'Fabric Code', width: 130 },
         { field: 'model', headerName: 'MDL', width: 200 },
         { field: 'variant', headerName: 'Variant', width: 200 },
         {
@@ -235,30 +235,30 @@ const MarkerDB = () => {
                 <DialogTitle sx={{ textAlign: 'center', fontWeight: 'normal', fontSize: '1rem' }}>
                     {selectedMarkerName}
                 </DialogTitle>
-                <DialogContent dividers>
+                <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {markerLines.length > 0 ? (
-                        <TableContainer component={Paper}>
+                        <TableContainer component={Paper} sx={{ width: '100%' }}>
                             <Table>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell><strong>Style</strong></TableCell>
-                                        <TableCell><strong>Size</strong></TableCell>
-                                        <TableCell><strong>Quantity</strong></TableCell>
+                                        <TableCell align="center"><strong>Style</strong></TableCell>
+                                        <TableCell align="center"><strong>Size</strong></TableCell>
+                                        <TableCell align="center"><strong>Quantity</strong></TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {markerLines.map((line, index) => (
                                         <TableRow key={index}>
-                                            <TableCell>{line.style}</TableCell>
-                                            <TableCell>{line.size}</TableCell>
-                                            <TableCell>{line.pcs_on_layer}</TableCell>
+                                            <TableCell align="center">{line.style}</TableCell>
+                                            <TableCell align="center">{line.size}</TableCell>
+                                            <TableCell align="center">{line.pcs_on_layer}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         </TableContainer>
                     ) : (
-                        <Typography>No pieces found for this marker.</Typography>
+                        <Typography sx={{ textAlign: 'center', mt: 2 }}>No pieces found for this marker.</Typography>
                     )}
                 </DialogContent>
                 <DialogActions>

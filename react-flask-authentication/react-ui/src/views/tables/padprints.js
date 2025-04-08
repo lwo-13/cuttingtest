@@ -8,6 +8,7 @@ import { useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import CloseIcon from '@mui/icons-material/Close';
 
+const backendBaseUrl = axios.defaults.baseURL.replace('/api', '');
 
 // Available brands
 const brands = ["Calzedonia", "Intimissimi", "Falconeri", "Tezenis"];
@@ -185,12 +186,15 @@ const PadPrints = () => {
   // Fetch PadPrint items from the API
   const fetchItems = async () => {
     try {
-      const response = await fetch("/padprint/all");
-      const data = await response.json();
+      const response = await axios.get('/padprint/all'); // 🔥 This is now: http://127.0.0.1:5000/api/padprint/all
+      const data = response.data;
+  
       if (!Array.isArray(data)) throw new Error("Unexpected response format");
+  
       const filteredByBrand = brand
         ? data.filter((item) => item.brand?.toUpperCase() === brand.toUpperCase())
         : data;
+  
       setPadPrints(filteredByBrand);
       setLoading(false);
     } catch (error) {
@@ -296,7 +300,7 @@ const PadPrints = () => {
         if (!params.value) return "Missing Image";
         const imageUrl = params.value.startsWith("http")
           ? params.value
-          : `/padprint/uploads/${params.value.split('/').pop()}`;
+          : `${backendBaseUrl}${params.value}`;
         return (
           <img
             src={imageUrl}
@@ -306,7 +310,7 @@ const PadPrints = () => {
             onError={(e) => {
               if (!e.target.dataset.retry) {
                 e.target.dataset.retry = "true";
-                e.target.src = "http://172.27.57.210:5000/static/placeholder.png";
+                e.target.src = `${backendBaseUrl}/static/placeholder.png`; // fallback image
               }
             }}
           />

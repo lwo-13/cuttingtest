@@ -21,6 +21,8 @@ class MarkerHeaders(Resource):
                 "marker_name": header.marker_name,
                 "marker_width": header.marker_width,
                 "marker_length": header.marker_length,
+                "fabric_code": header.fabric_code,
+                "fabric_type": header.fabric_type,
                 "efficiency": header.efficiency,
                 "total_pcs": header.total_pcs,
                 "creation_type": header.creation_type,

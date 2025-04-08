@@ -8,7 +8,6 @@ from datetime import datetime
 padprint_bp = Blueprint('padprint_bp', __name__)
 padprint_api = Namespace('padprint', description="PadPrint Operations")
 
-UPLOAD_FOLDER = 'static/uploads'
 
 # ✅ GET All PadPrints
 @padprint_api.route('/all')
@@ -42,7 +41,7 @@ class PadPrintFilter(Resource):
 @padprint_api.route('/upload-image/<int:id>')
 class PadPrintImageUpload(Resource):
     def post(self, id):
-        print(f"DEBUG: Received POST request for PadPrint ID: {id}")
+
         if 'file' not in request.files:
             return {"message": "No file part"}, 400
 
@@ -51,16 +50,27 @@ class PadPrintImageUpload(Resource):
             return {"message": "No selected file"}, 400
 
         if file:
+            BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+            UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'padprint')
+            UPLOAD_URL = '/static/padprint'
+
             filename = secure_filename(file.filename)
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
             file_path = os.path.join(UPLOAD_FOLDER, filename)
+            print("Saving to:", file_path)
             file.save(file_path)
+            print("Saved!")
 
-            image_url = f"/{UPLOAD_FOLDER}/{filename}"
+            image_url = f"{UPLOAD_URL}/{filename}"
             padprint = PadPrint.query.filter_by(id=id).first()
+            print("PadPrint found:", padprint)
             if padprint:
+                print("Image URL being set:", image_url)
                 padprint.image_url = image_url
+                db.session.add(padprint)
                 db.session.commit()
+                db.session.refresh(padprint)
+                print("AFTER COMMIT:", padprint.image_url)
                 return {"image_url": image_url}, 200
             else:
                 return {"message": "PadPrint not found"}, 404
