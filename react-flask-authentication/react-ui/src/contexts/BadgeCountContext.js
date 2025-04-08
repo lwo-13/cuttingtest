@@ -4,17 +4,7 @@ import axios from 'utils/axiosInstance';
 const BadgeCountContext = createContext();
 
 export const BadgeCountProvider = ({ children }) => {
-  const [mattressPendingCount, setMattressPendingCount] = useState(0);
   const [orderRatioPendingCount, setOrderRatioPendingCount] = useState(0);
-
-  const refreshMattressCount = async () => {
-    try {
-      const res = await axios.get('/mattress/mattress_to_approve_count');
-      setMattressPendingCount(res.data.count);
-    } catch (err) {
-      console.error("❌ Failed to fetch mattress count:", err);
-    }
-  };
 
   const refreshOrderRatioCount = async () => {
     try {
@@ -26,7 +16,6 @@ export const BadgeCountProvider = ({ children }) => {
   };
 
   const refreshAllBadges = () => {
-    refreshMattressCount();
     refreshOrderRatioCount();
   };
 
@@ -37,9 +26,7 @@ export const BadgeCountProvider = ({ children }) => {
   return (
     <BadgeCountContext.Provider
       value={{
-        mattressPendingCount,
         orderRatioPendingCount,
-        refreshMattressCount,
         refreshOrderRatioCount,
         refreshAllBadges
       }}

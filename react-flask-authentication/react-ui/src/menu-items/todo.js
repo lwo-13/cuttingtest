@@ -9,15 +9,6 @@ const todo = {
   type: 'group',
   children: [
     {
-        id: 'mattress_approval',
-        title: 'Mattress Approval', 
-        type: 'item',  
-        url: '/to-do-lists/mattressapproval',
-        icon: IconZoomCheck, 
-        breadcrumbs: false,
-        badgeContent: 0
-    },
-    {
       id: 'italian_ratio',
       title: 'Italian Ratios', 
       type: 'item',  

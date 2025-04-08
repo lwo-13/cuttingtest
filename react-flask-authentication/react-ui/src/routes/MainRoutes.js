@@ -14,7 +14,6 @@ const KanbanBoard = Loadable(lazy(() => import('../views/planning/kanbanboard'))
 const OrderPlanning = Loadable(lazy(() => import('../views/planning/orderplanning')));
 
 // to do lists routing
-const MattressApproval = Loadable(lazy(() => import('../views/to-do-lists/mattress_approval')));
 const ItalianRatio = Loadable(lazy(() => import('../views/to-do-lists/italian_ratio')));
 
 // tables routing
@@ -50,7 +49,6 @@ const MainRoutes = () => {
                 '/planning/orderplanning',
 
                 '/to-do-lists/italian-ratio',
-                '/to-do-lists/mattressapproval',
 
                 '/tables/orders',
                 '/tables/markerdb',
@@ -76,7 +74,6 @@ const MainRoutes = () => {
                         <Route path="/planning/kanbanboard" component={KanbanBoard} />
                         <Route path="/planning/orderplanning" component={OrderPlanning} />
 
-                        <Route path="/to-do-lists/mattressapproval" component={MattressApproval} />
                         <Route path="/to-do-lists/italian-ratio" component={ItalianRatio} />
 
                         <Route path="/tables/orders" component={Orders} />

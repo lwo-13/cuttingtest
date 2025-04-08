@@ -399,7 +399,9 @@ const OrderPlanning = () => {
                         }
 
                         // ✅ Store phase_status and create a boolean for easy checks
-                        const isEditable = mattress.phase_status === "0 - NOT SET";
+                        const isEditable = 
+                            mattress.phase_status === "0 - NOT SET" || 
+                            mattress.phase_status === "1 - TO LOAD";
     
                         // Get marker details for this mattress
                         const markerDetails = markersMap[mattress.marker_name];
