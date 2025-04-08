@@ -8,8 +8,8 @@ export const BadgeCountProvider = ({ children }) => {
 
   const refreshOrderRatioCount = async () => {
     try {
-      const res = await axios.get('/orders/order_lines/without_ratios');
-      setOrderRatioPendingCount(res.data.orders.length);
+      const res = await axios.get('/orders/order_lines/without_ratios/count');
+      setOrderRatioPendingCount(res.data.count);
     } catch (err) {
       console.error("❌ Failed to fetch order ratio count:", err);
     }

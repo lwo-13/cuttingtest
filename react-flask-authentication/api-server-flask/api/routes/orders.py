@@ -84,6 +84,28 @@ class UpdateOrderRatios(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/order_lines/without_ratios/count', methods=['GET'])
+class OrdersWithoutRatiosCount(Resource):
+    def get(self):
+        try:
+            # All order_commessa starting with '25'
+            all_order_ids = db.session.query(OrderLinesView.order_commessa).filter(
+                OrderLinesView.order_commessa.like('25%')
+            ).distinct().all()
+            all_order_set = {row[0] for row in all_order_ids}
+
+            # All order_commessa that already have ratios
+            existing_ratios = db.session.query(OrderRatio.order_commessa).distinct().all()
+            existing_ratio_set = {row[0] for row in existing_ratios}
+
+            # Difference = those missing
+            missing_ratio_count = len(all_order_set - existing_ratio_set)
+
+            return {"success": True, "count": missing_ratio_count}, 200
+
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
         
 @orders_api.route('/order_lines/styles', methods=['GET'])
 class OrderLineStyles(Resource):
