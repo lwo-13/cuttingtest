@@ -17,7 +17,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
   const handleClose = () => setOpen(false);
 
   const renderPlannedDetails = () =>
-    Object.entries(planned).map(([size, qty]) => {
+    uniqueSizes.map(size => {
+      const qty = planned[size] || 0;
       const sizeData = orderSizes.find(s => s.size === size);
       const totalOrdered = sizeData ? sizeData.qty : 1;
       const percentage = totalOrdered ? ((qty / totalOrdered) * 100).toFixed(1) : "N/A";
@@ -29,9 +30,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
       );
     });
 
-  const uniqueSizes = Array.from(
-    new Set(Object.values(plannedByBagno).flatMap(obj => Object.keys(obj)))
-  );
+  const uniqueSizes = orderSizes.map(s => s.size);
 
   const renderBagnoTable = () => {
     const totalPerSize = {};
@@ -76,7 +75,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
                 ))}
                 <TableCell align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 500 }}>
-                  {metersByBagno[bagno]?.toFixed(2) || 0}
+                  {metersByBagno[bagno]?.toFixed(0) || 0}
                 </TableCell>
               </TableRow>
             );
@@ -100,7 +99,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
               {Object.values(totalPerSize).reduce((sum, val) => sum + val, 0)}
             </TableCell>
             <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-              {totalMeters.toFixed(2)}
+              {totalMeters.toFixed(0)}
             </TableCell>
           </TableRow>
         </TableBody>

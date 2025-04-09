@@ -20,7 +20,6 @@ const MattressRow = ({
   isTableEditable,
   handleInputChange,
   handleRemoveRow,
-  updateExpectedConsumption,
   setUnsavedChanges
 }) => {
   const editable = row.isEditable !== false;
@@ -129,7 +128,6 @@ const MattressRow = ({
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, '').slice(0, 4);
             handleInputChange(tableId, rowId, "layers", value);
-            updateExpectedConsumption(tableId, rowId);
           }}
           sx={{
             width: '100%',

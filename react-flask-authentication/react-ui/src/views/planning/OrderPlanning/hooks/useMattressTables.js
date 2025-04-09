@@ -6,38 +6,39 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
 
     // Add Mattress Table
     const handleAddTable = () => {
-    const newTableId = uuidv4();
-    const newRowId = uuidv4();
+      const newTableId = uuidv4();
+      const newRowId = uuidv4();
 
-    const newTable = {
-      id: newTableId,
-      fabricType: "",
-      fabricCode: "",
-      fabricColor: "",
-      spreadingMethod: "",
-      allowance: "",
-      spreading: "AUTOMATIC",
-      rows: [
-        {
-          id: newRowId,
-          width: "",
-          markerName: "",
-          piecesPerSize: orderSizeNames.reduce((acc, size) => {
-            acc[size] = "";
-            return acc;
-          }, {}),
-          markerLength: "",
-          efficiency: "",
-          layers: "",
-          expectedConsumption: "",
-          bagno: "",
-          isEditable: true
-        }
-      ]
-    };
+      const newTable = {
+        id: newTableId,
+        fabricType: "",
+        fabricCode: "",
+        fabricColor: "",
+        spreadingMethod: "",
+        allowance: "",
+        spreading: "AUTOMATIC",
+        rows: [
+          {
+            id: newRowId,
+            width: "",
+            markerName: "",
+            piecesPerSize: orderSizeNames.reduce((acc, size) => {
+              acc[size] = "";
+              return acc;
+            }, {}),
+            markerLength: "",
+            efficiency: "",
+            layers: "",
+            expectedConsumption: "",
+            bagno: "",
+            isEditable: true,
+            sequenceNumber: 1
+          }
+        ]
+      };
 
-    setTables(prev => [...prev, newTable]);
-    setUnsavedChanges(true);
+      setTables(prev => [...prev, newTable]);
+      setUnsavedChanges(true);
   };
 
 
@@ -63,12 +64,21 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     });
   };
 
+  const getNextSequenceNumber = (rows) => {
+    const existing = rows
+      .map(row => parseInt(row.sequenceNumber))
+      .filter(n => !isNaN(n));
+    return existing.length > 0 ? Math.max(...existing) + 1 : 1;
+  };
+
   const handleAddRow = (tableId) => {
     const newRowId = uuidv4();
 
     setTables(prevTables => {
       return prevTables.map(table => {
         if (table.id !== tableId) return table;
+
+        const nextSequence = getNextSequenceNumber(table.rows);
 
         return {
           ...table,
@@ -87,7 +97,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
               layers: "",
               expectedConsumption: "",
               bagno: "",
-              isEditable: true
+              isEditable: true,
+              sequenceNumber: nextSequence
             }
           ]
         };
@@ -124,6 +135,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
       return prevTables.map(table => {
         if (table.id !== tableId) return table;
 
+        const tableAllowance = parseFloat(table.allowance) || 0;
+
         const updatedRows = table.rows.map(row => {
           if (row.id !== rowId) return row;
 
@@ -133,15 +146,16 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           };
 
           if (field === "layers" || field === "markerLength") {
-            const markerLength = parseFloat(
-              field === "markerLength" ? value : row.markerLength
-            ) || 0;
-            const layers = parseInt(
-              field === "layers" ? value : row.layers
-            ) || 0;
+            const markerLength = parseFloat(field === "markerLength" ? value : row.markerLength);
+            const layers = parseInt(field === "layers" ? value : row.layers);
 
-            updatedRow.expectedConsumption = (markerLength * layers).toFixed(2);
+            if (!isNaN(markerLength) && markerLength > 0 && !isNaN(layers) && layers > 0) {
+              const lengthWithAllowance = markerLength + tableAllowance;
+              updatedRow.expectedConsumption = (lengthWithAllowance * layers).toFixed(2);
+            } else {
+              updatedRow.expectedConsumption = "";
           }
+        }
 
           return updatedRow;
         });
@@ -168,9 +182,14 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
   
           const timeout = setTimeout(() => {
             const tableAllowance = parseFloat(table.allowance) || 0;
-            const markerLength = (parseFloat(row.markerLength) || 0) + tableAllowance;
-            const layers = parseInt(row.layers) || 0;
-            const expectedConsumption = (markerLength * layers).toFixed(1);
+            const markerLength = parseFloat(row.markerLength);
+            const layers = parseInt(row.layers);
+  
+            // 🛑 Don't calculate until both values are valid
+            if (isNaN(markerLength) || isNaN(layers) || markerLength <= 0 || layers <= 0) return;
+  
+            const expectedConsumption = markerLength + tableAllowance;
+            const total = Number((expectedConsumption * layers).toFixed(2));
   
             setTables(currentTables => {
               return currentTables.map(t =>
@@ -179,7 +198,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
                   : {
                       ...t,
                       rows: t.rows.map(r =>
-                        r.id === rowId ? { ...r, expectedConsumption } : r
+                        r.id === rowId ? { ...r, expectedConsumption: total } : r
                       )
                     }
               );

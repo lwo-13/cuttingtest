@@ -29,6 +29,7 @@ import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTab
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
 import { usePrintStyles, handlePrint } from 'views/planning/OrderPlanning/utils/printUtils';
+import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
@@ -94,8 +95,6 @@ const OrderPlanning = () => {
     // Print Styles
     usePrintStyles();
 
-    const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
-
     const handleCloseError = (event, reason) => {
         if (reason === 'clickaway') return;
         setOpenError(false);
@@ -104,33 +103,6 @@ const OrderPlanning = () => {
     const handleCloseSuccess = (event, reason) => {
         if (reason === "clickaway") return;
         setOpenSuccess(false);
-    };
-
-    const sortSizes = (sizes) => {
-        return sizes.sort((a, b) => {
-            const sizeA = a.size;
-            const sizeB = b.size;
-    
-            // If both are numbers, sort numerically
-            if (!isNaN(sizeA) && !isNaN(sizeB)) {
-                return parseInt(sizeA) - parseInt(sizeB);
-            }
-    
-            // If both are letters, sort by predefined order
-            const indexA = sizeOrder.indexOf(sizeA);
-            const indexB = sizeOrder.indexOf(sizeB);
-    
-            if (indexA !== -1 && indexB !== -1) {
-                return indexA - indexB;
-            }
-    
-            // If one is a number and the other is a letter, prioritize letters first
-            if (!isNaN(sizeA)) return 1;
-            if (!isNaN(sizeB)) return -1;
-    
-            // Default to alphabetical order for unknown cases
-            return sizeA.localeCompare(sizeB);
-        });
     };
 
     /* fix this */
@@ -379,7 +351,8 @@ const OrderPlanning = () => {
                             layers: mattress.layers || "",
                             expectedConsumption: mattress.cons_planned || "",
                             bagno: mattress.dye_lot,
-                            isEditable
+                            isEditable,
+                            sequenceNumber: mattress.sequence_number || 0
                         });
                     });
     
@@ -488,15 +461,6 @@ const OrderPlanning = () => {
                         console.warn("⚠️ No weft (collaretto weft) rows found");
                         setWeftTables([]);
                     }                    
-
-                    // ✅ Automatically update expected consumption for all rows
-                    setTimeout(() => {
-                        loadedTables.forEach((table, tableIndex) => {
-                            table.rows.forEach((row, rowIndex) => {
-                                updateExpectedConsumption(tableIndex, rowIndex);
-                            });
-                        });
-                    }, 100); // Small delay to ensure state update has completed
 
                     setUnsavedChanges(false);
 
@@ -910,7 +874,7 @@ const OrderPlanning = () => {
 
                 // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
                 const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
-                const mattressName = `${selectedOrder}-${itemTypeCode}-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
+                const mattressName = `${selectedOrder}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
 
                 newMattressNames.add(mattressName); // ✅ Track UI rows
 
@@ -933,6 +897,8 @@ const OrderPlanning = () => {
                     // ✅ New fields for structure integrity
                     table_id: table.id,
                     row_id: row.id,
+                    sequence_number: row.sequenceNumber,
+
                 
                     layers: layers,
                     length_mattress: lengthMattress,
@@ -1187,7 +1153,8 @@ const OrderPlanning = () => {
           .reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
       
         const totalConsPlanned = table.rows
-          .reduce((sum, row) => sum + (parseFloat(row.expectedConsumption) || 0), 0);
+            .filter(row => !isNaN(parseFloat(row.expectedConsumption)) && parseFloat(row.expectedConsumption) > 0)
+            .reduce((sum, row) => sum + parseFloat(row.expectedConsumption), 0);
       
         if (totalPlannedPcs === 0) return 0;
       
@@ -1302,7 +1269,6 @@ const OrderPlanning = () => {
                                             setTables={setTables}
                                             handleInputChange={handleInputChange}
                                             handleRemoveRow={handleRemoveRow}
-                                            updateExpectedConsumption={updateExpectedConsumption}
                                             setUnsavedChanges={setUnsavedChanges}
                                             />
                                         ))}

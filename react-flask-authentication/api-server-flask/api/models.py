@@ -208,7 +208,8 @@ class Mattresses(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
     table_id = db.Column(db.String(36), nullable=False, default=lambda: str(uuid.uuid4()))
-    row_id = db.Column(db.String(36), nullable=False, default=lambda: str(uuid.uuid4()))
+    row_id = db.Column(db.String(36), nullable=False, unique=True, default=lambda: str(uuid.uuid4()))
+    sequence_number = db.Column(db.Integer)
 
     def __repr__(self):
         return f"<Mattress {self.mattress}, Order {self.order_commessa}>"

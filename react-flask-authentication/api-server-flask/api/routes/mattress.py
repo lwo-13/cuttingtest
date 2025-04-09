@@ -41,6 +41,7 @@ class MattressResource(Resource):
                 existing_mattress.spreading_method = data["spreading_method"]
                 existing_mattress.table_id = data["table_id"]
                 existing_mattress.row_id = data["row_id"]
+                existing_mattress.sequence_number = data.get("sequence_number")
 
                 # ✅ Update mattress details
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
@@ -113,7 +114,8 @@ class MattressResource(Resource):
                     item_type=data["item_type"],
                     spreading_method=data["spreading_method"],
                     table_id=data["table_id"],
-                    row_id=data["row_id"]
+                    row_id=data["row_id"],
+                    sequence_number=data.get("sequence_number")
                 )
                 db.session.add(new_mattress)
                 db.session.flush()  # ✅ Get the new ID before commit
@@ -229,6 +231,8 @@ class GetMattressesByOrder(Resource):
             ).filter(
                 Mattresses.order_commessa == order_commessa,
                 Mattresses.item_type.in_(['AS', 'MS'])
+            ).order_by(
+                Mattresses.fabric_type, Mattresses.sequence_number
             ).all()
 
             if not mattresses:
@@ -251,7 +255,8 @@ class GetMattressesByOrder(Resource):
                     "cons_planned": cons_planned if cons_planned is not None else "",
 
                     "table_id": mattress.table_id,
-                    "row_id": mattress.row_id
+                    "row_id": mattress.row_id,
+                    "sequence_number": mattress.sequence_number
                 })
 
             return {"success": True, "data": result}, 200
