@@ -4,7 +4,7 @@ import { AddCircleOutline } from '@mui/icons-material';
 
 const MattressActionRow = ({ 
   avgConsumption, 
-  tableIndex, 
+  tableId, 
   isTableEditable, 
   table, 
   handleAddRow, 
@@ -14,10 +14,10 @@ const MattressActionRow = ({
     <Box mt={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
       
       {/* Avg. Consumption Display */}
-      {avgConsumption[tableIndex] && avgConsumption[tableIndex] > 0 ? (
+      {avgConsumption && avgConsumption > 0 ? (
         <Box p={1} sx={{ padding: "4px 8px", minWidth: "140px", textAlign: "center", width: "fit-content" }}>
           <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-            Avg Cons: {avgConsumption[tableIndex]} m/pc
+            Avg Cons: {avgConsumption} m/pc
           </Typography>
         </Box>
       ) : (
@@ -30,7 +30,7 @@ const MattressActionRow = ({
           variant="contained"
           color="primary"
           startIcon={<AddCircleOutline />}
-          onClick={() => handleAddRow(tableIndex)}
+          onClick={() => handleAddRow(tableId)}
         >
           Add Row
         </Button>

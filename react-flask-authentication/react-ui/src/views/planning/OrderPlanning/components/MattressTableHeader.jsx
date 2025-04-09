@@ -10,8 +10,8 @@ const MattressTableHeader = ({ orderSizes }) => {
 
         {/* Dynamic Sizes */}
         {orderSizes.length > 0 &&
-          orderSizes.map((size, index) => (
-            <TableCell align="center" key={index}>
+          orderSizes.map((size) => (
+            <TableCell align="center" key={size.size}>
               {size.size || "N/A"}
             </TableCell>
           ))

@@ -9,6 +9,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.inspection import inspect
 
+import uuid
+
 db = SQLAlchemy()
 
 
@@ -199,11 +201,14 @@ class Mattresses(db.Model):
     fabric_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     fabric_code = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     fabric_color = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
-    dye_lot = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    dye_lot = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     item_type = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     spreading_method = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    table_id = db.Column(db.String(36), nullable=False, default=lambda: str(uuid.uuid4()))
+    row_id = db.Column(db.String(36), nullable=False, default=lambda: str(uuid.uuid4()))
 
     def __repr__(self):
         return f"<Mattress {self.mattress}, Order {self.order_commessa}>"

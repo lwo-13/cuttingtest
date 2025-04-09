@@ -12,13 +12,12 @@ import LockOutlined from '@mui/icons-material/LockOutlined';
 
 const MattressRow = ({
   row,
-  rowIndex,
-  tableIndex,
+  rowId,
+  tableId,
   table,
   orderSizes,
   markerOptions,
   isTableEditable,
-  setTables,
   handleInputChange,
   handleRemoveRow,
   updateExpectedConsumption,
@@ -27,7 +26,7 @@ const MattressRow = ({
   const editable = row.isEditable !== false;
 
   return (
-    <TableRow key={rowIndex}>
+    <TableRow key={rowId}>
       {/* Width */}
       <TableCell sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
         <TextField
@@ -36,13 +35,8 @@ const MattressRow = ({
           disabled={!editable}
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, '').slice(0, 3);
-            setTables(prev => {
-              const updated = [...prev];
-              const rows = [...updated[tableIndex].rows];
-              rows[rowIndex] = { ...rows[rowIndex], width: value, markerName: "" };
-              updated[tableIndex].rows = rows;
-              return updated;
-            });
+            handleInputChange(tableId, rowId, "width", value);
+            handleInputChange(tableId, rowId, "markerName", ""); // clear markerName when width changes
             setUnsavedChanges(true);
           }}
           sx={{
@@ -77,24 +71,20 @@ const MattressRow = ({
           value={markerOptions.find(m => m.marker_name === row.markerName) || null}
           disabled={!editable}
           onChange={(_, newValue) => {
-            setTables(prev => {
-              const updated = [...prev];
-              const rows = [...updated[tableIndex].rows];
-              if (newValue) {
-                rows[rowIndex] = {
-                  ...rows[rowIndex],
-                  markerName: newValue.marker_name,
-                  width: newValue.marker_width,
-                  markerLength: newValue.marker_length,
-                  efficiency: newValue.efficiency,
-                  piecesPerSize: newValue.size_quantities || {}
-                };
-              } else {
-                rows[rowIndex] = { ...rows[rowIndex], markerName: "", width: "", markerLength: "", efficiency: "", piecesPerSize: {} };
-              }
-              updated[tableIndex].rows = rows;
-              return updated;
-            });
+            if (newValue) {
+              handleInputChange(tableId, rowId, "markerName", newValue.marker_name);
+              handleInputChange(tableId, rowId, "width", newValue.marker_width);
+              handleInputChange(tableId, rowId, "markerLength", newValue.marker_length);
+              handleInputChange(tableId, rowId, "efficiency", newValue.efficiency);
+              handleInputChange(tableId, rowId, "piecesPerSize", newValue.size_quantities || {});
+            } else {
+              handleInputChange(tableId, rowId, "markerName", "");
+              handleInputChange(tableId, rowId, "width", "");
+              handleInputChange(tableId, rowId, "markerLength", "");
+              handleInputChange(tableId, rowId, "efficiency", "");
+              handleInputChange(tableId, rowId, "piecesPerSize", {});
+            }
+            setUnsavedChanges(true);
           }}
           renderInput={(params) => <TextField {...params} variant="outlined" />}
           sx={{
@@ -138,7 +128,8 @@ const MattressRow = ({
           disabled={!editable}
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-            handleInputChange(tableIndex, rowIndex, "layers", value);
+            handleInputChange(tableId, rowId, "layers", value);
+            updateExpectedConsumption(tableId, rowId);
           }}
           sx={{
             width: '100%',
@@ -163,7 +154,7 @@ const MattressRow = ({
           variant="outlined"
           value={row.bagno || ""}
           disabled={!editable}
-          onChange={(e) => handleInputChange(tableIndex, rowIndex, "bagno", e.target.value)}
+          onChange={(e) => handleInputChange(tableId, rowId, "bagno", e.target.value)}
           sx={{
             width: '100%',
             minWidth: '90px',
@@ -177,7 +168,7 @@ const MattressRow = ({
       {/* Delete or Lock Icon */}
       <TableCell>
         {editable ? (
-          <IconButton onClick={() => handleRemoveRow(tableIndex, rowIndex)} color="error" disabled={table.rows.length === 1}>
+          <IconButton onClick={() => handleRemoveRow(tableId, rowId)} color="error" disabled={table.rows.length === 1}>
             <DeleteOutline />
           </IconButton>
         ) : (

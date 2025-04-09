@@ -3,6 +3,8 @@ from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMa
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
+import time
+from sqlalchemy.exc import OperationalError
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
@@ -16,8 +18,8 @@ class MattressResource(Resource):
             # ✅ Validate required fields
             required_fields = [
                 "mattress", "order_commessa", "fabric_type", "fabric_code", "fabric_color", 
-                "dye_lot", "item_type", "spreading_method", "layers", "length_mattress", "cons_planned", 
-                "extra", "marker_name", "marker_width", "marker_length"
+                "item_type", "spreading_method", "layers", "length_mattress", "cons_planned", 
+                "extra", "marker_name", "marker_width", "marker_length", "table_id", "row_id"
             ]
             for field in required_fields:
                 if field not in data or data[field] is None:
@@ -34,9 +36,11 @@ class MattressResource(Resource):
                 existing_mattress.fabric_type = data["fabric_type"]
                 existing_mattress.fabric_code = data["fabric_code"]
                 existing_mattress.fabric_color = data["fabric_color"]
-                existing_mattress.dye_lot = data["dye_lot"]
+                existing_mattress.dye_lot = data.get("dye_lot", "")
                 existing_mattress.item_type = data["item_type"]
                 existing_mattress.spreading_method = data["spreading_method"]
+                existing_mattress.table_id = data["table_id"]
+                existing_mattress.row_id = data["row_id"]
 
                 # ✅ Update mattress details
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
@@ -62,23 +66,39 @@ class MattressResource(Resource):
                 # ✅ Update mattress sizes if provided (for existing mattress)
                 if "sizes" in data:
                     for size_data in data["sizes"]:
-                        mattress_size = MattressSize.query.filter_by(mattress_id=mattress_id, size=size_data["size"]).first()
-                        if mattress_size:
-                            # If size exists, update it
-                            mattress_size.pcs_layer = size_data["pcs_layer"]
-                            mattress_size.pcs_planned = size_data["pcs_planned"]
-                            mattress_size.pcs_actual = None  # Leave it as None initially
+                        retry_attempts = 3
+                        for attempt in range(retry_attempts):
+                            try:
+                                mattress_size = MattressSize.query.filter_by(
+                                    mattress_id=mattress_id,
+                                    size=size_data["size"]
+                                ).first()
+
+                                if mattress_size:
+                                    mattress_size.pcs_layer = size_data["pcs_layer"]
+                                    mattress_size.pcs_planned = size_data["pcs_planned"]
+                                    mattress_size.pcs_actual = None
+                                else:
+                                    new_mattress_size = MattressSize(
+                                        mattress_id=mattress_id,
+                                        style=size_data["style"],
+                                        size=size_data["size"],
+                                        pcs_layer=size_data["pcs_layer"],
+                                        pcs_planned=size_data["pcs_planned"],
+                                        pcs_actual=None
+                                    )
+                                    db.session.add(new_mattress_size)
+
+                                break  # ✅ Success — exit retry loop
+
+                            except OperationalError as e:
+                                if "deadlock victim" in str(e).lower():
+                                    print(f"🔁 Deadlock on mattress size {size_data['size']} — retrying ({attempt + 1}/{retry_attempts})...")
+                                    time.sleep(0.3)
+                                else:
+                                    raise
                         else:
-                            # Otherwise, add new mattress size
-                            new_mattress_size = MattressSize(
-                                mattress_id=mattress_id,
-                                style=size_data["style"],
-                                size=size_data["size"],
-                                pcs_layer=size_data["pcs_layer"],
-                                pcs_planned=size_data["pcs_planned"],
-                                pcs_actual=None  # Leave it as None initially
-                            )
-                            db.session.add(new_mattress_size)
+                            raise Exception(f"❌ Failed to process mattress size {size_data['size']} after retries")
 
             else:
                 # ✅ Insert new mattress
@@ -89,9 +109,11 @@ class MattressResource(Resource):
                     fabric_type=data["fabric_type"],
                     fabric_code=data["fabric_code"],
                     fabric_color=data["fabric_color"],
-                    dye_lot=data["dye_lot"],
+                    dye_lot=data.get("dye_lot", ""),
                     item_type=data["item_type"],
-                    spreading_method=data["spreading_method"]
+                    spreading_method=data["spreading_method"],
+                    table_id=data["table_id"],
+                    row_id=data["row_id"]
                 )
                 db.session.add(new_mattress)
                 db.session.flush()  # ✅ Get the new ID before commit
@@ -195,6 +217,7 @@ class GetMattressesByOrder(Resource):
                 Mattresses,
                 MattressDetail.layers,  # Fetch `layers` from mattress_details
                 MattressDetail.extra,
+                MattressDetail.cons_planned,
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
                 MattressPhase.status.label('phase_status')
             ).outerjoin(
@@ -205,14 +228,14 @@ class GetMattressesByOrder(Resource):
                 MattressPhase, db.and_(Mattresses.id == MattressPhase.mattress_id, MattressPhase.active == True)
             ).filter(
                 Mattresses.order_commessa == order_commessa,
-                Mattresses.item_type == 'AS'
+                Mattresses.item_type.in_(['AS', 'MS'])
             ).all()
 
             if not mattresses:
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers, extra, marker_name, phase_status  in mattresses:
+            for mattress, layers, extra, cons_planned, marker_name, phase_status  in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
@@ -224,7 +247,11 @@ class GetMattressesByOrder(Resource):
                     "spreading_method": mattress.spreading_method,
                     "layers": layers if layers is not None else "",  # Ensure empty if no value
                     "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
-                    "allowance": extra if extra is not None else 0
+                    "allowance": extra if extra is not None else 0,
+                    "cons_planned": cons_planned if cons_planned is not None else "",
+
+                    "table_id": mattress.table_id,
+                    "row_id": mattress.row_id
                 })
 
             return {"success": True, "data": result}, 200

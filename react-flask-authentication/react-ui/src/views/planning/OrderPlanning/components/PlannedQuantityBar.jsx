@@ -4,10 +4,11 @@ import {
   Button, Table, TableBody, TableCell, TableHead, TableRow
 } from '@mui/material';
 
-const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno }) => {
+const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno }) => {
   const [open, setOpen] = useState(false);
   const planned = getTablePlannedQuantities(table);
   const plannedByBagno = getTablePlannedByBagno(table);
+  const metersByBagno = getMetersByBagno(table);
 
   const hasRealQty = Object.values(planned).some(qty => qty > 0);
   if (!hasRealQty) return null;
@@ -47,6 +48,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
       const found = orderSizes.find(s => s.size === size);
       return found ? found.qty : 0;
     };
+
+    const totalMeters = Object.values(metersByBagno).reduce((sum, val) => sum + val, 0);
   
     return (
       <Table size="small" sx={{ mt: 2 }}>
@@ -56,19 +59,28 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
             {uniqueSizes.map(size => (
               <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
             ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total Meters</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {Object.entries(plannedByBagno).map(([bagno, sizeMap]) => (
-            <TableRow key={bagno}>
-              <TableCell align="center">{bagno}</TableCell>
-              {uniqueSizes.map(size => (
-                <TableCell key={size} align="center">
-                  {sizeMap[size] || 0}
+          {Object.entries(plannedByBagno).map(([bagno, sizeMap]) => {
+            const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
+            return (
+              <TableRow key={bagno}>
+                <TableCell align="center">{bagno}</TableCell>
+                {uniqueSizes.map(size => (
+                  <TableCell key={size} align="center">
+                    {sizeMap[size] || 0}
+                  </TableCell>
+                ))}
+                <TableCell align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 500 }}>
+                  {metersByBagno[bagno]?.toFixed(2) || 0}
                 </TableCell>
-              ))}
-            </TableRow>
-          ))}
+              </TableRow>
+            );
+          })}
   
           {/* 🔽 Totals Row */}
           <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
@@ -84,6 +96,12 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
                 </TableCell>
               );
             })}
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+              {Object.values(totalPerSize).reduce((sum, val) => sum + val, 0)}
+            </TableCell>
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+              {totalMeters.toFixed(2)}
+            </TableCell>
           </TableRow>
         </TableBody>
       </Table>
