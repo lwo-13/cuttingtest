@@ -11,7 +11,7 @@ import CloseIcon from '@mui/icons-material/Close';
 const backendBaseUrl = axios.defaults.baseURL.replace('/api', '');
 
 // Available brands
-const brands = ["Calzedonia", "Intimissimi", "Falconeri", "Tezenis"];
+const brands = ["CALZEDONIA", "INTIMISSIMI", "FALCONERI", "TEZENIS"];
 
 // Custom Pagination Component
 const CustomPagination = (props) => {
@@ -79,23 +79,32 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
   
     return (
       <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>Create New Pad Print</DialogTitle>
         <DialogContent>
-          {/* Brand Dropdown */}
+
           <FormControl fullWidth margin="normal">
-            <InputLabel>Brand</InputLabel>
-            <Select name="brand" value={formData.brand} onChange={handleChange}>
+            <InputLabel id="brand-label">Brand</InputLabel>
+            <Select
+              labelId="brand-label"
+              id="brand-select"
+              name="brand"
+              value={formData.brand}
+              label="Brand"
+              onChange={handleChange}
+              sx={{ fontWeight: 'normal' }}
+            >
               {brands.map((brand) => (
-                <MenuItem key={brand} value={brand}>{brand}</MenuItem>
+                <MenuItem key={brand} value={brand}>
+                  {brand}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
   
-          <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} />
-          <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} />
-          <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} />
-          <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} />
-          <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} />
+          <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+          <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+          <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}/>
+          <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+          <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
   
           {/* Read-only Date Field */}
           <TextField 
@@ -105,6 +114,7 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
             margin="normal" 
             value={formData.date} 
             InputProps={{ readOnly: true }} 
+            sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}
           />
         </DialogContent>
         <DialogActions>
@@ -141,14 +151,13 @@ const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated }) => {
 
   return (
     <Dialog open={open} onClose={handleClose}>
-      <DialogTitle>Edit Pad Print</DialogTitle>
       <DialogContent>
-        <TextField label="Brand" name="brand" fullWidth margin="normal" value={formData.brand} onChange={handleChange} />
-        <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} />
-        <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} />
-        <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} />
-        <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} />
-        <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} />
+        <TextField label="Brand" name="brand" fullWidth margin="normal" value={formData.brand} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+        <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+        <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+        <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+        <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+        <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
@@ -214,14 +223,14 @@ const PadPrints = () => {
     )
   );
 
-  // Handle file selection
+  {/* // Handle file selection
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
     }
   };
 
-  // Handle image upload
+  // Handle image upload 
   const handleImageUpload = async () => {
     if (!selectedFile || selectedItems.length === 0) {
       console.error("Please select a file and choose at least one item.");
@@ -246,7 +255,7 @@ const PadPrints = () => {
     } catch (error) {
       console.error('Error uploading image:', error.response ? error.response.data : error.message);
     }
-  };
+  }; */}
 
   // Update selected rows and set the selected id
   const handleSelectionChange = (newSelection) => {
@@ -275,13 +284,12 @@ const PadPrints = () => {
 
   // Define DataGrid columns, including an actions column for Edit/Delete
   const columns = [
-    { field: 'id', headerName: 'ID', width: 80 },
     { field: 'brand', headerName: 'Brand', width: 150 },
-    { field: 'season', headerName: 'Season', width: 120 },
     { field: 'style', headerName: 'Style', width: 150 },
+    { field: 'season', headerName: 'Season', width: 120 },
     { field: 'color', headerName: 'Color', width: 120 },
-    { field: 'padprint_color', headerName: 'Pad Print Color', width: 150 },
     { field: 'pattern', headerName: 'Pattern', width: 150 },
+    { field: 'padprint_color', headerName: 'Pad Print Color', width: 150 },
     {
       field: 'date',
       headerName: 'Date',
@@ -366,7 +374,7 @@ const PadPrints = () => {
           <Button variant="contained" onClick={() => setOpenCreateModal(true)}>
             Create New
           </Button>
-          <Button variant="contained" component="label">
+          {/*<Button variant="contained" component="label">
             Select Image
             <input type="file" hidden onChange={handleFileChange} accept="image/*" />
           </Button>
@@ -374,7 +382,7 @@ const PadPrints = () => {
             <Button variant="contained" color="primary" onClick={handleImageUpload}>
               Upload Image
             </Button>
-          )}
+          )} */}
         </Box>
       }
     >
@@ -391,7 +399,6 @@ const PadPrints = () => {
             pageSize={25}
             rowsPerPageOptions={[25, 50, 100]}
             pagination
-            checkboxSelection
             onRowSelectionModelChange={handleSelectionChange}
             selectionModel={selectedItems}
             components={{ Pagination: CustomPagination }}

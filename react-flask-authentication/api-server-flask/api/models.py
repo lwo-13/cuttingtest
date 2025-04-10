@@ -327,7 +327,6 @@ class PadPrint(db.Model):
     pattern = db.Column(db.String(255), nullable=False)
     season = db.Column(db.String(255), nullable=False)
     date = db.Column(db.DateTime, nullable=True)
-    image_url = db.Column(db.String(500), nullable=True)
     
     __table_args__ = (
         db.UniqueConstraint('brand', 'style', 'color', 'padprint_color', 'pattern', 'season', name='UQ_padprint'),
@@ -342,7 +341,20 @@ class PadPrint(db.Model):
             'padprint_color': self.padprint_color,
             'pattern': self.pattern,
             'season': self.season,
-            'date': self.date.isoformat() if self.date else None,
+            'date': self.date.isoformat() if self.date else None
+        }
+    
+class PadPrintImage(db.Model):
+    __tablename__ = 'padprint_image'
+
+    pattern = db.Column(db.String(255), primary_key=True)
+    padprint_color = db.Column(db.String(255), primary_key=True)
+    image_url = db.Column(db.String(500), nullable=True)
+
+    def to_dict(self):
+        return {
+            'pattern': self.pattern,
+            'padprint_color': self.padprint_color,
             'image_url': self.image_url
         }
 

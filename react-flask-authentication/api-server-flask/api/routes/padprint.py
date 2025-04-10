@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, current_app, send_from_directory, request
 from flask_restx import Namespace, Resource
 from werkzeug.utils import secure_filename
 import os
-from api.models import db, PadPrint
+from api.models import db, PadPrint, PadPrintImage
 from datetime import datetime
 
 padprint_bp = Blueprint('padprint_bp', __name__)
@@ -14,8 +14,26 @@ padprint_api = Namespace('padprint', description="PadPrint Operations")
 class PadPrintList(Resource):
     def get(self):
         try:
-            padprints = PadPrint.query.all()
-            return jsonify([p.to_dict() for p in padprints])
+            # Join padprint with padprint_image on (pattern, padprint_color)
+            results = (
+                db.session.query(PadPrint, PadPrintImage.image_url)
+                .outerjoin(
+                    PadPrintImage,
+                    (PadPrint.pattern == PadPrintImage.pattern) &
+                    (PadPrint.padprint_color == PadPrintImage.padprint_color)
+                )
+                .all()
+            )
+
+            # Combine the fields from both tables
+            response = []
+            for padprint, image_url in results:
+                item = padprint.to_dict()
+                item['image_url'] = image_url
+                response.append(item)
+
+            return jsonify(response)
+
         except Exception as e:
             return {'error': str(e)}, 500
 
