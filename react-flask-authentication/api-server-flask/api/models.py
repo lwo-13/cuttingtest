@@ -489,7 +489,6 @@ class ZalliItemsView(db.Model):
     search_description = db.Column(db.String(255), nullable=True)
     description_2 = db.Column(db.String(255), nullable=True)
     brand = db.Column(db.String(50), nullable=True)
-    image_url = db.Column(db.String(500), nullable=True)  # Add image_url
 
     def to_dict(self):
         """Convert row data to dictionary format."""

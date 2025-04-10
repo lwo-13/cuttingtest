@@ -96,10 +96,11 @@ class PadPrintImageUpload(Resource):
         return {"message": "File type not allowed"}, 400
 
 # ✅ Serving uploaded images manually
-@padprint_bp.route('/uploads/<path:filename>', methods=['GET'])
+@padprint_bp.route('/image/<path:filename>', methods=['GET'])
 def serve_padprint_image(filename):
-    base_dir = os.path.dirname(current_app.root_path)
-    upload_folder = os.path.join(base_dir, 'static', 'uploads')
+    upload_folder = os.path.normpath(os.path.join(current_app.root_path, '..', 'static', 'padprint'))
+    print("📂 Upload folder:", upload_folder)
+    print("📄 Requested filename:", filename)
     return send_from_directory(upload_folder, filename)
 
 @padprint_api.route('/create', methods=['POST'])

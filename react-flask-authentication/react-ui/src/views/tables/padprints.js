@@ -99,10 +99,10 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
               ))}
             </Select>
           </FormControl>
-  
-          <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+          
           <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
           <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}/>
+          <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
           <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
           <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
   
@@ -153,9 +153,9 @@ const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated }) => {
     <Dialog open={open} onClose={handleClose}>
       <DialogContent>
         <TextField label="Brand" name="brand" fullWidth margin="normal" value={formData.brand} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
-        <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
         <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
         <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
+        <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
         <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
         <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
       </DialogContent>
@@ -173,10 +173,7 @@ const PadPrints = () => {
   const [padPrints, setPadPrints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState("");
-  const [selectedItems, setSelectedItems] = useState([]);
   const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [selectedId, setSelectedId] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState("");
   const [openCreateModal, setOpenCreateModal] = useState(false);
@@ -222,45 +219,6 @@ const PadPrints = () => {
       String(value).toLowerCase().includes(filterText.toLowerCase())
     )
   );
-
-  {/* // Handle file selection
-  const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
-  // Handle image upload 
-  const handleImageUpload = async () => {
-    if (!selectedFile || selectedItems.length === 0) {
-      console.error("Please select a file and choose at least one item.");
-      return;
-    }
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-  
-    try {
-      // Iterate over each selected item and upload the image
-      for (const id of selectedItems) {
-        const response = await axios.post(
-          `/padprint/upload-image/${id}`,
-          formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
-        );
-        console.log(`Image uploaded successfully for item ID ${id}:`, response.data);
-      }
-      setSelectedFile(null);
-      setSelectedItems([]);  // Clear selection after upload
-      fetchItems();
-    } catch (error) {
-      console.error('Error uploading image:', error.response ? error.response.data : error.message);
-    }
-  }; */}
-
-  // Update selected rows and set the selected id
-  const handleSelectionChange = (newSelection) => {
-    setSelectedItems(newSelection);
-  };
 
   const handleOpen = (imgUrl) => {
     setSelectedImage(imgUrl);
@@ -308,7 +266,7 @@ const PadPrints = () => {
         if (!params.value) return "Missing Image";
         const imageUrl = params.value.startsWith("http")
           ? params.value
-          : `${backendBaseUrl}${params.value}`;
+          : `${backendBaseUrl}/api/padprint/image/${params.value}`;
         return (
           <img
             src={imageUrl}
@@ -399,8 +357,6 @@ const PadPrints = () => {
             pageSize={25}
             rowsPerPageOptions={[25, 50, 100]}
             pagination
-            onRowSelectionModelChange={handleSelectionChange}
-            selectionModel={selectedItems}
             components={{ Pagination: CustomPagination }}
           />
         </div>
