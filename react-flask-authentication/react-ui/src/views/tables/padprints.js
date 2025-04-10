@@ -68,7 +68,7 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
   
     const handleSubmit = async () => {
       try {
-        const response = await axios.post("/padprint/", formData);
+        const response = await axios.post("/padprint/create", formData);
         console.log("PadPrint created:", response.data);
         onCreated(response.data);
         handleClose();
@@ -186,7 +186,7 @@ const PadPrints = () => {
   // Fetch PadPrint items from the API
   const fetchItems = async () => {
     try {
-      const response = await axios.get('/padprint/all'); // 🔥 This is now: http://127.0.0.1:5000/api/padprint/all
+      const response = await axios.get('/padprint/all');
       const data = response.data;
   
       if (!Array.isArray(data)) throw new Error("Unexpected response format");

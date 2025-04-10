@@ -320,12 +320,12 @@ class PadPrint(db.Model):
     # Add a primary key column:
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     
-    brand = db.Column(db.String(255), nullable=True)
-    style = db.Column(db.String(255), nullable=True)
-    color = db.Column(db.String(255), nullable=True)
-    padprint_color = db.Column(db.String(255), nullable=True)
-    pattern = db.Column(db.String(255), nullable=True)
-    season = db.Column(db.String(255), nullable=True)
+    brand = db.Column(db.String(255), nullable=False)
+    style = db.Column(db.String(255), nullable=False)
+    color = db.Column(db.String(255), nullable=False)
+    padprint_color = db.Column(db.String(255), nullable=False)
+    pattern = db.Column(db.String(255), nullable=False)
+    season = db.Column(db.String(255), nullable=False)
     date = db.Column(db.DateTime, nullable=True)
     image_url = db.Column(db.String(500), nullable=True)
     

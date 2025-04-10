@@ -84,29 +84,55 @@ def serve_padprint_image(filename):
     upload_folder = os.path.join(base_dir, 'static', 'uploads')
     return send_from_directory(upload_folder, filename)
 
-@padprint_api.route('/')
+@padprint_api.route('/create', methods=['POST'])
 class PadPrintCreate(Resource):
     def post(self):
         data = request.get_json()
         try:
-            # Convert date string to datetime object if provided
+            # Extract and normalize fields
+            brand = data.get('brand')
+            style = data.get('style')
+            color = data.get('color')
+            season = data.get('season')
+            pattern = data.get('pattern')
+            padprint_color = data.get('padprint_color')
             date_str = data.get('date')
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d') if date_str else None
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d') if date_str else datetime.now()
 
+            # Validate required fields
+            if not all([brand, style, color, season, pattern, padprint_color]):
+                return {'error': 'All fields are required.'}, 400
+
+            # Check for duplicates
+            exists = PadPrint.query.filter_by(
+                brand=brand,
+                style=style,
+                color=color,
+                pattern=pattern,
+                padprint_color=padprint_color,
+                season=season
+            ).first()
+
+            if exists:
+                return {'error': 'Pad Print entry already exists.'}, 409
+
+            # Insert new row
             new_padprint = PadPrint(
-                brand=data.get('brand'),
-                season=data.get('season'),
-                style=data.get('style'),
-                color=data.get('color'),
-                padprint_color=data.get('padprint_color'),
-                pattern=data.get('pattern'),
+                brand=brand,
+                style=style,
+                color=color,
+                season=season,
+                pattern=pattern,
+                padprint_color=padprint_color,
                 date=date_obj
             )
             db.session.add(new_padprint)
             db.session.commit()
+
             return new_padprint.to_dict(), 201
+
         except Exception as e:
-            db.session.rollback()  # Rollback on error
+            db.session.rollback()
             return {'error': str(e)}, 500
 
 @padprint_api.route('/<int:id>')
