@@ -26,6 +26,7 @@ const CombinedImports = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [selectedFileForEdit, setSelectedFileForEdit] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editedFiles, setEditedFiles] = useState(new Set());
 
   const [openError, setOpenError] = useState(false);
   const [openSuccess, setOpenSuccess] = useState(false);
@@ -45,8 +46,9 @@ const CombinedImports = () => {
     const files = Array.from(event.target.files);
     setSelectedXMLs(files);
 
-    // Clear any previous marker info
+    // Clear any previous marker info and edited files
     setBatchMarkerInfo({});
+    setEditedFiles(new Set());
   };
 
   // Open batch import dialog
@@ -187,6 +189,7 @@ const CombinedImports = () => {
     setSelectedXMLs([]);
     setCreationType('');
     setBatchMarkerInfo({});
+    setEditedFiles(new Set());
   };
 
   // Parse XML file and extract marker content
@@ -264,6 +267,15 @@ const CombinedImports = () => {
 
   // Close edit dialog
   const handleCloseEditDialog = () => {
+    // Add the file to the edited files set
+    if (selectedFileForEdit) {
+      setEditedFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.add(selectedFileForEdit.name);
+        return newSet;
+      });
+    }
+
     setEditDialogOpen(false);
     setSelectedFileForEdit(null);
   };
@@ -657,7 +669,7 @@ const CombinedImports = () => {
           </Box>
 
           {/* Edit Dialog for Marker Content */}
-          <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="md">
+          <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="sm">
             <DialogTitle>
               Edit Marker Content: {selectedFileForEdit?.name}
             </DialogTitle>
@@ -667,7 +679,7 @@ const CombinedImports = () => {
                   <Typography variant="subtitle1" gutterBottom>
                     Summarized by Style and Size
                   </Typography>
-                  <TableContainer component={Paper} sx={{ height: 300 }}>
+                  <TableContainer component={Paper} sx={{ height: 250 }}>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
@@ -704,13 +716,7 @@ const CombinedImports = () => {
                     </Table>
                   </TableContainer>
 
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Note:</strong> You can edit the style and size.
-                      Changes will be applied to all matching items in the file.
-                      The quantity is automatically summed and cannot be edited directly.
-                    </Typography>
-                  </Box>
+
                 </Box>
               ) : (
                 <Typography>Loading marker content...</Typography>
@@ -724,13 +730,21 @@ const CombinedImports = () => {
           </Dialog>
         </DialogContent>
 
+        {!batchImportResults && editedFiles.size !== selectedXMLs.length && (
+          <Box sx={{ textAlign: 'center', mb: 2 }}>
+            <Typography variant="caption" color="error">
+              Please edit all files before importing ({editedFiles.size}/{selectedXMLs.length} edited).
+            </Typography>
+          </Box>
+        )}
+
         <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
           {!batchImportResults ? (
             <Button
               onClick={handleBatchImport}
               color="primary"
               variant="contained"
-              disabled={isImporting || !creationType || selectedXMLs.length === 0}
+              disabled={isImporting || !creationType || selectedXMLs.length === 0 || editedFiles.size !== selectedXMLs.length}
               startIcon={isImporting ? <CircularProgress size={20} /> : null}
             >
               {isImporting ? 'Importing...' : 'Import All'}
