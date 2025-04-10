@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert } from '@mui/material';
+import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
+import { useHistory } from "react-router-dom";
 import { useBadgeCount } from '../../contexts/BadgeCountContext';
 
 // Order Planning Components
@@ -22,7 +23,7 @@ import MattressTableHeader from 'views/planning/OrderPlanning/components/Mattres
 import MattressRow from 'views/planning/OrderPlanning/components/MattressRow';
 import MattressActionRow from 'views/planning/OrderPlanning/components/MattressActionRow';
 
-// Hooks 
+// Hooks
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 
@@ -30,6 +31,8 @@ import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
 
 const OrderPlanning = () => {
+    const history = useHistory();
+
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [styleOptions, setStyleOptions] = useState([]);
@@ -52,8 +55,8 @@ const OrderPlanning = () => {
     const [avgConsumption, setAvgConsumption] = useState({});
 
     const [styleTouched, setStyleTouched] = useState(false);
-    
-    const [tables, setTables] = useState([]); 
+
+    const [tables, setTables] = useState([]);
 
     const [weftTables, setWeftTables] = useState([]);
 
@@ -65,7 +68,11 @@ const OrderPlanning = () => {
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
 
-    
+    // State for unsaved changes dialog
+    const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
+    const [pendingNavigation, setPendingNavigation] = useState(null);
+
+
 
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
@@ -91,28 +98,46 @@ const OrderPlanning = () => {
         setOpenSuccess(false);
     };
 
+    // Handle closing the unsaved changes dialog
+    const handleCloseUnsavedDialog = () => {
+        setOpenUnsavedDialog(false);
+        setPendingNavigation(null);
+    };
+
+    // Handle confirming navigation when there are unsaved changes
+    const handleConfirmNavigation = () => {
+        setOpenUnsavedDialog(false);
+
+        // If we have a pending navigation function, execute it
+        if (pendingNavigation && typeof pendingNavigation === 'function') {
+            pendingNavigation();
+        }
+
+        setPendingNavigation(null);
+    };
+
     const sortSizes = (sizes) => {
         return sizes.sort((a, b) => {
             const sizeA = a.size;
             const sizeB = b.size;
-    
+
             // If both are numbers, sort numerically
             if (!isNaN(sizeA) && !isNaN(sizeB)) {
                 return parseInt(sizeA) - parseInt(sizeB);
             }
-    
+
             // If both are letters, sort by predefined order
             const indexA = sizeOrder.indexOf(sizeA);
             const indexB = sizeOrder.indexOf(sizeB);
-    
+
             if (indexA !== -1 && indexB !== -1) {
                 return indexA - indexB;
             }
-    
+
             // If one is a number and the other is a letter, prioritize letters first
             if (!isNaN(sizeA)) return 1;
             if (!isNaN(sizeB)) return -1;
-    
+
             // Default to alphabetical order for unknown cases
             return sizeA.localeCompare(sizeB);
         });
@@ -146,7 +171,7 @@ const OrderPlanning = () => {
     /* fix this */
     const handleAddWeft = () => {
         setWeftTables(prevTables => [
-            ...prevTables, 
+            ...prevTables,
             {
                 id: uuidv4(), // Unique ID
                 fabricType: "",
@@ -169,7 +194,7 @@ const OrderPlanning = () => {
 
     const handleAddAlong = () => {
         setAlongTables(prevTables => [
-            ...prevTables, 
+            ...prevTables,
             {
                 id: uuidv4(), // Unique ID
                 fabricType: "",
@@ -197,27 +222,27 @@ const OrderPlanning = () => {
     const handleRemoveTable = (id) => {
         setTables(prevTables => {
             const tableToRemove = prevTables.find(table => table.id === id);
-    
+
             // ✅ If the table doesn't exist, just return the previous state
             if (!tableToRemove) return prevTables;
-    
+
             // ✅ Check if the table contains any non-editable rows
             const hasLockedRow = tableToRemove.rows.some(row => !row.isEditable);
-    
+
             if (hasLockedRow) {
                 console.warn("❌ Cannot delete this table: contains a locked mattress (already in production).");
                 // Optional: Show a toast or UI alert
                 // toast.error("You cannot delete this group. One or more mattresses are already in production.");
                 return prevTables; // Block deletion
             }
-    
+
             // ✅ Safe to delete: add mattressNames to the deleted list
             tableToRemove.rows.forEach(row => {
                 if (row.mattressName) {
                     setDeletedMattresses(prev => [...prev, row.mattressName]);
                 }
             });
-    
+
             setUnsavedChanges(true);
             // ✅ Remove the table
             return prevTables.filter(table => table.id !== id);
@@ -227,10 +252,10 @@ const OrderPlanning = () => {
     const handleRemoveWeft = (id) => {
         setWeftTables(prevTables => {
             const updatedTables = prevTables.filter(table => table.id !== id);
-    
+
             // ✅ Find the table being removed
             const removedTable = prevTables.find(table => table.id === id);
-    
+
             if (removedTable) {
                 // ✅ Push ALL collarettoNames of this weft table to deletedWeft
                 removedTable.rows.forEach(row => {
@@ -239,7 +264,7 @@ const OrderPlanning = () => {
                     }
                 });
             }
-    
+
             setUnsavedChanges(true);
             return updatedTables;
         });
@@ -248,10 +273,10 @@ const OrderPlanning = () => {
     const handleRemoveAlong = (id) => {
         setAlongTables(prevTables => {
             const updatedTables = prevTables.filter(table => table.id !== id);
-    
+
             // ✅ Find the table being removed
             const removedTable = prevTables.find(table => table.id === id);
-    
+
             if (removedTable) {
                 // ✅ Push ALL backend collaretto names of this table to deletedAlong
                 removedTable.rows.forEach(row => {
@@ -260,19 +285,19 @@ const OrderPlanning = () => {
                     }
                 });
             }
-    
+
             setUnsavedChanges(true);
             return updatedTables;
         });
     };
 
-    // Fetch order data from Flask API 
+    // Fetch order data from Flask API
     useEffect(() => {
         axios.get('/orders/order_lines')
             .then(response => {
                 if (response.data.success) {
                     const ordersMap = new Map();
-    
+
                     response.data.data.forEach(row => {
                         if (row.status === 3) {  // ✅ Only include status = 3
                             if (!ordersMap.has(row.order_commessa)) {
@@ -284,7 +309,7 @@ const OrderPlanning = () => {
                                     sizes: []  // ✅ Initialize array for sizes
                                 });
                             }
-    
+
                             // Append sizes dynamically
                             ordersMap.get(row.order_commessa).sizes.push({
                                 size: row.size,
@@ -292,7 +317,7 @@ const OrderPlanning = () => {
                             });
                         }
                     });
-    
+
                     const sortedOrders = Array.from(ordersMap.values()).map(order => ({
                         ...order,
                         sizes: sortSizes(order.sizes || [])
@@ -313,13 +338,13 @@ const OrderPlanning = () => {
     const filteredOrders = selectedStyle
         ? orderOptions.filter(order => order.style === selectedStyle)
         : orderOptions;
-    
-    // Fetch marker data from Flask API 
+
+    // Fetch marker data from Flask API
     useEffect(() => {
         if (!selectedOrder) return;  // ✅ Do nothing if no order is selected
-    
+
         console.log("Fetching marker headers...");  // ✅ Debugging
-    
+
         axios.get(`/markers/marker_headers_planning`, {
             params: {
               style: selectedStyle,
@@ -336,7 +361,7 @@ const OrderPlanning = () => {
             })
             .catch((error) => console.error("Error fetching marker data:", error));
     }, [selectedOrder]); // ✅ Runs only when order changes
-    
+
     // Handle Order Selection
     const handleOrderChange = (event, newValue) => {
         if (newValue) {
@@ -348,7 +373,7 @@ const OrderPlanning = () => {
             }
             setSelectedSeason(newValue.season);
             setSelectedColorCode(newValue.colorCode);
-    
+
             console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
 
             // ✅ Fetch Pad Print Info based on order attributes
@@ -356,7 +381,7 @@ const OrderPlanning = () => {
 
             // ✅ Fetch brand directly with style
             fetchBrandForStyle(newValue.style);
-    
+
             // Fetch mattresses and markers in parallel
             Promise.all([
                 axios.get(`/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
@@ -373,19 +398,19 @@ const OrderPlanning = () => {
                 if (mattressResponse.data.success && markerResponse.data.success) {
                     console.log("✅ Mattresses Loaded:", mattressResponse.data.data);
                     console.log("✅ Markers Loaded:", markerResponse.data.data);
-    
+
                     // Mapping markers by marker_name for easy lookup
                     const markersMap = markerResponse.data.data.reduce((acc, marker) => {
                         acc[marker.marker_name] = marker;
                         return acc;
                     }, {});
-    
+
                     // Group mattresses by fabric type
                     const tablesByFabricType = {};
-    
+
                     mattressResponse.data.data.forEach((mattress) => {
                         const fabricType = mattress.fabric_type;
-    
+
                         if (!tablesByFabricType[fabricType]) {
                             tablesByFabricType[fabricType] = {
                                 id: Object.keys(tablesByFabricType).length + 1,
@@ -399,13 +424,13 @@ const OrderPlanning = () => {
                         }
 
                         // ✅ Store phase_status and create a boolean for easy checks
-                        const isEditable = 
-                            mattress.phase_status === "0 - NOT SET" || 
+                        const isEditable =
+                            mattress.phase_status === "0 - NOT SET" ||
                             mattress.phase_status === "1 - TO LOAD";
-    
+
                         // Get marker details for this mattress
                         const markerDetails = markersMap[mattress.marker_name];
-    
+
                         // Add mattress row with all necessary data (including marker details)
                         tablesByFabricType[fabricType].rows.push({
                             mattressName: mattress.mattress,
@@ -420,20 +445,20 @@ const OrderPlanning = () => {
                             isEditable
                         });
                     });
-    
+
                     // Convert to array and set tables
                     const loadedTables = Object.values(tablesByFabricType);
                     setTables(loadedTables);
 
                     if (alongResponse.data.success) {
                         console.log("✅ Along (Collaretto) Loaded:", alongResponse.data.data);
-                    
+
                         // ✅ Group along by fabric type
                         const alongTablesByFabricType = {};
-                    
+
                         alongResponse.data.data.forEach((along) => {
                             const fabricType = along.fabric_type;
-                    
+
                             // If this fabric type group doesn't exist, create it
                             if (!alongTablesByFabricType[fabricType]) {
                                 alongTablesByFabricType[fabricType] = {
@@ -445,7 +470,7 @@ const OrderPlanning = () => {
                                     rows: []
                                 };
                             }
-                    
+
                             // Push this collaretto row inside the correct fabric group
                             alongTablesByFabricType[fabricType].rows.push({
                                 collarettoName: along.collaretto,
@@ -460,7 +485,7 @@ const OrderPlanning = () => {
                                 bagno: along.dye_lot
                             });
                         });
-                    
+
                         // ✅ Convert to array
                         const loadedAlongTables = Object.values(alongTablesByFabricType);
                         setAlongTables(loadedAlongTables);
@@ -473,13 +498,13 @@ const OrderPlanning = () => {
                     let loadedWeftTables = [];
                     if (weftResponse.data.success) {
                         console.log("✅ Weft (Collaretto Weft) Loaded:", weftResponse.data.data);
-                    
+
                         // ✅ Group weft by fabric type
                         const weftTablesByFabricType = {};
-                    
+
                         weftResponse.data.data.forEach((weft) => {
                             const fabricType = weft.fabric_type;
-                    
+
                             if (!weftTablesByFabricType[fabricType]) {
                                 weftTablesByFabricType[fabricType] = {
                                     id: Object.keys(weftTablesByFabricType).length + 1,
@@ -490,7 +515,7 @@ const OrderPlanning = () => {
                                     rows: []
                                 };
                             }
-                    
+
                             // ✅ Push the row inside the correct fabric group
                             weftTablesByFabricType[fabricType].rows.push({
                                 collarettoName: weft.collaretto,
@@ -506,7 +531,7 @@ const OrderPlanning = () => {
                                 bagno: weft.dye_lot
                             });
                         });
-                    
+
                         // ✅ Convert to array
                         const loadedWeftTables = Object.values(weftTablesByFabricType);
                         setWeftTables(loadedWeftTables);
@@ -525,7 +550,7 @@ const OrderPlanning = () => {
                     } else {
                         console.warn("⚠️ No weft (collaretto weft) rows found");
                         setWeftTables([]);
-                    }                    
+                    }
 
                     // ✅ Automatically update expected consumption for all rows
                     setTimeout(() => {
@@ -578,7 +603,7 @@ const OrderPlanning = () => {
     // Handle Style Change
     const handleStyleChange = (newStyle, touched = false) => {
         setStyleTouched(touched);
-      
+
         if (touched) {
           handleOrderChange(null); // ✅ This resets everything already
           setTimeout(() => {
@@ -588,7 +613,7 @@ const OrderPlanning = () => {
           setSelectedStyle(newStyle);
         }
       };
-    
+
     // Function to add a new row
     const handleAddRow = (tableIndex) => {
         setTables(prevTables => {
@@ -650,7 +675,7 @@ const OrderPlanning = () => {
     };
 
     // Function to add a new row Weft
-    /* fix this */ 
+    /* fix this */
     const handleAddRowWeft = (tableIndex) => {
         setWeftTables(prevTables => {
             return prevTables.map((table, index) => {
@@ -679,7 +704,7 @@ const OrderPlanning = () => {
         });
         setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
     };
-    
+
     const handleRemoveRow = (tableIndex, rowIndex) => {
         setTables(prevTables => {
             return prevTables.map((table, tIndex) => {
@@ -690,14 +715,14 @@ const OrderPlanning = () => {
                     if (!deletedRow.isEditable) {
                         return table; // Return table unchanged
                     }
-    
+
                     // ✅ If the row has a valid mattress name, add it to the delete list
                     if (deletedRow.mattressName) {
                         setDeletedMattresses(prevDeleted => [...prevDeleted, deletedRow.mattressName]);
                     }
 
                     setUnsavedChanges(true);  // ✅ Mark as unsaved when a row is deleted
-    
+
                     return {
                         ...table,
                         rows: table.rows.filter((_, i) => i !== rowIndex)
@@ -720,7 +745,7 @@ const OrderPlanning = () => {
                     }
 
                     setUnsavedChanges(true);  // ✅ Mark as unsaved when a row is deleted
-                    
+
                     return {
                         ...table,
                         rows: table.rows.filter((_, i) => i !== rowIndex) // ✅ Remove row
@@ -736,12 +761,12 @@ const OrderPlanning = () => {
             return prevTables.map((table, tIndex) => {
                 if (tIndex === tableIndex) {
                     const deletedRow = table.rows[rowIndex];
-    
+
                     // ✅ If the row has a backend collarettoName, add it to the delete list
                     if (deletedRow.collarettoName) {
                         setDeletedWeft(prev => [...prev, deletedRow.collarettoName]);
                     }
-    
+
                     return {
                         ...table,
                         rows: table.rows.filter((_, i) => i !== rowIndex) // ✅ Remove only the selected row
@@ -750,39 +775,39 @@ const OrderPlanning = () => {
                 return table;
             });
         });
-    
+
         setUnsavedChanges(true); // ✅ Mark as unsaved when a row is deleted
     };
 
     const handleInputChange = (tableIndex, rowIndex, field, value) => {
         setTables(prevTables => {
             if (!prevTables[tableIndex]) return prevTables; // ✅ Prevents errors if tableIndex is invalid
-    
+
             const updatedTables = [...prevTables];
             const updatedTable = { ...updatedTables[tableIndex] };
-    
+
             if (!updatedTable.rows || !updatedTable.rows[rowIndex]) return prevTables; // ✅ Prevents errors if rowIndex is invalid
-    
+
             const updatedRows = [...updatedTable.rows];
-    
+
             // ✅ Update field value
-            updatedRows[rowIndex] = { 
-                ...updatedRows[rowIndex], 
-                [field]: value 
+            updatedRows[rowIndex] = {
+                ...updatedRows[rowIndex],
+                [field]: value
             };
-    
+
             // ✅ If field is "layers" or "markerLength", update Expected Consumption
             if (field === "layers" || field === "markerLength") {
                 const markerLength = parseFloat(updatedRows[rowIndex].markerLength) || 0;
                 const layers = parseInt(updatedRows[rowIndex].layers) || 0;
                 updatedRows[rowIndex].expectedConsumption = (markerLength * layers).toFixed(2);
             }
-    
+
             updatedTable.rows = updatedRows;
             updatedTables[tableIndex] = updatedTable;
-    
+
             setUnsavedChanges(true);  // ✅ Mark the form as having unsaved changes
-    
+
             return updatedTables;
         });
     };
@@ -792,11 +817,11 @@ const OrderPlanning = () => {
             const updatedTables = [...prevTables];
             const updatedRows = [...updatedTables[tableIndex].rows];
             const updatedRow = { ...updatedRows[rowIndex], [field]: value };
-    
+
             // Auto-calculate pcsSeamtoSeam if usableWidth and grossLength are available
             const usableWidth = parseFloat(field === "usableWidth" ? value : updatedRow.usableWidth) || 0;
             const grossLength = parseFloat(field === "grossLength" ? value : updatedRow.grossLength) || 0;
-    
+
             if (usableWidth > 0 && grossLength > 0) {
                 updatedRow.pcsSeamtoSeam = usableWidth > 0 && grossLength > 0
                     ? ((usableWidth / 100) / grossLength).toFixed(1)
@@ -808,7 +833,7 @@ const OrderPlanning = () => {
             const panelLength = parseFloat(field === "panelLength" ? value : updatedRow.panelLength);
             const collarettoWidthMM = parseFloat(field === "collarettoWidth" ? value : updatedRow.collarettoWidth);
             const scrap = parseFloat(field === "scrapRoll" ? value : updatedRow.scrapRoll);
-            
+
             if (!isNaN(panelLength) && !isNaN(collarettoWidthMM) && !isNaN(scrap)) {
                 const collarettoWidthM = collarettoWidthMM / 1000; // Convert mm to m
                 updatedRow.rolls = collarettoWidthM > 0
@@ -848,10 +873,10 @@ const OrderPlanning = () => {
         setAlongTables(prevTables => {
             const updatedTables = [...prevTables];
             const updatedRows = [...updatedTables[tableIndex].rows];
-    
+
             // ✅ Update the specific field
             const updatedRow = { ...updatedRows[rowIndex], [field]: value };
-    
+
             // ✅ Convert required values to numbers (default to 0 if empty)
             const usableWidth = parseFloat(updatedRow.usableWidth) || 0;
             const collarettoWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10; // Avoid division by 0
@@ -859,56 +884,56 @@ const OrderPlanning = () => {
             const theoreticalConsumption = parseFloat(updatedRow.theoreticalConsumption) || 0;
             const extraPercentage = parseFloat(updatedRow.extraPercentage) || 1; // Default 1 (100%)
             const scrap = parseFloat(updatedRow.scrapRoll) || 0;
-    
+
             // ✅ Calculate Koturi per Roll (round down)
             updatedRow.rolls = collarettoWidth > 0 ? Math.floor(usableWidth / collarettoWidth) - scrap : 0;
-    
+
             // ✅ Calculate Meters of Collaretto
             updatedRow.metersCollaretto = (pieces * theoreticalConsumption * extraPercentage).toFixed(1);
-    
+
             // ✅ Calculate Consumption
             updatedRow.consumption = updatedRow.rolls > 0
                 ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(1) // Round to 1 decimals
                 : "0";
-    
+
             // ✅ Save updated row in copied array
             updatedRows[rowIndex] = updatedRow;
             updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
-    
+
             return updatedTables; // ✅ Return new state to trigger React re-render
         });
     };
-    
+
     const handleAlongExtraChange = (tableIndex, value) => {
         setAlongTables(prevTables => {
             const updatedTables = [...prevTables];
-    
+
             // ✅ Update `alongExtra` in the selected table
             updatedTables[tableIndex] = { ...updatedTables[tableIndex], alongExtra: value };
-    
+
             // ✅ Convert Extra % into a multiplier (e.g., 10% → 1.10)
             const extraMultiplier = 1 + (parseFloat(value) / 100) || 1;
-    
+
             // ✅ Update all rows in this table
             updatedTables[tableIndex].rows = updatedTables[tableIndex].rows.map(row => {
                 const pieces = parseFloat(row.pieces) || 0;
                 const theoreticalConsumption = parseFloat(row.theoreticalConsumption) || 0;
-    
+
                 // ✅ Apply Extra % increase
                 row.metersCollaretto = (pieces * theoreticalConsumption * extraMultiplier).toFixed(1);
-    
+
                 // ✅ Update `consumption`
                 row.consumption = row.rolls > 0
                     ? (row.metersCollaretto / row.rolls).toFixed(1)
                     : "0";
-    
+
                 return row;
             });
-    
+
             return updatedTables;
         });
     };
-    
+
     const handleWeftExtraChange = (tableIndex, value) => {
         setWeftTables(prevTables => {
             const updatedTables = [...prevTables];
@@ -950,50 +975,50 @@ const OrderPlanning = () => {
     const updateExpectedConsumption = (tableIndex, rowIndex) => {
         setTables(prevTables => {
             const updatedTables = [...prevTables];
-    
+
             // ✅ Clear existing timeout
             clearTimeout(updatedTables[tableIndex].rows[rowIndex].timeout);
-    
+
             updatedTables[tableIndex].rows[rowIndex].timeout = setTimeout(() => {
                 const tableAllowance = parseFloat(updatedTables[tableIndex].allowance) || 0;
                 const markerLength = (parseFloat(updatedTables[tableIndex].rows[rowIndex].markerLength) || 0) + tableAllowance;
                 const layers = parseInt(updatedTables[tableIndex].rows[rowIndex].layers) || 0;
-    
+
                 // ✅ Update expected consumption first
                 updatedTables[tableIndex].rows[rowIndex].expectedConsumption = (markerLength * layers).toFixed(1);
-    
+
                 // ✅ Update tables first
                 setTables([...updatedTables]);
-    
+
                 // ✅ Then update avgConsumption for the affected table
             }, 500);
-    
+
             return updatedTables;
         });
     };
 
     useEffect(() => {
         if (!tables || tables.length === 0) return; // ✅ Prevent unnecessary runs
-    
+
         const newAvgConsumption = tables.map(table => calculateTableAverageConsumption(table));
-    
+
         setAvgConsumption([...newAvgConsumption]); // ✅ Ensures a new state reference
     }, [tables]);
 
     const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
     const handleSave = () => {
-    
+
         const newMattressNames = new Set();
-        const newAlongNames = new Set(); 
-        const newWeftNames = new Set(); 
+        const newAlongNames = new Set();
+        const newWeftNames = new Set();
         const payloads = [];
         const allongPayloads = [];
         const weftPayloads = [];
         let invalidRow = null;
         let invalidAlongRow = null;
         let invalidWeftRow = null;
-        
+
         // ✅ Check for missing mandatory fields
         const hasInvalidData = tables.some((table, tableIndex) => {
             if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.spreadingMethod) {
@@ -1022,7 +1047,7 @@ const OrderPlanning = () => {
                 invalidAlongRow = `Collaretto Along ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color or Extra)`;
                 return true;
             }
-        
+
             return table.rows.some((row, rowIndex) => {
                 if (!row.pieces || !row.usableWidth || !row.theoreticalConsumption || !row.collarettoWidth || !row.scrapRoll) {
                     invalidAlongRow = `Collaretto Along ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields)`;
@@ -1031,7 +1056,7 @@ const OrderPlanning = () => {
                 return false;
             });
         });
-        
+
         // 🚨 Error Handling
         if (hasInvalidAlongData) {
             setErrorMessage(invalidAlongRow);
@@ -1044,7 +1069,7 @@ const OrderPlanning = () => {
                 invalidWeftRow = `Collaretto Weft ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color, or Extra)`;
                 return true;
             }
-        
+
             return table.rows.some((row, rowIndex) => {
                 if (!row.pieces || !row.usableWidth || !row.grossLength || !row.panelLength || !row.collarettoWidth || !row.scrapRoll) {
                     invalidWeftRow = `Collaretto Weft ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
@@ -1074,7 +1099,7 @@ const OrderPlanning = () => {
                 const markerLength = parseFloat(row.markerLength) || 0;
                 const lengthMattress = markerLength + (parseFloat(table.allowance) || 0); // ✅ Corrected calculation
                 const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
-                
+
 
                 const mattressData = {
                     mattress: mattressName,
@@ -1118,7 +1143,7 @@ const OrderPlanning = () => {
                 // ✅ Build unique collaretto (along) name WITH padded index
                 const collarettoName = `${selectedOrder}-CA-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
                 newAlongNames.add(collarettoName);
-        
+
                 // ✅ Build the payload for this row
                 const payload = {
                     collaretto: collarettoName,
@@ -1146,7 +1171,7 @@ const OrderPlanning = () => {
                         }
                     ]
                 };
-        
+
                 allongPayloads.push(payload);
             });
         });
@@ -1158,7 +1183,7 @@ const OrderPlanning = () => {
                 newWeftNames.add(collarettoWeftName);
 
                 const mattressName = `${selectedOrder}-ASW-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
-        
+
                 // ✅ Build the payload for this weft row
                 const payload = {
                     collaretto: collarettoWeftName,
@@ -1186,11 +1211,11 @@ const OrderPlanning = () => {
                         }
                     ]
                 };
-        
+
                 weftPayloads.push(payload);
             });
         });
-                     
+
         // ✅ Send Update Requests
         Promise.all(payloads.map(payload =>
             axios.post('/mattress/add_mattress_row', payload)
@@ -1241,7 +1266,7 @@ const OrderPlanning = () => {
                     throw error; // ✅ Ensures Promise.all stops on failure
                 })
         ))
-        
+
         .then(() => {
             // ✅ Delete Only Rows That Were Removed from UI
             console.log("🗑️ Mattresses to delete:", deletedMattresses);
@@ -1263,9 +1288,9 @@ const OrderPlanning = () => {
         .then(() => {
             // ✅ Delete Only Along Rows Removed from the UI
             console.log("🗑️ Along Rows to delete:", deletedAlong);
-        
+
             const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
-        
+
             return Promise.all(alongToDelete.map(along =>
                 axios.delete(`/collaretto/delete/${along}`)
                     .then(() => {
@@ -1281,9 +1306,9 @@ const OrderPlanning = () => {
         .then(() => {
             // ✅ Delete Only Weft Rows Removed from the UI
             console.log("🗑️ Weft Rows to delete:", deletedWeft);
-        
+
             const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
-        
+
             return Promise.all(weftToDelete.map(weft =>
                 axios.delete(`/collaretto/delete_weft/${weft}`)
                     .then(() => {
@@ -1299,8 +1324,8 @@ const OrderPlanning = () => {
         .then(() => {
             // ✅ Reset state after successful save
             setDeletedMattresses([]);
-            setDeletedAlong([]);    
-            setDeletedWeft([]);   
+            setDeletedAlong([]);
+            setDeletedWeft([]);
             setUnsavedChanges(false);
 
             refreshMattressCount();
@@ -1318,7 +1343,7 @@ const OrderPlanning = () => {
 
     const getTablePlannedQuantities = (table) => {
         const plannedQuantities = {};
-    
+
         table.rows.forEach(row => {
             Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
                 const layers = parseInt(row.layers) || 0;
@@ -1326,49 +1351,49 @@ const OrderPlanning = () => {
                 plannedQuantities[size] = (plannedQuantities[size] || 0) + (pieces * layers);
             });
         });
-    
+
         return plannedQuantities;
     };
 
     const getTablePlannedByBagno = (table) => {
         const bagnoMap = {};
-    
+
         table.rows.forEach(row => {
             const bagno = row.bagno || 'Unknown';
-    
+
             Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
                 const layers = parseInt(row.layers) || 0;
                 const pieces = parseInt(pcs) || 0;
                 const total = pieces * layers;
-    
+
                 if (!bagnoMap[bagno]) bagnoMap[bagno] = {};
                 bagnoMap[bagno][size] = (bagnoMap[bagno][size] || 0) + total;
             });
         });
-    
+
         return bagnoMap;
     };
 
     /* Function to Calculate Average Consumption for a Specific Table */
     const calculateTableAverageConsumption = (table) => {
         if (!table || !table.rows || table.rows.length === 0) return 0; // ✅ Prevent crashes
-    
+
         // ✅ Get planned quantities safely
         const plannedQuantities = getTablePlannedQuantities(table) || {};
         const totalPlannedPcs = Object.values(plannedQuantities).reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
-    
+
         // ✅ Sum all expected consumption for this table
         const totalConsPlanned = table.rows.reduce(
             (sum, row) => sum + (parseFloat(row.expectedConsumption) || 0), 0
         );
-    
+
         if (totalPlannedPcs === 0) {
             return 0;
         }
         const avgConsumption = totalConsPlanned / totalPlannedPcs;
         return avgConsumption.toFixed(2); // ✅ Ensure 2 decimal places
     };
-    
+
     useEffect(() => {
         const style = document.createElement("style");
         style.innerHTML = `
@@ -1392,11 +1417,52 @@ const OrderPlanning = () => {
         `;
         document.head.appendChild(style);
     }, []);
-    
+
+    // Override history.block to show our custom dialog
+    useEffect(() => {
+        // This will be called when the user tries to navigate away
+        const unblock = history.block((location) => {
+            if (unsavedChanges) {
+                // Store the navigation function to be called after user confirms
+                setPendingNavigation(() => () => history.push(location.pathname));
+                setOpenUnsavedDialog(true);
+                return false; // Prevent immediate navigation
+            }
+            return true; // Allow navigation
+        });
+
+        return () => {
+            // Clean up when component unmounts
+            unblock();
+        };
+    }, [history, unsavedChanges]);
+
+    // Handle page navigation warning when unsaved changes exist (browser close/refresh)
+    useEffect(() => {
+        // Function to handle beforeunload event
+        const handleBeforeUnload = (event) => {
+            if (unsavedChanges) {
+                // Standard way to show a confirmation dialog before leaving the page
+                const message = "You have unsaved changes, either save or delete them.";
+                event.preventDefault();
+                event.returnValue = message; // For older browsers
+                return message; // For modern browsers
+            }
+        };
+
+        // Add event listener when component mounts or unsavedChanges changes
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        // Clean up event listener when component unmounts or unsavedChanges changes
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [unsavedChanges]);
+
     const handlePrint = () => {
         // Temporarily collapse menu
         document.body.classList.add("print-mode");
-    
+
         setTimeout(() => {
             window.print();
             document.body.classList.remove("print-mode"); // Restore after printing
@@ -1417,17 +1483,17 @@ const OrderPlanning = () => {
                 }}
             >
                 <MainCard title="Order Planning">
-                    
+
                     {/* Order Actions Bar */}
-                    <OrderActionBar 
-                        unsavedChanges={unsavedChanges} 
-                        handleSave={handleSave} 
+                    <OrderActionBar
+                        unsavedChanges={unsavedChanges}
+                        handleSave={handleSave}
                         handlePrint={handlePrint}
                         isPinned={isPinned}
                         setIsPinned={setIsPinned}
                     />
 
-                    {/* Order Toolbar */}  
+                    {/* Order Toolbar */}
                     <OrderToolbar
                         styleOptions={styleOptions}
                         selectedStyle={selectedStyle}
@@ -1447,7 +1513,7 @@ const OrderPlanning = () => {
             </Box>
 
             <Box mt={2} />
-            
+
             {/* Pad Print Section */}
             <PadPrintInfo padPrintInfo={padPrintInfo} />
 
@@ -1457,9 +1523,9 @@ const OrderPlanning = () => {
             {tables.length > 0 && tables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before every table except the first one */}
-                   {tableIndex > 0 && <Box mt={2} />} 
-                    <MainCard 
-                        key={table.id} 
+                   {tableIndex > 0 && <Box mt={2} />}
+                    <MainCard
+                        key={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 {`Mattress Group ${tableIndex + 1}`}
@@ -1469,13 +1535,13 @@ const OrderPlanning = () => {
                                     table={table}
                                     orderSizes={orderSizes}
                                     getTablePlannedQuantities={getTablePlannedQuantities}
-                                    getTablePlannedByBagno={getTablePlannedByBagno} 
+                                    getTablePlannedByBagno={getTablePlannedByBagno}
                                 />
                             </Box>
 
                         }
                     >
-                        
+
                     <MattressGroupCard
                         table={table}
                         tables={tables}
@@ -1513,7 +1579,7 @@ const OrderPlanning = () => {
                                     </TableBody>
                                 </Table>
                             </TableContainer>
-                            
+
                             {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
                             <MattressActionRow
                                 avgConsumption={avgConsumption}
@@ -1540,7 +1606,7 @@ const OrderPlanning = () => {
                                 {/* Fabric Type (Dropdown) */}
                                 <Grid item xs={3} sm={2} md={1.5}>
                                     <Autocomplete
-                                        options={fabricTypeOptions.filter(option => 
+                                        options={fabricTypeOptions.filter(option =>
                                             !alongTables.some((t, i) => i !== tableIndex && t.fabricType === option) // ✅ Exclude fabricType selected in other alongTables
                                         )}
                                         getOptionLabel={(option) => option}
@@ -1577,8 +1643,8 @@ const OrderPlanning = () => {
                                             });
                                             setUnsavedChanges(true);
                                         }}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& input": { fontWeight: "normal" }
                                         }}
@@ -1600,8 +1666,8 @@ const OrderPlanning = () => {
                                             });
                                             setUnsavedChanges(true);
                                         }}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& input": { fontWeight: "normal" }  // ✅ Normal font weight
                                         }}
@@ -1619,8 +1685,8 @@ const OrderPlanning = () => {
                                             setUnsavedChanges(true);
                                             handleAlongExtraChange(tableIndex, value);
                                         }}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& input": { fontWeight: "normal" }  // ✅ Normal font
                                         }}
@@ -1782,7 +1848,7 @@ const OrderPlanning = () => {
 
                                                 {/* Delete Button */}
                                                 <TableCell>
-                                                    <IconButton 
+                                                    <IconButton
                                                         onClick={() => {
                                                             handleRemoveAlongRow(tableIndex, rowIndex);
                                                             setUnsavedChanges(true);
@@ -1808,19 +1874,19 @@ const OrderPlanning = () => {
                                     startIcon={<AddCircleOutline />}
                                     onClick={() => {
                                         handleAddRowAlong(tableIndex);
-                                        setUnsavedChanges(true);                                    
+                                        setUnsavedChanges(true);
                                     }} // ✅ Pass the specific table index
                                 >
                                     Add Row
                                 </Button>
 
                                 {/* Remove Table Button */}
-                                <Button 
-                                    variant="outlined" 
-                                    color="error" 
+                                <Button
+                                    variant="outlined"
+                                    color="error"
                                     onClick={() => {
                                         handleRemoveAlong(table.id);
-                                        setUnsavedChanges(true); 
+                                        setUnsavedChanges(true);
                                     }}
                                 >
                                     Remove
@@ -1842,7 +1908,7 @@ const OrderPlanning = () => {
                                 {/* Fabric Type (Dropdown) */}
                                 <Grid item xs={3} sm={2} md={1.5}>
                                     <Autocomplete
-                                        options={fabricTypeOptions.filter(option => 
+                                        options={fabricTypeOptions.filter(option =>
                                             !weftTables.some((t, i) => i !== tableIndex && t.fabricType === option) // ✅ Exclude fabricType already selected in other weftTables
                                         )}
                                         getOptionLabel={(option) => option}
@@ -1856,8 +1922,8 @@ const OrderPlanning = () => {
                                             setUnsavedChanges(true);
                                         }}
                                         renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& .MuiAutocomplete-input": { fontWeight: "normal" }
                                         }}
@@ -1879,8 +1945,8 @@ const OrderPlanning = () => {
                                             });
                                             setUnsavedChanges(true);
                                         }}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& input": { fontWeight: "normal" }
                                         }}
@@ -1902,8 +1968,8 @@ const OrderPlanning = () => {
                                             });
                                             setUnsavedChanges(true);
                                         }}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& input": { fontWeight: "normal" }
                                         }}
@@ -1921,8 +1987,8 @@ const OrderPlanning = () => {
                                             handleWeftExtraChange(tableIndex, value);
                                             setUnsavedChanges(true);
                                         }}
-                                        sx={{ 
-                                            width: '100%', 
+                                        sx={{
+                                            width: '100%',
                                             minWidth: '60px',
                                             "& input": { fontWeight: "normal" }
                                         }}
@@ -2113,7 +2179,7 @@ const OrderPlanning = () => {
 
                                                     {/* Delete Button */}
                                                     <TableCell>
-                                                        <IconButton 
+                                                        <IconButton
                                                             onClick={() => handleRemoveWeftRow(tableIndex, rowIndex)}
                                                             color="error"
                                                             disabled={weftTables[tableIndex].rows.length === 1} // ✅ Disable when only 1 row left
@@ -2140,9 +2206,9 @@ const OrderPlanning = () => {
                                 </Button>
 
                                 {/* Remove Table Button */}
-                                <Button 
-                                    variant="outlined" 
-                                    color="error" 
+                                <Button
+                                    variant="outlined"
+                                    color="error"
                                     onClick={() => handleRemoveWeft(table.id)}
                                 >
                                     Remove
@@ -2185,10 +2251,10 @@ const OrderPlanning = () => {
             )}
 
             {/* Error Snackbar */}
-            <Snackbar 
-                open={openError} 
-                autoHideDuration={5000} 
-                onClose={handleCloseError} 
+            <Snackbar
+                open={openError}
+                autoHideDuration={5000}
+                onClose={handleCloseError}
                 anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
                 <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
@@ -2197,16 +2263,38 @@ const OrderPlanning = () => {
             </Snackbar>
 
             {/* ✅ Success Message Snackbar */}
-            <Snackbar 
-                open={openSuccess} 
-                autoHideDuration={5000} 
-                onClose={handleCloseSuccess} 
+            <Snackbar
+                open={openSuccess}
+                autoHideDuration={5000}
+                onClose={handleCloseSuccess}
                 anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
                 <Alert onClose={handleCloseSuccess} severity="success" sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}>
                     {successMessage}
                 </Alert>
             </Snackbar>
+
+            {/* Unsaved Changes Dialog */}
+            <Dialog
+                open={openUnsavedDialog}
+                onClose={handleCloseUnsavedDialog}
+                aria-labelledby="unsaved-changes-dialog-title"
+                aria-describedby="unsaved-changes-dialog-description"
+            >
+                <DialogTitle id="unsaved-changes-dialog-title">
+                    Unsaved Changes
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="unsaved-changes-dialog-description">
+                        You have unsaved changes, either save or delete them.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseUnsavedDialog} color="primary" variant="contained">
+                        OK
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };
