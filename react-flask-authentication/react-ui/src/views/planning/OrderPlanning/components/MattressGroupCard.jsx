@@ -3,9 +3,10 @@ import { Grid, Autocomplete, TextField, Box } from '@mui/material';
 
 const MattressGroupCard = ({
   table,
-  tableIndex,
   tables,
   fabricTypeOptions,
+  spreadingOptions,
+  spreadingMethods,
   isTableEditable,
   setTables,
   setUnsavedChanges,
@@ -18,17 +19,17 @@ const MattressGroupCard = ({
         <Grid item xs={3} sm={2} md={1.5}>
           <Autocomplete
             options={fabricTypeOptions.filter(option =>
-              !tables.some((t, i) => i !== tableIndex && t.fabricType === option)
+              !tables.some(t => t.id !== table.id && t.fabricType === option)
             )}
             getOptionLabel={(option) => option}
             value={table.fabricType || null}
             disabled={!isTableEditable(table)}
             onChange={(event, newValue) => {
-              setTables(prevTables => {
-                const updatedTables = [...prevTables];
-                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
-                return updatedTables;
-              });
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, fabricType: newValue } : t
+                )
+              );
               setUnsavedChanges(true);
             }}
             renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
@@ -49,11 +50,11 @@ const MattressGroupCard = ({
             disabled={!isTableEditable(table)}
             onChange={(e) => {
               const value = e.target.value.replace(/[^a-zA-Z0-9 ]/g, '').toUpperCase().slice(0, 8);
-              setTables(prevTables => {
-                const updatedTables = [...prevTables];
-                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
-                return updatedTables;
-              });
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, fabricCode: value } : t
+                )
+              );
               setUnsavedChanges(true);
             }}
             sx={{
@@ -73,43 +74,17 @@ const MattressGroupCard = ({
             disabled={!isTableEditable(table)}
             onChange={(e) => {
               const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
-              setTables(prevTables => {
-                const updatedTables = [...prevTables];
-                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
-                return updatedTables;
-              });
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, fabricColor: value } : t
+                )
+              );
               setUnsavedChanges(true);
             }}
             sx={{
               width: '100%',
               minWidth: '60px',
               "& input": { fontWeight: "normal" }
-            }}
-          />
-        </Grid>
-
-        {/* Spreading Method (Dropdown) */}
-        <Grid item xs={3} sm={2} md={2}>
-          <Autocomplete
-            options={["FACE UP", "FACE DOWN", "FACE TO FACE"]}
-            getOptionLabel={(option) => option}
-            value={table.spreadingMethod || null}
-            disabled={!isTableEditable(table)}
-            onChange={(event, newValue) => {
-              setTables(prevTables => {
-                const updatedTables = [...prevTables];
-                updatedTables[tableIndex] = { ...updatedTables[tableIndex], spreadingMethod: newValue };
-                return updatedTables;
-              });
-              setUnsavedChanges(true);
-            }}
-            renderInput={(params) => (
-              <TextField {...params} label="Spreading Method" variant="outlined" />
-            )}
-            sx={{
-              width: '100%',
-              minWidth: '60px',
-              "& .MuiAutocomplete-input": { fontWeight: 'normal' }
             }}
           />
         </Grid>
@@ -128,25 +103,81 @@ const MattressGroupCard = ({
                 .replace(/(\..*)\./g, '$1')
                 .slice(0, 4);
 
-              setTables(prevTables => {
-                const updatedTables = [...prevTables];
-                updatedTables[tableIndex] = {
-                  ...updatedTables[tableIndex],
-                  allowance: value
-                };
+              setTables(prev =>
+                prev.map(t => {
+                  if (t.id !== table.id) return t;
 
-                updatedTables[tableIndex].rows.forEach((_, rowIndex) => {
-                  updateExpectedConsumption(tableIndex, rowIndex);
-                });
+                  const updatedRows = t.rows.map(row => {
+                    updateExpectedConsumption(t.id, row.id); // ✅ ID-based call
+                    return row;
+                  });
 
-                return updatedTables;
-              });
+                  return {
+                    ...t,
+                    allowance: value,
+                    rows: updatedRows
+                  };
+                })
+              );
+
               setUnsavedChanges(true);
             }}
             sx={{
               width: '100%',
               minWidth: '60px',
               "& input": { fontWeight: "normal" }
+            }}
+          />
+        </Grid>
+
+        {/* Spreading Method (Dropdown) */}
+        <Grid item xs={3} sm={2} md={2}>
+          <Autocomplete
+            options={spreadingMethods}
+            getOptionLabel={(option) => option}
+            value={table.spreadingMethod || null}
+            disabled={!isTableEditable(table)}
+            onChange={(event, newValue) => {
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, spreadingMethod: newValue } : t
+                )
+              );
+              setUnsavedChanges(true);
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Spreading Method" variant="outlined" />
+            )}
+            sx={{
+              width: '100%',
+              minWidth: '60px',
+              "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+            }}
+          />
+        </Grid>
+
+        {/* Spreading */}
+        <Grid item xs={3} sm={2} md={2}>
+          <Autocomplete
+            options={spreadingOptions}
+            getOptionLabel={(option) => option}
+            value={table.spreading || null}
+            disabled={!isTableEditable(table)}
+            onChange={(event, newValue) => {
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, spreading: newValue } : t
+                )
+              );
+              setUnsavedChanges(true);
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Spreading" variant="outlined" />
+            )}
+            sx={{
+              width: '100%',
+              minWidth: '60px',
+              "& .MuiAutocomplete-input": { fontWeight: 'normal' }
             }}
           />
         </Grid>

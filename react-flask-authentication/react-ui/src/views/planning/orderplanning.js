@@ -6,7 +6,6 @@ import axios from 'utils/axiosInstance';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
 import { useHistory } from "react-router-dom";
-import { useBadgeCount } from '../../contexts/BadgeCountContext';
 
 // Order Planning Components
 import OrderActionBar from 'views/planning/OrderPlanning/components/OrderActionBar';
@@ -26,9 +25,21 @@ import MattressActionRow from 'views/planning/OrderPlanning/components/MattressA
 // Hooks
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
+import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTables';
+
+// Utils
+import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
+import { usePrintStyles, handlePrint } from 'views/planning/OrderPlanning/utils/printUtils';
+import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
+
+// Spreading Options 
+const spreadingOptions = ["AUTOMATIC", "MANUAL"];
+
+// Spreading Methods
+const spreadingMethods = ["FACE UP", "FACE DOWN", "FACE TO FACE"];
 
 const OrderPlanning = () => {
     const history = useHistory();
@@ -41,13 +52,7 @@ const OrderPlanning = () => {
     const [selectedColorCode, setSelectedColorCode] = useState("");
     const [orderSizes, setOrderSizes] = useState([]); // ✅ Stores full objects (for qty display)
     const [orderSizeNames, setOrderSizeNames] = useState([]); // ✅ Stores only size names (for table columns)
-    const [fabricType, setFabricType] = useState(null);
-    const [fabricCode, setFabricCode] = useState("");
-    const [fabricColor, setFabricColor] = useState("");
-    const [alongExtra, setalongExtra] = useState("");
     const [markerOptions, setMarkerOptions] = useState([]);
-    const [spreadingMethod, setSpreadingMethod] = useState(null);
-    const [allowance, setAllowance] = useState("");
     const [deletedMattresses, setDeletedMattresses] = useState([]);
     const [deletedAlong, setDeletedAlong] = useState([]);
     const [deletedWeft, setDeletedWeft] = useState([]);
@@ -55,8 +60,6 @@ const OrderPlanning = () => {
     const [avgConsumption, setAvgConsumption] = useState({});
 
     const [styleTouched, setStyleTouched] = useState(false);
-
-    const [tables, setTables] = useState([]);
 
     const [weftTables, setWeftTables] = useState([]);
 
@@ -80,13 +83,26 @@ const OrderPlanning = () => {
     // Fetch Brand
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
 
-    // Update Mattress Approval
-    const { refreshMattressCount } = useBadgeCount();
-
     // Pin Order Planning Card
     const [isPinned, setIsPinned] = useState(false);
 
-    const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"]; // Custom order for letter sizes
+    // User
+    const username = useSelector((state) => state.account?.user?.username) || "Unknown";
+
+    // Mattress Tables
+    const {
+        tables,
+        setTables,
+        handleAddTable,
+        handleRemoveTable,
+        handleAddRow,
+        handleRemoveRow,
+        handleInputChange,
+        updateExpectedConsumption
+    } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges });
+
+    // Print Styles
+    usePrintStyles();
 
     const handleCloseError = (event, reason) => {
         if (reason === 'clickaway') return;
@@ -217,36 +233,6 @@ const OrderPlanning = () => {
             }
         ]);
         setUnsavedChanges(true);
-    };
-
-    const handleRemoveTable = (id) => {
-        setTables(prevTables => {
-            const tableToRemove = prevTables.find(table => table.id === id);
-
-            // ✅ If the table doesn't exist, just return the previous state
-            if (!tableToRemove) return prevTables;
-
-            // ✅ Check if the table contains any non-editable rows
-            const hasLockedRow = tableToRemove.rows.some(row => !row.isEditable);
-
-            if (hasLockedRow) {
-                console.warn("❌ Cannot delete this table: contains a locked mattress (already in production).");
-                // Optional: Show a toast or UI alert
-                // toast.error("You cannot delete this group. One or more mattresses are already in production.");
-                return prevTables; // Block deletion
-            }
-
-            // ✅ Safe to delete: add mattressNames to the deleted list
-            tableToRemove.rows.forEach(row => {
-                if (row.mattressName) {
-                    setDeletedMattresses(prev => [...prev, row.mattressName]);
-                }
-            });
-
-            setUnsavedChanges(true);
-            // ✅ Remove the table
-            return prevTables.filter(table => table.id !== id);
-        });
     };
 
     const handleRemoveWeft = (id) => {
@@ -404,21 +390,22 @@ const OrderPlanning = () => {
                         acc[marker.marker_name] = marker;
                         return acc;
                     }, {});
-
-                    // Group mattresses by fabric type
-                    const tablesByFabricType = {};
-
+    
+                    // Group mattresses by table Id
+                    const tablesById = {};
+    
                     mattressResponse.data.data.forEach((mattress) => {
-                        const fabricType = mattress.fabric_type;
-
-                        if (!tablesByFabricType[fabricType]) {
-                            tablesByFabricType[fabricType] = {
-                                id: Object.keys(tablesByFabricType).length + 1,
-                                fabricType: fabricType,
+                        const tableId = mattress.table_id;
+    
+                        if (!tablesById[tableId]) {
+                            tablesById[tableId] = {
+                                id: tableId, // ✅ Use UUID from DB
+                                fabricType: mattress.fabric_type,
                                 fabricCode: mattress.fabric_code,
                                 fabricColor: mattress.fabric_color,
                                 spreadingMethod: mattress.spreading_method,
                                 allowance: parseFloat(mattress.allowance) || 0,
+                                spreading: mattress.item_type === "MS" ? "MANUAL" : "AUTOMATIC",
                                 rows: []
                             };
                         }
@@ -432,7 +419,8 @@ const OrderPlanning = () => {
                         const markerDetails = markersMap[mattress.marker_name];
 
                         // Add mattress row with all necessary data (including marker details)
-                        tablesByFabricType[fabricType].rows.push({
+                        tablesById[tableId].rows.push({
+                            id: mattress.row_id, // ✅ preserve row ID
                             mattressName: mattress.mattress,
                             width: markerDetails ? markerDetails.marker_width : "",
                             markerName: mattress.marker_name,
@@ -440,14 +428,15 @@ const OrderPlanning = () => {
                             efficiency: markerDetails ? markerDetails.efficiency : "",
                             piecesPerSize: markerDetails ? markerDetails.size_quantities || {} : {},
                             layers: mattress.layers || "",
-                            expectedConsumption: "",
+                            expectedConsumption: mattress.cons_planned || "",
                             bagno: mattress.dye_lot,
-                            isEditable
+                            isEditable,
+                            sequenceNumber: mattress.sequence_number || 0
                         });
                     });
 
                     // Convert to array and set tables
-                    const loadedTables = Object.values(tablesByFabricType);
+                    const loadedTables = Object.values(tablesById);
                     setTables(loadedTables);
 
                     if (alongResponse.data.success) {
@@ -550,16 +539,7 @@ const OrderPlanning = () => {
                     } else {
                         console.warn("⚠️ No weft (collaretto weft) rows found");
                         setWeftTables([]);
-                    }
-
-                    // ✅ Automatically update expected consumption for all rows
-                    setTimeout(() => {
-                        loadedTables.forEach((table, tableIndex) => {
-                            table.rows.forEach((row, rowIndex) => {
-                                updateExpectedConsumption(tableIndex, rowIndex);
-                            });
-                        });
-                    }, 100); // Small delay to ensure state update has completed
+                    }                    
 
                     setUnsavedChanges(false);
 
@@ -586,9 +566,6 @@ const OrderPlanning = () => {
             setTables([]);
             setWeftTables([]);
             setAlongTables([]);
-            setFabricType(null);
-            setSpreadingMethod(null);
-            setAllowance("");
             setSelectedStyle("");
             setSelectedSeason("");
             setSelectedColorCode("");
@@ -613,38 +590,6 @@ const OrderPlanning = () => {
           setSelectedStyle(newStyle);
         }
       };
-
-    // Function to add a new row
-    const handleAddRow = (tableIndex) => {
-        setTables(prevTables => {
-            return prevTables.map((table, index) => {
-                if (index === tableIndex) {
-                    return {
-                        ...table,
-                        rows: [
-                            ...table.rows,
-                            {
-                                width: "",
-                                markerName: "",
-                                piecesPerSize: orderSizeNames.reduce((acc, size) => {
-                                    acc[size] = ""; // Initialize each size with an empty value
-                                    return acc;
-                                }, {}),
-                                markerLength: "",
-                                efficiency: "",
-                                layers: "",
-                                expectedConsumption: "",
-                                bagno: "",
-                                isEditable: true  // ✅ Newly added row is editable by default
-                            }
-                        ]
-                    };
-                }
-                return table; // Keep other tables unchanged
-            });
-        });
-        setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
-    };
 
     const handleAddRowAlong = (tableIndex) => {
         setAlongTables(prevTables => {
@@ -705,34 +650,6 @@ const OrderPlanning = () => {
         setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
     };
 
-    const handleRemoveRow = (tableIndex, rowIndex) => {
-        setTables(prevTables => {
-            return prevTables.map((table, tIndex) => {
-                if (tIndex === tableIndex) {
-                    const deletedRow = table.rows[rowIndex];
-
-                    // ✅ Prevent deletion if the row is not editable (phase is locked)
-                    if (!deletedRow.isEditable) {
-                        return table; // Return table unchanged
-                    }
-
-                    // ✅ If the row has a valid mattress name, add it to the delete list
-                    if (deletedRow.mattressName) {
-                        setDeletedMattresses(prevDeleted => [...prevDeleted, deletedRow.mattressName]);
-                    }
-
-                    setUnsavedChanges(true);  // ✅ Mark as unsaved when a row is deleted
-
-                    return {
-                        ...table,
-                        rows: table.rows.filter((_, i) => i !== rowIndex)
-                    };
-                }
-                return table;
-            });
-        });
-    };
-
     const handleRemoveAlongRow = (tableIndex, rowIndex) => {
         setAlongTables(prevTables => {
             return prevTables.map((table, tIndex) => {
@@ -777,39 +694,6 @@ const OrderPlanning = () => {
         });
 
         setUnsavedChanges(true); // ✅ Mark as unsaved when a row is deleted
-    };
-
-    const handleInputChange = (tableIndex, rowIndex, field, value) => {
-        setTables(prevTables => {
-            if (!prevTables[tableIndex]) return prevTables; // ✅ Prevents errors if tableIndex is invalid
-
-            const updatedTables = [...prevTables];
-            const updatedTable = { ...updatedTables[tableIndex] };
-
-            if (!updatedTable.rows || !updatedTable.rows[rowIndex]) return prevTables; // ✅ Prevents errors if rowIndex is invalid
-
-            const updatedRows = [...updatedTable.rows];
-
-            // ✅ Update field value
-            updatedRows[rowIndex] = {
-                ...updatedRows[rowIndex],
-                [field]: value
-            };
-
-            // ✅ If field is "layers" or "markerLength", update Expected Consumption
-            if (field === "layers" || field === "markerLength") {
-                const markerLength = parseFloat(updatedRows[rowIndex].markerLength) || 0;
-                const layers = parseInt(updatedRows[rowIndex].layers) || 0;
-                updatedRows[rowIndex].expectedConsumption = (markerLength * layers).toFixed(2);
-            }
-
-            updatedTable.rows = updatedRows;
-            updatedTables[tableIndex] = updatedTable;
-
-            setUnsavedChanges(true);  // ✅ Mark the form as having unsaved changes
-
-            return updatedTables;
-        });
     };
 
     const handleWeftRowChange = (tableIndex, rowIndex, field, value) => {
@@ -971,41 +855,18 @@ const OrderPlanning = () => {
         });
     };
 
-    // ✅ New function to handle delayed calculation
-    const updateExpectedConsumption = (tableIndex, rowIndex) => {
-        setTables(prevTables => {
-            const updatedTables = [...prevTables];
-
-            // ✅ Clear existing timeout
-            clearTimeout(updatedTables[tableIndex].rows[rowIndex].timeout);
-
-            updatedTables[tableIndex].rows[rowIndex].timeout = setTimeout(() => {
-                const tableAllowance = parseFloat(updatedTables[tableIndex].allowance) || 0;
-                const markerLength = (parseFloat(updatedTables[tableIndex].rows[rowIndex].markerLength) || 0) + tableAllowance;
-                const layers = parseInt(updatedTables[tableIndex].rows[rowIndex].layers) || 0;
-
-                // ✅ Update expected consumption first
-                updatedTables[tableIndex].rows[rowIndex].expectedConsumption = (markerLength * layers).toFixed(1);
-
-                // ✅ Update tables first
-                setTables([...updatedTables]);
-
-                // ✅ Then update avgConsumption for the affected table
-            }, 500);
-
-            return updatedTables;
-        });
-    };
-
+    // UseEffect for avg Consumption
     useEffect(() => {
-        if (!tables || tables.length === 0) return; // ✅ Prevent unnecessary runs
-
-        const newAvgConsumption = tables.map(table => calculateTableAverageConsumption(table));
-
-        setAvgConsumption([...newAvgConsumption]); // ✅ Ensures a new state reference
-    }, [tables]);
-
-    const username = useSelector((state) => state.account?.user?.username) || "Unknown";
+        if (!tables || tables.length === 0) return;
+      
+        const newAvgConsumption = {};
+      
+        tables.forEach(table => {
+          newAvgConsumption[table.id] = calculateTableAverageConsumption(table);
+        });
+      
+        setAvgConsumption(newAvgConsumption);
+      }, [tables]);
 
     const handleSave = () => {
 
@@ -1091,7 +952,9 @@ const OrderPlanning = () => {
             table.rows.forEach((row, rowIndex) => {
 
                 // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
-                const mattressName = `${selectedOrder}-AS-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
+                const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
+                const mattressName = `${selectedOrder}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+
                 newMattressNames.add(mattressName); // ✅ Track UI rows
 
                 // ✅ Ensure numerical values are properly handled (convert empty strings to 0)
@@ -1099,20 +962,26 @@ const OrderPlanning = () => {
                 const markerLength = parseFloat(row.markerLength) || 0;
                 const lengthMattress = markerLength + (parseFloat(table.allowance) || 0); // ✅ Corrected calculation
                 const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
-
-
+                
                 const mattressData = {
                     mattress: mattressName,
                     order_commessa: selectedOrder,
                     fabric_type: table.fabricType,
                     fabric_code: table.fabricCode,
                     fabric_color: table.fabricColor,
-                    dye_lot: row.bagno,
-                    item_type: "AS",
+                    dye_lot: row.bagno || null,
+                    item_type: table.spreading === "MANUAL" ? "MS" : "AS",
                     spreading_method: table.spreadingMethod,
+                    
+                    // ✅ New fields for structure integrity
+                    table_id: table.id,
+                    row_id: row.id,
+                    sequence_number: row.sequenceNumber,
+
+                
                     layers: layers,
-                    length_mattress: lengthMattress, // ✅ Updated: markerLength + allowance
-                    cons_planned: consPlanned, // ✅ Auto-calculated
+                    length_mattress: lengthMattress,
+                    cons_planned: consPlanned,
                     extra: parseFloat(table.allowance) || 0,
                     marker_name: row.markerName,
                     marker_width: parseFloat(row.width) || 0,
@@ -1217,257 +1086,161 @@ const OrderPlanning = () => {
         });
 
         // ✅ Send Update Requests
-        Promise.all(payloads.map(payload =>
-            axios.post('/mattress/add_mattress_row', payload)
-                .then(response => {
-                    if (response.data.success) {
-                        console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
-                    } else {
-                        console.warn(`⚠️ Failed to save mattress ${payload.mattress}:`, response.data.message);
-                        throw new Error(`Failed to save mattress ${payload.mattress}`);
-                    }
-                })
-                .catch(error => {
-                    console.error("❌ Error saving mattress:", error);
-                    throw error; // ✅ Ensure Promise.all rejects if an error occurs
-                })
-        ))
+        const saveMattresses = () => {
+            return Promise.all(payloads.map(payload =>
+                axios.post('/mattress/add_mattress_row', payload)
+                    .then(response => {
+                        if (response.data.success) {
+                            console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
+                            return true;
+                        } else {
+                            console.warn(`⚠️ Failed to save mattress ${payload.mattress}:`, response.data.message);
+                            return false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`❌ Error saving mattress ${payload.mattress}:`, error.response?.data || error.message);
+                        console.log("💥 Full payload that caused failure:", payload);
+                        return false;
+                    })
+            )).then(results => {
+                const allSucceeded = results.every(result => result === true);
+                if (!allSucceeded) throw new Error("❌ Some mattresses failed to save.");
+            });
+        };
 
         // ✅ Send Along Update Requests
-        Promise.all(allongPayloads.map(payload =>
-            axios.post('/collaretto/add_along_row', payload)
-                .then(response => {
-                    if (response.data.success) {
-                        console.log(`✅ Along Row ${payload.collaretto} saved successfully.`);
-                    } else {
-                        console.warn(`⚠️ Failed to save along row ${payload.collaretto}:`, response.data.message);
-                        throw new Error(`Failed to save along row ${payload.collaretto}`);
-                    }
-                })
-                .catch(error => {
-                    console.error(`❌ Error saving along row ${payload.collaretto}:`, error);
-                    throw error; // Ensures Promise.all stops on failure
-                })
-        ))
+        const saveAlongRows = () => {
+            return Promise.all(allongPayloads.map(payload =>
+                axios.post('/collaretto/add_along_row', payload)
+                    .then(response => {
+                        if (response.data.success) {
+                            console.log(`✅ Along Row ${payload.collaretto} saved successfully.`);
+                            return true;
+                        } else {
+                            console.warn(`⚠️ Failed to save along row ${payload.collaretto}:`, response.data.message);
+                            return false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`❌ Error saving along row ${payload.collaretto}:`, error);
+                        return false;
+                    })
+            )).then(results => {
+                const allSucceeded = results.every(result => result === true);
+                if (!allSucceeded) throw new Error("❌ Some along rows failed to save.");
+            });
+        };
 
         // ✅ Send Weft Update Requests
-        Promise.all(weftPayloads.map(payload =>
-            axios.post('/collaretto/add_weft_row', payload)
-                .then(response => {
-                    if (response.data.success) {
-                        console.log(`✅ Weft Row ${payload.collaretto} saved successfully.`);
-                    } else {
-                        console.warn(`⚠️ Failed to save weft row ${payload.collaretto}:`, response.data.message);
-                        throw new Error(`Failed to save weft row ${payload.collaretto}`);
-                    }
-                })
-                .catch(error => {
-                    console.error(`❌ Error saving weft row ${payload.collaretto}:`, error);
-                    throw error; // ✅ Ensures Promise.all stops on failure
-                })
-        ))
-
-        .then(() => {
-            // ✅ Delete Only Rows That Were Removed from UI
-            console.log("🗑️ Mattresses to delete:", deletedMattresses);
-
-            const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
-
-            return Promise.all(mattressesToDelete.map(mattress =>
-                axios.delete(`/mattress/delete/${mattress}`)
-                    .then(() => {
-                        console.log(`🗑️ Deleted mattress: ${mattress}`);
+        const saveWeftRows = () => {
+            return Promise.all(weftPayloads.map(payload =>
+                axios.post('/collaretto/add_weft_row', payload)
+                    .then(response => {
+                        if (response.data.success) {
+                            console.log(`✅ Weft Row ${payload.collaretto} saved successfully.`);
+                            return true;
+                        } else {
+                            console.warn(`⚠️ Failed to save weft row ${payload.collaretto}:`, response.data.message);
+                            return false;
+                        }
                     })
                     .catch(error => {
-                        console.error(`❌ Error deleting mattress: ${mattress}`, error);
-                        throw error; // ✅ Ensure Promise.all rejects if an error occurs
+                        console.error(`❌ Error saving weft row ${payload.collaretto}:`, error);
+                        return false;
                     })
-            ));
-        })
-
-        .then(() => {
-            // ✅ Delete Only Along Rows Removed from the UI
-            console.log("🗑️ Along Rows to delete:", deletedAlong);
-
-            const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
-
-            return Promise.all(alongToDelete.map(along =>
-                axios.delete(`/collaretto/delete/${along}`)
-                    .then(() => {
-                        console.log(`🗑️ Deleted along row: ${along}`);
-                    })
-                    .catch(error => {
-                        console.error(`❌ Error deleting along row: ${along}`, error);
-                        throw error; // ✅ Ensures Promise.all rejects if any deletion fails
-                    })
-            ));
-        })
-
-        .then(() => {
-            // ✅ Delete Only Weft Rows Removed from the UI
-            console.log("🗑️ Weft Rows to delete:", deletedWeft);
-
-            const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
-
-            return Promise.all(weftToDelete.map(weft =>
-                axios.delete(`/collaretto/delete_weft/${weft}`)
-                    .then(() => {
-                        console.log(`🗑️ Deleted weft row: ${weft}`);
-                    })
-                    .catch(error => {
-                        console.error(`❌ Error deleting weft row: ${weft}`, error);
-                        throw error; // ✅ Ensures Promise.all rejects if any deletion fails
-                    })
-            ));
-        })
-
-        .then(() => {
-            // ✅ Reset state after successful save
-            setDeletedMattresses([]);
-            setDeletedAlong([]);
-            setDeletedWeft([]);
-            setUnsavedChanges(false);
-
-            refreshMattressCount();
-
-            // ✅ Show success message
-            setSuccessMessage("Saving completed successfully!");
-            setOpenSuccess(true);
-        })
-        .catch(() => {
-            // ❌ Show error if any API request fails
-            setErrorMessage("⚠️ An error occurred while saving. Please try again.");
-            setOpenError(true);
-        });
-    };
-
-    const getTablePlannedQuantities = (table) => {
-        const plannedQuantities = {};
-
-        table.rows.forEach(row => {
-            Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
-                const layers = parseInt(row.layers) || 0;
-                const pieces = parseInt(pcs) || 0;
-                plannedQuantities[size] = (plannedQuantities[size] || 0) + (pieces * layers);
+            )).then(results => {
+                const allSucceeded = results.every(result => result === true);
+                if (!allSucceeded) throw new Error("❌ Some weft rows failed to save.");
             });
-        });
+        };
 
-        return plannedQuantities;
-    };
+        saveMattresses()
+            .then(() => saveAlongRows())
+            .then(() => saveWeftRows())
+            .then(() => {
+                console.log("✅ All save operations completed.");
+                // ✅ Delete Only Rows That Were Removed from UI
+                console.log("🗑️ Mattresses to delete:", deletedMattresses);
+                const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
 
-    const getTablePlannedByBagno = (table) => {
-        const bagnoMap = {};
+                return Promise.all(mattressesToDelete.map(mattress =>
+                    axios.delete(`/mattress/delete/${mattress}`)
+                        .then(() => {
+                            console.log(`🗑️ Deleted mattress: ${mattress}`);
+                        })
+                        .catch(error => {
+                            console.error(`❌ Error deleting mattress: ${mattress}`, error);
+                            throw error;
+                        })
+                ));
+            })
+            .then(() => {
+                // ✅ Delete Only Along Rows Removed from the UI
+                console.log("🗑️ Along Rows to delete:", deletedAlong);
+                const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
 
-        table.rows.forEach(row => {
-            const bagno = row.bagno || 'Unknown';
+                return Promise.all(alongToDelete.map(along =>
+                    axios.delete(`/collaretto/delete/${along}`)
+                        .then(() => {
+                            console.log(`🗑️ Deleted along row: ${along}`);
+                        })
+                        .catch(error => {
+                            console.error(`❌ Error deleting along row: ${along}`, error);
+                            throw error;
+                        })
+                ));
+            })
+            .then(() => {
+                // ✅ Delete Only Weft Rows Removed from the UI
+                console.log("🗑️ Weft Rows to delete:", deletedWeft);
+                const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
 
-            Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
-                const layers = parseInt(row.layers) || 0;
-                const pieces = parseInt(pcs) || 0;
-                const total = pieces * layers;
+                return Promise.all(weftToDelete.map(weft =>
+                    axios.delete(`/collaretto/delete_weft/${weft}`)
+                        .then(() => {
+                            console.log(`🗑️ Deleted weft row: ${weft}`);
+                        })
+                        .catch(error => {
+                            console.error(`❌ Error deleting weft row: ${weft}`, error);
+                            throw error;
+                        })
+                ));
+            })
+            .then(() => {
+                setDeletedMattresses([]);
+                setDeletedAlong([]);    
+                setDeletedWeft([]);   
+                setUnsavedChanges(false);
 
-                if (!bagnoMap[bagno]) bagnoMap[bagno] = {};
-                bagnoMap[bagno][size] = (bagnoMap[bagno][size] || 0) + total;
+                setSuccessMessage("Saving completed successfully!");
+                setOpenSuccess(true);
+            })
+            .catch((error) => {
+                console.error("🚨 Final Save Error:", error);
+                setErrorMessage("⚠️ An error occurred while saving. Please try again.");
+                setOpenError(true);
             });
-        });
-
-        return bagnoMap;
     };
 
-    /* Function to Calculate Average Consumption for a Specific Table */
+    // Average Consumption for each Specific Table
     const calculateTableAverageConsumption = (table) => {
-        if (!table || !table.rows || table.rows.length === 0) return 0; // ✅ Prevent crashes
-
-        // ✅ Get planned quantities safely
+        if (!table || !table.rows || table.rows.length === 0) return 0;
+      
         const plannedQuantities = getTablePlannedQuantities(table) || {};
-        const totalPlannedPcs = Object.values(plannedQuantities).reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
-
-        // ✅ Sum all expected consumption for this table
-        const totalConsPlanned = table.rows.reduce(
-            (sum, row) => sum + (parseFloat(row.expectedConsumption) || 0), 0
-        );
-
-        if (totalPlannedPcs === 0) {
-            return 0;
-        }
+        const totalPlannedPcs = Object.values(plannedQuantities)
+          .reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
+      
+        const totalConsPlanned = table.rows
+            .filter(row => !isNaN(parseFloat(row.expectedConsumption)) && parseFloat(row.expectedConsumption) > 0)
+            .reduce((sum, row) => sum + parseFloat(row.expectedConsumption), 0);
+      
+        if (totalPlannedPcs === 0) return 0;
+      
         const avgConsumption = totalConsPlanned / totalPlannedPcs;
-        return avgConsumption.toFixed(2); // ✅ Ensure 2 decimal places
-    };
-
-    useEffect(() => {
-        const style = document.createElement("style");
-        style.innerHTML = `
-            @media print {
-                body {
-                    zoom: 50%; /* Adjust if necessary */
-                }
-                .scrollbar-container, .navbar, .buttons, .floating-action-button, .MuiButtonBase-root {
-                    display: none !important;
-                }
-                .main-content, .MuiContainer-root, .MuiGrid-root {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                }
-                .MuiTableContainer-root {
-                    overflow: visible !important;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }, []);
-
-    // Override history.block to show our custom dialog
-    useEffect(() => {
-        // This will be called when the user tries to navigate away
-        const unblock = history.block((location) => {
-            if (unsavedChanges) {
-                // Store the navigation function to be called after user confirms
-                setPendingNavigation(() => () => history.push(location.pathname));
-                setOpenUnsavedDialog(true);
-                return false; // Prevent immediate navigation
-            }
-            return true; // Allow navigation
-        });
-
-        return () => {
-            // Clean up when component unmounts
-            unblock();
-        };
-    }, [history, unsavedChanges]);
-
-    // Handle page navigation warning when unsaved changes exist (browser close/refresh)
-    useEffect(() => {
-        // Function to handle beforeunload event
-        const handleBeforeUnload = (event) => {
-            if (unsavedChanges) {
-                // Standard way to show a confirmation dialog before leaving the page
-                const message = "You have unsaved changes, either save or delete them.";
-                event.preventDefault();
-                event.returnValue = message; // For older browsers
-                return message; // For modern browsers
-            }
-        };
-
-        // Add event listener when component mounts or unsavedChanges changes
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
-        // Clean up event listener when component unmounts or unsavedChanges changes
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [unsavedChanges]);
-
-    const handlePrint = () => {
-        // Temporarily collapse menu
-        document.body.classList.add("print-mode");
-
-        setTimeout(() => {
-            window.print();
-            document.body.classList.remove("print-mode"); // Restore after printing
-        }, 300);
-    };
+      
+        return Number(avgConsumption.toFixed(2));
+      };
 
     const isTableEditable = (table) => {
         return table.rows.every(row => row.isEditable);
@@ -1536,6 +1309,7 @@ const OrderPlanning = () => {
                                     orderSizes={orderSizes}
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
+                                    getMetersByBagno={getMetersByBagno}
                                 />
                             </Box>
 
@@ -1544,9 +1318,11 @@ const OrderPlanning = () => {
 
                     <MattressGroupCard
                         table={table}
+                        tableId={table.id}
                         tables={tables}
-                        tableIndex={tableIndex}
                         fabricTypeOptions={fabricTypeOptions}
+                        spreadingMethods={spreadingMethods}
+                        spreadingOptions={spreadingOptions}
                         isTableEditable={isTableEditable}
                         setTables={setTables}
                         setUnsavedChanges={setUnsavedChanges}
@@ -1559,12 +1335,12 @@ const OrderPlanning = () => {
                                 <Table>
                                     <MattressTableHeader orderSizes={orderSizes} />
                                     <TableBody>
-                                        {table.rows.map((row, rowIndex) => (
+                                        {table.rows.map((row) => (
                                             <MattressRow
-                                            key={rowIndex}
+                                            key={row.id}
                                             row={row}
-                                            rowIndex={rowIndex}
-                                            tableIndex={tableIndex}
+                                            rowId={row.id}
+                                            tableId={table.id}
                                             table={table}
                                             orderSizes={orderSizes}
                                             markerOptions={markerOptions}
@@ -1572,7 +1348,6 @@ const OrderPlanning = () => {
                                             setTables={setTables}
                                             handleInputChange={handleInputChange}
                                             handleRemoveRow={handleRemoveRow}
-                                            updateExpectedConsumption={updateExpectedConsumption}
                                             setUnsavedChanges={setUnsavedChanges}
                                             />
                                         ))}
@@ -1582,11 +1357,11 @@ const OrderPlanning = () => {
 
                             {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
                             <MattressActionRow
-                                avgConsumption={avgConsumption}
-                                tableIndex={tableIndex}
+                                avgConsumption={avgConsumption[table.id]}
+                                tableId={table.id}
                                 isTableEditable={isTableEditable}
                                 table={table}
-                                handleAddRow={handleAddRow}
+                                handleAddRow={(tableId) => handleAddRow(tableId)}
                                 handleRemoveTable={handleRemoveTable}
                             />
 
