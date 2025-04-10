@@ -14,6 +14,7 @@ import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuanti
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
+import PadPrintInfoManual from 'views/planning/OrderPlanning/components/PadPrintInfoManual'; 
 
 // Mattress Components
 import MattressGroupCard from 'views/planning/OrderPlanning/components/MattressGroupCard';
@@ -77,6 +78,9 @@ const OrderPlanning = () => {
 
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
+    // Manual Pad Print
+    const [manualPattern, setManualPattern] = useState('');
+    const [manualColor, setManualColor] = useState('');
 
     // Fetch Brand
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
@@ -558,6 +562,8 @@ const OrderPlanning = () => {
             setSelectedColorCode("");
             clearBrand();
             clearPadPrintInfo();
+            setManualPattern('');
+            setManualColor('');
 
             setUnsavedChanges(false);
             setStyleTouched(false);
@@ -855,7 +861,7 @@ const OrderPlanning = () => {
         setAvgConsumption(newAvgConsumption);
       }, [tables]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
 
         const newMattressNames = new Set();
         const newAlongNames = new Set();
@@ -932,6 +938,21 @@ const OrderPlanning = () => {
             setErrorMessage(invalidWeftRow);
             setOpenError(true);
             return;
+        }
+
+        // ❗ Require manual pad print input if no padPrintInfo is available
+        if (!padPrintInfo) {
+            const isPatternMissing = !manualPattern || manualPattern.trim() === '';
+            const isColorMissing = !manualColor || manualColor.trim() === '';
+
+            const isPatternNo = manualPattern?.trim().toUpperCase() === 'NO';
+            const isColorNo = manualColor?.trim().toUpperCase() === 'NO';
+
+            if ((isPatternMissing || isColorMissing) && !(isPatternNo && isColorNo)) {
+                setErrorMessage("Please select a Pad Print pattern and color, or set both to 'NO'.");
+                setOpenError(true);
+                return;
+            }
         }
 
         // ✅ Proceed with valid mattress processing
@@ -1142,6 +1163,28 @@ const OrderPlanning = () => {
             });
         };
 
+        if (!padPrintInfo && manualPattern && manualColor) {
+            try {
+                await axios.post('/padprint/create', {
+                    brand: brand?.toUpperCase(),
+                    style: selectedStyle,
+                    color: selectedColorCode,
+                    season: selectedSeason,
+                    pattern: manualPattern,
+                    padprint_color: manualColor
+                });
+            } catch (error) {
+                if (error.response?.status === 409) {
+                    console.warn('⚠️ Pad Print entry already exists. Skipping creation.');
+                } else {
+                    console.error('❌ Failed to save manual Pad Print info:', error);
+                    setErrorMessage("⚠️ Failed to save manual Pad Print info. Please try again.");
+                    setOpenError(true);
+                    return;
+                }
+            }
+        }
+
         saveMattresses()
             .then(() => saveAlongRows())
             .then(() => saveWeftRows())
@@ -1197,7 +1240,7 @@ const OrderPlanning = () => {
             .then(() => {
                 setDeletedMattresses([]);
                 setDeletedAlong([]);    
-                setDeletedWeft([]);   
+                setDeletedWeft([]);
                 setUnsavedChanges(false);
 
                 setSuccessMessage("Saving completed successfully!");
@@ -1274,8 +1317,22 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
-            {/* Pad Print Section */}
-            <PadPrintInfo padPrintInfo={padPrintInfo} />
+            {selectedOrder && (
+                <>
+                    {/* Pad Print Section */}
+                    {padPrintInfo ? (
+                        <PadPrintInfo padPrintInfo={padPrintInfo} />
+                    ) : (
+                        <PadPrintInfoManual
+                            brand={brand?.toLowerCase()}
+                            pattern={manualPattern}
+                            setPattern={setManualPattern}
+                            color={manualColor}
+                            setColor={setManualColor}
+                        />
+                    )}
+                </>
+            )}
 
             <Box mt={2} />
 
@@ -2008,6 +2065,15 @@ const OrderPlanning = () => {
                         onClick={handleAddWeft}
                     >
                         Add Collaretto Weft (Trama)
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        color="secondary" // ✅ Different color to distinguish it
+                        startIcon={<AddCircleOutline />}
+                        onClick={handleAddWeft}
+                    >
+                        Add Collaretto Bias (Sbieco)
                     </Button>
                 </Box>
             )}

@@ -8,7 +8,9 @@ const useBrandInfo = () => {
     try {
       const response = await axios.get(`/zalli/get_brand/${styleCode}`);
       if (response.data.success) {
-        setBrand(response.data.brand || "");
+        const rawBrand = response.data.brand || "";
+        const correctedBrand = rawBrand.toLowerCase() === "intimissim" ? "INTIMISSIMI" : rawBrand.toUpperCase();
+        setBrand(correctedBrand);
       } else {
         setBrand("");
       }
