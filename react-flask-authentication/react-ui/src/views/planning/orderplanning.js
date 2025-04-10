@@ -75,8 +75,6 @@ const OrderPlanning = () => {
     const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
 
-
-
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
 
@@ -132,57 +130,46 @@ const OrderPlanning = () => {
         setPendingNavigation(null);
     };
 
-    const sortSizes = (sizes) => {
-        return sizes.sort((a, b) => {
-            const sizeA = a.size;
-            const sizeB = b.size;
-
-            // If both are numbers, sort numerically
-            if (!isNaN(sizeA) && !isNaN(sizeB)) {
-                return parseInt(sizeA) - parseInt(sizeB);
+    // Override history.block to show our custom dialog
+    useEffect(() => {
+        // This will be called when the user tries to navigate away
+        const unblock = history.block((location) => {
+            if (unsavedChanges) {
+                // Store the navigation function to be called after user confirms
+                setPendingNavigation(() => () => history.push(location.pathname));
+                setOpenUnsavedDialog(true);
+                return false; // Prevent immediate navigation
             }
-
-            // If both are letters, sort by predefined order
-            const indexA = sizeOrder.indexOf(sizeA);
-            const indexB = sizeOrder.indexOf(sizeB);
-
-            if (indexA !== -1 && indexB !== -1) {
-                return indexA - indexB;
-            }
-
-            // If one is a number and the other is a letter, prioritize letters first
-            if (!isNaN(sizeA)) return 1;
-            if (!isNaN(sizeB)) return -1;
-
-            // Default to alphabetical order for unknown cases
-            return sizeA.localeCompare(sizeB);
+            return true; // Allow navigation
         });
-    };
 
-    const handleAddTable = () => {
-        setTables(prevTables => [
-            ...prevTables,
-            {
-                id: uuidv4(),  // ✅ Unique ID for each table
-                fabricType: "",
-                fabricCode: "",
-                fabricColor: "",
-                spreadingMethod: "",
-                allowance: "",  // ✅ (Optional but useful if you're reading this later)
-                rows: [{
-                    width: "",
-                    markerName: "",
-                    piecesPerSize: {},
-                    markerLength: "",
-                    efficiency: "",
-                    layers: "",
-                    expectedConsumption: "",
-                    bagno: "",
-                    isEditable: true  // ✅ Default to true so the first row is editable
-                }]
+        return () => {
+            // Clean up when component unmounts
+            unblock();
+        };
+    }, [history, unsavedChanges]);
+
+    // Handle page navigation warning when unsaved changes exist (browser close/refresh)
+    useEffect(() => {
+        // Function to handle beforeunload event
+        const handleBeforeUnload = (event) => {
+            if (unsavedChanges) {
+                // Standard way to show a confirmation dialog before leaving the page
+                const message = "You have unsaved changes, either save or delete them.";
+                event.preventDefault();
+                event.returnValue = message; // For older browsers
+                return message; // For modern browsers
             }
-        ]);
-    };
+        };
+
+        // Add event listener when component mounts or unsavedChanges changes
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        // Clean up event listener when component unmounts or unsavedChanges changes
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [unsavedChanges]);
 
     /* fix this */
     const handleAddWeft = () => {
