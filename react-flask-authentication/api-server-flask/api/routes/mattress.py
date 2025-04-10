@@ -264,21 +264,34 @@ class GetMattressesByOrder(Resource):
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
 
-@ mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])
+@mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])
 class DeleteMattressResource(Resource):
     def delete(self, mattress_name):
-        try:
-            mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
-            if not mattress:
-                return {"success": False, "message": "Mattress not found"}, 404
+        max_retries = 2
+        retry_delay = 0.5  # seconds
 
-            db.session.delete(mattress)
-            db.session.commit()
+        for attempt in range(max_retries + 1):
+            try:
+                mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
 
-            return {"success": True, "message": f"Deleted mattress {mattress_name}"}, 200
+                if not mattress:
+                    return {"success": True, "message": f"Mattress {mattress_name} already deleted or not found"}, 200
 
-        except Exception as e:
-            return {"success": False, "message": str(e)}, 500
+                db.session.delete(mattress)
+                db.session.commit()
+
+                return {"success": True, "message": f"Deleted mattress {mattress_name}"}, 200
+
+            except Exception as e:
+                db.session.rollback()  # 🔥 THIS is the missing piece
+
+                if "deadlocked" in str(e).lower() and attempt < max_retries:
+                    print(f"⚠️ Deadlock detected, retrying delete for {mattress_name} (attempt {attempt + 1})...")
+                    time.sleep(retry_delay)
+                    continue
+
+                print(f"❌ Error deleting mattress {mattress_name}: {e}")
+                return {"success": False, "message": str(e)}, 500
         
 @ mattress_api.route('/all')
 class GetAllMattressesResource(Resource):

@@ -1195,21 +1195,29 @@ const OrderPlanning = () => {
                 .then(() => saveAlongRows())
                 .then(() => saveWeftRows())
                 .then(() => {
-                    console.log("✅ All save operations completed.");
                     // ✅ Delete Only Rows That Were Removed from UI
                     console.log("🗑️ Mattresses to delete:", deletedMattresses);
                     const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
 
-                    return Promise.all(mattressesToDelete.map(mattress =>
+                    return Promise.allSettled(mattressesToDelete.map(mattress =>
                         axios.delete(`/mattress/delete/${mattress}`)
-                            .then(() => {
-                                console.log(`🗑️ Deleted mattress: ${mattress}`);
-                            })
-                            .catch(error => {
-                                console.error(`❌ Error deleting mattress: ${mattress}`, error);
-                                throw error;
-                            })
-                    ));
+                          .then(() => {
+                            console.log(`🗑️ Deleted mattress: ${mattress}`);
+                            return { mattress, success: true };
+                          })
+                          .catch(error => {
+                            console.error(`❌ Error deleting mattress: ${mattress}`, error);
+                            return { mattress, success: false };
+                          })
+                      )).then(results => {
+                        const successfulDeletes = results
+                          .filter(r => r.status === 'fulfilled' && r.value.success)
+                          .map(r => r.value.mattress);
+                      
+                        setDeletedMattresses(prev =>
+                          prev.filter(name => !successfulDeletes.includes(name))
+                        );
+                    });
                 })
                 .then(() => {
                     // ✅ Delete Only Along Rows Removed from the UI
@@ -1244,7 +1252,6 @@ const OrderPlanning = () => {
                     ));
                 })
                 .then(() => {
-                    setDeletedMattresses([]);
                     setDeletedAlong([]);    
                     setDeletedWeft([]);
                     setUnsavedChanges(false);

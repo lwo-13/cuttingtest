@@ -33,7 +33,8 @@ const PadPrintInfo = ({ padPrintInfo }) => {
                     <Grid item xs={12} sm={4} md={3}>
                         <Box
                             component="img"
-                            src={`/padprint/uploads/${padPrintInfo.image_url.split('/').pop()}`}
+                            // to see it work on local host change it to this http://127.0.0.1:5000/api
+                            src={`http://172.27.57.210:5000/api/padprint/image/${padPrintInfo.pattern}.jpg`}
                             alt="Pad Print"
                             sx={{
                                 width: '100%',

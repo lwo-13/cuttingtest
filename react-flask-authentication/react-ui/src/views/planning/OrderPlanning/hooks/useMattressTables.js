@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 
+const addToDeletedIfNotExists = (name, setter) => {
+  setter(prev => (prev.includes(name) ? prev : [...prev, name]));
+};
+
 const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattresses }) => {
     const [tables, setTables] = useState([]);
 
@@ -15,7 +19,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         fabricCode: "",
         fabricColor: "",
         spreadingMethod: "",
-        allowance: "",
+        allowance: 0.02,
         spreading: "AUTOMATIC",
         rows: [
           {
@@ -53,9 +57,9 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         return prevTables;
       }
 
-      tableToRemove.rows.forEach(row => {
+      tableToRemove.rows.forEach((row) => {
         if (row.mattressName) {
-          setDeletedMattresses(prev => [...prev, row.mattressName]);
+          addToDeletedIfNotExists(row.mattressName, setDeletedMattresses);
         }
       });
 
@@ -117,7 +121,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         if (!rowToDelete || !rowToDelete.isEditable) return table;
 
         if (rowToDelete.mattressName) {
-          setDeletedMattresses(prev => [...prev, rowToDelete.mattressName]);
+          addToDeletedIfNotExists(rowToDelete.mattressName, setDeletedMattresses);
         }
 
         setUnsavedChanges(true);
