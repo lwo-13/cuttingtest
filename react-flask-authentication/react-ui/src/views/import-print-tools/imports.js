@@ -4,7 +4,7 @@ import axios from 'utils/axiosInstance';
 // material-ui
 import { Typography, Button, Card, CardContent, Grid, Box, Dialog, DialogTitle, DialogContent,
   DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField,
-  Select, MenuItem, InputLabel, FormControl, Snackbar, Alert
+  Select, MenuItem, InputLabel, FormControl, Snackbar, Alert, CircularProgress
 } from '@mui/material';
 
 // project imports
@@ -14,11 +14,18 @@ import MainCard from '../../ui-component/cards/MainCard';
 
 const CombinedImports = () => {
   const [selectedXML, setSelectedXML] = useState(null);
+  const [selectedXMLs, setSelectedXMLs] = useState([]);
   const [markerInfo, setMarkerInfo] = useState([]);
+  const [batchMarkerInfo, setBatchMarkerInfo] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [importStatus, setImportStatus] = useState("");
   const [hasEdits, setHasEdits] = useState(false);
   const [creationType, setCreationType] = useState('');
+  const [batchImportResults, setBatchImportResults] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [selectedFileForEdit, setSelectedFileForEdit] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const [openError, setOpenError] = useState(false);
   const [openSuccess, setOpenSuccess] = useState(false);
@@ -28,9 +35,27 @@ const CombinedImports = () => {
   const handleCloseError = () => setOpenError(false);
   const handleCloseSuccess = () => setOpenSuccess(false);
 
-  // Handle XML File Selection
+  // Handle Single XML File Selection
   const handleXMLChange = (event) => {
     setSelectedXML(event.target.files[0]);
+  };
+
+  // Handle Multiple XML Files Selection
+  const handleMultipleXMLChange = (event) => {
+    const files = Array.from(event.target.files);
+    setSelectedXMLs(files);
+
+    // Clear any previous marker info
+    setBatchMarkerInfo({});
+  };
+
+  // Open batch import dialog
+  const handleOpenBatchDialog = () => {
+    if (!selectedXMLs.length) {
+      alert('Please select XML files first.');
+      return;
+    }
+    setBatchDialogOpen(true);
   };
 
   // Parse XML and Open Dialog
@@ -51,15 +76,21 @@ const CombinedImports = () => {
       const newVariants = Array.from(xmlDoc.getElementsByTagName("NewVariant"));
       const extractedData = newVariants.map((variant) => {
         let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
-        
+
         // ✅ Trim season: keep everything after the first "_"
         const styleParts = fullStyle.split('_');
         const style = styleParts.slice(1).join('_');  // Removes season part
-      
+
+        // Extract rotation180 value
+        const rotation180Elem = variant.getElementsByTagName("Rotation180")[0];
+        const rotation180 = rotation180Elem ?
+          (rotation180Elem.getAttribute("Value") === "True") : false;
+
         return {
           style,  // Use the trimmed style
           size: variant.getElementsByTagName("Size")[0]?.getAttribute("Value") || "N/A",
-          qty: variant.getElementsByTagName("Quantity")[0]?.getAttribute("Value") || "0"
+          qty: variant.getElementsByTagName("Quantity")[0]?.getAttribute("Value") || "0",
+          rotation180: rotation180
         };
       });
 
@@ -75,14 +106,14 @@ const CombinedImports = () => {
     if (isSummary) {
       const summarizedData = summarizeMarkerInfo();
       const { style: oldStyle, size: oldSize } = summarizedData[summaryIndex];
-  
+
       const updatedMarkerInfo = markerInfo.map((line) => {
         if (line.style === oldStyle && line.size === oldSize) {
           return { ...line, [field]: value };  // Apply the change to RAW data
         }
         return line;
       });
-  
+
       setMarkerInfo(updatedMarkerInfo);
     } else {
       // Optional raw line edit (if you ever allow raw editing)
@@ -92,7 +123,7 @@ const CombinedImports = () => {
     }
     setHasEdits(true);
   };
-  
+
 
   // Handle Creation Type Change
   const handleCreationTypeChange = (event) => {
@@ -150,15 +181,191 @@ const CombinedImports = () => {
     setCreationType('');
   };
 
+  const handleBatchDialogClose = () => {
+    setBatchDialogOpen(false);
+    setBatchImportResults(null);
+    setSelectedXMLs([]);
+    setCreationType('');
+    setBatchMarkerInfo({});
+  };
+
+  // Parse XML file and extract marker content
+  const parseXMLFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        try {
+          const xmlString = e.target.result;
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+          // Extract data from <NewVariant> elements inside <MarkerContent>
+          const markerContent = xmlDoc.querySelector("MarkerContent");
+          if (!markerContent) {
+            resolve([]);
+            return;
+          }
+
+          const newVariants = Array.from(markerContent.getElementsByTagName("NewVariant"));
+          const extractedData = newVariants.map((variant) => {
+            let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
+
+            // Trim season: keep everything after the first "_"
+            const styleParts = fullStyle.split('_');
+            const style = styleParts.slice(1).join('_');  // Removes season part
+
+            // Extract rotation180 value
+            const rotation180Elem = variant.getElementsByTagName("Rotation180")[0];
+            const rotation180 = rotation180Elem ?
+              (rotation180Elem.getAttribute("Value") === "True") : false;
+
+            return {
+              style,  // Use the trimmed style
+              size: variant.getElementsByTagName("Size")[0]?.getAttribute("Value") || "N/A",
+              qty: variant.getElementsByTagName("Quantity")[0]?.getAttribute("Value") || "0",
+              rotation180: rotation180
+            };
+          });
+
+          resolve(extractedData);
+        } catch (error) {
+          console.error("Error parsing XML:", error);
+          resolve([]);
+        }
+      };
+
+      reader.onerror = () => {
+        console.error("Error reading file");
+        resolve([]);
+      };
+
+      reader.readAsText(file);
+    });
+  };
+
+  // Open edit dialog for a specific file
+  const handleOpenEditDialog = async (file) => {
+    if (!file) return;
+
+    setSelectedFileForEdit(file);
+
+    // Check if we already parsed this file
+    if (!batchMarkerInfo[file.name]) {
+      const markerData = await parseXMLFile(file);
+      setBatchMarkerInfo(prev => ({
+        ...prev,
+        [file.name]: markerData
+      }));
+    }
+
+    setEditDialogOpen(true);
+  };
+
+  // Close edit dialog
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setSelectedFileForEdit(null);
+  };
+
+  // Summarize marker info for a specific file
+  const summarizeBatchMarkerInfo = (fileName) => {
+    if (!batchMarkerInfo[fileName] || !batchMarkerInfo[fileName].length) {
+      return [];
+    }
+
+    const summary = {};
+    batchMarkerInfo[fileName].forEach(({ style, size, qty }) => {
+      const key = `${style}-${size}`;
+      if (!summary[key]) {
+        summary[key] = { style, size, qty: 0 };
+      }
+      summary[key].qty += Number(qty); // Force numeric addition
+    });
+    return Object.values(summary);
+  };
+
+  // Handle field change in batch edit mode
+  const handleBatchFieldChange = (fileName, summaryIndex, field, value) => {
+    if (!batchMarkerInfo[fileName]) return;
+
+    const summarizedData = summarizeBatchMarkerInfo(fileName);
+    const { style: oldStyle, size: oldSize } = summarizedData[summaryIndex];
+
+    const updatedMarkerInfo = batchMarkerInfo[fileName].map((line) => {
+      if (line.style === oldStyle && line.size === oldSize) {
+        return { ...line, [field]: value };  // Apply the change to RAW data
+      }
+      return line;
+    });
+
+    setBatchMarkerInfo(prev => ({
+      ...prev,
+      [fileName]: updatedMarkerInfo
+    }));
+  };
+
+  // Perform batch import of multiple markers
+  const handleBatchImport = async () => {
+    if (!selectedXMLs.length) {
+      alert('Please select XML files first.');
+      return;
+    }
+
+    if (!creationType) {
+      alert('Please select a creation type.');
+      return;
+    }
+
+    setIsImporting(true);
+
+    const formData = new FormData();
+    selectedXMLs.forEach(file => {
+      formData.append('files[]', file);
+    });
+    formData.append('creationType', creationType);
+
+    // Add marker content data if available
+    if (Object.keys(batchMarkerInfo).length > 0) {
+      formData.append('markerContentData', JSON.stringify(batchMarkerInfo));
+    }
+
+    try {
+      const response = await axios.post('/markers/batch_import_markers', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setBatchImportResults(response.data);
+
+      const { summary } = response.data;
+      if (summary.success > 0) {
+        if (summary.failure > 0) {
+          setSuccessMessage(`✅ Imported ${summary.success} markers successfully. ${summary.failure} markers failed.`);
+        } else {
+          setSuccessMessage(`✅ All ${summary.success} markers imported successfully!`);
+        }
+        setOpenSuccess(true);
+      } else {
+        setErrorMessage(`❌ Failed to import any markers. Please check the error details.`);
+        setOpenError(true);
+      }
+    } catch (error) {
+      setErrorMessage(`❌ Batch import failed: ${error.response?.data?.msg || error.message}`);
+      setOpenError(true);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <MainCard title="Imports">
       <Grid container spacing={2} justifyContent="center">
-        {/* XML Import Section */}
-        <Grid item xs={12}>
-          <Card variant="outlined" style={{ textAlign: 'center', width: '100%'  }}>
+        {/* Single XML Import Section */}
+        <Grid item xs={12} md={6}>
+          <Card variant="outlined" style={{ textAlign: 'center', width: '100%', height: '100%' }}>
             <CardContent>
               <Typography variant="h5" gutterBottom>
-                Import Marker (<strong>XML</strong> file)
+                Import Single Marker
               </Typography>
 
               <input
@@ -167,7 +374,7 @@ const CombinedImports = () => {
                 id="xml-file-input"
                 onChange={handleXMLChange}
                 style={{ display: 'none' }}
-                key={selectedXML ? selectedXML.name : ''} 
+                key={selectedXML ? selectedXML.name : ''}
               />
 
               <Button
@@ -185,7 +392,6 @@ const CombinedImports = () => {
                 </Typography>
               </Box>
 
-              {/* ✅ This button now opens the dialog after parsing XML */}
               <Button
                 variant="contained"
                 color="primary"
@@ -194,6 +400,54 @@ const CombinedImports = () => {
                 style={{ marginTop: '8px' }}
               >
                 Import
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Multiple XML Import Section */}
+        <Grid item xs={12} md={6}>
+          <Card variant="outlined" style={{ textAlign: 'center', width: '100%', height: '100%' }}>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>
+                Batch Import Markers
+              </Typography>
+
+              <input
+                type="file"
+                accept=".xml"
+                id="multiple-xml-file-input"
+                onChange={handleMultipleXMLChange}
+                style={{ display: 'none' }}
+                multiple
+                key={selectedXMLs.length > 0 ? 'files-selected' : 'no-files'}
+              />
+
+              <Button
+                variant="outlined"
+                component="label"
+                htmlFor="multiple-xml-file-input"
+                style={{ marginTop: '8px' }}
+              >
+                Choose Files
+              </Button>
+
+              <Box mt={2}>
+                <Typography variant="body2" align="center">
+                  {selectedXMLs.length > 0
+                    ? `${selectedXMLs.length} file${selectedXMLs.length > 1 ? 's' : ''} selected`
+                    : 'No files chosen'}
+                </Typography>
+              </Box>
+
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleOpenBatchDialog}
+                disabled={selectedXMLs.length === 0}
+                style={{ marginTop: '8px' }}
+              >
+                Import Batch
               </Button>
             </CardContent>
           </Card>
@@ -291,11 +545,213 @@ const CombinedImports = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Batch Import Dialog */}
+      <Dialog open={batchDialogOpen} onClose={handleBatchDialogClose} fullWidth maxWidth="md">
+        <DialogTitle>Batch Import Markers</DialogTitle>
+        <DialogContent>
+          {/* Creation Type Dropdown */}
+          <FormControl fullWidth sx={{ mt: 2, mb: 3 }}>
+            <InputLabel>Creation Type</InputLabel>
+            <Select
+              value={creationType}
+              onChange={(e) => setCreationType(e.target.value)}
+              label="Creation Type"
+              sx={{ borderRadius: '8px' }}
+            >
+              <MenuItem value="">Select Creation Type</MenuItem>
+              <MenuItem value="Cloud">Cloud</MenuItem>
+              <MenuItem value="Cloud Urgent">Cloud Urgent</MenuItem>
+              <MenuItem value="Local">Local</MenuItem>
+              <MenuItem value="Manual">Manual</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Files with import results */}
+          <Box sx={{ width: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="subtitle1">
+                Files to be imported ({selectedXMLs.length}):
+              </Typography>
+
+              {batchImportResults && (
+                <Box sx={{ display: 'flex', gap: 3 }}>
+                  <Typography>
+                    <strong>Total:</strong> {batchImportResults.summary.total}
+                  </Typography>
+                  <Typography color="success.main">
+                    <strong>Success:</strong> {batchImportResults.summary.success}
+                  </Typography>
+                  <Typography color="error.main">
+                    <strong>Failed:</strong> {batchImportResults.summary.failure}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+
+            <TableContainer component={Paper} sx={{ height: 350 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell width="5%"><strong>#</strong></TableCell>
+                    <TableCell width="35%"><strong>Filename</strong></TableCell>
+                    <TableCell width="45%"><strong>Status / Message</strong></TableCell>
+                    <TableCell width="15%"><strong>Actions</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {selectedXMLs.map((file, index) => {
+                    // Find the corresponding result if available
+                    const result = batchImportResults?.results.find(r => r.filename === file.name);
+                    const isSuccess = result?.success;
+                    const message = result?.msg;
+                    const hasMarkerInfo = batchMarkerInfo[file.name] && batchMarkerInfo[file.name].length > 0;
+
+                    return (
+                      <TableRow
+                        key={index}
+                        sx={{
+                          bgcolor: result ? (isSuccess ? 'success.light' : 'error.light') : 'inherit'
+                        }}
+                      >
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{file.name}</TableCell>
+                        <TableCell>
+                          {result ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {isSuccess ? (
+                                <>
+                                  <span>✅</span>
+                                  <Typography variant="body2" color="success.main">Success</Typography>
+                                </>
+                              ) : (
+                                <>
+                                  <span>❌</span>
+                                  <Typography variant="body2" color="error.main">{message}</Typography>
+                                </>
+                              )}
+                            </Box>
+                          ) : hasMarkerInfo ? (
+                            <Typography variant="body2" color="info.main">
+                              <span>ℹ</span> Marker content edited
+                            </Typography>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {!batchImportResults && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              onClick={() => handleOpenEditDialog(file)}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
+          {/* Edit Dialog for Marker Content */}
+          <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="md">
+            <DialogTitle>
+              Edit Marker Content: {selectedFileForEdit?.name}
+            </DialogTitle>
+            <DialogContent>
+              {selectedFileForEdit && batchMarkerInfo[selectedFileForEdit.name] ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Summarized by Style and Size
+                  </Typography>
+                  <TableContainer component={Paper} sx={{ height: 300 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell width="40%"><strong>Style</strong></TableCell>
+                          <TableCell width="30%"><strong>Size</strong></TableCell>
+                          <TableCell width="30%"><strong>Quantity</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {summarizeBatchMarkerInfo(selectedFileForEdit.name).map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <TextField
+                                value={item.style}
+                                onChange={(e) => handleBatchFieldChange(selectedFileForEdit.name, index, 'style', e.target.value)}
+                                variant="standard"
+                                fullWidth
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <TextField
+                                value={item.size}
+                                onChange={(e) => handleBatchFieldChange(selectedFileForEdit.name, index, 'size', e.target.value)}
+                                variant="standard"
+                                fullWidth
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography>{item.qty}</Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>Note:</strong> You can edit the style and size.
+                      Changes will be applied to all matching items in the file.
+                      The quantity is automatically summed and cannot be edited directly.
+                    </Typography>
+                  </Box>
+                </Box>
+              ) : (
+                <Typography>Loading marker content...</Typography>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseEditDialog} color="primary">
+                Done
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </DialogContent>
+
+        <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
+          {!batchImportResults ? (
+            <Button
+              onClick={handleBatchImport}
+              color="primary"
+              variant="contained"
+              disabled={isImporting || !creationType || selectedXMLs.length === 0}
+              startIcon={isImporting ? <CircularProgress size={20} /> : null}
+            >
+              {isImporting ? 'Importing...' : 'Import All'}
+            </Button>
+          ) : null}
+
+          <Button
+            onClick={handleBatchDialogClose}
+            color="secondary"
+            variant="outlined"
+          >
+            {batchImportResults ? 'Close' : 'Cancel'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* ✅ Success Snackbar */}
-      <Snackbar 
-        open={openSuccess} 
-        autoHideDuration={5000} 
-        onClose={handleCloseSuccess} 
+      <Snackbar
+        open={openSuccess}
+        autoHideDuration={5000}
+        onClose={handleCloseSuccess}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert onClose={handleCloseSuccess} severity="success" sx={{ width: '100%' }}>
@@ -304,10 +760,10 @@ const CombinedImports = () => {
       </Snackbar>
 
       {/* ❌ Error Snackbar */}
-      <Snackbar 
-        open={openError} 
-        autoHideDuration={5000} 
-        onClose={handleCloseError} 
+      <Snackbar
+        open={openError}
+        autoHideDuration={5000}
+        onClose={handleCloseError}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
