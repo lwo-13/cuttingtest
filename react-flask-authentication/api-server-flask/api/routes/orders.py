@@ -12,10 +12,27 @@ class OrderLines(Resource):
         try:
             # Optionally filter by order_commessa if provided as a query parameter.
             order_commessa = request.args.get('order_commessa')
+            min_order_prefix = request.args.get('min_prefix', '24')  # Default to '24' if not specified
+
             query = OrderLinesView.query
+
+            # Apply order_commessa filter if provided
             if order_commessa:
                 query = query.filter_by(order_commessa=order_commessa)
-            
+            else:
+                # Filter for orders that start with numbers 24 and onwards
+                # Use LIKE to filter for orders that start with digits 2-9
+                query = query.filter(
+                    (OrderLinesView.order_commessa.like('2%') & (OrderLinesView.order_commessa >= min_order_prefix)) |
+                    OrderLinesView.order_commessa.like('3%') |
+                    OrderLinesView.order_commessa.like('4%') |
+                    OrderLinesView.order_commessa.like('5%') |
+                    OrderLinesView.order_commessa.like('6%') |
+                    OrderLinesView.order_commessa.like('7%') |
+                    OrderLinesView.order_commessa.like('8%') |
+                    OrderLinesView.order_commessa.like('9%')
+                )
+
             # Fetch order lines sorted by 'order_commessa'
             data = query.order_by(OrderLinesView.order_commessa).all()
 
@@ -29,7 +46,7 @@ class OrderLines(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-        
+
 @orders_api.route('/order_lines/without_ratios', methods=['GET'])
 class OrdersWithoutRatios(Resource):
     def get(self):
@@ -63,7 +80,7 @@ class OrdersWithoutRatios(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-               
+
 @orders_api.route('/ratios/update')
 class UpdateOrderRatios(Resource):
     def patch(self):
@@ -106,7 +123,7 @@ class OrdersWithoutRatiosCount(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-        
+
 @orders_api.route('/order_lines/styles', methods=['GET'])
 class OrderLineStyles(Resource):
     def get(self):

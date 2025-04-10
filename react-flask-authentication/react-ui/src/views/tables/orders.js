@@ -62,7 +62,12 @@ const Orders = () => {
     // Fetch all data from API (only once)
     useEffect(() => {
         setLoading(true);
-        axios.get(`/orders/order_lines`)
+        // Use the min_prefix parameter to only fetch orders starting with 24 and onwards
+        axios.get(`/orders/order_lines`, {
+            params: {
+                min_prefix: '24' // Only fetch orders starting with 24 and onwards
+            }
+        })
             .then((response) => {
                 if (response.data.success) {
                     setOrders(response.data.data);
@@ -75,11 +80,23 @@ const Orders = () => {
     }, []);
 
     // Filter data locally in the frontend
-    const filteredOrders = orders.filter(order =>
-        Object.values(order).some(value =>
-            value.toString().toLowerCase().includes(filterText.toLowerCase())
-        )
-    );
+    const filteredOrders = orders
+        // First filter to only include orders starting with numbers 24 and onwards
+        .filter(order => {
+            const orderCommessa = order.order_commessa;
+            // Check if it starts with a digit
+            if (!/^\d/.test(orderCommessa)) {
+                return false; // Skip orders that don't start with a digit
+            }
+            // Check if it starts with 24 or higher
+            return orderCommessa >= '24';
+        })
+        // Then apply the user's filter text
+        .filter(order =>
+            Object.values(order).some(value =>
+                value.toString().toLowerCase().includes(filterText.toLowerCase())
+            )
+        );
 
     // Table Columns
     const columns = [
