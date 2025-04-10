@@ -15,7 +15,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         fabricCode: "",
         fabricColor: "",
         spreadingMethod: "",
-        allowance: "",
+        allowance: 0.02,
         spreading: "AUTOMATIC",
         rows: [
           {
