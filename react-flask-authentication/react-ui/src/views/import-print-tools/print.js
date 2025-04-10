@@ -20,7 +20,7 @@ const CustomPagination = (props) => {
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden',
-                minHeight: '52px' 
+                minHeight: '52px'
             }}
         >
             <TablePagination
@@ -52,7 +52,7 @@ const MattressTable = () => {
     const [loading, setLoading] = useState(true);
     const [filterText, setFilterText] = useState("");
     const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
-    const [selectedMattresses, setSelectedMattresses] = useState([]);  
+    const [selectedMattresses, setSelectedMattresses] = useState([]);
 
     // ✅ Adjust table height dynamically when the window resizes
     useEffect(() => {
@@ -69,12 +69,12 @@ const MattressTable = () => {
             setSelectedMattresses([]); // ✅ If nothing is selected, clear state
             return;
         }
-    
+
         // ✅ Find selected mattresses from `mattresses` array
         const selected = mattresses.filter(m => newSelection.includes(m.mattress));
-    
+
         console.log("New Selection:", selected); // 🔍 Debugging - shows selected objects
-    
+
         setSelectedMattresses(selected); // ✅ Store selected objects
     };
 
@@ -85,21 +85,21 @@ const MattressTable = () => {
                 console.log("API Response:", response.data);
                 if (response.data.success) {
                     const updatedMattresses = response.data.data.map(mattress => {
-                        const printTravelStatus = mattress.details.length > 0 
-                            ? mattress.details[0].print_travel 
+                        const printTravelStatus = mattress.details.length > 0
+                            ? mattress.details[0].print_travel
                             : false;
-    
-                        const printMarkerStatus = mattress.details.length > 0 
-                            ? mattress.details[0].print_marker 
+
+                        const printMarkerStatus = mattress.details.length > 0
+                            ? mattress.details[0].print_marker
                             : false;
-    
+
                         return {
                             ...mattress,
                             print_travel: printTravelStatus,
                             print_marker: printMarkerStatus
                         };
                     });
-    
+
                     setMattresses(updatedMattresses);
                 } else {
                     console.error("Failed to fetch mattress data.");
@@ -115,12 +115,30 @@ const MattressTable = () => {
     }, []);
 
     // Filter data locally
-    const filteredMattresses = mattresses.filter(mattress =>
-        Object.values(mattress).some(value =>
-            value.toString().toLowerCase().includes(filterText.toLowerCase())
-        )
-    );
-    
+    const filteredMattresses = mattresses.filter(mattress => {
+        // Define the specific fields to search through
+        const searchableFields = [
+            mattress.mattress,
+            mattress.order_commessa,
+            mattress.fabric_type,
+            mattress.fabric_code,
+            mattress.fabric_color,
+            mattress.dye_lot,
+            mattress.item_type,
+            mattress.spreading_method
+        ];
+
+        // Convert filter text to lowercase for case-insensitive search
+        const searchText = filterText.toLowerCase();
+
+        // Check if any of the fields contain the search text
+        return searchableFields.some(field =>
+            field !== null &&
+            field !== undefined &&
+            field.toString().toLowerCase().includes(searchText)
+        );
+    });
+
 
     // Table Columns
     const columns = [
@@ -132,13 +150,13 @@ const MattressTable = () => {
         { field: 'dye_lot', headerName: 'Dye Lot', width: 130 },
         { field: 'item_type', headerName: 'Item Type', width: 100 },
         { field: 'spreading_method', headerName: 'Spreading Method', width: 180 },
-        { 
-            field: 'print_travel', 
-            headerName: 'Printed', 
-            width: 160, 
+        {
+            field: 'print_travel',
+            headerName: 'Printed',
+            width: 160,
             renderCell: (params) => (
                 params.value ? "✅ Printed" : ""
-            ) 
+            )
         }
     ];
 
@@ -157,10 +175,10 @@ const MattressTable = () => {
                         onChange={(e) => setFilterText(e.target.value)}
                         sx={{ '& input': { fontWeight: 'normal' } }}
                     />
-    
+
                     {/* Print Button EN
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         color="primary"
                         onClick={() => printMattressEN(selectedMattresses, fetchMattresses)}// ✅ Calls the print function
                         startIcon={<Print />}
@@ -169,8 +187,8 @@ const MattressTable = () => {
                     </Button> */}
 
                     {/* Save Button */}
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         color="primary"
                         onClick={() => saveMattressBG(selectedMattresses, fetchMattresses)}
                         startIcon={<PictureAsPdfIcon />}
@@ -179,8 +197,8 @@ const MattressTable = () => {
                     </Button>
 
                     {/* Print Button */}
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         color="primary"
                         onClick={() => printMattressBG(selectedMattresses, fetchMattresses)}// ✅ Calls the print function
                         startIcon={<Print />}
@@ -225,7 +243,7 @@ const MattressTable = () => {
             )}
         </MainCard>
     );
-    
+
 };
 
 export default MattressTable;
