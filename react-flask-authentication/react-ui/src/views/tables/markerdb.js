@@ -30,7 +30,8 @@ const CustomPagination = (props) => {
         <Box
             sx={{
                 display: 'flex',
-                justifyContent: 'flex-end', // ✅ Align pagination to the right
+                justifyContent: 'flex-start', // Changed to flex-start to move content left
+                width: '100%', // Ensure full width
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden', // ✅ Prevent scrolling
@@ -45,7 +46,7 @@ const CustomPagination = (props) => {
                     minHeight: '52px',
                     display: 'flex', // Ensures elements don’t wrap
                     alignItems: 'center',
-                    justifyContent: 'flex-end', // ✅ Keeps pagination on the right
+                    justifyContent: 'flex-start', // Changed to flex-start to move content left
                     fontSize: '1.2rem',
                     '.MuiTablePagination-actions button': {
                         fontSize: '1.2rem', // Bigger navigation buttons
@@ -54,6 +55,10 @@ const CustomPagination = (props) => {
                     },
                     '.MuiTablePagination-select': {
                         fontSize: '1.2rem'  // Increase dropdown font size
+                    },
+                    // Move the page info to the left
+                    '.MuiTablePagination-displayedRows': {
+                        marginLeft: '20px'
                     }
                 }}
             />
@@ -93,7 +98,7 @@ const MarkerDB = () => {
             .catch((error) => console.error("Error fetching marker data:", error))
             .finally(() => setLoading(false));
     };
-    
+
     // ✅ Call fetchMarkers in useEffect
     useEffect(() => {
         fetchMarkers();
@@ -102,15 +107,15 @@ const MarkerDB = () => {
     // Handle Selection Change
     const handleSelectionChange = (newSelection) => {
         console.log("Selection Model:", newSelection); // 🔍 Debugging
-    
+
         if (!newSelection.length) {
             setSelectedMarkers([]); // ✅ Clear selection if none
             return;
         }
-    
+
         // ✅ Extract selected marker IDs from `newSelection` directly
         setSelectedMarkers(newSelection);
-        
+
         console.log("Selected Marker IDs:", newSelection); // 🔍 Debugging
     };
 
@@ -131,20 +136,20 @@ const MarkerDB = () => {
 
     const handleSetNotActive = async () => {
         if (!selectedMarkers.length) return;
-    
+
         console.log("Sending marker IDs:", selectedMarkers); // ✅ Debugging
-    
+
         try {
             const response = await axios.post('/markers/set_not_active', {
                 marker_ids: selectedMarkers  // ✅ Send the ID array directly
             });
-    
+
             if (response.data.success) {
                 console.log("Markers updated successfully");
-    
+
                 // ✅ Re-fetch markers after update
                 fetchMarkers();
-    
+
                 // ✅ Clear selection
                 setSelectedMarkers([]);
             } else {
@@ -187,8 +192,8 @@ const MarkerDB = () => {
     return (
         <>
             <MainCard title="Marker Database" secondary={
-                <Button 
-                    variant="contained" 
+                <Button
+                    variant="contained"
                     color="secondary"
                     onClick={handleSetNotActive} // ✅ Calls the function to set as NOT ACTIVE
                     startIcon={<Block />} // ✅ Uses a Print icon
@@ -220,7 +225,8 @@ const MarkerDB = () => {
                                     minHeight: '52px', // ✅ Ensures proper alignment
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'flex-end' // ✅ Keeps pagination on the right
+                                    justifyContent: 'flex-start', // Changed to flex-start to move content left
+                                    width: '100%' // Ensure full width
                                 }
                             }}
                             components={{

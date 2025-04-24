@@ -13,17 +13,18 @@ const backendBaseUrl = axios.defaults.baseURL.replace('/api', '');
 // Available brands
 const brands = ["CALZEDONIA", "INTIMISSIMI", "FALCONERI", "TEZENIS"];
 
-// Custom Pagination Component
+// Custom Pagination Component with Left-Aligned Page Info
 const CustomPagination = (props) => {
   return (
     <Box
       sx={{
         display: 'flex',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start', // Changed to flex-start to move content left
         alignItems: 'center',
         padding: 2,
         overflow: 'hidden',
-        minHeight: '52px'
+        minHeight: '52px',
+        width: '100%' // Ensure full width
       }}
     >
       <TablePagination
@@ -34,7 +35,7 @@ const CustomPagination = (props) => {
           minHeight: '52px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'flex-end',
+          justifyContent: 'flex-start', // Changed to flex-start to move content left
           fontSize: '1.2rem',
           '.MuiTablePagination-actions button': {
             fontSize: '1.2rem',
@@ -43,6 +44,10 @@ const CustomPagination = (props) => {
           },
           '.MuiTablePagination-select': {
             fontSize: '1.2rem'
+          },
+          // Move the page info to the left
+          '.MuiTablePagination-displayedRows': {
+            marginLeft: '20px'
           }
         }}
       />
@@ -61,11 +66,11 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
       pattern: '',
       date: dayjs().format('YYYY-MM-DD')  // Set default date to today
     });
-  
+
     const handleChange = (e) => {
       setFormData({ ...formData, [e.target.name]: e.target.value });
     };
-  
+
     const handleSubmit = async () => {
       try {
         const response = await axios.post("/padprint/create", formData);
@@ -76,7 +81,7 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
         console.error("Error creating pad print:", error.response ? error.response.data : error.message);
       }
     };
-  
+
     return (
       <Dialog open={open} onClose={handleClose}>
         <DialogContent>
@@ -99,21 +104,21 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
               ))}
             </Select>
           </FormControl>
-          
+
           <TextField label="Style" name="style" fullWidth margin="normal" value={formData.style} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
           <TextField label="Color" name="color" fullWidth margin="normal" value={formData.color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}/>
           <TextField label="Season" name="season" fullWidth margin="normal" value={formData.season} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
           <TextField label="Pattern" name="pattern" fullWidth margin="normal" value={formData.pattern} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
           <TextField label="Pad Print Color" name="padprint_color" fullWidth margin="normal" value={formData.padprint_color} onChange={handleChange} sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }} />
-  
+
           {/* Read-only Date Field */}
-          <TextField 
-            label="Date" 
-            name="date" 
-            fullWidth 
-            margin="normal" 
-            value={formData.date} 
-            InputProps={{ readOnly: true }} 
+          <TextField
+            label="Date"
+            name="date"
+            fullWidth
+            margin="normal"
+            value={formData.date}
+            InputProps={{ readOnly: true }}
             sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}
           />
         </DialogContent>
@@ -194,13 +199,13 @@ const PadPrints = () => {
     try {
       const response = await axios.get('/padprint/all');
       const data = response.data;
-  
+
       if (!Array.isArray(data)) throw new Error("Unexpected response format");
-  
+
       const filteredByBrand = brand
         ? data.filter((item) => item.brand?.toUpperCase() === brand.toUpperCase())
         : data;
-  
+
       setPadPrints(filteredByBrand);
       setLoading(false);
     } catch (error) {
@@ -231,7 +236,7 @@ const PadPrints = () => {
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm("Do you really want to delete this pad-print?");
     if (!confirmDelete) return;
-  
+
     try {
       await axios.delete(`/padprint/${id}`);
       setPadPrints(prev => prev.filter(item => item.id !== id));
@@ -291,9 +296,9 @@ const PadPrints = () => {
         const padPrint = params.row;
         return (
           <Box>
-            <Button 
-              variant="outlined" 
-              size="small" 
+            <Button
+              variant="outlined"
+              size="small"
               onClick={() => {
                 setOpenEditModal(true);
                 setEditingPadPrint(padPrint);
@@ -301,10 +306,10 @@ const PadPrints = () => {
             >
               Edit
             </Button>
-            <Button 
-              variant="outlined" 
-              size="small" 
-              color="error" 
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
               onClick={() => handleDelete(padPrint.id)}
               sx={{ ml: 1 }}
             >
@@ -317,7 +322,7 @@ const PadPrints = () => {
   ];
 
   return (
-    <MainCard 
+    <MainCard
       title={`Pad Prints - ${brand ? brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase() : ""}`}
       secondary={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -357,13 +362,23 @@ const PadPrints = () => {
             pageSize={25}
             rowsPerPageOptions={[25, 50, 100]}
             pagination
+            sx={{
+              '& .MuiTablePagination-root': {
+                overflow: 'hidden',
+                minHeight: '52px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start', // Changed to flex-start to move content left
+                width: '100%' // Ensure full width
+              }
+            }}
             components={{ Pagination: CustomPagination }}
           />
         </div>
       )}
       <Dialog open={open} onClose={handleClose} maxWidth="md">
-        <IconButton 
-          style={{ position: 'absolute', right: 8, top: 8 }} 
+        <IconButton
+          style={{ position: 'absolute', right: 8, top: 8 }}
           onClick={handleClose}
         >
           <CloseIcon />

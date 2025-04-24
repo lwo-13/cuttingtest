@@ -10,17 +10,18 @@ import saveMattressBG from 'views/import-print-tools/Print/saveBG';
 import printMattressBG from 'views/import-print-tools/Print/printBG';
 import printMattressEN from 'views/import-print-tools/Print/printEN';
 
-// Custom Pagination Component to Disable Scrolling
+// Custom Pagination Component with Left-Aligned Page Info
 const CustomPagination = (props) => {
     return (
         <Box
             sx={{
                 display: 'flex',
-                justifyContent: 'flex-end',
+                justifyContent: 'flex-start', // Changed to flex-start to move content left
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden',
-                minHeight: '52px'
+                minHeight: '52px',
+                width: '100%' // Ensure full width
             }}
         >
             <TablePagination
@@ -31,7 +32,7 @@ const CustomPagination = (props) => {
                     minHeight: '52px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-end',
+                    justifyContent: 'flex-start', // Changed to flex-start to move content left
                     fontSize: '1.2rem',
                     '.MuiTablePagination-actions button': {
                         fontSize: '1.2rem',
@@ -40,6 +41,10 @@ const CustomPagination = (props) => {
                     },
                     '.MuiTablePagination-select': {
                         fontSize: '1.2rem'
+                    },
+                    // Move the page info to the left
+                    '.MuiTablePagination-displayedRows': {
+                        marginLeft: '20px'
                     }
                 }}
             />
@@ -232,7 +237,8 @@ const MattressTable = () => {
                                 minHeight: '52px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'flex-end'
+                                justifyContent: 'flex-start', // Changed to flex-start to move content left
+                                width: '100%' // Ensure full width
                             }
                         }}
                         components={{

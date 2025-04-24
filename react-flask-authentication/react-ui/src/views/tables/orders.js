@@ -4,17 +4,18 @@ import { DataGrid } from '@mui/x-data-grid';
 import { CircularProgress, Box, TextField, Typography, TablePagination } from '@mui/material';
 import MainCard from '../../ui-component/cards/MainCard';
 
-// Custom Pagination Component to Disable Scrolling
+// Custom Pagination Component to Disable Scrolling and Move Page Info Left
 const CustomPagination = (props) => {
     return (
         <Box
             sx={{
                 display: 'flex',
-                justifyContent: 'flex-end',
+                justifyContent: 'flex-start', // Changed to flex-start to move content left
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden', // ✅ Prevents scrolling
-                minHeight: '52px' // ✅ Ensures enough height to avoid cut-off elements
+                minHeight: '52px', // ✅ Ensures enough height to avoid cut-off elements
+                width: '100%' // Ensure full width
             }}
         >
             <TablePagination
@@ -25,7 +26,7 @@ const CustomPagination = (props) => {
                     minHeight: '52px',
                     display: 'flex', // Ensures elements don't wrap
                     alignItems: 'center',
-                    justifyContent: 'flex-end',
+                    justifyContent: 'flex-start', // Changed to flex-start to move content left
                     fontSize: '1.2rem',   // Bigger font size
                     '.MuiTablePagination-actions button': {
                         fontSize: '1.2rem', // Bigger navigation buttons
@@ -34,6 +35,10 @@ const CustomPagination = (props) => {
                     },
                     '.MuiTablePagination-select': {
                         fontSize: '1.2rem'  // Increase dropdown font size
+                    },
+                    // Move the page info to the left
+                    '.MuiTablePagination-displayedRows': {
+                        marginLeft: '20px'
                     }
                 }}
             />
@@ -151,7 +156,8 @@ const Orders = () => {
                                 minHeight: '52px', // ✅ Makes sure everything is properly aligned
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'flex-end' // ✅ Align pagination to the right
+                                justifyContent: 'flex-start', // Changed to flex-start to move content left
+                                width: '100%' // Ensure full width
                             }
                         }}
                         components={{
