@@ -14,7 +14,7 @@ import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuanti
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
-import PadPrintInfoManual from 'views/planning/OrderPlanning/components/PadPrintInfoManual'; 
+import PadPrintInfoManual from 'views/planning/OrderPlanning/components/PadPrintInfoManual';
 
 // Mattress Components
 import MattressGroupCard from 'views/planning/OrderPlanning/components/MattressGroupCard';
@@ -36,7 +36,7 @@ import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
 
-// Spreading Options 
+// Spreading Options
 const spreadingOptions = ["AUTOMATIC", "MANUAL"];
 
 // Spreading Methods
@@ -384,13 +384,13 @@ const OrderPlanning = () => {
                         acc[marker.marker_name] = marker;
                         return acc;
                     }, {});
-    
+
                     // Group mattresses by table Id
                     const tablesById = {};
-    
+
                     mattressResponse.data.data.forEach((mattress) => {
                         const tableId = mattress.table_id;
-    
+
                         if (!tablesById[tableId]) {
                             tablesById[tableId] = {
                                 id: tableId, // ✅ Use UUID from DB
@@ -533,7 +533,7 @@ const OrderPlanning = () => {
                     } else {
                         console.warn("⚠️ No weft (collaretto weft) rows found");
                         setWeftTables([]);
-                    }                    
+                    }
 
                     setUnsavedChanges(false);
 
@@ -698,6 +698,87 @@ const OrderPlanning = () => {
             const updatedRows = [...updatedTables[tableIndex].rows];
             const updatedRow = { ...updatedRows[rowIndex], [field]: value };
 
+            // If the field being changed is bagno, auto-populate the pieces field with the total quantity for that bagno
+            if (field === "bagno" && value && value !== 'Unknown') {
+                // Store the bagno value in a closure for the timeout
+                const bagnoValue = value;
+
+                // Clear any existing timeout for this row's bagno
+                if (window.weftBagnoChangeTimeouts && window.weftBagnoChangeTimeouts[rowIndex]) {
+                    clearTimeout(window.weftBagnoChangeTimeouts[rowIndex]);
+                }
+
+                // Initialize the timeouts object if it doesn't exist
+                if (!window.weftBagnoChangeTimeouts) {
+                    window.weftBagnoChangeTimeouts = {};
+                }
+
+                // Set a timeout to calculate the total quantity after a short delay (300ms)
+                window.weftBagnoChangeTimeouts[rowIndex] = setTimeout(() => {
+                    // Calculate total quantity for this bagno from all mattress tables
+                    let totalQuantityForBagno = 0;
+
+                    // Only process valid tables
+                    const validTables = tables.filter(table => table && table.rows && Array.isArray(table.rows));
+
+                    validTables.forEach(table => {
+                        // Get the planned quantities by bagno for this table
+                        const plannedByBagno = getTablePlannedByBagno(table);
+
+                        // Only add to total if this bagno exists in the table and has sizes
+                        if (plannedByBagno[bagnoValue] && Object.keys(plannedByBagno[bagnoValue]).length > 0) {
+                            const bagnoSizes = plannedByBagno[bagnoValue];
+                            const tableTotal = Object.values(bagnoSizes).reduce((sum, qty) => sum + qty, 0);
+                            totalQuantityForBagno += tableTotal;
+                        }
+                    });
+
+                    // If we found a quantity, update the pieces field
+                    if (totalQuantityForBagno > 0) {
+                        setWeftTables(currentTables => {
+                            return currentTables.map((table, tIndex) => {
+                                if (tIndex === tableIndex) {
+                                    const newRows = [...table.rows];
+                                    const rowToUpdate = {...newRows[rowIndex], pieces: totalQuantityForBagno.toString()};
+
+                                    // Recalculate dependent values
+                                    const panelLength = parseFloat(rowToUpdate.panelLength);
+                                    const collarettoWidthMM = parseFloat(rowToUpdate.collarettoWidth);
+                                    const scrap = parseFloat(rowToUpdate.scrapRoll);
+
+                                    if (!isNaN(panelLength) && !isNaN(collarettoWidthMM) && !isNaN(scrap)) {
+                                        const collarettoWidthM = collarettoWidthMM / 1000; // Convert mm to m
+                                        rowToUpdate.rolls = collarettoWidthM > 0
+                                            ? Math.floor(panelLength / collarettoWidthM) - scrap
+                                            : 0;
+                                    }
+
+                                    const rolls = parseFloat(rowToUpdate.rolls);
+                                    const extra = parseFloat(table.weftExtra) || 0;
+
+                                    if (!isNaN(totalQuantityForBagno) && !isNaN(rolls) && rolls > 0 && !isNaN(extra)) {
+                                        const multiplier = 1 + (extra / 100);
+                                        rowToUpdate.panels = Math.floor((totalQuantityForBagno * multiplier) / rolls);
+                                    }
+
+                                    const panels = parseFloat(rowToUpdate.panels);
+                                    if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
+                                        rowToUpdate.consumption = (panels * (panelLength)).toFixed(1);
+                                    }
+
+                                    newRows[rowIndex] = rowToUpdate;
+                                    return {...table, rows: newRows};
+                                }
+                                return table;
+                            });
+                        });
+                    }
+
+                    // Remove the timeout reference
+                    delete window.weftBagnoChangeTimeouts[rowIndex];
+                }, 300);
+            }
+
             // Auto-calculate pcsSeamtoSeam if usableWidth and grossLength are available
             const usableWidth = parseFloat(field === "usableWidth" ? value : updatedRow.usableWidth) || 0;
             const grossLength = parseFloat(field === "grossLength" ? value : updatedRow.grossLength) || 0;
@@ -756,6 +837,32 @@ const OrderPlanning = () => {
 
             // ✅ Update the specific field
             const updatedRow = { ...updatedRows[rowIndex], [field]: value };
+
+            // ✅ If the field being changed is bagno, auto-populate the pieces field with the total quantity for that bagno
+            if (field === "bagno" && value && value !== 'Unknown') {
+                // Calculate total quantity for this bagno from all mattress tables
+                let totalQuantityForBagno = 0;
+
+                // Only process valid tables
+                const validTables = tables.filter(table => table && table.rows && Array.isArray(table.rows));
+
+                validTables.forEach(table => {
+                    // Get the planned quantities by bagno for this table
+                    const plannedByBagno = getTablePlannedByBagno(table);
+
+                    // Only add to total if this bagno exists in the table and has sizes
+                    if (plannedByBagno[value] && Object.keys(plannedByBagno[value]).length > 0) {
+                        const bagnoSizes = plannedByBagno[value];
+                        const tableTotal = Object.values(bagnoSizes).reduce((sum, qty) => sum + qty, 0);
+                        totalQuantityForBagno += tableTotal;
+                    }
+                });
+
+                // If we found a quantity, update the pieces field
+                if (totalQuantityForBagno > 0) {
+                    updatedRow.pieces = totalQuantityForBagno.toString();
+                }
+            }
 
             // ✅ Convert required values to numbers (default to 0 if empty)
             const usableWidth = parseFloat(updatedRow.usableWidth) || 0;
@@ -854,15 +961,219 @@ const OrderPlanning = () => {
     // UseEffect for avg Consumption
     useEffect(() => {
         if (!tables || tables.length === 0) return;
-      
+
         const newAvgConsumption = {};
-      
+
         tables.forEach(table => {
           newAvgConsumption[table.id] = calculateTableAverageConsumption(table);
         });
-      
+
         setAvgConsumption(newAvgConsumption);
       }, [tables]);
+
+    // Function to update collaretto pieces for a specific bagno
+    const updateCollarettoForBagno = (bagno) => {
+        // Validate bagno and make sure we have along tables
+        if (!bagno || bagno === 'Unknown' || !alongTables || !alongTables.length) return;
+
+        // Calculate the new total quantity for this bagno
+        let totalQuantityForBagno = 0;
+
+        // Only process valid tables
+        const validTables = tables.filter(table => table && table.rows && Array.isArray(table.rows));
+
+        validTables.forEach(table => {
+            const plannedByBagno = getTablePlannedByBagno(table);
+
+            // Only add to total if this bagno exists in the table and has sizes
+            if (plannedByBagno[bagno] && Object.keys(plannedByBagno[bagno]).length > 0) {
+                const bagnoSizes = plannedByBagno[bagno];
+                const tableTotal = Object.values(bagnoSizes).reduce((sum, qty) => sum + qty, 0);
+                totalQuantityForBagno += tableTotal;
+            }
+        });
+
+        // Only update if we found a valid quantity
+        if (totalQuantityForBagno > 0) {
+            // Update all collaretto rows with this bagno
+            setAlongTables(prevTables => {
+                // Make sure we have valid tables
+                if (!prevTables || !Array.isArray(prevTables)) return prevTables;
+
+                return prevTables.map(table => {
+                    // Make sure the table has rows
+                    if (!table || !table.rows || !Array.isArray(table.rows)) return table;
+
+                    const updatedRows = table.rows.map(row => {
+                        // Only update rows with matching bagno
+                        if (row && row.bagno === bagno) {
+                            // Update the pieces field
+                            const updatedRow = { ...row, pieces: totalQuantityForBagno.toString() };
+
+                            // Recalculate dependent values
+                            const usableWidth = parseFloat(updatedRow.usableWidth) || 0;
+                            const collarettoWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10;
+                            const pieces = totalQuantityForBagno;
+                            const theoreticalConsumption = parseFloat(updatedRow.theoreticalConsumption) || 0;
+                            const extraPercentage = parseFloat(updatedRow.extraPercentage) || 1;
+                            const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+
+                            // Recalculate rolls
+                            updatedRow.rolls = collarettoWidth > 0 ? Math.floor(usableWidth / collarettoWidth) - scrap : 0;
+
+                            // Recalculate meters of collaretto
+                            updatedRow.metersCollaretto = (pieces * theoreticalConsumption * extraPercentage).toFixed(1);
+
+                            // Recalculate consumption
+                            updatedRow.consumption = updatedRow.rolls > 0
+                                ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(1)
+                                : "0";
+
+                            return updatedRow;
+                        }
+                        return row;
+                    });
+
+                    return { ...table, rows: updatedRows };
+                });
+            });
+        }
+    };
+
+    // Function to update weft collaretto pieces for a specific bagno
+    const updateWeftCollarettoForBagno = (bagno) => {
+        // Validate bagno and make sure we have weft tables
+        if (!bagno || bagno === 'Unknown' || !weftTables || !weftTables.length) return;
+
+        // Calculate the new total quantity for this bagno
+        let totalQuantityForBagno = 0;
+
+        // Only process valid tables
+        const validTables = tables.filter(table => table && table.rows && Array.isArray(table.rows));
+
+        validTables.forEach(table => {
+            const plannedByBagno = getTablePlannedByBagno(table);
+
+            // Only add to total if this bagno exists in the table and has sizes
+            if (plannedByBagno[bagno] && Object.keys(plannedByBagno[bagno]).length > 0) {
+                const bagnoSizes = plannedByBagno[bagno];
+                const tableTotal = Object.values(bagnoSizes).reduce((sum, qty) => sum + qty, 0);
+                totalQuantityForBagno += tableTotal;
+            }
+        });
+
+        // Only update if we found a valid quantity
+        if (totalQuantityForBagno > 0) {
+            // Update all weft collaretto rows with this bagno
+            setWeftTables(prevTables => {
+                // Make sure we have valid tables
+                if (!prevTables || !Array.isArray(prevTables)) return prevTables;
+
+                return prevTables.map(table => {
+                    // Make sure the table has rows
+                    if (!table || !table.rows || !Array.isArray(table.rows)) return table;
+
+                    const updatedRows = table.rows.map(row => {
+                        // Only update rows with matching bagno
+                        if (row && row.bagno === bagno) {
+                            // Update the pieces field
+                            const rowToUpdate = { ...row, pieces: totalQuantityForBagno.toString() };
+
+                            // Recalculate dependent values
+                            const panelLength = parseFloat(rowToUpdate.panelLength);
+                            const collarettoWidthMM = parseFloat(rowToUpdate.collarettoWidth);
+                            const scrap = parseFloat(rowToUpdate.scrapRoll);
+
+                            if (!isNaN(panelLength) && !isNaN(collarettoWidthMM) && !isNaN(scrap)) {
+                                const collarettoWidthM = collarettoWidthMM / 1000; // Convert mm to m
+                                rowToUpdate.rolls = collarettoWidthM > 0
+                                    ? Math.floor(panelLength / collarettoWidthM) - scrap
+                                    : 0;
+                            }
+
+                            const rolls = parseFloat(rowToUpdate.rolls);
+                            const extra = parseFloat(table.weftExtra) || 0;
+
+                            if (!isNaN(totalQuantityForBagno) && !isNaN(rolls) && rolls > 0 && !isNaN(extra)) {
+                                const multiplier = 1 + (extra / 100);
+                                rowToUpdate.panels = Math.floor((totalQuantityForBagno * multiplier) / rolls);
+                            }
+
+                            const panels = parseFloat(rowToUpdate.panels);
+                            if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
+                                rowToUpdate.consumption = (panels * (panelLength)).toFixed(1);
+                            }
+
+                            return rowToUpdate;
+                        }
+                        return row;
+                    });
+
+                    return { ...table, rows: updatedRows };
+                });
+            });
+        }
+    };
+
+    // Listen for changes to mattress layers that affect collaretto pieces
+    useEffect(() => {
+        // Function to handle mattress layers changed event
+        const handleMattressLayersChanged = (event) => {
+            const { bagno } = event.detail;
+            updateCollarettoForBagno(bagno);
+            updateWeftCollarettoForBagno(bagno);
+        };
+
+        // Function to handle mattress pieces changed event
+        const handleMattressPiecesChanged = (event) => {
+            const { bagno } = event.detail;
+            updateCollarettoForBagno(bagno);
+            updateWeftCollarettoForBagno(bagno);
+        };
+
+        // Function to handle mattress row added event
+        const handleMattressRowAdded = () => {
+            // When a new row is added, we need to update all collaretto rows
+            // Get all unique bagnos from collaretto rows (both along and weft)
+            const bagnos = new Set();
+
+            // Check along tables
+            alongTables.forEach(table => {
+                table.rows.forEach(row => {
+                    if (row.bagno && row.bagno !== 'Unknown') {
+                        bagnos.add(row.bagno);
+                    }
+                });
+            });
+
+            // Check weft tables
+            weftTables.forEach(table => {
+                table.rows.forEach(row => {
+                    if (row.bagno && row.bagno !== 'Unknown') {
+                        bagnos.add(row.bagno);
+                    }
+                });
+            });
+
+            // Update each bagno for both along and weft tables
+            bagnos.forEach(bagno => {
+                updateCollarettoForBagno(bagno);
+                updateWeftCollarettoForBagno(bagno);
+            });
+        };
+
+        // Add event listeners
+        window.addEventListener('mattressLayersChanged', handleMattressLayersChanged);
+        window.addEventListener('mattressPiecesChanged', handleMattressPiecesChanged);
+        window.addEventListener('mattressRowAdded', handleMattressRowAdded);
+
+        // Clean up
+        return () => {
+            window.removeEventListener('mattressLayersChanged', handleMattressLayersChanged);
+            window.removeEventListener('mattressPiecesChanged', handleMattressPiecesChanged);
+            window.removeEventListener('mattressRowAdded', handleMattressRowAdded);
+        };
+    }, [tables, alongTables, weftTables]);
 
     const handleSave = async () => {
         if (saving) return;
@@ -976,7 +1287,7 @@ const OrderPlanning = () => {
                     const markerLength = parseFloat(row.markerLength) || 0;
                     const lengthMattress = markerLength + (parseFloat(table.allowance) || 0); // ✅ Corrected calculation
                     const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
-                    
+
                     const mattressData = {
                         mattress: mattressName,
                         order_commessa: selectedOrder,
@@ -986,13 +1297,13 @@ const OrderPlanning = () => {
                         dye_lot: row.bagno || null,
                         item_type: table.spreading === "MANUAL" ? "MS" : "AS",
                         spreading_method: table.spreadingMethod,
-                        
+
                         // ✅ New fields for structure integrity
                         table_id: table.id,
                         row_id: row.id,
                         sequence_number: row.sequenceNumber,
 
-                    
+
                         layers: layers,
                         length_mattress: lengthMattress,
                         cons_planned: consPlanned,
@@ -1213,7 +1524,7 @@ const OrderPlanning = () => {
                         const successfulDeletes = results
                           .filter(r => r.status === 'fulfilled' && r.value.success)
                           .map(r => r.value.mattress);
-                      
+
                         setDeletedMattresses(prev =>
                           prev.filter(name => !successfulDeletes.includes(name))
                         );
@@ -1252,7 +1563,7 @@ const OrderPlanning = () => {
                     ));
                 })
                 .then(() => {
-                    setDeletedAlong([]);    
+                    setDeletedAlong([]);
                     setDeletedWeft([]);
                     setUnsavedChanges(false);
 
@@ -1276,19 +1587,19 @@ const OrderPlanning = () => {
     // Average Consumption for each Specific Table
     const calculateTableAverageConsumption = (table) => {
         if (!table || !table.rows || table.rows.length === 0) return 0;
-      
+
         const plannedQuantities = getTablePlannedQuantities(table) || {};
         const totalPlannedPcs = Object.values(plannedQuantities)
           .reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
-      
+
         const totalConsPlanned = table.rows
             .filter(row => !isNaN(parseFloat(row.expectedConsumption)) && parseFloat(row.expectedConsumption) > 0)
             .reduce((sum, row) => sum + parseFloat(row.expectedConsumption), 0);
-      
+
         if (totalPlannedPcs === 0) return 0;
-      
+
         const avgConsumption = totalConsPlanned / totalPlannedPcs;
-      
+
         return Number(avgConsumption.toFixed(2));
       };
 

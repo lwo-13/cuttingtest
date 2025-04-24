@@ -109,6 +109,15 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
       });
     });
 
+    // Trigger an event to notify that a row was added
+    // This will allow other components to update if needed
+    window.dispatchEvent(new CustomEvent('mattressRowAdded', {
+      detail: {
+        tableId: tableId,
+        rowId: newRowId
+      }
+    }));
+
     setUnsavedChanges(true);
   };
 
@@ -158,8 +167,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
               updatedRow.expectedConsumption = (lengthWithAllowance * layers).toFixed(2);
             } else {
               updatedRow.expectedConsumption = "";
+            }
           }
-        }
 
           return updatedRow;
         });
@@ -171,6 +180,117 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
       });
     });
 
+    // If the layers field is changed, we need to trigger an update for any collaretto rows
+    // that have the same bagno as the mattress row being changed
+    if (field === "layers") {
+      // We need to find the bagno of the row being changed
+      const changedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
+
+      // Only dispatch event if the row has a valid bagno and the layers value is valid
+      if (changedRow && changedRow.bagno && changedRow.bagno !== 'Unknown') {
+        // Store the row ID and bagno in a closure for the timeout
+        const rowBagno = changedRow.bagno;
+
+        // Clear any existing timeout for this row
+        if (window.layersChangeTimeouts && window.layersChangeTimeouts[rowId]) {
+          clearTimeout(window.layersChangeTimeouts[rowId]);
+        }
+
+        // Initialize the timeouts object if it doesn't exist
+        if (!window.layersChangeTimeouts) {
+          window.layersChangeTimeouts = {};
+        }
+
+        // Set a timeout to dispatch the event after a short delay (300ms)
+        // This gives the user time to finish typing before we update
+        window.layersChangeTimeouts[rowId] = setTimeout(() => {
+          const updatedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
+          if (updatedRow) {
+            const finalLayersValue = parseInt(updatedRow.layers);
+            if (!isNaN(finalLayersValue) && finalLayersValue > 0) {
+              // This is a custom event that will be caught in orderplanning.js to update collaretto pieces
+              window.dispatchEvent(new CustomEvent('mattressLayersChanged', {
+                detail: {
+                  bagno: rowBagno,
+                  tableId: tableId,
+                  rowId: rowId,
+                  newLayers: finalLayersValue
+                }
+              }));
+            }
+          }
+          // Remove the timeout reference
+          delete window.layersChangeTimeouts[rowId];
+        }, 300);
+      }
+    }
+
+    // Also trigger the event if the bagno field is changed and there are valid layers
+    if (field === "bagno" && value && value !== 'Unknown') {
+      const changedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
+      if (changedRow) {
+        const layers = parseInt(changedRow.layers);
+        if (!isNaN(layers) && layers > 0) {
+          // Store the bagno value in a closure for the timeout
+          const bagnoValue = value;
+
+          // Clear any existing timeout for this row's bagno
+          if (window.bagnoChangeTimeouts && window.bagnoChangeTimeouts[rowId]) {
+            clearTimeout(window.bagnoChangeTimeouts[rowId]);
+          }
+
+          // Initialize the timeouts object if it doesn't exist
+          if (!window.bagnoChangeTimeouts) {
+            window.bagnoChangeTimeouts = {};
+          }
+
+          // Set a timeout to dispatch the event after a short delay (300ms)
+          // This gives the user time to finish typing before we update
+          window.bagnoChangeTimeouts[rowId] = setTimeout(() => {
+            const updatedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
+            if (updatedRow) {
+              const finalLayers = parseInt(updatedRow.layers);
+              if (!isNaN(finalLayers) && finalLayers > 0) {
+                window.dispatchEvent(new CustomEvent('mattressLayersChanged', {
+                  detail: {
+                    bagno: bagnoValue,
+                    tableId: tableId,
+                    rowId: rowId,
+                    newLayers: finalLayers
+                  }
+                }));
+              }
+            }
+            // Remove the timeout reference
+            delete window.bagnoChangeTimeouts[rowId];
+          }, 300);
+        }
+      }
+    }
+
+    // Trigger an event when piecesPerSize is changed (happens when a marker is selected)
+    if (field === "piecesPerSize" && value) {
+      const changedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
+      if (changedRow && changedRow.bagno && changedRow.bagno !== 'Unknown') {
+        const layers = parseInt(changedRow.layers);
+        if (!isNaN(layers) && layers > 0) {
+          // Store the bagno value in a closure for the timeout
+          const rowBagno = changedRow.bagno;
+
+          // For marker selection, we don't need a delay since it's not a typing operation
+          // But we'll still use the same pattern for consistency
+          window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
+            detail: {
+              bagno: rowBagno,
+              tableId: tableId,
+              rowId: rowId,
+              piecesPerSize: value
+            }
+          }));
+        }
+      }
+    }
+
     setUnsavedChanges(true);
   };
 
@@ -178,23 +298,23 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     setTables(prevTables => {
       return prevTables.map(table => {
         if (table.id !== tableId) return table;
-  
+
         const updatedRows = table.rows.map(row => {
           if (row.id !== rowId) return row;
-  
+
           if (row.timeout) clearTimeout(row.timeout);
-  
+
           const timeout = setTimeout(() => {
             const tableAllowance = parseFloat(table.allowance) || 0;
             const markerLength = parseFloat(row.markerLength);
             const layers = parseInt(row.layers);
-  
+
             // 🛑 Don't calculate until both values are valid
             if (isNaN(markerLength) || isNaN(layers) || markerLength <= 0 || layers <= 0) return;
-  
+
             const expectedConsumption = markerLength + tableAllowance;
             const total = Number((expectedConsumption * layers).toFixed(2));
-  
+
             setTables(currentTables => {
               return currentTables.map(t =>
                 t.id !== tableId
@@ -208,10 +328,10 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
               );
             });
           }, 500);
-  
+
           return { ...row, timeout };
         });
-  
+
         return { ...table, rows: updatedRows };
       });
     });
