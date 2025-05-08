@@ -77,11 +77,53 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             );
             if (padPrintResponse.data.success) {
                 padPrintData = padPrintResponse.data.data; // Array of padprint objects.
+                if (padPrintData.length === 0) {
+                    padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
+                }
             } else {
                 console.error("Padprint API returned a non-success response.");
+                padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
             }
             } catch (error) {
-            console.error("Error fetching padprint data:", error);
+                console.error("Error fetching padprint data:", error);
+                padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
+            }
+
+            // Padprint GetImage Helper
+            const getImageBase64WithDimensions = async (url) => {
+                try {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+            
+                    const img = new Image();
+                    const loaded = await new Promise((resolve) => {
+                        img.onload = resolve;
+                        img.src = base64;
+                    });
+            
+                    return {
+                        base64,
+                        width: img.width,
+                        height: img.height
+                    };
+                } catch (err) {
+                    console.error("Error loading image with dimensions:", err);
+                    return null;
+                }
+            };
+            
+            let padPrintImage = null;
+
+            if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
+                const pattern = padPrintData[0].pattern;
+                const imageUrl = `http://172.27.57.210:5000/api/padprint/image/${pattern}.jpg`;
+                padPrintImage = await getImageBase64WithDimensions(imageUrl);
             }
         
             // ✅ Define order table (Left Side)
@@ -264,17 +306,41 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             });
             });
 
-            // ✅ Positioning for the comment box
-            const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
-            const commentBoxHeight = 37;  // ✅ Enough height for writing
-            const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
+            const boxWidth = columnWidth * 2;
+            const boxHeight = 40;
+            const boxX = layersStartX;
+            const boxY = padPrintTableStartY + 20;
 
-            // ✅ Draw the comment box
-            doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
+            if (padPrintImage) {
+                const { base64, width, height } = padPrintImage;
+            
+                // Calculate scale to fit within the box
+                const scale = Math.min(boxWidth / width, boxHeight / height);
+                const imgWidth = width * scale;
+                const imgHeight = height * scale;
+            
+                // Center image in the box
+                const offsetX = boxX + (boxWidth - imgWidth) / 2;
+                const offsetY = boxY + (boxHeight - imgHeight) / 2;
+            
+                doc.addImage(base64, 'JPEG', offsetX, offsetY, imgWidth, imgHeight);
+            }            
 
-            // ✅ Add "Comments" title
-            doc.setFont('Roboto-Bold', 'bold');
-            doc.text("Коментар", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
+            if (!padPrintImage) {
+
+                // ✅ Positioning for the comment box
+                const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
+                const commentBoxHeight = 37;  // ✅ Enough height for writing
+                const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
+
+                // ✅ Draw the comment box
+                doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
+
+                // ✅ Add "Comments" title
+                doc.setFont('Roboto-Bold', 'bold');
+                doc.text("Коментар", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
+
+            }
 
             // ✅ Marker Details Table (Bottom)
             const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
