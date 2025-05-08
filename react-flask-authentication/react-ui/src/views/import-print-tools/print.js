@@ -16,12 +16,11 @@ const CustomPagination = (props) => {
         <Box
             sx={{
                 display: 'flex',
-                justifyContent: 'flex-start', // Changed to flex-start to move content left
+                justifyContent: 'flex-end',
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden',
-                minHeight: '52px',
-                width: '100%' // Ensure full width
+                minHeight: '52px'
             }}
         >
             <TablePagination
@@ -32,7 +31,7 @@ const CustomPagination = (props) => {
                     minHeight: '52px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'flex-start', // Changed to flex-start to move content left
+                    justifyContent: 'flex-end',
                     fontSize: '1.2rem',
                     '.MuiTablePagination-actions button': {
                         fontSize: '1.2rem',
@@ -41,10 +40,6 @@ const CustomPagination = (props) => {
                     },
                     '.MuiTablePagination-select': {
                         fontSize: '1.2rem'
-                    },
-                    // Move the page info to the left
-                    '.MuiTablePagination-displayedRows': {
-                        marginLeft: '20px'
                     }
                 }}
             />
@@ -218,7 +213,7 @@ const MattressTable = () => {
                     <CircularProgress />
                 </Box>
             ) : (
-                <Box sx={{ display: 'flex', flexGrow: 1, minHeight: tableHeight, width: '100%' }}>
+                <Box style={{ height: tableHeight, width: '100%' }}>
                     <DataGrid
                         rows={filteredMattresses} // Use filtered data
                         columns={columns}
@@ -237,8 +232,7 @@ const MattressTable = () => {
                                 minHeight: '52px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'flex-start', // Changed to flex-start to move content left
-                                width: '100%' // Ensure full width
+                                justifyContent: 'flex-end'
                             }
                         }}
                         components={{

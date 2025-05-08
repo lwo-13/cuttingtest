@@ -1,6 +1,8 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Tooltip, IconButton } from '@mui/material';
+import ConstructionIcon from '@mui/icons-material/Construction';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
@@ -11,6 +13,7 @@ import LogoSection from '../LogoSection';
 // import SearchSection from './SearchSection';
 import ProfileSection from './ProfileSection';
 import NotificationSection from './NotificationSection';
+import Customization from '../../Customization';
 
 // assets
 import { IconMenu2 } from '@tabler/icons';
@@ -45,8 +48,14 @@ const useStyles = makeStyles((theme) => ({
 const Header = ({ handleLeftDrawerToggle }) => {
     const classes = useStyles();
 
+    const [openCustomize, setOpenCustomize] = useState(false);
+    const handleCustomizeToggle = () => {
+        setOpenCustomize((prev) => !prev);
+    };
+
     return (
         <React.Fragment>
+            
             {/* logo & toggler button */}
             <div className={classes.boxContainer}>
                 <Box component="span" sx={{ display: { xs: 'none', md: 'block' }, flexGrow: 1, ml: 1 }}>
@@ -62,11 +71,28 @@ const Header = ({ handleLeftDrawerToggle }) => {
             {/* header search
             <SearchSection theme="light" />
             <div className={classes.grow} /> */}
+
             <div className={classes.grow} />
 
-            {/* notification & profile */}
-            {/*<NotificationSection />*/}
-            <ProfileSection />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Tooltip>
+                    <IconButton
+                        onClick={handleCustomizeToggle}
+                        sx={{
+                            bgcolor: (theme) => theme.palette.secondary.light,
+                            color: (theme) => theme.palette.secondary.dark,
+                            p: 1.25
+                        }}
+                    >
+                        <ConstructionIcon size="1.5rem" />
+                    </IconButton>
+                </Tooltip>
+
+                <ProfileSection />
+            </Box>
+
+            <Customization open={openCustomize} handleToggle={handleCustomizeToggle} />
+
         </React.Fragment>
     );
 };
