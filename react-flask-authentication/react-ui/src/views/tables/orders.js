@@ -10,12 +10,11 @@ const CustomPagination = (props) => {
         <Box
             sx={{
                 display: 'flex',
-                justifyContent: 'flex-start', // Changed to flex-start to move content left
+                justifyContent: 'flex-end', // Changed to flex-start to move content left
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden', // ✅ Prevents scrolling
-                minHeight: '52px', // ✅ Ensures enough height to avoid cut-off elements
-                width: '100%' // Ensure full width
+                minHeight: '52px' // ✅ Ensures enough height to avoid cut-off elements
             }}
         >
             <TablePagination
@@ -26,7 +25,7 @@ const CustomPagination = (props) => {
                     minHeight: '52px',
                     display: 'flex', // Ensures elements don't wrap
                     alignItems: 'center',
-                    justifyContent: 'flex-start', // Changed to flex-start to move content left
+                    justifyContent: 'flex-end', // Changed to flex-start to move content left
                     fontSize: '1.2rem',   // Bigger font size
                     '.MuiTablePagination-actions button': {
                         fontSize: '1.2rem', // Bigger navigation buttons
@@ -35,10 +34,6 @@ const CustomPagination = (props) => {
                     },
                     '.MuiTablePagination-select': {
                         fontSize: '1.2rem'  // Increase dropdown font size
-                    },
-                    // Move the page info to the left
-                    '.MuiTablePagination-displayedRows': {
-                        marginLeft: '20px'
                     }
                 }}
             />
@@ -156,8 +151,7 @@ const Orders = () => {
                                 minHeight: '52px', // ✅ Makes sure everything is properly aligned
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'flex-start', // Changed to flex-start to move content left
-                                width: '100%' // Ensure full width
+                                justifyContent: 'flex-end'
                             }
                         }}
                         components={{

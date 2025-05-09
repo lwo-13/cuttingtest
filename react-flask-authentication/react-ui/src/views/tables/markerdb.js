@@ -30,8 +30,7 @@ const CustomPagination = (props) => {
         <Box
             sx={{
                 display: 'flex',
-                justifyContent: 'flex-start', // Changed to flex-start to move content left
-                width: '100%', // Ensure full width
+                justifyContent: 'flex-end', // Changed to flex-start to move content left
                 alignItems: 'center',
                 padding: 2,
                 overflow: 'hidden', // ✅ Prevent scrolling
@@ -46,7 +45,7 @@ const CustomPagination = (props) => {
                     minHeight: '52px',
                     display: 'flex', // Ensures elements don’t wrap
                     alignItems: 'center',
-                    justifyContent: 'flex-start', // Changed to flex-start to move content left
+                    justifyContent: 'flex-end',
                     fontSize: '1.2rem',
                     '.MuiTablePagination-actions button': {
                         fontSize: '1.2rem', // Bigger navigation buttons
@@ -55,10 +54,6 @@ const CustomPagination = (props) => {
                     },
                     '.MuiTablePagination-select': {
                         fontSize: '1.2rem'  // Increase dropdown font size
-                    },
-                    // Move the page info to the left
-                    '.MuiTablePagination-displayedRows': {
-                        marginLeft: '20px'
                     }
                 }}
             />
@@ -225,8 +220,7 @@ const MarkerDB = () => {
                                     minHeight: '52px', // ✅ Ensures proper alignment
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'flex-start', // Changed to flex-start to move content left
-                                    width: '100%' // Ensure full width
+                                    justifyContent: 'flex-end'
                                 }
                             }}
                             components={{

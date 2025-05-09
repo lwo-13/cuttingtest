@@ -36,17 +36,11 @@ function valueText(value) {
 
 //-----------------------|| LIVE CUSTOMIZATION ||-----------------------//
 
-const Customization = () => {
+const Customization = ({ open, handleToggle }) => {
     const theme = useTheme();
     const dispatch = useDispatch();
     const customization = useSelector((state) => state.customization);
     const [fontSize, setFontSize] = React.useState(customization.fontSize || 14);
-
-    // drawer on/off
-    const [open, setOpen] = React.useState(false);
-    const handleToggle = () => {
-        setOpen(!open);
-    };
 
     // state - border radius
     const [borderRadius, setBorderRadius] = React.useState(customization.borderRadius);
@@ -98,30 +92,6 @@ const Customization = () => {
     return (
         <React.Fragment>
             {/* toggle button */}
-
-            <Tooltip title="Live Customize">
-                <Fab
-                    component="div"
-                    onClick={handleToggle}
-                    size="medium"
-                    variant="string"
-                    color="secondary"
-                    sx={{
-                        bottom: 0,
-                        m: 4,
-                        position: 'fixed',
-                        right: 20,
-                        zIndex: (theme) => theme.zIndex.speedDial,
-                        boxShadow: theme.shadows[8]
-                    }}
-                >
-                    <AnimateButton type="rotate">
-                        <IconButton color="inherit" size="large" disableRipple>
-                            <IconSettings />
-                        </IconButton>
-                    </AnimateButton>
-                </Fab>
-            </Tooltip>
 
             <Drawer
                 anchor="right"
