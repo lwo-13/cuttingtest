@@ -79,9 +79,24 @@ const CombinedImports = () => {
       const extractedData = newVariants.map((variant) => {
         let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
 
-        // ✅ Trim season: keep everything after the first "_"
+        // ✅ Extract clean style
+        const suffixesToExclude = ['NEW', 'MODIF'];
         const styleParts = fullStyle.split('_');
-        const style = styleParts.slice(1).join('_');  // Removes season part
+
+        // Remove known suffix if present
+        if (suffixesToExclude.includes(styleParts.at(-1))) {
+          styleParts.pop();
+        }
+
+        // Remove season (first part)
+        styleParts.shift();
+
+        // Remove second part if there's still more than one part
+        if (styleParts.length > 1) {
+          styleParts.shift();
+        }
+
+        const style = styleParts.join('_');
 
         // Extract rotation180 value
         const rotation180Elem = variant.getElementsByTagName("Rotation180")[0];
@@ -214,9 +229,24 @@ const CombinedImports = () => {
           const extractedData = newVariants.map((variant) => {
             let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
 
-            // Trim season: keep everything after the first "_"
+            // ✅ Extract clean style
+            const suffixesToExclude = ['NEW', 'MODIF'];
             const styleParts = fullStyle.split('_');
-            const style = styleParts.slice(1).join('_');  // Removes season part
+
+            // Remove known suffix if present
+            if (suffixesToExclude.includes(styleParts.at(-1))) {
+              styleParts.pop();
+            }
+
+            // Remove season (first part)
+            styleParts.shift();
+
+            // Remove second part if there's still more than one part
+            if (styleParts.length > 1) {
+              styleParts.shift();
+            }
+
+            const style = styleParts.join('_');
 
             // Extract rotation180 value
             const rotation180Elem = variant.getElementsByTagName("Rotation180")[0];
