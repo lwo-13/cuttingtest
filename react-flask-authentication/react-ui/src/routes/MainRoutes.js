@@ -5,6 +5,7 @@ import { Route, Switch, useLocation } from 'react-router-dom';
 import MainLayout from './../layout/MainLayout';
 import Loadable from '../ui-component/Loadable';
 import AuthGuard from './../utils/route-guard/AuthGuard';
+import RoleGuard from './../utils/route-guard/RoleGuard';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
@@ -35,6 +36,9 @@ const UtilsTablerIcons = Loadable(lazy(() => import('../views/utilities/TablerIc
 // sample page routing
 const SamplePage = Loadable(lazy(() => import('../views/sample-page')));
 
+// spreader routing
+const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView')));
+
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
 const MainRoutes = () => {
@@ -52,7 +56,7 @@ const MainRoutes = () => {
 
                 '/tables/orders',
                 '/tables/markerdb',
-                
+
                 '/tables/padprints/:brand',
                 '/import-print-tools/imports',
                 '/import-print-tools/print',
@@ -63,7 +67,9 @@ const MainRoutes = () => {
                 '/icons/tabler-icons',
                 '/icons/material-icons',
 
-                '/sample-page'
+                '/sample-page',
+
+                '/spreader/view'
             ]}
         >
             <MainLayout>
@@ -90,6 +96,12 @@ const MainRoutes = () => {
                         <Route path="/icons/material-icons" component={UtilsMaterialIcons} />
 
                         <Route path="/sample-page" component={SamplePage} />
+
+                        <Route path="/spreader/view">
+                            <RoleGuard allowedRoles={['Spreader']}>
+                                <SpreaderView />
+                            </RoleGuard>
+                        </Route>
                     </AuthGuard>
                 </Switch>
             </MainLayout>

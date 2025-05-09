@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 
 // material-ui
 import { Typography } from '@mui/material';
@@ -12,8 +13,26 @@ import { useBadgeCount } from '../../../../contexts/BadgeCountContext';
 
 const MenuList = () => {
     const { mattressPendingCount, orderRatioPendingCount} = useBadgeCount();
+    const account = useSelector((state) => state.account);
+    const userRole = account?.user?.role || '';
 
-    const updatedItems = menuItem.items.map((group) => ({
+    // Filter menu items based on user role
+    const filteredItems = menuItem.items.filter((group) => {
+        // For Spreader role, only show the spreader menu
+        if (userRole === 'Spreader') {
+            return group.id === 'spreader';
+        }
+
+        // For Administrator and Manager roles, show all menus
+        if (userRole === 'Administrator' || userRole === 'Manager') {
+            return true;
+        }
+
+        // For other roles (like Planner), show all except spreader menu
+        return group.id !== 'spreader';
+    });
+
+    const updatedItems = filteredItems.map((group) => ({
         ...group,
         children: group.children.map((item) => {
             if (item.id === 'mattress_approval') {

@@ -17,8 +17,8 @@ class MattressResource(Resource):
 
             # ✅ Validate required fields
             required_fields = [
-                "mattress", "order_commessa", "fabric_type", "fabric_code", "fabric_color", 
-                "item_type", "spreading_method", "layers", "length_mattress", "cons_planned", 
+                "mattress", "order_commessa", "fabric_type", "fabric_code", "fabric_color",
+                "item_type", "spreading_method", "layers", "length_mattress", "cons_planned",
                 "extra", "marker_name", "marker_width", "marker_length", "table_id", "row_id"
             ]
             for field in required_fields:
@@ -292,7 +292,7 @@ class DeleteMattressResource(Resource):
 
                 print(f"❌ Error deleting mattress {mattress_name}: {e}")
                 return {"success": False, "message": str(e)}, 500
-        
+
 @ mattress_api.route('/all')
 class GetAllMattressesResource(Resource):
     def get(self):
@@ -302,7 +302,7 @@ class GetAllMattressesResource(Resource):
             return {"success": True, "data": [m.to_dict() for m in mattresses]}, 200
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
-        
+
 @ mattress_api.route('/kanban')
 class GetKanbanMattressesResource(Resource):
     def get(self):
@@ -341,7 +341,7 @@ class GetKanbanMattressesResource(Resource):
              .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
              .filter(MattressPhase.active == True) \
              .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD"]))
-            
+
             if day_filter:
                 query = query.filter(
                     db.or_(
@@ -409,23 +409,23 @@ class GetAllMattressesWithDetailsResource(Resource):
         try:
             # Query all mattresses with their details and markers
             mattresses = Mattresses.query.join(MattressDetail).join(MattressMarker).all()
-            
+
             # Create a list of dictionaries with mattress info, details, and markers
             data = []
             for mattress in mattresses:
                 mattress_dict = mattress.to_dict()
-                
+
                 # Add related details and markers
                 mattress_dict['details'] = [detail.to_dict() for detail in mattress.details]
                 mattress_dict['markers'] = [marker.to_dict() for marker in mattress.mattress_markers]
-                
+
                 data.append(mattress_dict)
-            
+
             return {"success": True, "data": data}, 200
-        
+
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
-        
+
 @mattress_api.route('/update_print_travel', methods=['PUT'])
 class UpdatePrintTravelStatus(Resource):
     def put(self):
@@ -655,6 +655,54 @@ class ApproveMattressesResource(Resource):
             db.session.commit()
 
             return {"success": True, "message": f"Deactivated: {deactivated}, Activated: {activated}"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500
+
+
+
+@mattress_api.route('/update_status/<int:mattress_id>', methods=['PUT'])
+class UpdateMattressStatusResource(Resource):
+    """Update the status of a mattress"""
+
+    @mattress_api.doc(params={'mattress_id': 'ID of the mattress to update'})
+    def put(self, mattress_id):
+        """Update the status of a mattress to a new value"""
+        data = request.get_json()
+        new_status = data.get('status')
+        operator = data.get('operator', 'Unknown')
+
+        if not new_status:
+            return {"success": False, "message": "Status is required"}, 400
+
+        try:
+            # Get all mattress phases
+            all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
+            if not all_phases:
+                return {"success": False, "message": "Mattress phases not found"}, 404
+
+            # Deactivate current active phases
+            for phase in all_phases:
+                if phase.active:
+                    phase.active = False
+
+            # Activate the requested phase
+            target_phase = next((p for p in all_phases if p.status == new_status), None)
+            if target_phase:
+                target_phase.active = True
+                target_phase.operator = operator
+                # Keep the device from the previous phase
+                current_device = next((p.device for p in all_phases if p.device), None)
+                if current_device:
+                    target_phase.device = current_device
+            else:
+                return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
+
+            db.session.commit()
+            return {"success": True, "message": f"Status updated to '{new_status}'"}, 200
 
         except Exception as e:
             db.session.rollback()
