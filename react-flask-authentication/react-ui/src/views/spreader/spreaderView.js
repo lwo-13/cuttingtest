@@ -13,7 +13,11 @@ import {
     CircularProgress,
     Alert,
     Button,
-    Snackbar
+    Snackbar,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -24,6 +28,9 @@ const SpreaderView = () => {
     const [error, setError] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [processingMattress, setProcessingMattress] = useState(null);
+    const [operators, setOperators] = useState([]);
+    const [selectedOperator, setSelectedOperator] = useState('');
+    const [loadingOperators, setLoadingOperators] = useState(false);
     const account = useSelector((state) => state.account);
     const { user } = account;
 
@@ -44,7 +51,33 @@ const SpreaderView = () => {
         }
 
         fetchMattresses();
+        fetchOperators();
     }, [spreaderDevice]);
+
+    const fetchOperators = async () => {
+        setLoadingOperators(true);
+        try {
+            const response = await axios.get('/operators/active');
+            if (response.data.success) {
+                setOperators(response.data.data);
+                // Set default selected operator to the current user if they're in the list
+                const currentUserName = user?.username || '';
+                const matchingOperator = response.data.data.find(op => op.name === currentUserName);
+                if (matchingOperator) {
+                    setSelectedOperator(matchingOperator.id.toString());
+                } else if (response.data.data.length > 0) {
+                    // Otherwise select the first operator
+                    setSelectedOperator(response.data.data[0].id.toString());
+                }
+            } else {
+                console.error("Error fetching operators:", response.data.message);
+            }
+        } catch (error) {
+            console.error("API Error fetching operators:", error);
+        } finally {
+            setLoadingOperators(false);
+        }
+    };
 
     const fetchMattresses = () => {
         setLoading(true);
@@ -83,10 +116,14 @@ const SpreaderView = () => {
     };
 
     const handleStartSpreading = (mattressId) => {
+        // Get the selected operator name
+        const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
+        const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
+
         setProcessingMattress(mattressId);
         axios.put(`/mattress/update_status/${mattressId}`, {
             status: "2 - ON SPREAD",
-            operator: user?.username || "Unknown"
+            operator: operatorName
         })
         .then((res) => {
             if (res.data.success) {
@@ -188,7 +225,7 @@ const SpreaderView = () => {
                         <Button
                             variant="contained"
                             color="primary"
-                            disabled={processingMattress === mattress.id}
+                            disabled={processingMattress === mattress.id || !selectedOperator}
                             onClick={() => handleStartSpreading(mattress.id)}
                         >
                             {processingMattress === mattress.id ? 'Processing...' : 'Start Spreading'}
@@ -227,7 +264,35 @@ const SpreaderView = () => {
 
     return (
         <>
-            <MainCard title={`${spreaderDevice} Assigned Mattresses`}>
+            <MainCard
+                title={`${spreaderDevice} Assigned Mattresses`}
+                secondary={
+                    <FormControl sx={{ minWidth: 200 }}>
+                        <InputLabel id="operator-select-label">Current Operator</InputLabel>
+                        <Select
+                            labelId="operator-select-label"
+                            id="operator-select"
+                            value={selectedOperator}
+                            label="Current Operator"
+                            onChange={(e) => setSelectedOperator(e.target.value)}
+                            size="small"
+                            disabled={loadingOperators}
+                        >
+                            {operators.length === 0 ? (
+                                <MenuItem value="" disabled>
+                                    No operators available
+                                </MenuItem>
+                            ) : (
+                                operators.map((op) => (
+                                    <MenuItem key={op.id} value={op.id.toString()}>
+                                        {op.name}
+                                    </MenuItem>
+                                ))
+                            )}
+                        </Select>
+                    </FormControl>
+                }
+            >
                 <Box mb={3}>
                     <Typography variant="body1">
                         Welcome, {user.username}. Here are the mattresses assigned to your spreader station.

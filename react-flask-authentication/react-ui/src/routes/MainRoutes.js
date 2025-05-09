@@ -39,6 +39,9 @@ const SamplePage = Loadable(lazy(() => import('../views/sample-page')));
 // spreader routing
 const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView')));
 
+// operators routing
+const OperatorManagement = Loadable(lazy(() => import('../views/operators/operatorManagement')));
+
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
 const MainRoutes = () => {
@@ -69,7 +72,8 @@ const MainRoutes = () => {
 
                 '/sample-page',
 
-                '/spreader/view'
+                '/spreader/view',
+                '/operators/management'
             ]}
         >
             <MainLayout>
@@ -100,6 +104,12 @@ const MainRoutes = () => {
                         <Route path="/spreader/view">
                             <RoleGuard allowedRoles={['Spreader']}>
                                 <SpreaderView />
+                            </RoleGuard>
+                        </Route>
+
+                        <Route path="/operators/management">
+                            <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
+                                <OperatorManagement />
                             </RoleGuard>
                         </Route>
                     </AuthGuard>

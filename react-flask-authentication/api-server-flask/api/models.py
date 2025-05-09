@@ -38,7 +38,7 @@ class Users(db.Model):
     def check_password(self, password):
         if not self.password:
             return False
-        
+
         try:
             return check_password_hash(self.password.strip(), password)
         except ValueError as e:
@@ -64,7 +64,7 @@ class Users(db.Model):
     @classmethod
     def get_by_email(cls, email):
         return cls.query.filter_by(email=email).first()
-    
+
     @classmethod
     def get_by_username(cls, username):
         return cls.query.filter_by(username=username).first()
@@ -154,7 +154,7 @@ class MarkerLineRotation(db.Model):
     pcs_on_layer = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-    
+
 class OrderLinesView(db.Model):
     __tablename__ = 'order_lines_view'  # SQL View
     __table_args__ = {'info': {'read_only': True}}  # Read-only view
@@ -174,8 +174,8 @@ class OrderLinesView(db.Model):
     # Convert row data to dictionary
     def to_dict(self):
         return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
-    
-class OrderRatio(db.Model): 
+
+class OrderRatio(db.Model):
     __tablename__ = 'order_ratios'
 
     order_commessa = db.Column(db.String(50), primary_key=True, nullable=False)
@@ -316,10 +316,10 @@ class MattressMarker(db.Model):
 
 class PadPrint(db.Model):
     __tablename__ = 'padprint'
-    
+
     # Add a primary key column:
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    
+
     brand = db.Column(db.String(255), nullable=False)
     style = db.Column(db.String(255), nullable=False)
     color = db.Column(db.String(255), nullable=False)
@@ -327,11 +327,11 @@ class PadPrint(db.Model):
     pattern = db.Column(db.String(255), nullable=False)
     season = db.Column(db.String(255), nullable=False)
     date = db.Column(db.DateTime, nullable=True)
-    
+
     __table_args__ = (
         db.UniqueConstraint('brand', 'style', 'color', 'padprint_color', 'pattern', 'season', name='UQ_padprint'),
     )
-    
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -343,7 +343,7 @@ class PadPrint(db.Model):
             'season': self.season,
             'date': self.date.isoformat() if self.date else None
         }
-    
+
 class PadPrintImage(db.Model):
     __tablename__ = 'padprint_image'
 
@@ -418,21 +418,21 @@ class Collaretto(db.Model):
             else:
                 result[column.name] = value
         return result
-    
+
 class CollarettoDetail(db.Model):
     __tablename__ = 'collaretto_details'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     collaretto_id = db.Column(
-        db.Integer, 
-        db.ForeignKey('collaretto.id', ondelete='CASCADE'), 
+        db.Integer,
+        db.ForeignKey('collaretto.id', ondelete='CASCADE'),
         nullable=False, unique=True
     )
 
     mattress_id = db.Column(
-        db.Integer, 
-        db.ForeignKey('mattresses.id', ondelete='CASCADE'), 
+        db.Integer,
+        db.ForeignKey('mattresses.id', ondelete='CASCADE'),
         nullable=True
     )
 
@@ -493,3 +493,23 @@ class ZalliItemsView(db.Model):
     def to_dict(self):
         """Convert row data to dictionary format."""
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+class SpreadOperator(db.Model):
+    __tablename__ = 'spreader_operators'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(255), nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        """Convert row data to dictionary format."""
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result

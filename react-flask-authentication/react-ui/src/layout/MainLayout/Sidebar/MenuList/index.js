@@ -23,8 +23,8 @@ const MenuList = () => {
             return group.id === 'spreader';
         }
 
-        // For Administrator and Manager roles, show all menus
-        if (userRole === 'Administrator' || userRole === 'Manager') {
+        // For Administrator, Manager, and Project Admin roles, show all menus
+        if (userRole === 'Administrator' || userRole === 'Manager' || userRole === 'Project Admin') {
             return true;
         }
 
