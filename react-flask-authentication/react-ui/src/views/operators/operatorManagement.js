@@ -46,7 +46,7 @@ const OperatorManagement = () => {
   const fetchOperators = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/operators');
+      const response = await axios.get('/operators/');
       if (response.data.success) {
         setOperators(response.data.data);
       } else {
@@ -79,7 +79,7 @@ const OperatorManagement = () => {
     }
 
     try {
-      const response = await axios.post('/operators', {
+      const response = await axios.post('/operators/', {
         name: newOperatorName,
         active: true
       });

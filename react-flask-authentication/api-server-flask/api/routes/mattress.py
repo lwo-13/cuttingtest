@@ -709,3 +709,45 @@ class UpdateMattressStatusResource(Resource):
             import traceback
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/update_layers_a/<int:mattress_id>', methods=['PUT'])
+class UpdateLayersAResource(Resource):
+    """Update the actual layers (layers_a) of a mattress"""
+
+    @mattress_api.doc(params={'mattress_id': 'ID of the mattress to update'})
+    def put(self, mattress_id):
+        """Update the actual layers (layers_a) of a mattress"""
+        data = request.get_json()
+        layers_a = data.get('layers_a')
+
+        if layers_a is None:
+            return {"success": False, "message": "layers_a is required"}, 400
+
+        try:
+            # Find the mattress detail entry
+            mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+
+            if not mattress_detail:
+                return {"success": False, "message": "Mattress detail not found"}, 404
+
+            # Update the layers_a field
+            mattress_detail.layers_a = layers_a
+
+            # Calculate cons_actual using the same formula as cons_planned
+            # If layers is not zero, calculate based on the ratio of cons_planned to layers
+            if mattress_detail.layers > 0:
+                # cons_actual = (cons_planned / layers) * layers_a
+                mattress_detail.cons_actual = (mattress_detail.cons_planned / mattress_detail.layers) * float(layers_a)
+            else:
+                # Fallback to direct calculation if layers is zero
+                mattress_detail.cons_actual = mattress_detail.length_mattress * float(layers_a)
+
+            db.session.commit()
+
+            return {"success": True, "message": "Actual layers and consumption updated successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500

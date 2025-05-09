@@ -17,7 +17,12 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField
 } from '@mui/material';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -31,6 +36,9 @@ const SpreaderView = () => {
     const [operators, setOperators] = useState([]);
     const [selectedOperator, setSelectedOperator] = useState('');
     const [loadingOperators, setLoadingOperators] = useState(false);
+    const [finishDialogOpen, setFinishDialogOpen] = useState(false);
+    const [selectedMattress, setSelectedMattress] = useState(null);
+    const [actualLayers, setActualLayers] = useState('');
     const account = useSelector((state) => state.account);
     const { user } = account;
 
@@ -81,7 +89,8 @@ const SpreaderView = () => {
 
     const fetchMattresses = () => {
         setLoading(true);
-        axios.get(`/mattress/kanban`)
+        // Add day=today parameter to only show mattresses for today
+        axios.get(`/mattress/kanban?day=today`)
             .then((res) => {
                 if (res.data.success) {
                     // Filter mattresses assigned to this spreader
@@ -145,6 +154,78 @@ const SpreaderView = () => {
             setSnackbar({
                 open: true,
                 message: "API Error: " + (err.message || "Unknown error"),
+                severity: "error"
+            });
+            console.error("API Error:", err);
+        })
+        .finally(() => {
+            setProcessingMattress(null);
+        });
+    };
+
+    const handleOpenFinishDialog = (mattress) => {
+        setSelectedMattress(mattress);
+        setActualLayers(mattress.layers || ''); // Default to planned layers
+        setFinishDialogOpen(true);
+    };
+
+    const handleCloseFinishDialog = () => {
+        setFinishDialogOpen(false);
+        setSelectedMattress(null);
+        setActualLayers('');
+    };
+
+    const handleFinishSpreading = () => {
+        if (!selectedMattress) return;
+
+        // Validate actual layers input
+        if (!actualLayers || isNaN(actualLayers) || Number(actualLayers) <= 0) {
+            setSnackbar({
+                open: true,
+                message: "Please enter a valid number of layers",
+                severity: "error"
+            });
+            return;
+        }
+
+        // Get the selected operator name
+        const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
+        const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
+
+        setProcessingMattress(selectedMattress.id);
+
+        // First update the status to "3 - TO CUT"
+        axios.put(`/mattress/update_status/${selectedMattress.id}`, {
+            status: "3 - TO CUT",
+            operator: operatorName
+        })
+        .then((res) => {
+            if (res.data.success) {
+                // Then update the actual layers (layers_a) in mattress_details
+                return axios.put(`/mattress/update_layers_a/${selectedMattress.id}`, {
+                    layers_a: Number(actualLayers)
+                });
+            } else {
+                throw new Error(res.data.message || "Failed to update status");
+            }
+        })
+        .then((res) => {
+            if (res.data.success) {
+                setSnackbar({
+                    open: true,
+                    message: "Spreading finished successfully",
+                    severity: "success"
+                });
+                handleCloseFinishDialog();
+                fetchMattresses(); // Refresh the data
+            } else {
+                throw new Error(res.data.message || "Failed to update actual layers");
+            }
+        })
+        .catch((err) => {
+            setSnackbar({
+                open: true,
+                message: "Error: " + (err.message || "Unknown error"),
                 severity: "error"
             });
             console.error("API Error:", err);
@@ -219,7 +300,7 @@ const SpreaderView = () => {
                     </Grid>
                 </Grid>
 
-                {/* Action button */}
+                {/* Action buttons */}
                 {mattress.status === "1 - TO LOAD" && (
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                         <Button
@@ -229,6 +310,18 @@ const SpreaderView = () => {
                             onClick={() => handleStartSpreading(mattress.id)}
                         >
                             {processingMattress === mattress.id ? 'Processing...' : 'Start Spreading'}
+                        </Button>
+                    </Box>
+                )}
+                {mattress.status === "2 - ON SPREAD" && (
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            disabled={processingMattress === mattress.id || !selectedOperator}
+                            onClick={() => handleOpenFinishDialog(mattress)}
+                        >
+                            {processingMattress === mattress.id ? 'Processing...' : 'Finish Spreading'}
                         </Button>
                     </Box>
                 )}
@@ -265,7 +358,7 @@ const SpreaderView = () => {
     return (
         <>
             <MainCard
-                title={`${spreaderDevice} Assigned Mattresses`}
+                title={`${spreaderDevice} Assigned Mattresses - Today`}
                 secondary={
                     <FormControl sx={{ minWidth: 200 }}>
                         <InputLabel id="operator-select-label">Current Operator</InputLabel>
@@ -293,12 +386,6 @@ const SpreaderView = () => {
                     </FormControl>
                 }
             >
-                <Box mb={3}>
-                    <Typography variant="body1">
-                        Welcome, {user.username}. Here are the mattresses assigned to your spreader station.
-                    </Typography>
-                </Box>
-
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
@@ -337,6 +424,57 @@ const SpreaderView = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            {/* Finish Spreading Dialog */}
+            <Dialog open={finishDialogOpen} onClose={handleCloseFinishDialog}>
+                <DialogTitle>Finish Spreading</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ pt: 1 }}>
+                        <Typography variant="body1" gutterBottom>
+                            Please enter the actual number of layers loaded:
+                        </Typography>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label="Actual Layers"
+                            type="number"
+                            fullWidth
+                            value={actualLayers}
+                            onChange={(e) => {
+                                // Only allow positive numbers
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                setActualLayers(value);
+                            }}
+                            InputProps={{
+                                inputProps: { min: 1 }
+                            }}
+                        />
+                        {selectedMattress && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                                <strong>Mattress:</strong> {selectedMattress.mattress}<br />
+                                <strong>Planned Layers:</strong> {selectedMattress.layers}<br />
+                                <strong>Planned Consumption:</strong> {selectedMattress.consumption} m<br />
+                                <strong>Estimated Actual Consumption:</strong> {
+                                    actualLayers && selectedMattress.consumption && selectedMattress.layers ?
+                                    ((selectedMattress.consumption / selectedMattress.layers) * Number(actualLayers)).toFixed(2) :
+                                    '0.00'
+                                } m
+                            </Typography>
+                        )}
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseFinishDialog}>Cancel</Button>
+                    <Button
+                        onClick={handleFinishSpreading}
+                        variant="contained"
+                        color="success"
+                        disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
+                    >
+                        {processingMattress === (selectedMattress?.id) ? 'Processing...' : 'Confirm'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };
