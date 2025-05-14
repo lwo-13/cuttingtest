@@ -24,12 +24,14 @@ import {
     DialogActions,
     TextField
 } from '@mui/material';
+
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
 const SpreaderView = () => {
     const [mattresses, setMattresses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false); // State for background refresh
     const [error, setError] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [processingMattress, setProcessingMattress] = useState(null);
@@ -39,6 +41,8 @@ const SpreaderView = () => {
     const [finishDialogOpen, setFinishDialogOpen] = useState(false);
     const [selectedMattress, setSelectedMattress] = useState(null);
     const [actualLayers, setActualLayers] = useState('');
+    const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
+    const [activeSpreadingMattress, setActiveSpreadingMattress] = useState(null); // Track active spreading mattress
     const account = useSelector((state) => state.account);
     const { user } = account;
 
@@ -58,8 +62,16 @@ const SpreaderView = () => {
             return;
         }
 
-        fetchMattresses();
+        fetchMattresses(true); // Initial load
         fetchOperators();
+
+        // Set up auto-refresh polling every 5 minutes
+        const refreshInterval = setInterval(() => {
+            fetchMattresses(false); // Background refresh
+        }, 300000); // 5 minutes (300,000 ms)
+
+        // Clean up the interval when component unmounts
+        return () => clearInterval(refreshInterval);
     }, [spreaderDevice]);
 
     const fetchOperators = async () => {
@@ -87,8 +99,14 @@ const SpreaderView = () => {
         }
     };
 
-    const fetchMattresses = () => {
-        setLoading(true);
+    const fetchMattresses = (isInitialLoad = false) => {
+        // Only set loading to true for initial load, otherwise use refreshing state
+        if (isInitialLoad) {
+            setLoading(true);
+        } else {
+            setRefreshing(true);
+        }
+
         // Add day=today parameter to only show mattresses for today
         axios.get(`/mattress/kanban?day=today`)
             .then((res) => {
@@ -107,24 +125,45 @@ const SpreaderView = () => {
                     firstShift.sort((a, b) => a.position - b.position);
                     secondShift.sort((a, b) => a.position - b.position);
 
+                    // Check if there's any mattress with status "2 - ON SPREAD" for this specific spreader device
+                    const onSpreadMattress = [...firstShift, ...secondShift].find(
+                        m => m.status === "2 - ON SPREAD" && m.device === spreaderDevice
+                    );
+                    setActiveSpreadingMattress(onSpreadMattress || null);
+
                     setMattresses({
                         firstShift,
                         secondShift
                     });
-                    setLoading(false);
+
+                    // Update last refresh time
+                    setLastRefreshTime(new Date());
                 } else {
                     setError("Error fetching data: " + res.data.message);
-                    setLoading(false);
                 }
             })
             .catch((err) => {
                 setError("API Error: " + (err.message || "Unknown error"));
-                setLoading(false);
                 console.error("API Error:", err);
+            })
+            .finally(() => {
+                // Reset loading states
+                setLoading(false);
+                setRefreshing(false);
             });
     };
 
     const handleStartSpreading = (mattressId) => {
+        // Check if there's already an active spreading mattress for this spreader
+        if (activeSpreadingMattress) {
+            setSnackbar({
+                open: true,
+                message: `Cannot start spreading. Mattress ${activeSpreadingMattress.mattress} is already being spread on ${spreaderDevice}.`,
+                severity: "error"
+            });
+            return;
+        }
+
         // Get the selected operator name
         const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
         const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
@@ -132,7 +171,8 @@ const SpreaderView = () => {
         setProcessingMattress(mattressId);
         axios.put(`/mattress/update_status/${mattressId}`, {
             status: "2 - ON SPREAD",
-            operator: operatorName
+            operator: operatorName,
+            device: spreaderDevice // Explicitly set the device to ensure it's updated
         })
         .then((res) => {
             if (res.data.success) {
@@ -141,7 +181,7 @@ const SpreaderView = () => {
                     message: "Status updated to ON SPREAD successfully",
                     severity: "success"
                 });
-                fetchMattresses(); // Refresh the data
+                fetchMattresses(false); // Refresh the data in background
             } else {
                 setSnackbar({
                     open: true,
@@ -197,7 +237,8 @@ const SpreaderView = () => {
         // First update the status to "3 - TO CUT"
         axios.put(`/mattress/update_status/${selectedMattress.id}`, {
             status: "3 - TO CUT",
-            operator: operatorName
+            operator: operatorName,
+            device: spreaderDevice // Explicitly set the device to ensure it's updated
         })
         .then((res) => {
             if (res.data.success) {
@@ -217,7 +258,9 @@ const SpreaderView = () => {
                     severity: "success"
                 });
                 handleCloseFinishDialog();
-                fetchMattresses(); // Refresh the data
+                // Reset active spreading mattress
+                setActiveSpreadingMattress(null);
+                fetchMattresses(false); // Refresh the data in background
             } else {
                 throw new Error(res.data.message || "Failed to update actual layers");
             }
@@ -306,8 +349,13 @@ const SpreaderView = () => {
                         <Button
                             variant="contained"
                             color="primary"
-                            disabled={processingMattress === mattress.id || !selectedOperator}
+                            disabled={
+                                processingMattress === mattress.id ||
+                                !selectedOperator ||
+                                activeSpreadingMattress !== null
+                            }
                             onClick={() => handleStartSpreading(mattress.id)}
+                            title={activeSpreadingMattress ? `Cannot start spreading: Mattress ${activeSpreadingMattress.mattress} is already being spread on ${spreaderDevice}` : ""}
                         >
                             {processingMattress === mattress.id ? 'Processing...' : 'Start Spreading'}
                         </Button>
@@ -358,32 +406,50 @@ const SpreaderView = () => {
     return (
         <>
             <MainCard
-                title={`${spreaderDevice} Assigned Mattresses - Today`}
+                title={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography variant="h3" component="span">
+                            {`${spreaderDevice} Assigned Mattresses - Today`}
+                        </Typography>
+                        {refreshing && (
+                            <CircularProgress
+                                size={20}
+                                sx={{ ml: 2 }}
+                                color="primary"
+                            />
+                        )}
+                    </Box>
+                }
                 secondary={
-                    <FormControl sx={{ minWidth: 200 }}>
-                        <InputLabel id="operator-select-label">Current Operator</InputLabel>
-                        <Select
-                            labelId="operator-select-label"
-                            id="operator-select"
-                            value={selectedOperator}
-                            label="Current Operator"
-                            onChange={(e) => setSelectedOperator(e.target.value)}
-                            size="small"
-                            disabled={loadingOperators}
-                        >
-                            {operators.length === 0 ? (
-                                <MenuItem value="" disabled>
-                                    No operators available
-                                </MenuItem>
-                            ) : (
-                                operators.map((op) => (
-                                    <MenuItem key={op.id} value={op.id.toString()}>
-                                        {op.name}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <FormControl sx={{ minWidth: 200 }}>
+                            <InputLabel id="operator-select-label">Current Operator</InputLabel>
+                            <Select
+                                labelId="operator-select-label"
+                                id="operator-select"
+                                value={selectedOperator}
+                                label="Current Operator"
+                                onChange={(e) => setSelectedOperator(e.target.value)}
+                                size="small"
+                                disabled={loadingOperators}
+                            >
+                                {operators.length === 0 ? (
+                                    <MenuItem value="" disabled>
+                                        No operators available
                                     </MenuItem>
-                                ))
-                            )}
-                        </Select>
-                    </FormControl>
+                                ) : (
+                                    operators.map((op) => (
+                                        <MenuItem key={op.id} value={op.id.toString()}>
+                                            {op.name}
+                                        </MenuItem>
+                                    ))
+                                )}
+                            </Select>
+                        </FormControl>
+                        <Typography variant="caption" color="textSecondary" sx={{ ml: 2 }}>
+                            Last updated: {lastRefreshTime.toLocaleTimeString()}
+                        </Typography>
+                    </Box>
                 }
             >
                 <Grid container spacing={3}>

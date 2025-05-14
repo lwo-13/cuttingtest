@@ -674,6 +674,7 @@ class UpdateMattressStatusResource(Resource):
         data = request.get_json()
         new_status = data.get('status')
         operator = data.get('operator', 'Unknown')
+        device = data.get('device')  # Get device from request
 
         if not new_status:
             return {"success": False, "message": "Status is required"}, 400
@@ -694,10 +695,15 @@ class UpdateMattressStatusResource(Resource):
             if target_phase:
                 target_phase.active = True
                 target_phase.operator = operator
-                # Keep the device from the previous phase
-                current_device = next((p.device for p in all_phases if p.device), None)
-                if current_device:
-                    target_phase.device = current_device
+
+                # Set device if provided, otherwise keep from previous phase
+                if device:
+                    target_phase.device = device
+                else:
+                    # Keep the device from the previous phase
+                    current_device = next((p.device for p in all_phases if p.device), None)
+                    if current_device:
+                        target_phase.device = current_device
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
 
