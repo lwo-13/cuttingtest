@@ -31,7 +31,6 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
     });
   
     const totalPcs = Object.values(planned).reduce((sum, qty) => sum + qty, 0);
-    const totalMeters = Object.values(metersByBagno).reduce((sum, val) => sum + val, 0);
     const totalOrderedPcs = orderSizes.reduce((sum, s) => sum + (s.qty || 0), 0);
 
     const totalPcsPct = totalOrderedPcs
@@ -42,9 +41,6 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
     sizeElements.push(
       <Typography key="total_pcs" variant="body2" sx={{ fontWeight: "bold", ml: 2 }}>
         Total: {totalPcs} ({totalPcsPct}%)
-      </Typography>,
-      <Typography key="total_meters" variant="body2" sx={{ fontWeight: "bold", ml: 2 }}>
-        Cons: {totalMeters.toFixed(0)} m
       </Typography>
     );
   

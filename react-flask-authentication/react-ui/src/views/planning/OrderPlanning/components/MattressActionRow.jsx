@@ -10,18 +10,37 @@ const MattressActionRow = ({
   handleAddRow, 
   handleRemoveTable 
 }) => {
+
+  const totalConsumption = table.rows.reduce((sum, row) => {
+    const value = parseFloat(row.expectedConsumption);
+    return sum + (isNaN(value) ? 0 : value);
+  }, 0);
+
   return (
     <Box mt={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
       
-      {/* Avg. Consumption Display */}
-      {avgConsumption && avgConsumption > 0 ? (
-        <Box p={1} sx={{ padding: "4px 8px", minWidth: "140px", textAlign: "center", width: "fit-content" }}>
-          <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-            Avg Cons: {avgConsumption} m/pc
+      {/* Consumption Info */}
+      {avgConsumption > 0 && totalConsumption > 0 && (
+        <Box
+          display="flex"
+          gap={2}
+          flexWrap="nowrap" // 🔒 disables line wrap
+          alignItems="center"
+          sx={{ padding: '4px 8px', minWidth: '240px', width: 'fit-content' }}
+        >
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
+          >
+            Avg Cons: {avgConsumption.toFixed(2)} m/pc
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
+          >
+            Total Cons: {totalConsumption.toFixed(0)} m
           </Typography>
         </Box>
-      ) : (
-        <Box sx={{ minWidth: "140px" }} />
       )}
 
       {/* Action Buttons */}

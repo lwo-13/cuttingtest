@@ -29,7 +29,8 @@ const numericSizes = ['38', '40', '42', '44', '46', '48', '50', '52', '54', '56'
 const slashSizes = ['2/3', '4/5', '6/7', '8/9', '10/11', '12/13'];
 const collantSizes = ['1/2', '3/4'];
 const numberSeriesSizes = ['1', '2', '3', '4', '5', '6', '7', '8', '10', '12', '14'];
-const extraSizes = ['000', 'LL', 'LLL', 'ML', 'SM', 'TU', 'UN', 'X/XXL'];
+const falcSizes = ['XS', 'S', 'M', 'L', 'LL', 'LLL'];
+const extraSizes = ['000', 'ML', 'SM', 'TU', 'UN', 'X/XXL'];
 
 const allGroups = {
   Basic: basicSizes,
@@ -43,7 +44,8 @@ const allGroups = {
   Slash: slashSizes,
   Collant: collantSizes,
   NumberSeries: numberSeriesSizes,
-  Extra: extraSizes
+  Extra: extraSizes,
+  Falc : falcSizes
 };
 
 const ItalianRatio = () => {
@@ -62,6 +64,8 @@ const ItalianRatio = () => {
   const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
 
   const [availableSizes, setAvailableSizes] = useState([]);
+
+  const [fetchedSizes, setFetchedSizes] = useState([]);
 
   // Pop up
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -91,6 +95,7 @@ const ItalianRatio = () => {
       setSelectedSeason('');
       setSelectedStyle('');
       setSelectedColorCode('');
+      setFetchedSizes([]);
       return;
     }
   
@@ -98,31 +103,34 @@ const ItalianRatio = () => {
     axios.get(`/orders/order_lines?order_commessa=${selectedOrder}`).then((res) => {
       const lines = res.data.data;
       if (lines.length > 0) {
-        setSelectedSeason(lines[0].season || '');  // Set Season
-        if (!styleTouched) {
-          setSelectedStyle(lines[0].style || '');
-        }
-        setSelectedColorCode(lines[0].color_code || '');  // Set Color Code
-  
-        // Fetch Brand if Style is found
-        if (lines[0].style) {
-          fetchBrandForStyle(lines[0].style);
-        }
-
-        const fetchedSizes = [...new Set(lines.map((line) => line.size))];
-
-        const matchedGroup = Object.entries(allGroups).find(([group, groupSizes]) =>
-          fetchedSizes.every((size) => groupSizes.includes(size))
-        );
-
-        setAvailableSizes(matchedGroup ? matchedGroup[1] : []);
+        setSelectedSeason(lines[0].season || '');
+        if (!styleTouched) setSelectedStyle(lines[0].style || '');
+        setSelectedColorCode(lines[0].color_code || '');
+        if (lines[0].style) fetchBrandForStyle(lines[0].style);
+        const sizes = [...new Set(lines.map((line) => line.size))];
+        setFetchedSizes(sizes); // ✅ just store sizes
       }
     });
 
-  
-    // Reset ratios when the order is selected
-    setRatios(Array.from({ length: 2 }, () => ({ size: '', theoretical_ratio: '' })));
+    setRatios([{ size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }]);
   }, [selectedOrder]);
+
+  useEffect(() => {
+    if (!fetchedSizes.length) return;
+
+    let filteredGroups = { ...allGroups };
+
+    if (brand?.trim().toUpperCase() === 'FALCONERI') {
+      const { Basic, ...rest } = filteredGroups;
+      filteredGroups = rest;
+    }
+
+    const matchedGroup = Object.entries(filteredGroups).find(([_, groupSizes]) =>
+      fetchedSizes.every((size) => groupSizes.includes(size))
+    );
+
+    setAvailableSizes(matchedGroup ? matchedGroup[1] : []);
+  }, [brand, fetchedSizes]);
 
   const handleRatioChange = (index, value) => {
     const updated = [...ratios];
@@ -163,10 +171,9 @@ const ItalianRatio = () => {
         refreshOrderRatioCount();
         setSelectedOrder(null);
         setRatios([]);
-        axios.get('/orders/order_lines/without_ratios').then((res) => {
-          const options = res.data.orders.map((id) => ({ id }));
-          setOrderOptions(options);
-        });
+        
+        // 🔁 Trigger full page reload
+        window.location.reload();
       })
       .catch(() => {
         setErrorMessage('Error saving ratios');

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,6 +12,9 @@ import { useHistory } from "react-router-dom";
 import OrderActionBar from 'views/planning/OrderPlanning/components/OrderActionBar';
 import OrderToolbar from 'views/planning/OrderPlanning/components/OrderToolbar';
 import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuantities';
+
+// Cutting Room Selection
+import CuttingRoomSelector from 'views/planning/OrderPlanning/components/CuttingRoomSelector';
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
@@ -24,6 +28,7 @@ import MattressRow from 'views/planning/OrderPlanning/components/MattressRow';
 import MattressActionRow from 'views/planning/OrderPlanning/components/MattressActionRow';
 
 // Hooks
+import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTables';
@@ -79,6 +84,9 @@ const OrderPlanning = () => {
     const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
 
+    // Italian Ratio
+    const italianRatios = useItalianRatios(selectedOrder);
+
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
     // Manual Pad Print
@@ -87,6 +95,11 @@ const OrderPlanning = () => {
 
     // Fetch Brand
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
+
+    // Cutting Room Assignemnt
+    const [selectedProductionCenter, setSelectedProductionCenter] = useState('');
+    const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('');
+    const [selectedDestination, setSelectedDestination] = useState('');
 
     // Pin Order Planning Card
     const [isPinned, setIsPinned] = useState(false);
@@ -353,6 +366,27 @@ const OrderPlanning = () => {
             }
             setSelectedSeason(newValue.season);
             setSelectedColorCode(newValue.colorCode);
+
+            axios.get(`/orders/production_center/get/${newValue.id}`)
+                .then((res) => {
+                    if (res.data.success && res.data.data) {
+                    const { production_center, cutting_room, destination } = res.data.data;
+                    setSelectedProductionCenter(production_center || '');
+                    setSelectedCuttingRoom(cutting_room || '');
+                    setSelectedDestination(destination || '');
+                    } else {
+                    // Reset if not found
+                    setSelectedProductionCenter('');
+                    setSelectedCuttingRoom('');
+                    setSelectedDestination('');
+                    }
+                })
+                .catch((err) => {
+                    console.error("❌ Failed to fetch Production Center info:", err);
+                    setSelectedProductionCenter('');
+                    setSelectedCuttingRoom('');
+                    setSelectedDestination('');
+                });
 
             console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
 
@@ -1272,6 +1306,14 @@ const OrderPlanning = () => {
                 }
             }
 
+            // ❗ Require Production Center and Cutting Room Info
+            if (!selectedProductionCenter || !selectedCuttingRoom) {
+                setErrorMessage("Please select the Production Center and Cutting Room.");
+                setOpenError(true);
+                return;
+            }
+
+
             // ✅ Proceed with valid mattress processing
             tables.forEach((table) => {
                 table.rows.forEach((row, rowIndex) => {
@@ -1502,6 +1544,20 @@ const OrderPlanning = () => {
                 }
             }
 
+            try {
+                await axios.post('/orders/production_center/save', {
+                    order_commessa: selectedOrder,
+                    production_center: selectedProductionCenter,
+                    cutting_room: selectedCuttingRoom,
+                    destination: selectedDestination || null
+                });
+            } catch (error) {
+                console.error("❌ Failed to save Production Center info:", error);
+                setErrorMessage("⚠️ Failed to save Production Center info. Please try again.");
+                setOpenError(true);
+                return;
+            }
+
             saveMattresses()
                 .then(() => saveAlongRows())
                 .then(() => saveWeftRows())
@@ -1642,10 +1698,23 @@ const OrderPlanning = () => {
                     />
 
                     {/* Order Quantities Section */}
-                    <OrderQuantities orderSizes={orderSizes} />
+                    <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} />
 
                 </MainCard>
             </Box>
+
+            <Box mt={2} />
+
+            {selectedOrder && (
+                <CuttingRoomSelector
+                    productionCenter={selectedProductionCenter}
+                    setProductionCenter={setSelectedProductionCenter}
+                    cuttingRoom={selectedCuttingRoom}
+                    setCuttingRoom={setSelectedCuttingRoom}
+                    destination={selectedDestination}
+                    setDestination={setSelectedDestination}
+                />
+            )}
 
             <Box mt={2} />
 

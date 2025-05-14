@@ -513,3 +513,19 @@ class SpreadOperator(db.Model):
             else:
                 result[column.name] = value
         return result
+    
+class ProductionCenter(db.Model):
+    __tablename__ = 'production_center'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    order_commessa = db.Column(db.String(50), nullable=False)
+    production_center = db.Column(db.String(50), nullable=False)
+    cutting_room = db.Column(db.String(50), nullable=False)
+    destination = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=db.func.current_timestamp(),
+        onupdate=db.func.current_timestamp()
+    )

@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
-from api.models import db, OrderLinesView, OrderRatio
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter
 
 # ✅ Create Blueprint and API instance
 orders_bp = Blueprint('orders', __name__)
@@ -139,5 +139,81 @@ class OrderLineStyles(Resource):
 
             return {"success": True, "styles": style_list}, 200
 
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+        
+@orders_api.route('/ratios/<string:order_commessa>', methods=['GET'])
+class GetOrderRatios(Resource):
+    def get(self, order_commessa):
+        try:
+            ratios = OrderRatio.query.filter_by(order_commessa=order_commessa).all()
+            if not ratios:
+                return [], 200  # Return empty list if no data found
+
+            result = [
+                {
+                    "size": r.size,
+                    "percentage": r.theoretical_ratio
+                } for r in ratios
+            ]
+
+            return result, 200
+
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+        
+@orders_api.route('/production_center/save', methods=['POST'])
+class SaveProductionCenter(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            order_commessa = data.get('order_commessa')
+            production_center = data.get('production_center')
+            cutting_room = data.get('cutting_room')
+            destination = data.get('destination') or None  # ✅ Convert empty string to None
+
+            if not order_commessa or not production_center or not cutting_room:
+                return {"success": False, "msg": "Missing required fields."}, 400
+
+            existing = db.session.query(ProductionCenter).filter_by(order_commessa=order_commessa).first()
+
+            if existing:
+                existing.production_center = production_center
+                existing.cutting_room = cutting_room
+                existing.destination = destination  # ✅ handles null correctly
+            else:
+                new_entry = ProductionCenter(
+                    order_commessa=order_commessa,
+                    production_center=production_center,
+                    cutting_room=cutting_room,
+                    destination=destination
+                )
+                db.session.add(new_entry)
+
+            db.session.commit()
+            return {"success": True}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error in /production_center/save:", e)
+            return {"success": False, "msg": str(e)}, 500
+
+        
+@orders_api.route('/production_center/get/<string:order_commessa>', methods=['GET'])
+class GetProductionCenter(Resource):
+    def get(self, order_commessa):
+        try:
+            record = db.session.query(ProductionCenter).filter_by(order_commessa=order_commessa).first()
+            if record:
+                return {
+                    "success": True,
+                    "data": {
+                        "production_center": record.production_center,
+                        "cutting_room": record.cutting_room,
+                        "destination": record.destination
+                    }
+                }, 200
+            else:
+                return {"success": True, "data": None}, 200  # Still a success, just empty
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
