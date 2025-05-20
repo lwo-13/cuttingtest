@@ -20,8 +20,7 @@ import {
 } from '@mui/material';
 
 // assets
-import { IconBrandTelegram, IconBuildingStore, IconMailbox, IconPhoto } from '@tabler/icons';
-import User1 from './../../../../assets/images/users/user-round.svg';
+import { IconBrandTelegram, IconBuildingStore, IconMailbox, IconPhoto, IconUser } from '@tabler/icons';
 
 // style constant
 const useStyles = makeStyles((theme) => ({
@@ -112,7 +111,9 @@ const NotificationList = () => {
             <div className={classes.itemAction}>
                 <ListItem alignItems="center" className={classes.listItem}>
                     <ListItemAvatar>
-                        <Avatar alt="John Doe" src={User1} />
+                        <Avatar alt="John Doe">
+                            <IconUser stroke={1.5} size="1.3rem" />
+                        </Avatar>
                     </ListItemAvatar>
                     <ListItemText primary={<Typography variant="subtitle1">John Doe</Typography>} />
                     <ListItemSecondaryAction className={classes.listAction}>
@@ -212,7 +213,9 @@ const NotificationList = () => {
             <div className={classes.itemAction}>
                 <ListItem alignItems="center" className={classes.listItem}>
                     <ListItemAvatar>
-                        <Avatar alt="John Doe" src={User1} />
+                        <Avatar alt="John Doe">
+                            <IconUser stroke={1.5} size="1.3rem" />
+                        </Avatar>
                     </ListItemAvatar>
                     <ListItemText primary={<Typography variant="subtitle1">John Doe</Typography>} />
                     <ListItemSecondaryAction className={classes.listAction}>
@@ -258,7 +261,9 @@ const NotificationList = () => {
             <div className={classes.itemAction}>
                 <ListItem alignItems="center" className={classes.listItem}>
                     <ListItemAvatar>
-                        <Avatar alt="John Doe" src={User1} />
+                        <Avatar alt="John Doe">
+                            <IconUser stroke={1.5} size="1.3rem" />
+                        </Avatar>
                     </ListItemAvatar>
                     <ListItemText primary={<Typography variant="subtitle1">John Doe</Typography>} />
                     <ListItemSecondaryAction className={classes.listAction}>

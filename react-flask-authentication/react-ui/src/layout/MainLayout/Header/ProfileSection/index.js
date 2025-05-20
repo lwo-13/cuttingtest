@@ -38,8 +38,7 @@ import Transitions from '../../../../ui-component/extended/Transitions';
 import { logoutUser } from '../../../../store/accountActions';
 
 // assets
-import { IconLogout, IconSearch, IconSettings } from '@tabler/icons';
-import User1 from './../../../../assets/images/users/user-round.svg';
+import { IconLogout, IconSearch, IconSettings, IconUser } from '@tabler/icons';
 
 // style const
 const useStyles = makeStyles((theme) => ({
@@ -140,7 +139,7 @@ const ProfileSection = () => {
     const handleLogout = () => {
         dispatcher(logoutUser());   // ✅ Trigger the logout action (Redux handles API + state)
     };
-    
+
 
     const handleToggle = () => {
         setOpen((prevOpen) => !prevOpen);
@@ -167,13 +166,14 @@ const ProfileSection = () => {
                 className={classes.profileChip}
                 icon={
                     <Avatar
-                        src={User1}
                         className={classes.headerAvatar}
                         ref={anchorRef}
                         aria-controls={open ? 'menu-list-grow' : undefined}
                         aria-haspopup="true"
                         color="inherit"
-                    />
+                    >
+                        <IconUser stroke={1.5} size="1.3rem" />
+                    </Avatar>
                 }
                 label={<IconSettings stroke={1.5} size="1.5rem" color={theme.palette.primary.main} />}
                 variant="outlined"
