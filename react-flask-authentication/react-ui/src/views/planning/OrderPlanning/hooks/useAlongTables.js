@@ -1,0 +1,185 @@
+import { useState } from "react";
+import { v4 as uuidv4 } from 'uuid';
+
+const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, getTablePlannedByBagno, mattressTables }) => {
+  const [alongTables, setAlongTables] = useState([]);
+
+  const handleAddTable = () => {
+    const tableId = uuidv4();
+    const rowId = uuidv4();
+
+    setAlongTables(prev => [
+      ...prev,
+      {
+        id: tableId,
+        fabricType: "",
+        fabricCode: "",
+        fabricColor: "",
+        alongExtra: "3",
+        rows: [
+          {
+            id: rowId,
+            sequenceNumber: 1,
+            pieces: "",
+            usableWidth: "",
+            theoreticalConsumption: "",
+            collarettoWidth: "",
+            scrapRoll: "",
+            rolls: "",
+            metersCollaretto: "",
+            consumption: "",
+            bagno: "",
+            isEditable: true
+          }
+        ]
+      }
+    ]);
+    setUnsavedChanges(true);
+  };
+
+  const handleRemoveTable = (tableId) => {
+    setAlongTables(prev => {
+      const tableToRemove = prev.find(t => t.id === tableId);
+      if (!tableToRemove) return prev;
+
+      tableToRemove.rows.forEach(row => {
+        if (row.collarettoName) {
+          setDeletedAlong(prevDeleted => [...prevDeleted, row.collarettoName]);
+        }
+      });
+
+      setUnsavedChanges(true);
+      return prev.filter(t => t.id !== tableId);
+    });
+  };
+
+  const getNextSequenceNumber = (rows) => {
+    const existing = rows
+      .map(row => parseInt(row.sequenceNumber))
+      .filter(n => !isNaN(n));
+    return existing.length > 0 ? Math.max(...existing) + 1 : 1;
+  };
+
+  const handleAddRow = (tableId) => {
+    const newRowId = uuidv4();
+
+    setAlongTables(prev => prev.map(t => {
+      if (t.id !== tableId) return t;
+
+      const nextSequence = getNextSequenceNumber(t.rows);
+
+      return {
+        ...t,
+        rows: [
+          ...t.rows,
+          {
+            id: newRowId,
+            sequenceNumber: nextSequence,
+            pieces: "",
+            usableWidth: "",
+            theoreticalConsumption: "",
+            collarettoWidth: "",
+            scrapRoll: "",
+            rolls: "",
+            metersCollaretto: "",
+            consumption: "",
+            bagno: "",
+            isEditable: true
+          }
+        ]
+      };
+    }));
+
+    setUnsavedChanges(true);
+  };
+
+  const handleRemoveRow = (tableId, rowId) => {
+    setAlongTables(prev => prev.map(t => {
+      if (t.id !== tableId) return t;
+      const rowToRemove = t.rows.find(r => r.id === rowId);
+      if (rowToRemove?.collarettoName) {
+        setDeletedAlong(prevDeleted => [...prevDeleted, rowToRemove.collarettoName]);
+      }
+      return {
+        ...t,
+        rows: t.rows.filter(r => r.id !== rowId)
+      };
+    }));
+    setUnsavedChanges(true);
+  };
+
+  const handleInputChange = (tableId, rowId, field, value) => {
+    setAlongTables(prev => {
+      return prev.map(table => {
+        if (table.id !== tableId) return table;
+
+        const updatedRows = table.rows.map(row => {
+          if (row.id !== rowId) return row;
+
+          const updatedRow = { ...row, [field]: value };
+
+          const pieces = parseFloat(updatedRow.pieces) || 0;
+          const width = parseFloat(updatedRow.usableWidth) || 0;
+          const collWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10;
+          const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+          const theoCons = parseFloat(updatedRow.theoreticalConsumption) || 0;
+          const extra = 1 + (parseFloat(table.alongExtra) / 100 || 0);
+
+          updatedRow.rolls = collWidth > 0 ? Math.floor(width / collWidth) - scrap : 0;
+          updatedRow.metersCollaretto = (pieces * theoCons * extra).toFixed(1);
+          updatedRow.consumption = updatedRow.rolls > 0
+            ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(1)
+            : "0";
+
+          return updatedRow;
+        });
+
+        return { ...table, rows: updatedRows };
+      });
+    });
+
+    setUnsavedChanges(true);
+  };
+
+  const handleExtraChange = (tableId, value) => {
+    const extra = parseFloat(value) / 100 || 0;
+
+    setAlongTables(prev => prev.map(table => {
+      if (table.id !== tableId) return table;
+
+      const updatedRows = table.rows.map(row => {
+        const pieces = parseFloat(row.pieces) || 0;
+        const theoCons = parseFloat(row.theoreticalConsumption) || 0;
+        const rolls = parseFloat(row.rolls) || 0;
+
+        const meters = pieces * theoCons * (1 + extra);
+        return {
+          ...row,
+          metersCollaretto: meters.toFixed(1),
+          consumption: rolls > 0 ? (meters / rolls).toFixed(1) : "0"
+        };
+      });
+
+      return {
+        ...table,
+        alongExtra: value,
+        rows: updatedRows
+      };
+    }));
+
+    setUnsavedChanges(true);
+  };
+
+  return {
+    alongTables,
+    setAlongTables,
+    handleAddTable,
+    handleRemoveTable,
+    handleAddRow,
+    handleRemoveRow,
+    handleInputChange,
+    handleExtraChange
+  };
+};
+
+export default useAlongTables;

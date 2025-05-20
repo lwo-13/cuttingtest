@@ -26,6 +26,9 @@ class CollarettoAlong(Resource):
                 existing_collaretto.dye_lot = data.get('dye_lot')
                 existing_collaretto.item_type = data.get('item_type')
                 existing_collaretto.updated_at = datetime.now()
+                existing_collaretto.table_id = data.get('table_id')
+                existing_collaretto.row_id = data.get('row_id')
+                existing_collaretto.sequence_number = data.get('sequence_number')
                 db.session.flush()
             else:
                 print(f"➕ Creating new collaretto: {collaretto_name}")
@@ -37,6 +40,9 @@ class CollarettoAlong(Resource):
                     fabric_color=data.get('fabric_color'),
                     dye_lot=data.get('dye_lot'),
                     item_type=data.get('item_type'),
+                    table_id=data.get('table_id'),
+                    row_id=data.get('row_id'),
+                    sequence_number=data.get('sequence_number'),
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
@@ -139,6 +145,9 @@ class GetCollarettoByOrder(Resource):
                     "fabric_code": collaretto.fabric_code,
                     "fabric_color": collaretto.fabric_color,
                     "dye_lot": collaretto.dye_lot,
+                    "table_id": collaretto.table_id,
+                    "row_id": collaretto.row_id,
+                    "sequence_number": collaretto.sequence_number,
                     "details": {
                         "pieces": detail.pieces,
                         "usable_width": detail.usable_width,
