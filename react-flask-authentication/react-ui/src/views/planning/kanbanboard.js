@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Paper, Box, Grid, Button } from "@mui/material"; 
+import { Paper, Box, Grid, Button, Typography } from "@mui/material"; 
 import MainCard from "../../ui-component/cards/MainCard"; 
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
@@ -84,9 +84,17 @@ const KanbanBoard = () => {
             <KanbanColumn
               key={device}
               device={device}
-              mattresses={device === "SP0"
-                ? mattresses.filter((m) => m.status === "0 - NOT SET")
-                : mattresses.filter((m) => m.device === device && (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD"))
+              mattresses={
+                device === "SP0"
+                  ? mattresses
+                      .filter((m) => m.status === "0 - NOT SET")
+                      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                  : mattresses
+                      .filter(
+                        (m) =>
+                          m.device === device &&
+                          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD")
+                      )
               }
               moveMattress={moveMattress}
               selectedDay={selectedDay}
@@ -187,7 +195,6 @@ const KanbanItem = ({ mattress, index }) => {
       <strong>Bagno:</strong> {mattress.dye_lot} <br />
       <strong>Marker Length:</strong> {mattress.marker_length} m<br />
       <strong>Marker Width:</strong> {mattress.width} cm<br />
-      <strong>Layers:</strong> {mattress.layers} <br />
       {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>Sizes:</strong> {mattress.sizes}</Box>)}
       <strong>Consumption:</strong> {mattress.consumption} m<br />
       <strong>Spreading Method:</strong> {mattress.spreading_method} <br />
@@ -198,7 +205,41 @@ const KanbanItem = ({ mattress, index }) => {
     <MainCard ref={ref} sx={{ mb: 1, opacity: isDragging ? 0.5 : 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
       <strong>Mattress:</strong> {mattress.mattress} <br />
       {mattress.marker && mattress.marker !== '--' && (<><strong>Marker:</strong> {mattress.marker} <br /></>)}
-      {(mattress.total_pcs && mattress.total_pcs !== 0) ? (<><strong>{mattress.total_pcs} pcs</strong><br /></>) : null}
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1 }}>
+        {mattress.total_pcs > 0 && (
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'baseline',
+            bgcolor: '#e3f2fd',
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1,
+            minWidth: 80,
+            justifyContent: 'center'
+          }}>
+            <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+              {mattress.total_pcs}
+            </Typography>
+            <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#1976d2' }}>pcs</Typography>
+          </Box>
+        )}
+
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'baseline',
+          bgcolor: '#f3e5f5',
+          px: 1.5,
+          py: 0.5,
+          borderRadius: 1,
+          minWidth: 80,
+          justifyContent: 'center'
+        }}>
+          <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+            {mattress.layers || 0}
+          </Typography>
+          <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#7b1fa2' }}>layers</Typography>
+        </Box>
+      </Box>
     </MainCard>
   );
 

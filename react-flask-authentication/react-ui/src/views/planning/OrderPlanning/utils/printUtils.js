@@ -5,8 +5,16 @@ export const usePrintStyles = () => {
     const style = document.createElement("style");
     style.innerHTML = `
       @media print {
+        @page {
+          size: landscape;
+          margin: 5mm;
+        }
         body {
           zoom: 50%;
+        }
+        *, *::before, *::after {
+          font-size: 20px !important;
+          line-height: 1.4 !important;
         }
         .scrollbar-container, .navbar, .buttons, .floating-action-button, .MuiButtonBase-root {
           display: none !important;
@@ -19,6 +27,9 @@ export const usePrintStyles = () => {
         }
         .MuiTableContainer-root {
           overflow: visible !important;
+        }
+        .MuiTableCell-root, .MuiTableCell-head, .MuiTableCell-body {
+          padding: 0px !important;
         }
       }
     `;

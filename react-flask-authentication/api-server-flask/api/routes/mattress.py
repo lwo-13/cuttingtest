@@ -323,6 +323,7 @@ class GetKanbanMattressesResource(Resource):
                 Mattresses.fabric_color,
                 Mattresses.dye_lot,
                 Mattresses.spreading_method,
+                Mattresses.created_at,
                 MattressMarker.marker_name,
                 MattressMarker.marker_length,
                 MattressMarker.marker_width,
@@ -343,14 +344,18 @@ class GetKanbanMattressesResource(Resource):
              .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD"]))
 
             if day_filter:
-                query = query.filter(
-                    db.or_(
-                        MattressKanban.day == day_filter,
-                        MattressKanban.day.is_(None)  # Not assigned
+                if day_filter in ["today", "tomorrow"]:
+                    query = query.filter(
+                        db.or_(
+                            # Assigned to that day
+                            MattressKanban.day == day_filter,
+                            # OR unassigned AND still in status 0
+                            db.and_(
+                                MattressKanban.day.is_(None),
+                                MattressPhase.status == "0 - NOT SET"
+                            )
+                        )
                     )
-                )
-
-            query = query.order_by(MattressKanban.day, MattressKanban.shift, MattressKanban.position).all()
 
             # Grab sizes separately
             size_rows = db.session.query(
@@ -391,6 +396,7 @@ class GetKanbanMattressesResource(Resource):
                     "consumption": row.cons_planned,
                     "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
                     "total_pcs": total_pcs,
+                    "created_at": row.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                     "day": row.day,  # Includes 'Not Assigned' if not found in mattress_kanban
                     "shift": row.shift,  # Includes 'Not Assigned' if not found in mattress_kanban
                     "position": row.position  # Defaults to 0 if not found in mattress_kanban
