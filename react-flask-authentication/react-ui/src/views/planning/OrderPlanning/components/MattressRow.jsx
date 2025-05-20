@@ -17,7 +17,6 @@ const MattressRow = ({
   table,
   orderSizes,
   markerOptions,
-  isTableEditable,
   handleInputChange,
   handleRemoveRow,
   setUnsavedChanges
