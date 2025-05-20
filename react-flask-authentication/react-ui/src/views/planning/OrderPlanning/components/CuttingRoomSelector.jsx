@@ -100,7 +100,9 @@ const CuttingRoomSelector = ({ productionCenter, setProductionCenter, cuttingRoo
                     }
                 }}
               >
-                <MenuItem value="ZALLI 1">ZALLI 1</MenuItem>
+                <MenuItem value="ZALLI - SECTOR 1">ZALLI - SECTOR 1</MenuItem>
+                <MenuItem value="ZALLI - SECTOR 2">ZALLI - SECTOR 2</MenuItem>
+                <MenuItem value="ZALLI - SECTOR 3">ZALLI - SECTOR 3</MenuItem>
                 <MenuItem value="ZALLI 2">ZALLI 2</MenuItem>
                 <MenuItem value="ZALLI 3">ZALLI 3</MenuItem>
               </Select>
