@@ -44,10 +44,10 @@ class PadPrintFilter(Resource):
         season = request.args.get('season')
         style = request.args.get('style')
         color = request.args.get('color')
-        
+
         if not (season and style and color):
             return {'success': False, 'message': 'Missing query parameters (season, style, color)'}, 400
-        
+
         try:
             padprints = PadPrint.query.filter_by(season=season, style=style, color=color).all()
             # Return an empty array with a 200 status if no data is found
@@ -55,11 +55,10 @@ class PadPrintFilter(Resource):
         except Exception as e:
             return {'success': False, 'error': str(e)}, 500
 
-# ✅ POST Upload Image to a PadPrint
+# ✅ POST Upload Image to a PadPrint by ID
 @padprint_api.route('/upload-image/<int:id>')
 class PadPrintImageUpload(Resource):
     def post(self, id):
-
         if 'file' not in request.files:
             return {"message": "No file part"}, 400
 
@@ -68,30 +67,116 @@ class PadPrintImageUpload(Resource):
             return {"message": "No selected file"}, 400
 
         if file:
+            # Get the padprint record to access pattern and padprint_color
+            padprint = PadPrint.query.filter_by(id=id).first()
+            if not padprint:
+                return {"message": "PadPrint not found"}, 404
+
+            # Setup paths and ensure directory exists
             BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
             UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'padprint')
-            UPLOAD_URL = '/static/padprint'
-
-            filename = secure_filename(file.filename)
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+            # Create filename based on pattern (lowercase with .jpg extension)
+            pattern = padprint.pattern.lower()
+            filename = f"{pattern}.jpg"
             file_path = os.path.join(UPLOAD_FOLDER, filename)
-            print("Saving to:", file_path)
+
+            # Save the file
+            print(f"Saving to: {file_path}")
             file.save(file_path)
             print("Saved!")
 
-            image_url = f"{UPLOAD_URL}/{filename}"
-            padprint = PadPrint.query.filter_by(id=id).first()
-            print("PadPrint found:", padprint)
-            if padprint:
-                print("Image URL being set:", image_url)
-                padprint.image_url = image_url
-                db.session.add(padprint)
-                db.session.commit()
-                db.session.refresh(padprint)
-                print("AFTER COMMIT:", padprint.image_url)
-                return {"image_url": image_url}, 200
+            # Update or create PadPrintImage record
+            image_url = filename  # Store just the filename
+            padprint_image = PadPrintImage.query.filter_by(
+                pattern=padprint.pattern,
+                padprint_color=padprint.padprint_color
+            ).first()
+
+            if padprint_image:
+                # Update existing record
+                padprint_image.image_url = image_url
             else:
-                return {"message": "PadPrint not found"}, 404
+                # Create new record
+                padprint_image = PadPrintImage(
+                    pattern=padprint.pattern,
+                    padprint_color=padprint.padprint_color,
+                    image_url=image_url
+                )
+
+            # Save to database
+            db.session.add(padprint_image)
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": "Image uploaded successfully",
+                "image_url": f"/api/padprint/image/{filename}"
+            }, 200
+
+        return {"message": "File type not allowed"}, 400
+
+# ✅ POST Upload Image directly with pattern and padprint_color
+@padprint_api.route('/upload-image-direct')
+class PadPrintImageDirectUpload(Resource):
+    def post(self):
+        if 'file' not in request.files:
+            return {"message": "No file part"}, 400
+
+        pattern = request.form.get('pattern')
+        padprint_color = request.form.get('padprint_color')
+
+        if not pattern or not padprint_color:
+            return {"message": "Pattern and padprint_color are required"}, 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return {"message": "No selected file"}, 400
+
+        if file:
+            # Setup paths and ensure directory exists
+            BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+            UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'padprint')
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+            # Create filename based on pattern (lowercase with .jpg extension)
+            pattern_lower = pattern.lower()
+            filename = f"{pattern_lower}.jpg"
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+            # Save the file
+            print(f"Saving to: {file_path}")
+            file.save(file_path)
+            print("Saved!")
+
+            # Update or create PadPrintImage record
+            image_url = filename  # Store just the filename
+            padprint_image = PadPrintImage.query.filter_by(
+                pattern=pattern,
+                padprint_color=padprint_color
+            ).first()
+
+            if padprint_image:
+                # Update existing record
+                padprint_image.image_url = image_url
+            else:
+                # Create new record
+                padprint_image = PadPrintImage(
+                    pattern=pattern,
+                    padprint_color=padprint_color,
+                    image_url=image_url
+                )
+
+            # Save to database
+            db.session.add(padprint_image)
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": "Image uploaded successfully",
+                "image_url": f"/api/padprint/image/{filename}"
+            }, 200
 
         return {"message": "File type not allowed"}, 400
 
