@@ -16,10 +16,10 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             // ✅ Get mattress ID
             const mattressId = mattress.id; // ✅ Now we store the mattress_id for updates
-        
+
             // ✅ Helper function to ensure string conversion
             const ensureString = (value) => (value !== null && value !== undefined ? value.toString() : "N/A");
-        
+
             // ✅ Convert all fields to strings
             const mattressName = ensureString(mattress.mattress);
             const orderCommessa = ensureString(mattress.order_commessa);
@@ -27,11 +27,11 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
             const fabricColor = ensureString(mattress.fabric_color);
             const dyeLot = ensureString(mattress.dye_lot);
             const spreadingMethod = ensureString(mattress.spreading_method);
-        
+
             // ✅ Get mattress details safely
-            const mattressDetails = mattress.details?.[0] || {};  
-            const mattressMarkers = mattress.markers?.[0] || {};  
-        
+            const mattressDetails = mattress.details?.[0] || {};
+            const mattressMarkers = mattress.markers?.[0] || {};
+
             const layers = ensureString(mattressDetails.layers);
             const consPlanned = ensureString(mattressDetails.cons_planned);
             const extra = ensureString(mattressDetails.extra);
@@ -44,7 +44,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
             try {
                 const response = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
                 if (response.data.success) {
-                    markerLines = response.data.marker_lines; 
+                    markerLines = response.data.marker_lines;
                 }
             } catch (error) {
                 console.error("Error fetching marker lines:", error);
@@ -100,13 +100,13 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                         reader.onerror = reject;
                         reader.readAsDataURL(blob);
                     });
-            
+
                     const img = new Image();
                     const loaded = await new Promise((resolve) => {
                         img.onload = resolve;
                         img.src = base64;
                     });
-            
+
                     return {
                         base64,
                         width: img.width,
@@ -117,15 +117,15 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                     return null;
                 }
             };
-            
+
             let padPrintImage = null;
 
             if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
-                const pattern = padPrintData[0].pattern;
+                const pattern = padPrintData[0].pattern.toLowerCase();
                 const imageUrl = `http://172.27.57.210:5000/api/padprint/image/${pattern}.jpg`;
                 padPrintImage = await getImageBase64WithDimensions(imageUrl);
             }
-        
+
             // ✅ Define order table (Left Side)
             const orderTable = [
                 { label: "Капак №", value: mattressName },
@@ -133,7 +133,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                 { label: "Поръчка №", value: orderCommessa },
                 { label: "Наст. маш.", value: "" } // ✅ Empty field
             ];
-        
+
             // ✅ Define fabric table (Below Order Table)
             const fabricTable = [
                 { label: "Застъпване", value: "YES" },
@@ -146,7 +146,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                 { label: "Баня", value: dyeLot },
                 { label: "Консумация [m]", value: consPlanned }
             ];
-        
+
             // ✅ Define Layers Table (Right Side)
             const layersTable = [
                 { planned: layers, actual: "" } // ✅ Actual Layer input left blank
@@ -160,7 +160,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             // Define headers for the padprint table.
             const padPrintHeaders = ["Падпринт", "Цвят"];
-        
+
             // ✅ Setup PDF
             const doc = new jsPDF({
                 orientation: "landscape",
@@ -174,51 +174,51 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             doc.addFileToVFS("Roboto-Regular-normal.ttf", RobotoRegular);
             doc.addFont("Roboto-Regular-normal.ttf", "Roboto-Regular", "normal");
-        
-            const startX = 10; 
+
+            const startX = 10;
             const startY = 10;
             const rowHeight = 8;
             const firstColumnWidth = 40;
             const secondColumnWidth = 80;
-        
+
             doc.setFontSize(10);
-        
+
             // ✅ Draw Order Table (Left)
             orderTable.forEach((field, index) => {
                 const yPos = startY + index * rowHeight;
-        
+
                 doc.rect(startX, yPos, firstColumnWidth, rowHeight);
                 doc.rect(startX + firstColumnWidth, yPos, secondColumnWidth, rowHeight);
-        
+
                 doc.setFont('Roboto-Bold', 'bold');
                 doc.text(field.label, startX + 2, yPos + 5);
-        
+
                 doc.setFont('Roboto-Regular', 'normal');
                 doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
             });
-        
+
             // ✅ Fabric Table (Below Order Table)
             const fabricTableStartY = startY + orderTable.length * rowHeight + 8; // ✅ Space after Order Table
-        
+
             fabricTable.forEach((field, index) => {
                 const yPos = fabricTableStartY + index * rowHeight;
-        
+
                 doc.rect(startX, yPos, firstColumnWidth, rowHeight);
                 doc.rect(startX + firstColumnWidth, yPos, secondColumnWidth, rowHeight);
-        
+
                 doc.setFont('Roboto-Bold', 'bold');
                 doc.text(field.label, startX + 2, yPos + 5);
-        
+
                 doc.setFont('Roboto-Regular', 'normal');
                 doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
             });
-        
+
             // ✅ Layers Table (Right Side)
             const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10; // ✅ Position it further right
-            const layersStartY = startY + 24; 
-        
+            const layersStartY = startY + 24;
+
             doc.setFont('Roboto-Bold', 'bold');
-            
+
             const columnWidth = 35; // ✅ Reduce width
             const headerHeight = rowHeight; // Keep header height
 
@@ -227,7 +227,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             doc.text("Планирани катове", layersStartX + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
             doc.text("Реални катове", layersStartX + columnWidth + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
-        
+
             // ✅ Draw rows with centered text
             layersTable.forEach((field, index) => {
                 const yPos = layersStartY + (index + 1) * rowHeight;
@@ -313,18 +313,18 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             if (padPrintImage) {
                 const { base64, width, height } = padPrintImage;
-            
+
                 // Calculate scale to fit within the box
                 const scale = Math.min(boxWidth / width, boxHeight / height);
                 const imgWidth = width * scale;
                 const imgHeight = height * scale;
-            
+
                 // Center image in the box
                 const offsetX = boxX + (boxWidth - imgWidth) / 2;
                 const offsetY = boxY + (boxHeight - imgHeight) / 2;
-            
+
                 doc.addImage(base64, 'JPEG', offsetX, offsetY, imgWidth, imgHeight);
-            }            
+            }
 
             if (!padPrintImage) {
 
@@ -447,10 +447,10 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             // ✅ Remove the canvas if you want
             document.body.removeChild(barcodeCanvas);
-        
+
             doc.save(`Капак_${mattressName}.pdf`);
-        
-            
+
+
         } catch (error) {
             console.error("Error processing mattress", error);
         }
