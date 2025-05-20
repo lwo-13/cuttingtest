@@ -208,6 +208,9 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
           message: 'Image uploaded successfully',
           severity: 'success'
         });
+
+        // When creating a new padprint, we don't want to reload the page after image upload
+        // The onImageUploaded callback is not called here to prevent page reload
       } catch (error) {
         console.error('Error uploading image:', error);
         setSnackbar({
@@ -294,7 +297,7 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
   };
 
 // Edit PadPrint Modal Component
-const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated }) => {
+const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated, onImageUploaded }) => {
   const [formData, setFormData] = useState({ ...padPrint });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -357,6 +360,11 @@ const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated }) => {
       // Refresh the padprint data to show the new image
       const updatedPadPrint = { ...formData, image_url: response.data.image_url };
       onUpdated(updatedPadPrint);
+
+      // Also refresh the entire data list
+      if (onImageUploaded) {
+        onImageUploaded();
+      }
     } catch (error) {
       console.error('Error uploading image:', error);
       setSnackbar({
@@ -490,7 +498,7 @@ const BulkImageUploadModal = ({ open, handleClose, onSuccess }) => {
     uploadData.append('padprint_color', selectedPadprintColor);
 
     try {
-      const response = await axios.post('/padprint/upload-image-direct', uploadData, {
+      await axios.post('/padprint/upload-image-direct', uploadData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -614,6 +622,32 @@ const PadPrints = () => {
     message: '',
     severity: 'success'
   });
+
+  // Check for filter in URL params on initial load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const savedFilter = params.get('filter');
+    if (savedFilter) {
+      setFilterText(savedFilter);
+    }
+  }, []);
+
+  // Function to reload the page while preserving the filter
+  const reloadPageWithFilter = () => {
+    // Save current filter to URL
+    const url = new URL(window.location.href);
+    if (filterText) {
+      url.searchParams.set('filter', filterText);
+    } else {
+      url.searchParams.delete('filter');
+    }
+
+    // Update URL without reloading
+    window.history.replaceState({}, '', url.toString());
+
+    // Then reload the page
+    window.location.reload();
+  };
 
   // Adjust table height dynamically
   useEffect(() => {
@@ -775,12 +809,25 @@ const PadPrints = () => {
             variant="outlined"
             size="small"
             value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
+            onChange={(e) => {
+              const newFilter = e.target.value;
+              setFilterText(newFilter);
+
+              // Update URL with filter value without reloading
+              const url = new URL(window.location.href);
+              if (newFilter) {
+                url.searchParams.set('filter', newFilter);
+              } else {
+                url.searchParams.delete('filter');
+              }
+              window.history.replaceState({}, '', url.toString());
+            }}
             sx={{ width: 250, '& input': { fontWeight: 'normal' } }}
           />
           <Button variant="contained" onClick={() => setOpenCreateModal(true)}>
             Create New
           </Button>
+          {/* Upload Image button commented out as requested
           <Button
             variant="contained"
             color="secondary"
@@ -789,6 +836,7 @@ const PadPrints = () => {
           >
             Upload Image
           </Button>
+          */}
         </Box>
       }
     >
@@ -838,6 +886,7 @@ const PadPrints = () => {
           open={openCreateModal}
           handleClose={() => setOpenCreateModal(false)}
           onCreated={(newPadPrint) => {
+            // Just update the state without reloading when creating a new padprint
             setPadPrints(prev => [...prev, newPadPrint]);
             setSnackbar({
               open: true,
@@ -864,6 +913,10 @@ const PadPrints = () => {
               severity: 'success'
             });
           }}
+          onImageUploaded={() => {
+            // Reload the page while preserving the filter
+            reloadPageWithFilter();
+          }}
         />
       )}
 
@@ -873,13 +926,8 @@ const PadPrints = () => {
           open={openUploadModal}
           handleClose={() => setOpenUploadModal(false)}
           onSuccess={() => {
-            // Refresh the data to show updated images
-            fetchItems();
-            setSnackbar({
-              open: true,
-              message: 'Image uploaded successfully',
-              severity: 'success'
-            });
+            // Reload the page while preserving the filter
+            reloadPageWithFilter();
           }}
         />
       )}
