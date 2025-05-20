@@ -34,7 +34,7 @@ const PadPrintInfo = ({ padPrintInfo }) => {
                         <Box
                             component="img"
                             // to see it work on local host change it to this http://127.0.0.1:5000/api
-                            src={`http://172.27.57.210:5000/api/padprint/image/${padPrintInfo.pattern}.jpg`}
+                            src={`http://172.27.57.210/api/padprint/image/${padPrintInfo.pattern.toLowerCase()}.jpg`}
                             alt="Pad Print"
                             sx={{
                                 width: '100%',

@@ -121,7 +121,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             let padPrintImage = null;
 
             if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
-                const pattern = padPrintData[0].pattern;
+                const pattern = padPrintData[0].pattern.toLowerCase();
                 const imageUrl = `http://172.27.57.210:5000/api/padprint/image/${pattern}.jpg`;
                 padPrintImage = await getImageBase64WithDimensions(imageUrl);
             }

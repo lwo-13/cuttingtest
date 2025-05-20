@@ -39,7 +39,7 @@ import { usePrintStyles, handlePrint } from 'views/planning/OrderPlanning/utils/
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 // Sample Fabric Types
-const fabricTypeOptions = ["01", "02", "03", "04", "05", "06"];
+const fabricTypeOptions = ["01", "02", "03", "04", "05", "06", "10", "13"];
 
 // Spreading Options
 const spreadingOptions = ["AUTOMATIC", "MANUAL"];
