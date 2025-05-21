@@ -126,12 +126,23 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 padPrintImage = await getImageBase64WithDimensions(imageUrl);
             }
         
+            // Fetch production center info for destination
+            let destination = "";
+            try {
+                const prodCenterResponse = await axios.get(`/orders/production_center/get/${encodeURIComponent(orderCommessa)}`);
+                if (prodCenterResponse.data.success && prodCenterResponse.data.data) {
+                    destination = prodCenterResponse.data.data.destination || "";
+                }
+            } catch (err) {
+                console.error("Error fetching production center destination:", err);
+            }
+
             // ✅ Define order table (Left Side)
             const orderTable = [
                 { label: "Капак №", value: mattressName },
                 { label: "Модел №", value: markerName },
                 { label: "Поръчка №", value: orderCommessa },
-                { label: "Наст. маш.", value: "" } // ✅ Empty field
+                { label: "Сектор:", value: destination, _horizontal: true } // Only for horizontal table
             ];
         
             // ✅ Define fabric table (Below Order Table)
@@ -386,22 +397,24 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             // ✅ Define the rotated table position (Bottom-Right)
             const rotatedStartX = separatorX + 10; // Adjust right position
             const rotatedStartY = startY + 70; // Move it to the bottom
-
             const rotatedRowHeight = 8;  // Simulated "column" height
 
-            // ✅ Loop through orderTable in a rotated manner
-            orderTable.forEach((field, index) => {
-                const xPos = rotatedStartX + index * rotatedRowHeight; // Move **right** (acts like rows)
-                const yPos = rotatedStartY; // Fixed Y position (acts like left margin)
+            // Define rotatedOrderTable before using it
+            const rotatedOrderTable = [
+                { label: "Капак №", value: mattressName },
+                { label: "Модел №", value: markerName },
+                { label: "Поръчка №", value: orderCommessa },
+                { label: "Наст. маш.", value: "" } // Keep as before, do not use destination
+            ];
 
-                // ✅ Swap width & height to create a rotated effect
+            // Only keep the rotatedOrderTable loop:
+            rotatedOrderTable.forEach((field, index) => {
+                const xPos = rotatedStartX + index * rotatedRowHeight;
+                const yPos = rotatedStartY;
                 doc.rect(xPos, yPos, rotatedRowHeight, secondColumnWidth);
                 doc.rect(xPos, yPos + secondColumnWidth, rotatedRowHeight, firstColumnWidth);
-
-                // ✅ Draw text in rotated orientation (simulated)
                 doc.setFont('Roboto-Bold', 'bold');
                 doc.text(field.label, xPos + 5, yPos + 118, { angle: 90 });
-
                 doc.setFont('Roboto-Regular', 'normal');
                 doc.text(field.value, xPos + 5, yPos + secondColumnWidth - 3, { angle: 90 });
             });
