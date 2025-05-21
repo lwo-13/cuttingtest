@@ -492,19 +492,24 @@ const SpreaderView = () => {
             </Snackbar>
 
             {/* Finish Spreading Dialog */}
-            <Dialog open={finishDialogOpen} onClose={handleCloseFinishDialog}>
+            <Dialog
+                open={finishDialogOpen}
+                onClose={handleCloseFinishDialog}
+                PaperProps={{
+                    sx: { position: 'relative', overflow: 'visible' }
+                }}
+            >
                 <DialogTitle>Finish Spreading</DialogTitle>
                 <DialogContent>
-                    <Box sx={{ pt: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', pt: 1 }}>
                         <Typography variant="body1" gutterBottom>
                             Please enter the actual number of layers loaded:
                         </Typography>
                         <TextField
-                            autoFocus
                             margin="dense"
                             label="Actual Layers"
                             type="number"
-                            fullWidth
+                            fullWidth={false}
                             value={actualLayers}
                             onChange={(e) => {
                                 // Only allow positive numbers
@@ -512,11 +517,13 @@ const SpreaderView = () => {
                                 setActualLayers(value);
                             }}
                             InputProps={{
-                                inputProps: { min: 1 }
+                                inputProps: { min: 1 },
+                                sx: { width: 120, fontSize: 24 }
                             }}
+                            sx={{ mb: 2, mt: 1, '& input': { fontSize: 24, textAlign: 'center' } }}
                         />
                         {selectedMattress && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
                                 <strong>Mattress:</strong> {selectedMattress.mattress}<br />
                                 <strong>Planned Layers:</strong> {selectedMattress.layers}<br />
                                 <strong>Planned Consumption:</strong> {selectedMattress.consumption} m<br />
@@ -529,6 +536,43 @@ const SpreaderView = () => {
                         )}
                     </Box>
                 </DialogContent>
+                {/* Elevator buttons absolutely positioned outside the dialog */}
+                <Box sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: -120, // move further out to accommodate larger buttons
+                    transform: 'translateY(-50%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 3,
+                    zIndex: 1301,
+                    pointerEvents: 'auto',
+                }}>
+                    <Button
+                        variant="contained"
+                        size="large"
+                        sx={{ width: 105, height: 105, fontSize: 60, borderRadius: 2, boxShadow: 3, bgcolor: '#e0e0e0', color: '#333', '&:hover': { bgcolor: '#bdbdbd' } }}
+                        onClick={() => setActualLayers(prev => {
+                            const val = Number(prev) || 0;
+                            return (val + 1).toString();
+                        })}
+                        aria-label="Increase"
+                    >
+                        ▲
+                    </Button>
+                    <Button
+                        variant="contained"
+                        size="large"
+                        sx={{ width: 105, height: 105, fontSize: 60, borderRadius: 2, boxShadow: 3, bgcolor: '#e0e0e0', color: '#333', '&:hover': { bgcolor: '#bdbdbd' } }}
+                        onClick={() => setActualLayers(prev => {
+                            const val = Number(prev) || 1;
+                            return val > 1 ? (val - 1).toString() : '1';
+                        })}
+                        aria-label="Decrease"
+                    >
+                        ▼
+                    </Button>
+                </Box>
                 <DialogActions>
                     <Button onClick={handleCloseFinishDialog}>Cancel</Button>
                     <Button
