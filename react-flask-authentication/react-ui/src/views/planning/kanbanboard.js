@@ -22,6 +22,55 @@ const KanbanBoard = () => {
   const [mattresses, setMattresses] = useState([]);
   const [selectedDay, setSelectedDay] = useState("Today");
   const username = useSelector((state) => state.account?.user?.username) || "Unknown";
+  const scrollContainerRef = useRef(null);
+  const scrollAnimationRef = useRef(null);
+  
+  const handleDragScroll = (e) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const baseSpeed = 5; // Lower base speed for smoother scrolling
+    
+    // Calculate distances from top and bottom of container
+    const distanceFromTop = e.clientY - containerRect.top;
+    const distanceFromBottom = containerRect.bottom - e.clientY;
+    const threshold = 150; // Increased threshold for earlier activation
+    
+    const animate = () => {
+      if (!container) return;
+      
+      let scrollDelta = 0;
+      
+      // Calculate scroll speed based on distance from edges
+      if (distanceFromTop < threshold) {
+        const intensity = 1 - (distanceFromTop / threshold);
+        scrollDelta = -baseSpeed * intensity * intensity; // Quadratic easing
+      } else if (distanceFromBottom < threshold) {
+        const intensity = 1 - (distanceFromBottom / threshold);
+        scrollDelta = baseSpeed * intensity * intensity; // Quadratic easing
+      }
+      
+      if (scrollDelta !== 0) {
+        const newScrollTop = Math.max(0, Math.min(
+          container.scrollHeight - container.clientHeight,
+          container.scrollTop + scrollDelta
+        ));
+        container.scrollTop = newScrollTop;
+        scrollAnimationRef.current = requestAnimationFrame(animate);
+      }
+    };
+    
+    // Cancel any existing animation
+    if (scrollAnimationRef.current) {
+      cancelAnimationFrame(scrollAnimationRef.current);
+    }
+    
+    // Start new animation if we're in the scroll zones
+    if (distanceFromTop < threshold || distanceFromBottom < threshold) {
+      scrollAnimationRef.current = requestAnimationFrame(animate);
+    }
+  };
 
   useEffect(() => {
     fetchMattresses();
@@ -75,11 +124,40 @@ const KanbanBoard = () => {
     .catch(err => console.error("Failed to update position:", err));
   };
 
+  // Add event listeners for drag scroll
+  useEffect(() => {
+    window.addEventListener('dragover', handleDragScroll);
+    return () => {
+      window.removeEventListener('dragover', handleDragScroll);
+    };
+  }, []);
+
   return (
     <>
       <FilterBar selectedDay={selectedDay} setSelectedDay={setSelectedDay} />
       <DndProvider backend={HTML5Backend}>
-        <Box display="flex" gap={2} p={0} sx={{ width: '100%', overflowX: 'auto', alignItems: 'start', scrollbarWidth: 'thin', '&::-webkit-scrollbar': { height: '8px' } }}>
+        <Box 
+          ref={scrollContainerRef}
+          display="flex" 
+          gap={2} 
+          p={0} 
+          sx={{ 
+            width: '100%', 
+            height: 'calc(100vh - 180px)', // Adjust based on your layout
+            overflowX: 'auto',
+            overflowY: 'auto',
+            alignItems: 'start', 
+            scrollbarWidth: 'thin',
+            '&::-webkit-scrollbar': { 
+              width: '8px',
+              height: '8px'
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(0,0,0,0.2)',
+              borderRadius: '4px'
+            }
+          }}
+        >
           {devices.map((device) => (
             <KanbanColumn
               key={device}
@@ -109,11 +187,21 @@ const KanbanBoard = () => {
 
 const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMattressPosition }) => {
   const isSpreader = device !== "SP0";
+  const [searchTerm, setSearchTerm] = useState("");
+  
   const sortedMattresses = [...mattresses].sort((a, b) => a.position - b.position);
   const firstShift = sortedMattresses.filter(m => m.shift === '1shift');
   const secondShift = sortedMattresses.filter(m => m.shift === '2shift');
 
-  const [{ isOverFirst }, dropFirst] = useDrop({
+  // Filter mattresses based on search term for SP0
+  const filteredMattresses = device === "SP0" 
+    ? sortedMattresses.filter(m => 
+        m.mattress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.order_commessa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.fabric_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.marker?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : sortedMattresses;  const [{ isOverFirst }, dropFirst] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
       if (item.fromDevice === device && item.fromShift === '1shift') {
@@ -124,9 +212,7 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMat
       }
     },
     collect: (monitor) => ({ isOverFirst: !!monitor.isOver() })
-  });
-
-  const [{ isOverSecond }, dropSecond] = useDrop({
+  });  const [{ isOverSecond }, dropSecond] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
       if (item.fromDevice === device && item.fromShift === '2shift') {
@@ -137,12 +223,26 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMat
       }
     },
     collect: (monitor) => ({ isOverSecond: !!monitor.isOver() })
-  });
-
-  return (
+  });return (
     <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '100%' }}>
-      <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2 }}>
         {device === "SP0" ? "To Assign" : device}
+        {device === "SP0" && (
+          <input
+            type="text"
+            placeholder="Search by order, fabric, marker..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: '8px',
+              border: '1px solid #e0e0e0',
+              borderRadius: '4px',
+              fontSize: '0.9rem',
+              width: '100%',
+              marginTop: '4px'
+            }}
+          />
+        )}
       </Paper>
       {isSpreader ? (
         <>
@@ -157,7 +257,7 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMat
         </>
       ) : (
         <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 300 }}>
-          {sortedMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} />)}
+          {filteredMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} />)}
         </Paper>
       )}
     </Box>
@@ -176,12 +276,33 @@ const KanbanItem = ({ mattress, index }) => {
     },
     collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
   });
-
   const [, drop] = useDrop({
     accept: "MATTRESS",
-    hover: (item) => {
-      if (item.id !== mattress.id) {
-        item.index = index;
+    hover: (item, monitor) => {
+      if (!ref.current || item.id === mattress.id) {
+        return;
+      }
+
+      // Only handle hover if in same column/shift
+      if (item.fromDevice === mattress.device && item.fromShift === mattress.shift) {
+        const dragIndex = item.index;
+        const hoverIndex = index;
+
+        const hoverBoundingRect = ref.current.getBoundingClientRect();
+        const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+        const clientOffset = monitor.getClientOffset();
+        const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+        // Moving downwards
+        if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
+          return;
+        }
+        // Moving upwards
+        if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
+          return;
+        }
+
+        item.index = hoverIndex;
       }
     }
   });
