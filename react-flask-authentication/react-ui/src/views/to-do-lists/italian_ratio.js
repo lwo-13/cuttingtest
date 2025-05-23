@@ -90,17 +90,16 @@ const ItalianRatio = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedOrder) {
-      clearBrand(); // Reset the brand if no order is selected
+    if (!selectedOrder?.id) {
+      clearBrand();
       setSelectedSeason('');
       setSelectedStyle('');
       setSelectedColorCode('');
       setFetchedSizes([]);
       return;
     }
-  
-    // Get basic order info
-    axios.get(`/orders/order_lines?order_commessa=${selectedOrder}`).then((res) => {
+
+    axios.get(`/orders/order_lines?order_commessa=${selectedOrder.id}`).then((res) => {
       const lines = res.data.data;
       if (lines.length > 0) {
         setSelectedSeason(lines[0].season || '');
@@ -108,12 +107,12 @@ const ItalianRatio = () => {
         setSelectedColorCode(lines[0].color_code || '');
         if (lines[0].style) fetchBrandForStyle(lines[0].style);
         const sizes = [...new Set(lines.map((line) => line.size))];
-        setFetchedSizes(sizes); // ✅ just store sizes
+        setFetchedSizes(sizes);
       }
     });
 
     setRatios([{ size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }]);
-  }, [selectedOrder]);
+  }, [selectedOrder?.id]); // 👈 track the ID
 
   useEffect(() => {
     if (!fetchedSizes.length) return;
@@ -158,7 +157,7 @@ const ItalianRatio = () => {
     }
   
     const dataToSend = ratios.map((row) => ({
-      order_commessa: selectedOrder,
+      order_commessa: selectedOrder?.id,
       size: row.size,
       theoretical_ratio: parseFloat(row.theoretical_ratio || 0)
     }));
@@ -213,9 +212,10 @@ const ItalianRatio = () => {
             }}
             orderOptions={filteredOrders}
             selectedOrder={selectedOrder}
-            onOrderChange={(event, newValue) => {
-              setSelectedOrder(newValue?.id || null);
-              setStyleTouched(false); // ✅ allow style to auto-update again on future orders
+            onOrderChange={(newValue) => {
+              setSelectedOrder(newValue || null); // ✅
+              setStyleTouched(false);
+              console.log("✅ selectedOrder set to:", newValue);
             }}
             selectedSeason={selectedSeason}
             selectedBrand={brand}
