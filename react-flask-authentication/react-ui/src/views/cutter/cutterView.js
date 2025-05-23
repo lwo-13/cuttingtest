@@ -13,8 +13,11 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    IconButton,
+    Tooltip
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -146,6 +149,9 @@ const CutterView = () => {
                     );
                     setActiveCuttingMattress(onCutMattress || null);
 
+                    // Debug: Log marker names
+                    console.log("Mattress data sample:", filteredMattresses.length > 0 ? filteredMattresses[0] : "No mattresses");
+
                     // Set all mattresses in a single list
                     setMattresses(filteredMattresses);
 
@@ -274,6 +280,28 @@ const CutterView = () => {
         setSnackbar({ ...snackbar, open: false });
     };
 
+    // Function to copy text to clipboard
+    const copyToClipboard = (text) => {
+        if (!text || text === 'N/A') return;
+
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                setSnackbar({
+                    open: true,
+                    message: "Marker name copied to clipboard",
+                    severity: "success"
+                });
+            })
+            .catch(err => {
+                console.error('Failed to copy text: ', err);
+                setSnackbar({
+                    open: true,
+                    message: "Failed to copy to clipboard",
+                    severity: "error"
+                });
+            });
+    };
+
     const renderMattressCard = (mattress) => {
         // Get the source device
         const sourceDevice = mattress.device;
@@ -332,11 +360,43 @@ const CutterView = () => {
 
                     <Divider sx={{ my: 1 }} />
 
-                    {/* Details section - simplified to a single row */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 0.5 }}>
-                        <Typography variant="body2"><strong>Order:</strong> {mattress.order_commessa}</Typography>
-                        <Typography variant="body2"><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
-                        <Typography variant="body2"><strong>Marker:</strong> {mattress.marker_name || 'N/A'}</Typography>
+                    {/* Details section - simplified to a single row with better alignment */}
+                    <Box sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 2,
+                        mt: 0.5,
+                        alignItems: 'center'
+                    }}>
+                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>Order:</strong> {mattress.order_commessa}</Typography>
+                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
+                        <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            height: '24px', // Fixed height to match other elements
+                            position: 'relative',
+                            top: '-1px' // Move up by 1mm for perfect alignment
+                        }}>
+                            <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>Marker:</strong> {mattress.marker || 'N/A'}</Typography>
+                            {mattress.marker && (
+                                <Tooltip title="Copy marker name">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => copyToClipboard(mattress.marker)}
+                                        sx={{
+                                            ml: 0.5,
+                                            p: 0.25,
+                                            height: '24px',
+                                            width: '24px',
+                                            position: 'relative',
+                                            top: '-1px' // Move the icon up by 1mm as well
+                                        }}
+                                    >
+                                        <ContentCopyIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </Box>
                     </Box>
 
                     {/* Action buttons */}
