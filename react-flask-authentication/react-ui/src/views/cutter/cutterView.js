@@ -280,26 +280,77 @@ const CutterView = () => {
         setSnackbar({ ...snackbar, open: false });
     };
 
-    // Function to copy text to clipboard
+    // Function to copy text to clipboard using a fallback method
     const copyToClipboard = (text) => {
         if (!text || text === 'N/A') return;
 
-        navigator.clipboard.writeText(text)
-            .then(() => {
+        try {
+            // Try the modern Clipboard API first
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        setSnackbar({
+                            open: true,
+                            message: "Marker name copied to clipboard",
+                            severity: "success"
+                        });
+                    })
+                    .catch(() => {
+                        // If Clipboard API fails, fall back to the older method
+                        fallbackCopyToClipboard(text);
+                    });
+            } else {
+                // If Clipboard API is not available, use the fallback method
+                fallbackCopyToClipboard(text);
+            }
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            setSnackbar({
+                open: true,
+                message: "Failed to copy to clipboard",
+                severity: "error"
+            });
+        }
+    };
+
+    // Fallback method using a temporary textarea element
+    const fallbackCopyToClipboard = (text) => {
+        try {
+            // Create a temporary textarea element
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+
+            // Make the textarea out of viewport
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+
+            // Select and copy the text
+            textArea.focus();
+            textArea.select();
+
+            // Note: execCommand is deprecated but still widely supported as a fallback
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+
+            if (successful) {
                 setSnackbar({
                     open: true,
                     message: "Marker name copied to clipboard",
                     severity: "success"
                 });
-            })
-            .catch(err => {
-                console.error('Failed to copy text: ', err);
-                setSnackbar({
-                    open: true,
-                    message: "Failed to copy to clipboard",
-                    severity: "error"
-                });
+            } else {
+                throw new Error('Copy command was unsuccessful');
+            }
+        } catch (err) {
+            console.error('Fallback copy method failed: ', err);
+            setSnackbar({
+                open: true,
+                message: "Failed to copy to clipboard",
+                severity: "error"
             });
+        }
     };
 
     const renderMattressCard = (mattress) => {
