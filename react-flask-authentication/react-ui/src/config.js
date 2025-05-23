@@ -5,6 +5,8 @@ export const getDefaultPathByRole = (role) => {
     switch (role) {
         case 'Spreader':
             return '/spreader/view';
+        case 'Cutter':
+            return '/cutter/view';
         case 'Administrator':
         case 'Manager':
         case 'Planner':

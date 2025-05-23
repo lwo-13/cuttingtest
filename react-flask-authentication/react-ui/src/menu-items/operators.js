@@ -9,10 +9,18 @@ const operators = {
   type: 'group',
   children: [
     {
-      id: 'operator-management',
+      id: 'spreader-operator-management',
       title: 'Spreader Operators',
       type: 'item',
-      url: '/operators/management',
+      url: '/operators/spreader-management',
+      icon: IconUsers,
+      breadcrumbs: false
+    },
+    {
+      id: 'cutter-operator-management',
+      title: 'Cutter Operators',
+      type: 'item',
+      url: '/operators/cutter-management',
       icon: IconUsers,
       breadcrumbs: false
     }
