@@ -39,8 +39,12 @@ const SamplePage = Loadable(lazy(() => import('../views/sample-page')));
 // spreader routing
 const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView')));
 
+// cutter routing
+const CutterView = Loadable(lazy(() => import('../views/cutter/cutterView')));
+
 // operators routing
 const OperatorManagement = Loadable(lazy(() => import('../views/operators/operatorManagement')));
+const CutterOperatorManagement = Loadable(lazy(() => import('../views/cutter-operators/cutterOperatorManagement')));
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
@@ -73,7 +77,9 @@ const MainRoutes = () => {
                 '/sample-page',
 
                 '/spreader/view',
-                '/operators/management'
+                '/cutter/view',
+                '/operators/spreader-management',
+                '/operators/cutter-management'
             ]}
         >
             <MainLayout>
@@ -107,9 +113,21 @@ const MainRoutes = () => {
                             </RoleGuard>
                         </Route>
 
-                        <Route path="/operators/management">
+                        <Route path="/cutter/view">
+                            <RoleGuard allowedRoles={['Cutter']}>
+                                <CutterView />
+                            </RoleGuard>
+                        </Route>
+
+                        <Route path="/operators/spreader-management">
                             <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
                                 <OperatorManagement />
+                            </RoleGuard>
+                        </Route>
+
+                        <Route path="/operators/cutter-management">
+                            <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
+                                <CutterOperatorManagement />
                             </RoleGuard>
                         </Route>
                     </AuthGuard>

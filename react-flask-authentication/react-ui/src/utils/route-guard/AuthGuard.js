@@ -26,6 +26,13 @@ const AuthGuard = ({ children }) => {
         }
     }
 
+    if (user && user.role === 'Cutter') {
+        // If Cutter is trying to access a non-cutter page, redirect to cutter view
+        if (!location.pathname.startsWith('/cutter')) {
+            return <Redirect to="/cutter/view" />;
+        }
+    }
+
     return children;
 };
 

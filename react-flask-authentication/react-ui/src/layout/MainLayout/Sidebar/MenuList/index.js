@@ -23,13 +23,18 @@ const MenuList = () => {
             return group.id === 'spreader';
         }
 
+        // For Cutter role, only show the cutter menu
+        if (userRole === 'Cutter') {
+            return group.id === 'cutter';
+        }
+
         // For Administrator, Manager, and Project Admin roles, show all menus
         if (userRole === 'Administrator' || userRole === 'Manager' || userRole === 'Project Admin') {
             return true;
         }
 
-        // For other roles (like Planner), show all except spreader menu
-        return group.id !== 'spreader';
+        // For other roles (like Planner), show all except spreader and cutter menus
+        return group.id !== 'spreader' && group.id !== 'cutter';
     });
 
     const updatedItems = filteredItems.map((group) => ({

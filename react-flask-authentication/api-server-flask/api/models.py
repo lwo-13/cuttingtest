@@ -517,7 +517,27 @@ class SpreadOperator(db.Model):
             else:
                 result[column.name] = value
         return result
-    
+
+class CutterOperator(db.Model):
+    __tablename__ = 'cutter_operators'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(255), nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        """Convert row data to dictionary format."""
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result
+
 class ProductionCenter(db.Model):
     __tablename__ = 'production_center'
 
