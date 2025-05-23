@@ -4,12 +4,8 @@ import {
     Box,
     Typography,
     Paper,
-    Grid,
     Divider,
     Card,
-    CardContent,
-    CardHeader,
-    Chip,
     CircularProgress,
     Alert,
     Button,
@@ -17,18 +13,17 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField
+    MenuItem
 } from '@mui/material';
 
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
+import useCollapseMenu from '../../hooks/useCollapseMenu';
 
 const CutterView = () => {
+    // Automatically collapse the sidebar menu
+    useCollapseMenu(true);
+
     const [mattresses, setMattresses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false); // State for background refresh
@@ -38,8 +33,6 @@ const CutterView = () => {
     const [operators, setOperators] = useState([]);
     const [selectedOperator, setSelectedOperator] = useState('');
     const [loadingOperators, setLoadingOperators] = useState(false);
-    const [finishDialogOpen, setFinishDialogOpen] = useState(false);
-    const [selectedMattress, setSelectedMattress] = useState(null);
     const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
     const [activeCuttingMattress, setActiveCuttingMattress] = useState(null); // Track active cutting mattress
     const account = useSelector((state) => state.account);
@@ -144,24 +137,17 @@ const CutterView = () => {
                         return false;
                     });
 
-                    // Group by shift
-                    const firstShift = filteredMattresses.filter(m => m.shift === '1shift');
-                    const secondShift = filteredMattresses.filter(m => m.shift === '2shift');
-
-                    // Sort by position
-                    firstShift.sort((a, b) => a.position - b.position);
-                    secondShift.sort((a, b) => a.position - b.position);
+                    // Sort all mattresses by position
+                    filteredMattresses.sort((a, b) => a.position - b.position);
 
                     // Check if there's any mattress with status "4 - ON CUT" for this specific cutter device
-                    const onCutMattress = [...firstShift, ...secondShift].find(
+                    const onCutMattress = filteredMattresses.find(
                         m => m.status === "4 - ON CUT" && m.device === cutterDevice
                     );
                     setActiveCuttingMattress(onCutMattress || null);
 
-                    setMattresses({
-                        firstShift,
-                        secondShift
-                    });
+                    // Set all mattresses in a single list
+                    setMattresses(filteredMattresses);
 
                     // Update last refresh time
                     setLastRefreshTime(new Date());
@@ -230,41 +216,15 @@ const CutterView = () => {
         });
     };
 
-    const [actualLayers, setActualLayers] = useState('');
-
-    const handleOpenFinishDialog = (mattress) => {
-        setSelectedMattress(mattress);
-        setActualLayers(mattress.layers || ''); // Default to planned layers
-        setFinishDialogOpen(true);
-    };
-
-    const handleCloseFinishDialog = () => {
-        setFinishDialogOpen(false);
-        setSelectedMattress(null);
-        setActualLayers('');
-    };
-
-    const handleFinishCutting = () => {
-        if (!selectedMattress) return;
-
-        // Validate actual layers input
-        if (!actualLayers || isNaN(actualLayers) || Number(actualLayers) <= 0) {
-            setSnackbar({
-                open: true,
-                message: "Please enter a valid number of layers",
-                severity: "error"
-            });
-            return;
-        }
-
+    const handleFinishCutting = (mattressId, layers) => {
         // Get the selected operator name
         const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
         const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
 
-        setProcessingMattress(selectedMattress.id);
+        setProcessingMattress(mattressId);
 
         // First update the status to "5 - COMPLETED"
-        axios.put(`/mattress/update_status/${selectedMattress.id}`, {
+        axios.put(`/mattress/update_status/${mattressId}`, {
             status: "5 - COMPLETED",
             operator: operatorName,
             device: cutterDevice // Explicitly set the device to ensure it's updated
@@ -272,8 +232,9 @@ const CutterView = () => {
         .then((res) => {
             if (res.data.success) {
                 // Then update the actual layers (layers_a) in mattress_details
-                return axios.put(`/mattress/update_layers_a/${selectedMattress.id}`, {
-                    layers_a: Number(actualLayers)
+                // Use the planned layers value automatically
+                return axios.put(`/mattress/update_layers_a/${mattressId}`, {
+                    layers_a: Number(layers)
                 });
             } else {
                 throw new Error(res.data.message || "Failed to update status");
@@ -286,7 +247,6 @@ const CutterView = () => {
                     message: "Cutting finished successfully",
                     severity: "success"
                 });
-                handleCloseFinishDialog();
                 // Reset active cutting mattress
                 setActiveCuttingMattress(null);
                 fetchMattresses(false); // Refresh the data in background
@@ -307,7 +267,7 @@ const CutterView = () => {
         });
     };
 
-    const handleCloseSnackbar = (event, reason) => {
+    const handleCloseSnackbar = (_, reason) => {
         if (reason === 'clickaway') {
             return;
         }
@@ -315,75 +275,69 @@ const CutterView = () => {
     };
 
     const renderMattressCard = (mattress) => {
-        // Determine if this mattress is from an associated spreader
-        const isFromAssociatedSpreader = associatedSpreaderDevices.includes(mattress.device);
+        // Get the source device
         const sourceDevice = mattress.device;
 
         return (
-            <Card key={mattress.id} sx={{ mb: 2, boxShadow: 3 }}>
-                <Box sx={{ p: 2 }}>
+            <Card key={mattress.id} sx={{ mb: 2, boxShadow: 2 }}>
+                <Box sx={{ p: 1.5 }}>
                     {/* Header with mattress ID and pieces/layers info */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Box>
-                            <Typography variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
+                            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
                                 Mattress: {mattress.mattress}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">
                                 Status: {mattress.status}
                             </Typography>
                             {sourceDevice && sourceDevice !== cutterDevice && (
-                                <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
-                                    <strong>From Spreader: {sourceDevice}</strong>
+                                <Typography variant="body2" color="primary">
+                                    <strong>From: {sourceDevice}</strong>
                                 </Typography>
                             )}
                         </Box>
-                        <Box sx={{ textAlign: 'right' }}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
                             <Box sx={{
                                 display: 'flex',
-                                justifyContent: 'flex-end',
-                                alignItems: 'baseline',
-                                mb: 0.5,
+                                flexDirection: 'column',
+                                alignItems: 'center',
                                 bgcolor: '#e3f2fd', // Light blue background
                                 px: 1.5,
                                 py: 0.5,
-                                borderRadius: 1
+                                borderRadius: 1,
+                                minWidth: '60px'
                             }}>
-                                <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+                                <Typography variant="h5" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
                                     {mattress.total_pcs || 0}
                                 </Typography>
-                                <Typography sx={{ ml: 1, fontSize: '1rem', color: '#1976d2' }}>pcs</Typography>
+                                <Typography sx={{ fontSize: '0.75rem', color: '#1976d2' }}>pieces</Typography>
                             </Box>
                             <Box sx={{
                                 display: 'flex',
-                                justifyContent: 'flex-end',
-                                alignItems: 'baseline',
+                                flexDirection: 'column',
+                                alignItems: 'center',
                                 bgcolor: '#f3e5f5', // Light purple background
                                 px: 1.5,
                                 py: 0.5,
-                                borderRadius: 1
+                                borderRadius: 1,
+                                minWidth: '60px'
                             }}>
-                                <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+                                <Typography variant="h5" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
                                     {mattress.layers || 0}
                                 </Typography>
-                                <Typography sx={{ ml: 1, fontSize: '1rem', color: '#7b1fa2' }}>layers</Typography>
+                                <Typography sx={{ fontSize: '0.75rem', color: '#7b1fa2' }}>layers</Typography>
                             </Box>
                         </Box>
                     </Box>
 
-                    <Divider sx={{ my: 1.5 }} />
+                    <Divider sx={{ my: 1 }} />
 
-                    {/* Details section */}
-                    <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                        <Grid item xs={6}>
-                            <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Order:</strong> {mattress.order_commessa}</Typography>
-                            <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
-                            <Typography variant="body2"><strong>Type:</strong> {mattress.fabric_type}</Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                            <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Marker:</strong> {mattress.marker_name || 'N/A'}</Typography>
-                            <Typography variant="body2"><strong>Sizes:</strong> {mattress.sizes || 'N/A'}</Typography>
-                        </Grid>
-                    </Grid>
+                    {/* Details section - simplified to a single row */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 0.5 }}>
+                        <Typography variant="body2"><strong>Order:</strong> {mattress.order_commessa}</Typography>
+                        <Typography variant="body2"><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
+                        <Typography variant="body2"><strong>Marker:</strong> {mattress.marker_name || 'N/A'}</Typography>
+                    </Box>
 
                     {/* Action buttons */}
                     {mattress.status === "3 - TO CUT" && (
@@ -405,7 +359,7 @@ const CutterView = () => {
                                 variant="contained"
                                 color="success"
                                 disabled={processingMattress === mattress.id || !selectedOperator}
-                                onClick={() => handleOpenFinishDialog(mattress)}
+                                onClick={() => handleFinishCutting(mattress.id, mattress.layers)}
                             >
                                 {processingMattress === mattress.id ? 'Processing...' : 'Finish Cutting'}
                             </Button>
@@ -491,8 +445,15 @@ const CutterView = () => {
                     </Box>
                 }
             >
-                <Box sx={{ mb: 3 }}>
-                    <Paper sx={{ p: 2, mb: 3, bgcolor: '#f5f5f5' }}>
+                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                    <Paper sx={{
+                        p: 2,
+                        mb: 3,
+                        bgcolor: '#f5f5f5',
+                        maxWidth: '800px',
+                        width: '100%',
+                        borderRadius: 2
+                    }}>
                         <Typography variant="h5" gutterBottom color="primary">
                             Cutter Assignment Information
                         </Typography>
@@ -507,30 +468,23 @@ const CutterView = () => {
                     </Paper>
                 </Box>
 
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                            <Typography variant="h4" gutterBottom>1st Shift</Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            {mattresses.firstShift && mattresses.firstShift.length > 0 ? (
-                                mattresses.firstShift.map(renderMattressCard)
-                            ) : (
-                                <Typography variant="body2" color="textSecondary">No mattresses assigned for 1st shift</Typography>
-                            )}
-                        </Paper>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                            <Typography variant="h4" gutterBottom>2nd Shift</Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            {mattresses.secondShift && mattresses.secondShift.length > 0 ? (
-                                mattresses.secondShift.map(renderMattressCard)
-                            ) : (
-                                <Typography variant="body2" color="textSecondary">No mattresses assigned for 2nd shift</Typography>
-                            )}
-                        </Paper>
-                    </Grid>
-                </Grid>
+                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Paper sx={{
+                        p: 2,
+                        bgcolor: '#f5f5f5',
+                        borderRadius: 2,
+                        maxWidth: '800px',
+                        width: '100%'
+                    }}>
+                        <Typography variant="h4" gutterBottom>Mattresses to Cut</Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        {mattresses && mattresses.length > 0 ? (
+                            mattresses.map(renderMattressCard)
+                        ) : (
+                            <Typography variant="body2" color="textSecondary">No mattresses assigned for cutting</Typography>
+                        )}
+                    </Paper>
+                </Box>
             </MainCard>
 
             {/* Snackbar for notifications */}
@@ -544,101 +498,6 @@ const CutterView = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
-
-            {/* Finish Cutting Dialog */}
-            <Dialog
-                open={finishDialogOpen}
-                onClose={handleCloseFinishDialog}
-                PaperProps={{
-                    sx: { position: 'relative', overflow: 'visible' }
-                }}
-            >
-                <DialogTitle>Finish Cutting</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', pt: 1 }}>
-                        <Typography variant="body1" gutterBottom>
-                            Please enter the actual number of layers cut:
-                        </Typography>
-                        <TextField
-                            margin="dense"
-                            label="Actual Layers"
-                            type="number"
-                            fullWidth={false}
-                            value={actualLayers}
-                            onChange={(e) => {
-                                // Only allow positive numbers
-                                const value = e.target.value.replace(/[^0-9]/g, '');
-                                setActualLayers(value);
-                            }}
-                            InputProps={{
-                                inputProps: { min: 1 },
-                                sx: { width: 120, fontSize: 24 }
-                            }}
-                            sx={{ mb: 2, mt: 1, '& input': { fontSize: 24, textAlign: 'center' } }}
-                        />
-                        {selectedMattress && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-                                <strong>Mattress:</strong> {selectedMattress.mattress}<br />
-                                <strong>Planned Layers:</strong> {selectedMattress.layers}<br />
-                                <strong>Planned Consumption:</strong> {selectedMattress.cons_planned} m<br />
-                                <strong>Estimated Actual Consumption:</strong> {
-                                    actualLayers && selectedMattress.cons_planned && selectedMattress.layers ?
-                                    ((selectedMattress.cons_planned / selectedMattress.layers) * Number(actualLayers)).toFixed(2) :
-                                    '0.00'
-                                } m
-                            </Typography>
-                        )}
-                    </Box>
-                </DialogContent>
-                {/* Elevator buttons absolutely positioned outside the dialog */}
-                <Box sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    right: -120, // move further out to accommodate larger buttons
-                    transform: 'translateY(-50%)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 3,
-                    zIndex: 1301,
-                    pointerEvents: 'auto',
-                }}>
-                    <Button
-                        variant="contained"
-                        size="large"
-                        sx={{ width: 105, height: 105, fontSize: 60, borderRadius: 2, boxShadow: 3, bgcolor: '#e0e0e0', color: '#333', '&:hover': { bgcolor: '#bdbdbd' } }}
-                        onClick={() => setActualLayers(prev => {
-                            const val = Number(prev) || 0;
-                            return (val + 1).toString();
-                        })}
-                        aria-label="Increase"
-                    >
-                        ▲
-                    </Button>
-                    <Button
-                        variant="contained"
-                        size="large"
-                        sx={{ width: 105, height: 105, fontSize: 60, borderRadius: 2, boxShadow: 3, bgcolor: '#e0e0e0', color: '#333', '&:hover': { bgcolor: '#bdbdbd' } }}
-                        onClick={() => setActualLayers(prev => {
-                            const val = Number(prev) || 1;
-                            return val > 1 ? (val - 1).toString() : '1';
-                        })}
-                        aria-label="Decrease"
-                    >
-                        ▼
-                    </Button>
-                </Box>
-                <DialogActions>
-                    <Button onClick={handleCloseFinishDialog}>Cancel</Button>
-                    <Button
-                        onClick={handleFinishCutting}
-                        variant="contained"
-                        color="success"
-                        disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
-                    >
-                        {processingMattress === (selectedMattress?.id) ? 'Processing...' : 'Confirm'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </>
     );
 };

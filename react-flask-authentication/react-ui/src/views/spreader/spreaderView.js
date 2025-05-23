@@ -27,8 +27,12 @@ import {
 
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
+import useCollapseMenu from '../../hooks/useCollapseMenu';
 
 const SpreaderView = () => {
+    // Automatically collapse the sidebar menu
+    useCollapseMenu(true);
+
     const [mattresses, setMattresses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false); // State for background refresh

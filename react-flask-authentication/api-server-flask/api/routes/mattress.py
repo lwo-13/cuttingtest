@@ -341,7 +341,7 @@ class GetKanbanMattressesResource(Resource):
              .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \
              .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
              .filter(MattressPhase.active == True) \
-             .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD"]))
+             .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"]))
 
             if day_filter:
                 if day_filter in ["today", "tomorrow"]:
