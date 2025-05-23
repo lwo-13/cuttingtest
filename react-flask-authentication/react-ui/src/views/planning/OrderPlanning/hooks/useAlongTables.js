@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
 
-const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, getTablePlannedByBagno, mattressTables }) => {
+const useAlongTables = ({ setUnsavedChanges, setDeletedAlong }) => {
   const [alongTables, setAlongTables] = useState([]);
 
   const handleAddTable = () => {

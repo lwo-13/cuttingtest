@@ -7,7 +7,7 @@ import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
 import { useSelector } from "react-redux";
 
-const devices = ["SP0", "SP1", "SP2", "SP3"];
+const devices = ["SP0", "SP1", "SP2", "SP3", "MS"];
 
 const FilterBar = ({ selectedDay, setSelectedDay }) => {
   return (
@@ -76,6 +76,15 @@ const KanbanBoard = () => {
     fetchMattresses();
   }, [selectedDay]);
 
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
+
   const fetchMattresses = () => {
     axios.get(`/mattress/kanban?day=${selectedDay.toLowerCase()}`)
       .then((res) => {
@@ -140,7 +149,7 @@ const KanbanBoard = () => {
           ref={scrollContainerRef}
           display="flex" 
           gap={2} 
-          p={0} 
+          p={2} 
           sx={{ 
             width: '100%', 
             height: 'calc(100vh - 180px)', // Adjust based on your layout
@@ -228,20 +237,22 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMat
       <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2 }}>
         {device === "SP0" ? "To Assign" : device}
         {device === "SP0" && (
-          <input
-            type="text"
-            placeholder="Search by order, fabric, marker..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: '8px',
-              border: '1px solid #e0e0e0',
-              borderRadius: '4px',
-              fontSize: '0.9rem',
-              width: '100%',
-              marginTop: '4px'
-            }}
-          />
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+            <input
+              type="text"
+              placeholder="Search by order, fabric, marker..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: '8px',
+                border: '1px solid #e0e0e0',
+                borderRadius: '4px',
+                fontSize: '0.9rem',
+                width: '90%', // or a fixed width like '250px'
+                textAlign: 'center'
+              }}
+            />
+          </Box>
         )}
       </Paper>
       {isSpreader ? (

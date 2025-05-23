@@ -20,7 +20,9 @@ const OrderToolbar = ({
           options={orderOptions}
           getOptionLabel={(option) => option.id}
           value={orderOptions.find(order => order.id === selectedOrder) || null}
-          onChange={onOrderChange}
+          onChange={(event, newValue) => {
+            onOrderChange(newValue);
+          }}
           renderInput={(params) => (
             <TextField {...params} label="Order/Commessa" variant="outlined" />
           )}

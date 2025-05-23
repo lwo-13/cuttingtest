@@ -16,34 +16,32 @@ const MattressActionRow = ({
     return sum + (isNaN(value) ? 0 : value);
   }, 0);
 
-  return (
-    <Box mt={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-      
-      {/* Consumption Info */}
-      {avgConsumption > 0 && totalConsumption > 0 && (
-        <Box
-          display="flex"
-          gap={2}
-          flexWrap="nowrap" // 🔒 disables line wrap
-          alignItems="center"
-          sx={{ padding: '4px 8px', minWidth: '240px', width: 'fit-content' }}
-        >
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
-          >
-            Avg Cons: {avgConsumption.toFixed(2)} m/pc
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
-          >
-            Total Cons: {totalConsumption.toFixed(0)} m
-          </Typography>
-        </Box>
-      )}
+  const showConsumption = avgConsumption > 0 && totalConsumption > 0;
 
-      {/* Action Buttons */}
+  return (
+    <Box
+      mt={2}
+      display="flex"
+      justifyContent="space-between"
+      alignItems="center"
+      flexWrap="wrap"
+      gap={2}
+    >
+      {/* Left Side: Consumption Info or Empty Spacer */}
+      <Box sx={{ minWidth: '240px', height: '32px' }}>
+        {showConsumption && (
+          <Box display="flex" gap={2} alignItems="center">
+            <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              Avg Cons: {avgConsumption.toFixed(2)} m/pc
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              Total Cons: {totalConsumption.toFixed(0)} m
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
+      {/* Right Side: Buttons */}
       <Box display="flex" justifyContent="flex-end" gap={2}>
         <Button
           variant="contained"
@@ -69,3 +67,4 @@ const MattressActionRow = ({
 };
 
 export default MattressActionRow;
+

@@ -33,12 +33,22 @@ import AlongRow from 'views/planning/OrderPlanning/components/AlongRow';
 import AlongTableHeader from 'views/planning/OrderPlanning/components/AlongTableHeader';
 import AlongActionRow from 'views/planning/OrderPlanning/components/AlongActionRow';
 
+// Weft Components
+import WeftGroupCard from 'views/planning/OrderPlanning/components/WeftGroupCard';
+import WeftTableHeader from 'views/planning/OrderPlanning/components/WeftTableHeader';
+import WeftRow from 'views/planning/OrderPlanning/components/WeftRow';
+import WeftActionRow from 'views/planning/OrderPlanning/components/WeftActionRow';
+
 // Hooks
 import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTables';
 import useAlongTables from 'views/planning/OrderPlanning/hooks/useAlongTables';
+import useWeftTables from 'views/planning/OrderPlanning/hooks/useWeftTables';
+import useHandleSave from 'views/planning/OrderPlanning/hooks/useHandleSave';
+import useHandleOrderChange from 'views/planning/OrderPlanning/hooks/useHandleOrderChange';
+import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
 
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
@@ -70,20 +80,14 @@ const OrderPlanning = () => {
     const [deletedAlong, setDeletedAlong] = useState([]);
     const [deletedWeft, setDeletedWeft] = useState([]);
     const [unsavedChanges, setUnsavedChanges] = useState(false);
-    const [avgConsumption, setAvgConsumption] = useState({});
 
     const [styleTouched, setStyleTouched] = useState(false);
-
-    const [weftTables, setWeftTables] = useState([]);
 
     const [errorMessage, setErrorMessage] = useState("");
     const [openError, setOpenError] = useState(false);
 
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
-
-    // Saving Button Status
-    const [saving, setSaving] = useState(false);
 
     // State for unsaved changes dialog
     const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
@@ -94,6 +98,7 @@ const OrderPlanning = () => {
 
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
+    
     // Manual Pad Print
     const [manualPattern, setManualPattern] = useState('');
     const [manualColor, setManualColor] = useState('');
@@ -134,15 +139,84 @@ const OrderPlanning = () => {
         handleRemoveRow: handleRemoveAlongRow,
         handleInputChange: handleAlongRowChange,
         handleExtraChange: handleAlongExtraChange
-        } = useAlongTables({
-        setUnsavedChanges,
+    } = useAlongTables({ setUnsavedChanges, setDeletedAlong });
+
+    // Weft Tables
+    const {
+        weftTables,
+        setWeftTables,
+        handleAddWeft,
+        handleRemoveWeft,
+        handleAddRow: handleAddRowWeft,
+        handleRemoveRow: handleRemoveWeftRow,
+        handleInputChange: handleWeftRowChange,
+        handleExtraChange: handleWeftExtraChange
+    } = useWeftTables({ setUnsavedChanges, setDeletedWeft });
+
+    // Save
+    const { saving, handleSave } = useHandleSave({
+        tables,
+        alongTables,
+        weftTables,
+        padPrintInfo,
+        manualPattern,
+        manualColor,
+        selectedOrder,
+        selectedStyle,
+        selectedColorCode,
+        selectedSeason,
+        selectedProductionCenter,
+        selectedCuttingRoom,
+        selectedDestination,
+        username,
+        brand,
+        deletedMattresses,
+        deletedAlong,
+        deletedWeft,
+        setDeletedMattresses,
         setDeletedAlong,
-        getTablePlannedByBagno,
-        mattressTables: tables // Pass the mattress tables here
-        });
+        setDeletedWeft,
+        setErrorMessage,
+        setOpenError,
+        setSuccessMessage,
+        setOpenSuccess,
+        setUnsavedChanges
+    });
+
+    // Order Change
+    const { onOrderChange } = useHandleOrderChange({
+        setSelectedOrder,
+        setOrderSizes,
+        setOrderSizeNames,
+        setSelectedStyle,
+        setStyleTouched,
+        setSelectedSeason,
+        setSelectedColorCode,
+        setSelectedProductionCenter,
+        setSelectedCuttingRoom,
+        setSelectedDestination,
+        fetchPadPrintInfo,
+        fetchBrandForStyle,
+        setTables,
+        setAlongTables,
+        setWeftTables,
+        setMarkerOptions,
+        setManualPattern,
+        setManualColor,
+        setUnsavedChanges,
+        handleWeftRowChange,
+        sortSizes,
+        clearBrand,
+        clearPadPrintInfo,
+        styleTouched
+    });
 
     // Print Styles
     usePrintStyles();
+
+    // Average Consumption per table
+    const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
+
 
     const handleCloseError = (event, reason) => {
         if (reason === 'clickaway') return;
@@ -212,51 +286,6 @@ const OrderPlanning = () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     }, [unsavedChanges]);
-
-    /* fix this */
-    const handleAddWeft = () => {
-        setWeftTables(prevTables => [
-            ...prevTables,
-            {
-                id: uuidv4(), // Unique ID
-                fabricType: "",
-                fabricCode: "",
-                fabricColor: "",
-                collarettoType: "",
-                rows: [
-                    {
-                        markerName: "",
-                        width: "",
-                        markerLength: "",
-                        layers: "",
-                        expectedConsumption: "",
-                        bagno: ""
-                    }
-                ]
-            }
-        ]);
-    };
-
-    const handleRemoveWeft = (id) => {
-        setWeftTables(prevTables => {
-            const updatedTables = prevTables.filter(table => table.id !== id);
-
-            // ✅ Find the table being removed
-            const removedTable = prevTables.find(table => table.id === id);
-
-            if (removedTable) {
-                // ✅ Push ALL collarettoNames of this weft table to deletedWeft
-                removedTable.rows.forEach(row => {
-                    if (row.collarettoName) {
-                        setDeletedWeft(prev => [...prev, row.collarettoName]);
-                    }
-                });
-            }
-
-            setUnsavedChanges(true);
-            return updatedTables;
-        });
-    };
 
     // Fetch order data from Flask API
     useEffect(() => {
@@ -329,264 +358,12 @@ const OrderPlanning = () => {
             .catch((error) => console.error("Error fetching marker data:", error));
     }, [selectedOrder]); // ✅ Runs only when order changes
 
-    // Handle Order Selection
-    const handleOrderChange = (event, newValue) => {
-        if (newValue) {
-            setSelectedOrder(newValue.id);
-            setOrderSizes(sortSizes(newValue.sizes || []));
-            setOrderSizeNames(sortSizes(newValue.sizes || []).map(size => size.size));
-            if (!styleTouched) {
-                setSelectedStyle(newValue.style);  // ✅ Auto-fill only if untouched
-            }
-            setSelectedSeason(newValue.season);
-            setSelectedColorCode(newValue.colorCode);
-
-            axios.get(`/orders/production_center/get/${newValue.id}`)
-                .then((res) => {
-                    if (res.data.success && res.data.data) {
-                    const { production_center, cutting_room, destination } = res.data.data;
-                    setSelectedProductionCenter(production_center || '');
-                    setSelectedCuttingRoom(cutting_room || '');
-                    setSelectedDestination(destination || '');
-                    } else {
-                    // Reset if not found
-                    setSelectedProductionCenter('');
-                    setSelectedCuttingRoom('');
-                    setSelectedDestination('');
-                    }
-                })
-                .catch((err) => {
-                    console.error("❌ Failed to fetch Production Center info:", err);
-                    setSelectedProductionCenter('');
-                    setSelectedCuttingRoom('');
-                    setSelectedDestination('');
-                });
-
-            console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
-
-            // ✅ Fetch Pad Print Info based on order attributes
-            fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
-
-            // ✅ Fetch brand directly with style
-            fetchBrandForStyle(newValue.style);
-
-            // Fetch mattresses and markers in parallel
-            Promise.all([
-                axios.get(`/mattress/get_by_order/${newValue.id}`),  // Fetch mattresses
-                axios.get(`/markers/marker_headers_planning`, {
-                    params: {
-                      style: newValue.style,
-                      sizes: orderSizeNames.join(',')
-                    }
-                  }),  // Fetch markers
-                axios.get(`/collaretto/get_by_order/${newValue.id}`),
-                axios.get(`/collaretto/get_weft_by_order/${newValue.id}`)
-            ])
-            .then(([mattressResponse, markerResponse, alongResponse, weftResponse]) => {
-                if (mattressResponse.data.success && markerResponse.data.success) {
-                    console.log("✅ Mattresses Loaded:", mattressResponse.data.data);
-                    console.log("✅ Markers Loaded:", markerResponse.data.data);
-
-                    // Mapping markers by marker_name for easy lookup
-                    const markersMap = markerResponse.data.data.reduce((acc, marker) => {
-                        acc[marker.marker_name] = marker;
-                        return acc;
-                    }, {});
-
-                    // Group mattresses by table Id
-                    const tablesById = {};
-
-                    mattressResponse.data.data.forEach((mattress) => {
-                        const tableId = mattress.table_id;
-
-                        if (!tablesById[tableId]) {
-                            tablesById[tableId] = {
-                                id: tableId, // ✅ Use UUID from DB
-                                fabricType: mattress.fabric_type,
-                                fabricCode: mattress.fabric_code,
-                                fabricColor: mattress.fabric_color,
-                                spreadingMethod: mattress.spreading_method,
-                                allowance: parseFloat(mattress.allowance) || 0,
-                                spreading: mattress.item_type === "MS" ? "MANUAL" : "AUTOMATIC",
-                                rows: []
-                            };
-                        }
-
-                        // ✅ Store phase_status and create a boolean for easy checks
-                        const isEditable =
-                            mattress.phase_status === "0 - NOT SET" ||
-                            mattress.phase_status === "1 - TO LOAD";
-
-                        // Get marker details for this mattress
-                        const markerDetails = markersMap[mattress.marker_name];
-
-                        // Add mattress row with all necessary data (including marker details)
-                        tablesById[tableId].rows.push({
-                            id: mattress.row_id, // ✅ preserve row ID
-                            mattressName: mattress.mattress,
-                            width: markerDetails ? markerDetails.marker_width : "",
-                            markerName: mattress.marker_name,
-                            markerLength: markerDetails ? markerDetails.marker_length : "",
-                            efficiency: markerDetails ? markerDetails.efficiency : "",
-                            piecesPerSize: markerDetails ? markerDetails.size_quantities || {} : {},
-                            layers: mattress.layers || "",
-                            expectedConsumption: mattress.cons_planned || "",
-                            bagno: mattress.dye_lot,
-                            isEditable,
-                            sequenceNumber: mattress.sequence_number || 0
-                        });
-                    });
-
-                    // Convert to array and set tables
-                    const loadedTables = Object.values(tablesById);
-                    setTables(loadedTables);
-
-                    if (alongResponse.data.success) {
-                        console.log("✅ Along (Collaretto) Loaded:", alongResponse.data.data);
-
-                        // ✅ Group along by table id
-                        const alongTablesById = {};
-
-                        alongResponse.data.data.forEach((along) => {
-                            const tableId = along.table_id;
-
-                            if (!alongTablesById[tableId]) {
-                                alongTablesById[tableId] = {
-                                    id: tableId,  // ✅ Preserve backend UUID
-                                    fabricType: along.fabric_type,
-                                    fabricCode: along.fabric_code,
-                                    fabricColor: along.fabric_color,
-                                    alongExtra: along.details.extra,
-                                    rows: []
-                                };
-                            }
-
-                            alongTablesById[tableId].rows.push({
-                                id: along.row_id,  // ✅ Important: for tracking + removal
-                                collarettoName: along.collaretto,
-                                pieces: along.details.pieces,
-                                usableWidth: along.details.usable_width,
-                                theoreticalConsumption: along.details.gross_length,
-                                collarettoWidth: along.details.roll_width,
-                                scrapRoll: along.details.scrap_rolls,
-                                rolls: along.details.rolls_planned,
-                                metersCollaretto: along.details.total_collaretto,
-                                consumption: along.details.cons_planned,
-                                bagno: along.dye_lot,
-                                sequenceNumber: along.sequence_number || 0
-                            });
-                        });
-
-                        // ✅ Convert to array
-                        const loadedAlongTables = Object.values(alongTablesById);
-                        setAlongTables(loadedAlongTables);
-
-                    } else {
-                        console.warn("⚠️ No along (collaretto) rows found");
-                        setAlongTables([]);
-                    }
-
-                    let loadedWeftTables = [];
-                    if (weftResponse.data.success) {
-                        console.log("✅ Weft (Collaretto Weft) Loaded:", weftResponse.data.data);
-
-                        // ✅ Group weft by fabric type
-                        const weftTablesByFabricType = {};
-
-                        weftResponse.data.data.forEach((weft) => {
-                            const fabricType = weft.fabric_type;
-
-                            if (!weftTablesByFabricType[fabricType]) {
-                                weftTablesByFabricType[fabricType] = {
-                                    id: Object.keys(weftTablesByFabricType).length + 1,
-                                    fabricType: fabricType,
-                                    fabricCode: weft.fabric_code,
-                                    fabricColor: weft.fabric_color,
-                                    weftExtra: weft.details.extra,  // ✅ Optional: same as along logic
-                                    rows: []
-                                };
-                            }
-
-                            // ✅ Push the row inside the correct fabric group
-                            weftTablesByFabricType[fabricType].rows.push({
-                                collarettoName: weft.collaretto,
-                                pieces: weft.details.pieces,
-                                usableWidth: weft.details.usable_width,
-                                grossLength: weft.details.gross_length,
-                                panelLength: weft.details.panel_length,
-                                collarettoWidth: weft.details.roll_width,
-                                scrapRoll: weft.details.scrap_rolls,
-                                rolls: weft.details.rolls_planned,
-                                panels: weft.details.panels_planned,
-                                consumption: weft.details.cons_planned,
-                                bagno: weft.dye_lot
-                            });
-                        });
-
-                        // ✅ Convert to array
-                        const loadedWeftTables = Object.values(weftTablesByFabricType);
-                        setWeftTables(loadedWeftTables);
-
-                        setTimeout(() => {
-                            setWeftTables(prevTables => {
-                                prevTables.forEach((table, tableIndex) => {
-                                    table.rows.forEach((row, rowIndex) => {
-                                        handleWeftRowChange(tableIndex, rowIndex, "usableWidth", row.usableWidth || "0");
-                                    });
-                                });
-                                return prevTables;
-                            });
-                        }, 100);  // Delay allows React to update the state first
-
-                    } else {
-                        console.warn("⚠️ No weft (collaretto weft) rows found");
-                        setWeftTables([]);
-                    }
-
-                    setUnsavedChanges(false);
-
-                } else {
-                    console.error("❌ Error fetching mattresses or markers");
-                    setTables([]);
-                    setAlongTables([]);
-                    setWeftTables([]);
-                    setUnsavedChanges(false);
-                }
-            })
-            .catch(error => {
-                console.error("❌ Error in parallel fetch:", error);
-                setTables([]);
-                setAlongTables([]);
-                setWeftTables([]);
-                setUnsavedChanges(false);
-            });
-        } else {
-            setSelectedOrder(null);
-            setOrderSizes([]);
-            setOrderSizeNames([]);
-            setMarkerOptions([]);
-            setTables([]);
-            setWeftTables([]);
-            setAlongTables([]);
-            setSelectedStyle("");
-            setSelectedSeason("");
-            setSelectedColorCode("");
-            clearBrand();
-            clearPadPrintInfo();
-            setManualPattern('');
-            setManualColor('');
-
-            setUnsavedChanges(false);
-            setStyleTouched(false);
-        }
-    };
-
     // Handle Style Change
     const handleStyleChange = (newStyle, touched = false) => {
         setStyleTouched(touched);
 
         if (touched) {
-          handleOrderChange(null); // ✅ This resets everything already
+          onOrderChange(null); // ✅ This resets everything already
           setTimeout(() => {
             setSelectedStyle(newStyle);
           }, 0);
@@ -595,709 +372,13 @@ const OrderPlanning = () => {
         }
       };
 
-    // Function to add a new row Weft
-    /* fix this */
-    const handleAddRowWeft = (tableIndex) => {
-        setWeftTables(prevTables => {
-            return prevTables.map((table, index) => {
-                if (index === tableIndex) {
-                    return {
-                        ...table,
-                        rows: [
-                            ...table.rows,
-                            {
-                                width: "",
-                                markerName: "",
-                                piecesPerSize: orderSizeNames.reduce((acc, size) => {
-                                    acc[size] = ""; // Initialize each size with an empty value
-                                    return acc;
-                                }, {}),
-                                markerLength: "",
-                                layers: "",
-                                expectedConsumption: "",
-                                bagno: ""
-                            }
-                        ]
-                    };
-                }
-                return table; // Keep other tables unchanged
-            });
-        });
-        setUnsavedChanges(true);  // ✅ Mark as unsaved when a new row is added
-    };
-
-    const handleRemoveWeftRow = (tableIndex, rowIndex) => {
-        setWeftTables(prevTables => {
-            return prevTables.map((table, tIndex) => {
-                if (tIndex === tableIndex) {
-                    const deletedRow = table.rows[rowIndex];
-
-                    // ✅ If the row has a backend collarettoName, add it to the delete list
-                    if (deletedRow.collarettoName) {
-                        setDeletedWeft(prev => [...prev, deletedRow.collarettoName]);
-                    }
-
-                    return {
-                        ...table,
-                        rows: table.rows.filter((_, i) => i !== rowIndex) // ✅ Remove only the selected row
-                    };
-                }
-                return table;
-            });
-        });
-
-        setUnsavedChanges(true); // ✅ Mark as unsaved when a row is deleted
-    };
-
-    const handleWeftRowChange = (tableIndex, rowIndex, field, value) => {
-        setWeftTables(prevTables => {
-            const updatedTables = [...prevTables];
-            const updatedRows = [...updatedTables[tableIndex].rows];
-            const updatedRow = { ...updatedRows[rowIndex], [field]: value };
-
-            // If the field being changed is bagno, auto-populate the pieces field with the total quantity for that bagno
-            if (field === "bagno" && value && value !== 'Unknown') {
-                // Store the bagno value in a closure for the timeout
-                const bagnoValue = value;
-
-                // Clear any existing timeout for this row's bagno
-                if (window.weftBagnoChangeTimeouts && window.weftBagnoChangeTimeouts[rowIndex]) {
-                    clearTimeout(window.weftBagnoChangeTimeouts[rowIndex]);
-                }
-
-                // Initialize the timeouts object if it doesn't exist
-                if (!window.weftBagnoChangeTimeouts) {
-                    window.weftBagnoChangeTimeouts = {};
-                }
-
-                // Set a timeout to calculate the total quantity after a short delay (300ms)
-                window.weftBagnoChangeTimeouts[rowIndex] = setTimeout(() => {
-                    // Calculate total quantity for this bagno from all mattress tables
-                    let totalQuantityForBagno = 0;
-
-                    // Only process valid tables
-                    const validTables = tables.filter(table => table && table.rows && Array.isArray(table.rows));
-
-                    validTables.forEach(table => {
-                        // Get the planned quantities by bagno for this table
-                        const plannedByBagno = getTablePlannedByBagno(table);
-
-                        // Only add to total if this bagno exists in the table and has sizes
-                        if (plannedByBagno[bagnoValue] && Object.keys(plannedByBagno[bagnoValue]).length > 0) {
-                            const bagnoSizes = plannedByBagno[bagnoValue];
-                            const tableTotal = Object.values(bagnoSizes).reduce((sum, qty) => sum + qty, 0);
-                            totalQuantityForBagno += tableTotal;
-                        }
-                    });
-
-                    // If we found a quantity, update the pieces field
-                    if (totalQuantityForBagno > 0) {
-                        setWeftTables(currentTables => {
-                            return currentTables.map((table, tIndex) => {
-                                if (tIndex === tableIndex) {
-                                    const newRows = [...table.rows];
-                                    const rowToUpdate = {...newRows[rowIndex], pieces: totalQuantityForBagno.toString()};
-
-                                    // Recalculate dependent values
-                                    const panelLength = parseFloat(rowToUpdate.panelLength);
-                                    const collarettoWidthMM = parseFloat(rowToUpdate.collarettoWidth);
-                                    const scrap = parseFloat(rowToUpdate.scrapRoll);
-
-                                    if (!isNaN(panelLength) && !isNaN(collarettoWidthMM) && !isNaN(scrap)) {
-                                        const collarettoWidthM = collarettoWidthMM / 1000; // Convert mm to m
-                                        rowToUpdate.rolls = collarettoWidthM > 0
-                                            ? Math.floor(panelLength / collarettoWidthM) - scrap
-                                            : 0;
-                                    }
-
-                                    const rolls = parseFloat(rowToUpdate.rolls);
-                                    const extra = parseFloat(table.weftExtra) || 0;
-
-                                    if (!isNaN(totalQuantityForBagno) && !isNaN(rolls) && rolls > 0 && !isNaN(extra)) {
-                                        const multiplier = 1 + (extra / 100);
-                                        rowToUpdate.panels = Math.floor((totalQuantityForBagno * multiplier) / rolls);
-                                    }
-
-                                    const panels = parseFloat(rowToUpdate.panels);
-                                    if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
-                                        rowToUpdate.consumption = (panels * (panelLength)).toFixed(1);
-                                    }
-
-                                    newRows[rowIndex] = rowToUpdate;
-                                    return {...table, rows: newRows};
-                                }
-                                return table;
-                            });
-                        });
-                    }
-
-                    // Remove the timeout reference
-                    delete window.weftBagnoChangeTimeouts[rowIndex];
-                }, 300);
-            }
-
-            // Auto-calculate pcsSeamtoSeam if usableWidth and grossLength are available
-            const usableWidth = parseFloat(field === "usableWidth" ? value : updatedRow.usableWidth) || 0;
-            const grossLength = parseFloat(field === "grossLength" ? value : updatedRow.grossLength) || 0;
-
-            if (usableWidth > 0 && grossLength > 0) {
-                updatedRow.pcsSeamtoSeam = usableWidth > 0 && grossLength > 0
-                    ? ((usableWidth / 100) / grossLength).toFixed(1)
-                    : "";
-            } else {
-                updatedRow.pcsSeamtoSeam = ""; // Reset if incomplete
-            }
-
-            const panelLength = parseFloat(field === "panelLength" ? value : updatedRow.panelLength);
-            const collarettoWidthMM = parseFloat(field === "collarettoWidth" ? value : updatedRow.collarettoWidth);
-            const scrap = parseFloat(field === "scrapRoll" ? value : updatedRow.scrapRoll);
-
-            if (!isNaN(panelLength) && !isNaN(collarettoWidthMM) && !isNaN(scrap)) {
-                const collarettoWidthM = collarettoWidthMM / 1000; // Convert mm to m
-                updatedRow.rolls = collarettoWidthM > 0
-                    ? Math.floor(panelLength / collarettoWidthM) - scrap
-                    : 0;
-            } else {
-                updatedRow.rolls = "";
-            }
-
-            // ✅ Auto-calculate panels if pieces and rolls exist
-            const pieces = parseFloat(field === "pieces" ? value : updatedRow.pieces);
-            const rolls = parseFloat(updatedRow.rolls);
-            const extra = parseFloat(updatedTables[tableIndex].weftExtra) || 0; // Extra comes from table level
-
-            if (!isNaN(pieces) && !isNaN(rolls) && rolls > 0 && !isNaN(extra)) {
-                const multiplier = 1 + (extra / 100);
-                updatedRow.panels = Math.floor((pieces * multiplier) / rolls);  // ✅ Always round down
-            } else {
-                updatedRow.panels = "";
-            }
-
-             // ✅ Calculate consumption: panels * panelLength (if both are valid)
-            const panels = parseFloat(updatedRow.panels);
-            if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
-                updatedRow.consumption = (panels * (panelLength)).toFixed(1);
-            } else {
-                updatedRow.consumption = "";
-            }
-
-            updatedRows[rowIndex] = updatedRow;
-            updatedTables[tableIndex] = { ...updatedTables[tableIndex], rows: updatedRows };
-            return updatedTables;
-        });
-    };
-
-    const handleWeftExtraChange = (tableIndex, value) => {
-        setWeftTables(prevTables => {
-            const updatedTables = [...prevTables];
-            const updatedTable = { ...updatedTables[tableIndex], weftExtra: value };
-
-            // ✅ Recalculate panels and consumption for each row if possible
-            updatedTable.rows = updatedTable.rows.map(row => {
-                const pieces = parseFloat(row.pieces);
-                const rolls = parseFloat(row.rolls);
-                const extra = parseFloat(value) || 0;
-                const panelLength = parseFloat(row.panelLength);
-
-                let updatedRow = { ...row };
-
-                if (!isNaN(pieces) && !isNaN(rolls) && rolls > 0) {
-                    const multiplier = (100 + extra) / 100;
-                    updatedRow.panels = Math.floor((pieces * multiplier) / rolls); // ✅ Always round down
-                } else {
-                    updatedRow.panels = "";
-                }
-
-                // ✅ Recalculate consumption if panels and panelLength exist
-                const panels = parseFloat(updatedRow.panels);
-                if (!isNaN(panels) && panels > 0 && !isNaN(panelLength) && panelLength > 0) {
-                    updatedRow.consumption = (panels * (panelLength)).toFixed(1);  // cm to meters
-                } else {
-                    updatedRow.consumption = "";
-                }
-
-                return updatedRow;
-            });
-
-            updatedTables[tableIndex] = updatedTable;
-            return updatedTables;
-        });
-    };
-
-    // UseEffect for avg Consumption
-    useEffect(() => {
-        if (!tables || tables.length === 0) return;
-
-        const newAvgConsumption = {};
-
-        tables.forEach(table => {
-          newAvgConsumption[table.id] = calculateTableAverageConsumption(table);
-        });
-
-        setAvgConsumption(newAvgConsumption);
-      }, [tables]);
-
-    const handleSave = async () => {
-        if (saving) return;
-        setSaving(true);
-
-        try {
-            const newMattressNames = new Set();
-            const newAlongNames = new Set();
-            const newWeftNames = new Set();
-            const payloads = [];
-            const allongPayloads = [];
-            const weftPayloads = [];
-            let invalidRow = null;
-            let invalidAlongRow = null;
-            let invalidWeftRow = null;
-
-            // ✅ Check for missing mandatory fields
-            const hasInvalidData = tables.some((table, tableIndex) => {
-                if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.spreadingMethod) {
-                    invalidRow = `Mattress Group ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color, or Spreading Method)`;
-                    return true; // 🚨 Stop processing immediately
-                }
-
-                return table.rows.some((row, rowIndex) => {
-                    if (!row.markerName || !row.layers || parseInt(row.layers) <= 0) {
-                        invalidRow = `Mattress Group ${tableIndex + 1}, Row ${rowIndex + 1} is missing a Marker or Layers`;
-                        return true; // 🚨 Stops processing if invalid
-                    }
-                    return false;
-                });
-            });
-
-            // 🚨 Show Error Message If Validation Fails
-            if (hasInvalidData) {
-                setErrorMessage(invalidRow);
-                setOpenError(true);
-                return; // ✅ Prevents saving invalid data
-            }
-
-            const hasInvalidAlongData = alongTables.some((table, tableIndex) => {
-                if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.alongExtra) {
-                    invalidAlongRow = `Collaretto Along ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color or Extra)`;
-                    return true;
-                }
-
-                return table.rows.some((row, rowIndex) => {
-                    if (!row.pieces || !row.usableWidth || !row.theoreticalConsumption || !row.collarettoWidth || !row.scrapRoll) {
-                        invalidAlongRow = `Collaretto Along ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields)`;
-                        return true;
-                    }
-                    return false;
-                });
-            });
-
-            // 🚨 Error Handling
-            if (hasInvalidAlongData) {
-                setErrorMessage(invalidAlongRow);
-                setOpenError(true);
-                return;
-            }
-
-            const hasInvalidWeftData = weftTables.some((table, tableIndex) => {
-                if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.weftExtra) {
-                    invalidWeftRow = `Collaretto Weft ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color, or Extra)`;
-                    return true;
-                }
-
-                return table.rows.some((row, rowIndex) => {
-                    if (!row.pieces || !row.usableWidth || !row.grossLength || !row.panelLength || !row.collarettoWidth || !row.scrapRoll) {
-                        invalidWeftRow = `Collaretto Weft ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
-                        return true;
-                    }
-                    return false;
-                });
-            });
-
-            // 🚨 Error Handling for Weft
-            if (hasInvalidWeftData) {
-                setErrorMessage(invalidWeftRow);
-                setOpenError(true);
-                return;
-            }
-
-            // ❗ Require manual pad print input if no padPrintInfo is available
-            if (selectedOrder && !padPrintInfo) {
-                const isPatternMissing = !manualPattern || manualPattern.trim() === '';
-                const isColorMissing = !manualColor || manualColor.trim() === '';
-
-                const isPatternNo = manualPattern?.trim().toUpperCase() === 'NO';
-                const isColorNo = manualColor?.trim().toUpperCase() === 'NO';
-
-                if ((isPatternMissing || isColorMissing) && !(isPatternNo && isColorNo)) {
-                    setErrorMessage("Please select a Pad Print pattern and color, or set both to 'NO'.");
-                    setOpenError(true);
-                    return;
-                }
-            }
-
-            // ❗ Require Production Center and Cutting Room Info
-            if (!selectedProductionCenter || !selectedCuttingRoom) {
-                setErrorMessage("Please select the Production Center and Cutting Room.");
-                setOpenError(true);
-                return;
-            }
-
-
-            // ✅ Proceed with valid mattress processing
-            tables.forEach((table) => {
-                table.rows.forEach((row) => {
-
-                    // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
-                    const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
-                    const mattressName = `${selectedOrder}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
-
-                    newMattressNames.add(mattressName); // ✅ Track UI rows
-
-                    // ✅ Ensure numerical values are properly handled (convert empty strings to 0)
-                    const layers = parseFloat(row.layers) || 0;
-                    const markerLength = parseFloat(row.markerLength) || 0;
-                    const lengthMattress = markerLength + (parseFloat(table.allowance) || 0); // ✅ Corrected calculation
-                    const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
-
-                    const mattressData = {
-                        mattress: mattressName,
-                        order_commessa: selectedOrder,
-                        fabric_type: table.fabricType,
-                        fabric_code: table.fabricCode,
-                        fabric_color: table.fabricColor,
-                        dye_lot: row.bagno || null,
-                        item_type: table.spreading === "MANUAL" ? "MS" : "AS",
-                        spreading_method: table.spreadingMethod,
-
-                        // ✅ New fields for structure integrity
-                        table_id: table.id,
-                        row_id: row.id,
-                        sequence_number: row.sequenceNumber,
-
-
-                        layers: layers,
-                        length_mattress: lengthMattress,
-                        cons_planned: consPlanned,
-                        extra: parseFloat(table.allowance) || 0,
-                        marker_name: row.markerName,
-                        marker_width: parseFloat(row.width) || 0,
-                        marker_length: markerLength,
-                        operator: username
-                    };
-
-                    // ✅ Generate mattress_sizes data if you have row.piecesPerSize
-                    if (row.piecesPerSize) {
-                        Object.entries(row.piecesPerSize).forEach(([size, pcs_layer]) => {
-                            mattressData.sizes = mattressData.sizes || []; // Initialize the sizes array if not already present
-                            mattressData.sizes.push({
-                                style : selectedStyle,
-                                size: size,
-                                pcs_layer: pcs_layer,
-                                pcs_planned: pcs_layer * layers, // Total planned pcs
-                                pcs_actual: null                // Will be filled later
-                            });
-                        });
-                    }
-
-                    payloads.push(mattressData);
-                });
-            });
-
-            alongTables.forEach((table) => {
-                table.rows.forEach((row) => {
-                    // ✅ Build unique collaretto (along) name WITH padded index
-                    const collarettoName = `${selectedOrder}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
-                    newAlongNames.add(collarettoName);
-
-                    // ✅ Build the payload for this row
-                    const payload = {
-                        collaretto: collarettoName,
-                        order_commessa: selectedOrder,
-                        fabric_type: table.fabricType,
-                        fabric_code: table.fabricCode,
-                        fabric_color: table.fabricColor,
-                        dye_lot: row.bagno || null,  // ✅ Pull bagno directly from the row
-                        item_type: "CA",
-                        extra: parseFloat(table.alongExtra),
-
-                        table_id: table.id,
-                        row_id: row.id,
-                        sequence_number: row.sequenceNumber,
-
-                        details: [
-                            {
-                                mattress_id: null,
-                                pieces: parseFloat(row.pieces) || 0,
-                                usable_width: parseFloat(row.usableWidth) || 0,
-                                roll_width: parseFloat(row.collarettoWidth) || 0,
-                                gross_length: parseFloat(row.theoreticalConsumption) || 0,
-                                scrap_rolls: parseFloat(row.scrapRoll) || 0,
-                                rolls_planned: parseFloat(row.rolls) || null,
-                                rolls_actual: null,
-                                cons_planned: parseFloat(row.consumption) || null,
-                                cons_actual: null,
-                                extra: parseFloat(table.alongExtra) || 0,
-                                total_collaretto: parseFloat(row.metersCollaretto) || 0
-                            }
-                        ]
-                    };
-
-                    allongPayloads.push(payload);
-                });
-            });
-
-            weftTables.forEach((table) => {
-                table.rows.forEach((row, rowIndex) => {
-                    // ✅ Build unique collaretto (weft) name WITH padded index
-                    const collarettoWeftName = `${selectedOrder}-CW-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
-                    newWeftNames.add(collarettoWeftName);
-
-                    const mattressName = `${selectedOrder}-ASW-${table.fabricType}-${String(rowIndex + 1).padStart(3, '0')}`;
-
-                    // ✅ Build the payload for this weft row
-                    const payload = {
-                        collaretto: collarettoWeftName,
-                        mattress: mattressName,
-                        order_commessa: selectedOrder,
-                        fabric_type: table.fabricType,
-                        fabric_code: table.fabricCode,
-                        fabric_color: table.fabricColor,
-                        dye_lot: row.bagno || null,  // ✅ Pull bagno directly from the row
-                        item_type: "CW",  // ✅ Custom type for Collaretto Weft
-                        details: [
-                            {
-                                pieces: parseFloat(row.pieces) || 0,
-                                usable_width: parseFloat(row.usableWidth) || 0,
-                                gross_length: parseFloat(row.grossLength) || 0,
-                                panel_length: parseFloat(row.panelLength) || 0,
-                                roll_width: parseFloat(row.collarettoWidth) || 0,
-                                scrap_rolls: parseFloat(row.scrapRoll) || 0,
-                                rolls_planned: parseFloat(row.rolls) || null,
-                                rolls_actual: null,
-                                panels_planned: parseFloat(row.panels) || null,
-                                cons_planned: parseFloat(row.consumption) || null,
-                                cons_actual: null,
-                                extra: parseFloat(table.weftExtra) || 0
-                            }
-                        ]
-                    };
-
-                    weftPayloads.push(payload);
-                });
-            });
-
-            // ✅ Send Update Requests
-            const saveMattresses = () => {
-                return Promise.all(payloads.map(payload =>
-                    axios.post('/mattress/add_mattress_row', payload)
-                        .then(response => {
-                            if (response.data.success) {
-                                console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
-                                return true;
-                            } else {
-                                console.warn(`⚠️ Failed to save mattress ${payload.mattress}:`, response.data.message);
-                                return false;
-                            }
-                        })
-                        .catch(error => {
-                            console.error(`❌ Error saving mattress ${payload.mattress}:`, error.response?.data || error.message);
-                            console.log("💥 Full payload that caused failure:", payload);
-                            return false;
-                        })
-                )).then(results => {
-                    const allSucceeded = results.every(result => result === true);
-                    if (!allSucceeded) throw new Error("❌ Some mattresses failed to save.");
-                });
-            };
-
-            // ✅ Send Along Update Requests
-            const saveAlongRows = () => {
-                return Promise.all(allongPayloads.map(payload =>
-                    axios.post('/collaretto/add_along_row', payload)
-                        .then(response => {
-                            if (response.data.success) {
-                                console.log(`✅ Along Row ${payload.collaretto} saved successfully.`);
-                                return true;
-                            } else {
-                                console.warn(`⚠️ Failed to save along row ${payload.collaretto}:`, response.data.message);
-                                return false;
-                            }
-                        })
-                        .catch(error => {
-                            console.error(`❌ Error saving along row ${payload.collaretto}:`, error);
-                            return false;
-                        })
-                )).then(results => {
-                    const allSucceeded = results.every(result => result === true);
-                    if (!allSucceeded) throw new Error("❌ Some along rows failed to save.");
-                });
-            };
-
-            // ✅ Send Weft Update Requests
-            const saveWeftRows = () => {
-                return Promise.all(weftPayloads.map(payload =>
-                    axios.post('/collaretto/add_weft_row', payload)
-                        .then(response => {
-                            if (response.data.success) {
-                                console.log(`✅ Weft Row ${payload.collaretto} saved successfully.`);
-                                return true;
-                            } else {
-                                console.warn(`⚠️ Failed to save weft row ${payload.collaretto}:`, response.data.message);
-                                return false;
-                            }
-                        })
-                        .catch(error => {
-                            console.error(`❌ Error saving weft row ${payload.collaretto}:`, error);
-                            return false;
-                        })
-                )).then(results => {
-                    const allSucceeded = results.every(result => result === true);
-                    if (!allSucceeded) throw new Error("❌ Some weft rows failed to save.");
-                });
-            };
-
-            if (!padPrintInfo && manualPattern && manualColor) {
-                try {
-                    await axios.post('/padprint/create', {
-                        brand: brand?.toUpperCase(),
-                        style: selectedStyle,
-                        color: selectedColorCode,
-                        season: selectedSeason,
-                        pattern: manualPattern,
-                        padprint_color: manualColor
-                    });
-                } catch (error) {
-                    if (error.response?.status === 409) {
-                        console.warn('⚠️ Pad Print entry already exists. Skipping creation.');
-                    } else {
-                        console.error('❌ Failed to save manual Pad Print info:', error);
-                        setErrorMessage("⚠️ Failed to save manual Pad Print info. Please try again.");
-                        setOpenError(true);
-                        return;
-                    }
-                }
-            }
-
-            try {
-                await axios.post('/orders/production_center/save', {
-                    order_commessa: selectedOrder,
-                    production_center: selectedProductionCenter,
-                    cutting_room: selectedCuttingRoom,
-                    destination: selectedDestination || null
-                });
-            } catch (error) {
-                console.error("❌ Failed to save Production Center info:", error);
-                setErrorMessage("⚠️ Failed to save Production Center info. Please try again.");
-                setOpenError(true);
-                return;
-            }
-
-            saveMattresses()
-                .then(() => saveAlongRows())
-                .then(() => saveWeftRows())
-                .then(() => {
-                    // ✅ Delete Only Rows That Were Removed from UI
-                    console.log("🗑️ Mattresses to delete:", deletedMattresses);
-                    const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
-
-                    return Promise.allSettled(mattressesToDelete.map(mattress =>
-                        axios.delete(`/mattress/delete/${mattress}`)
-                          .then(() => {
-                            console.log(`🗑️ Deleted mattress: ${mattress}`);
-                            return { mattress, success: true };
-                          })
-                          .catch(error => {
-                            console.error(`❌ Error deleting mattress: ${mattress}`, error);
-                            return { mattress, success: false };
-                          })
-                      )).then(results => {
-                        const successfulDeletes = results
-                          .filter(r => r.status === 'fulfilled' && r.value.success)
-                          .map(r => r.value.mattress);
-
-                        setDeletedMattresses(prev =>
-                          prev.filter(name => !successfulDeletes.includes(name))
-                        );
-                    });
-                })
-                .then(() => {
-                    // ✅ Delete Only Along Rows Removed from the UI
-                    console.log("🗑️ Along Rows to delete:", deletedAlong);
-                    const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
-
-                    return Promise.all(alongToDelete.map(along =>
-                        axios.delete(`/collaretto/delete/${along}`)
-                            .then(() => {
-                                console.log(`🗑️ Deleted along row: ${along}`);
-                            })
-                            .catch(error => {
-                                console.error(`❌ Error deleting along row: ${along}`, error);
-                                throw error;
-                            })
-                    ));
-                })
-                .then(() => {
-                    // ✅ Delete Only Weft Rows Removed from the UI
-                    console.log("🗑️ Weft Rows to delete:", deletedWeft);
-                    const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
-
-                    return Promise.all(weftToDelete.map(weft =>
-                        axios.delete(`/collaretto/delete_weft/${weft}`)
-                            .then(() => {
-                                console.log(`🗑️ Deleted weft row: ${weft}`);
-                            })
-                            .catch(error => {
-                                console.error(`❌ Error deleting weft row: ${weft}`, error);
-                                throw error;
-                            })
-                    ));
-                })
-                .then(() => {
-                    setDeletedAlong([]);
-                    setDeletedWeft([]);
-                    setUnsavedChanges(false);
-
-                    setSuccessMessage("Saving completed successfully!");
-                    setOpenSuccess(true);
-                })
-                .catch((error) => {
-                    console.error("🚨 Final Save Error:", error);
-                    setErrorMessage("⚠️ An error occurred while saving. Please try again.");
-                    setOpenError(true);
-                });
-        } catch (error) {
-            console.error("🚨 Final Save Error:", error);
-                setErrorMessage("⚠️ An error occurred while saving. Please try again.");
-                setOpenError(true);
-        } finally {
-            setSaving(false); // ✅ always re-enable the button
-        }
-    };
-
-    // Average Consumption for each Specific Table
-    const calculateTableAverageConsumption = (table) => {
-        if (!table || !table.rows || table.rows.length === 0) return 0;
-
-        const plannedQuantities = getTablePlannedQuantities(table) || {};
-        const totalPlannedPcs = Object.values(plannedQuantities)
-          .reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0);
-
-        const totalConsPlanned = table.rows
-            .filter(row => !isNaN(parseFloat(row.expectedConsumption)) && parseFloat(row.expectedConsumption) > 0)
-            .reduce((sum, row) => sum + parseFloat(row.expectedConsumption), 0);
-
-        if (totalPlannedPcs === 0) return 0;
-
-        const avgConsumption = totalConsPlanned / totalPlannedPcs;
-
-        return Number(avgConsumption.toFixed(2));
-      };
-
     const isTableEditable = (table) => {
         return table.rows.every(row => row.isEditable !== false);
     };
 
     return (
         <>
+            {/* Order Bar */}
             <Box
                 sx={{
                     position: isPinned ? 'sticky' : 'relative',
@@ -1324,7 +405,7 @@ const OrderPlanning = () => {
                         onStyleChange={handleStyleChange}
                         orderOptions={filteredOrders}
                         selectedOrder={selectedOrder}
-                        onOrderChange={handleOrderChange}
+                        onOrderChange={onOrderChange}
                         selectedSeason={selectedSeason}
                         selectedBrand={brand}
                         selectedColorCode={selectedColorCode}
@@ -1337,7 +418,8 @@ const OrderPlanning = () => {
             </Box>
 
             <Box mt={2} />
-
+            
+            {/* Production Center */}
             {selectedOrder && (
                 <CuttingRoomSelector
                     productionCenter={selectedProductionCenter}
@@ -1351,9 +433,9 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
+            {/* Pad Print Section */}
             {selectedOrder && (
                 <>
-                    {/* Pad Print Section */}
                     {padPrintInfo ? (
                         <PadPrintInfo padPrintInfo={padPrintInfo} />
                     ) : (
@@ -1379,7 +461,7 @@ const OrderPlanning = () => {
                         key={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                {`Mattress Group ${tableIndex + 1}`}
+                                {`Mattress`}
 
                                 {/* Table-Specific Planned Quantities - Hide if Empty */}
                                 <PlannedQuantityBar
@@ -1502,322 +584,54 @@ const OrderPlanning = () => {
             ))}
 
             {/* Weft Tables Section */}
-            {weftTables.length > 0 && weftTables.map((table, tableIndex) => (
+            {weftTables.length > 0 && weftTables.map((table) => (
+
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
-                    <MainCard title={`Collaretto Weft`}>
 
-                        <Box p={1}>
-                            <Grid container spacing={2}>
-                                {/* Fabric Type (Dropdown) */}
-                                <Grid item xs={3} sm={2} md={1.5}>
-                                    <Autocomplete
-                                        options={fabricTypeOptions.filter(option =>
-                                            !weftTables.some((t, i) => i !== tableIndex && t.fabricType === option) // ✅ Exclude fabricType already selected in other weftTables
-                                        )}
-                                        getOptionLabel={(option) => option}
-                                        value={table.fabricType || null}
-                                        onChange={(event, newValue) => {
-                                            setWeftTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricType: newValue };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& .MuiAutocomplete-input": { fontWeight: "normal" }
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Fabric Code (Text Input) */}
-                                <Grid item xs={3} sm={2} md={2}>
-                                    <TextField
-                                        label="Fabric Code"
-                                        variant="outlined"
-                                        value={table.fabricCode || ""}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/[^a-zA-Z0-9 ]/g, '').toUpperCase().slice(0, 8);
-                                            setWeftTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricCode: value };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& input": { fontWeight: "normal" }
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Fabric Color (Text Input) */}
-                                <Grid item xs={3} sm={2} md={1.5}>
-                                    <TextField
-                                        label="Fabric Color"
-                                        variant="outlined"
-                                        value={table.fabricColor || ""}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
-                                            setWeftTables(prevTables => {
-                                                const updatedTables = [...prevTables];
-                                                updatedTables[tableIndex] = { ...updatedTables[tableIndex], fabricColor: value };
-                                                return updatedTables;
-                                            });
-                                            setUnsavedChanges(true);
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& input": { fontWeight: "normal" }
-                                        }}
-                                    />
-                                </Grid>
-
-                                {/* Extra (Text Input) */}
-                                <Grid item xs={2} sm={1} md={1}>
-                                    <TextField
-                                        label="Extra %"
-                                        variant="outlined"
-                                        value={table.weftExtra || ""}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/\D/g, '').slice(0, 2); // ✅ Only digits, max 2
-                                            handleWeftExtraChange(tableIndex, value);
-                                            setUnsavedChanges(true);
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            minWidth: '60px',
-                                            "& input": { fontWeight: "normal" }
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </Box>
+                    <MainCard title={`Collaretto in Weft`}>
+                        <WeftGroupCard
+                            table={table}
+                            tables={weftTables}
+                            fabricTypeOptions={fabricTypeOptions}
+                            isTableEditable={isTableEditable}
+                            setTables={setWeftTables}
+                            setUnsavedChanges={setUnsavedChanges}
+                            handleWeftExtraChange={handleWeftExtraChange}
+                            />                      
 
                         {/* Table Section */}
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                     <Table>
-                                        <TableHead>
-                                            <TableRow sx={{ height: "50px" }}>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Pcs Seam to Seam</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Panel Length [m]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Rolls</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Rolls</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Panels</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Cons [m]</TableCell>
-                                                <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
-                                                <TableCell></TableCell>
-                                            </TableRow>
-                                        </TableHead>
+                                        <WeftTableHeader />
                                         <TableBody>
-                                            {table.rows.map((row, rowIndex) => (
-                                                <TableRow key={rowIndex}>
-
-                                                    {/* Pieces (Editable Text Field) */}
-                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.pieces || ""}
-                                                            onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "pieces", e.target.value.replace(/\D/g, '').slice(0, 7));
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '90px',
-                                                                maxWidth: '120px',
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" }
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* Usable Width */}
-                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.usableWidth || ""}
-                                                            onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "usableWidth", e.target.value.replace(/\D/g, '').slice(0, 3));
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '90px', // ✅ Ensures a minimum width
-                                                                maxWidth: '120px', // ✅ Prevents expanding too much
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* Gross Length */}
-                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.grossLength || ""}
-                                                            onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "grossLength", e.target.value.replace(/[^0-9.,]/g, ''));
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '90px', // ✅ Ensures a minimum width
-                                                                maxWidth: '120px', // ✅ Prevents expanding too much
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* Pcs Seam to Seam */}
-                                                    <TableCell align="center">
-                                                        <Typography>{row.pcsSeamtoSeam || ""}</Typography>
-                                                    </TableCell>
-
-                                                    {/* Panel Length */}
-                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.panelLength || ""}
-                                                            onChange={(e) => {
-                                                                let value = e.target.value.replace(',', '.');  // ✅ Replace comma with dot
-                                                                // ✅ Remove all except numbers and dots, prevent multiple dots
-                                                                value = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-                                                                handleWeftRowChange(tableIndex, rowIndex, "panelLength", value.slice(0, 4));
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '90px', // ✅ Ensures a minimum width
-                                                                maxWidth: '120px', // ✅ Prevents expanding too much
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* Collaretto Width */}
-                                                    <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.collarettoWidth || ""}
-                                                            onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "collarettoWidth", e.target.value.replace(/\D/g, '').slice(0, 4));
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '65px', // ✅ Ensures a minimum width
-                                                                maxWidth: '150px', // ✅ Prevents expanding too much
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* Srap Roll */}
-                                                    <TableCell sx={{ minWidth: '65x', textAlign: 'center', padding: '10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.scrapRoll || ""}
-                                                            onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "scrapRoll", e.target.value.replace(/\D/g, '').slice(0, 1));
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '65px', // ✅ Ensures a minimum width
-                                                                maxWidth: '150px', // ✅ Prevents expanding too much
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" } // ✅ Centered text
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* N° Rolls */}
-                                                    <TableCell align="center">
-                                                        <Typography>{row.rolls || ""}</Typography>
-                                                    </TableCell>
-
-                                                    {/* N° Panels */}
-                                                    <TableCell align="center">
-                                                        <Typography>{row.panels || ""}</Typography>
-                                                    </TableCell>
-
-                                                    {/* Consumption */}
-                                                    <TableCell align="center">
-                                                        <Typography>{row.consumption && row.consumption !== "0.00" ? row.consumption : ""}</Typography>
-                                                    </TableCell>
-
-                                                    {/* Bagno (Editable Text Field) */}
-                                                    <TableCell sx={{ minWidth: '90x', maxWidth: '120px', textAlign: 'center', padding: '2px 10px' }}>
-                                                        <TextField
-                                                            variant="outlined"
-                                                            value={row.bagno || ""}
-                                                            onChange={(e) => {
-                                                                handleWeftRowChange(tableIndex, rowIndex, "bagno", e.target.value);
-                                                                setUnsavedChanges(true);
-                                                            }}
-                                                            sx={{
-                                                                width: '100%',
-                                                                minWidth: '90px',
-                                                                maxWidth: '120px',
-                                                                textAlign: 'center',
-                                                                "& input": { textAlign: "center", fontWeight: "normal" }
-                                                            }}
-                                                        />
-                                                    </TableCell>
-
-                                                    {/* Delete Button */}
-                                                    <TableCell>
-                                                        <IconButton
-                                                            onClick={() => handleRemoveWeftRow(tableIndex, rowIndex)}
-                                                            color="error"
-                                                            disabled={weftTables[tableIndex].rows.length === 1} // ✅ Disable when only 1 row left
-                                                        >
-                                                            <DeleteOutline />
-                                                        </IconButton>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
+                                        {table.rows.map((row) => (
+                                            <WeftRow
+                                            key={row.id}
+                                            row={row}
+                                            rowId={row.id}
+                                            table={table}
+                                            tableId={table.id}
+                                            handleInputChange={handleWeftRowChange}
+                                            handleRemoveRow={handleRemoveWeftRow}
+                                            setUnsavedChanges={setUnsavedChanges}
+                                            />
+                                        ))}
                                         </TableBody>
                                     </Table>
                             </TableContainer>
 
-                            {/* Button Container (Flexbox for alignment) */}
-                            <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
-                                {/* Add Row Button */}
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    startIcon={<AddCircleOutline />}
-                                    onClick={() => handleAddRowWeft(tableIndex)} // ✅ Pass the specific table index
-                                >
-                                    Add Row
-                                </Button>
-
-                                {/* Remove Table Button */}
-                                <Button
-                                    variant="outlined"
-                                    color="error"
-                                    onClick={() => handleRemoveWeft(table.id)}
-                                >
-                                    Remove
-                                </Button>
-                            </Box>
+                            {/* Button Container */}
+                            <WeftActionRow
+                                tableId={table.id}
+                                table={table}
+                                isTableEditable={isTableEditable}
+                                handleAddRowWeft={handleAddRowWeft}
+                                handleRemoveWeft={handleRemoveWeft}
+                                setUnsavedChanges={setUnsavedChanges}
+                            />
+                            
                         </Box>
                     </MainCard>
                 </React.Fragment>

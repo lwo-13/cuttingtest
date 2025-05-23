@@ -180,6 +180,11 @@ class CollarettoWeft(Resource):
         fabric_color = data.get('fabric_color')
         dye_lot = data.get('dye_lot')
         item_type = data.get('item_type')
+
+        table_id = data.get('table_id')
+        row_id = data.get('row_id')
+        sequence_number = data.get('sequence_number')
+
         details = data.get('details', [])
             
         try:
@@ -195,6 +200,9 @@ class CollarettoWeft(Resource):
                 existing_mattress.dye_lot = dye_lot
                 existing_mattress.item_type = 'ASW'
                 existing_mattress.spreading_method='FACE UP'
+                existing_mattress.table_id=table_id
+                existing_mattress.row_id=row_id
+                existing_mattress.sequence_number=sequence_number
                 existing_mattress.updated_at = datetime.now()
                 db.session.flush()
             else:
@@ -208,6 +216,9 @@ class CollarettoWeft(Resource):
                     dye_lot=dye_lot,
                     item_type='ASW',
                     spreading_method='FACE UP',
+                    table_id=table_id,
+                    row_id=row_id,
+                    sequence_number=sequence_number,
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
@@ -219,28 +230,12 @@ class CollarettoWeft(Resource):
             if new_mattress_created:
                 print(f"➕ Inserting default MattressPhases for mattress_id {existing_mattress.id}")
                 phases = [
-                    MattressPhase(
-                        mattress_id=existing_mattress.id,
-                        status="0 - NOT SET",
-                        active=True,
-                        operator=data.get("operator"),
-                        created_at=datetime.now(),
-                        updated_at=datetime.now()
-                    ),
-                    MattressPhase(
-                        mattress_id=existing_mattress.id,
-                        status="1 - TO LOAD",
-                        active=False,
-                        created_at=datetime.now(),
-                        updated_at=datetime.now()
-                    ),
-                    MattressPhase(
-                        mattress_id=existing_mattress.id,
-                        status="2 - COMPLETED",
-                        active=False,
-                        created_at=datetime.now(),
-                        updated_at=datetime.now()
-                    )
+                    MattressPhase(mattress_id=existing_mattress.id, status="0 - NOT SET", active=True, operator=data.get("operator"), created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="1 - TO LOAD", active=False, created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="2 - ON SPREAD", active=False, created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="3 - TO CUT", active=False, created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="4 - ON CUT", active=False, created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="5 - COMPLETED", active=False, created_at=datetime.now(), updated_at=datetime.now())
                 ]
                 db.session.add_all(phases)
 
@@ -279,6 +274,9 @@ class CollarettoWeft(Resource):
                 existing_collaretto.dye_lot = dye_lot
                 existing_collaretto.item_type = item_type
                 existing_collaretto.updated_at = datetime.now()
+                existing_collaretto.table_id = table_id
+                existing_collaretto.row_id = row_id
+                existing_collaretto.sequence_number = sequence_number
                 db.session.flush()
             else:
                 print(f"➕ Creating new collaretto: {collaretto_name}")
@@ -291,7 +289,10 @@ class CollarettoWeft(Resource):
                     dye_lot=dye_lot,
                     item_type=item_type,
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
+                    table_id = table_id,
+                    row_id = row_id,
+                    sequence_number = sequence_number
                 )
                 db.session.add(existing_collaretto)
                 db.session.flush()  # ✅ Get collaretto.id
@@ -307,6 +308,7 @@ class CollarettoWeft(Resource):
                     existing_collaretto_detail.pieces = detail.get('pieces')
                     existing_collaretto_detail.usable_width = detail.get('usable_width')
                     existing_collaretto_detail.gross_length = detail.get('gross_length')
+                    existing_collaretto_detail.pcs_seam = int(detail.get('pcs_seam')) if detail.get('pcs_seam') is not None else None
                     existing_collaretto_detail.roll_width = detail.get('roll_width')
                     existing_collaretto_detail.scrap_rolls = detail.get('scrap_rolls')
                     existing_collaretto_detail.rolls_planned = detail.get('rolls_planned')
@@ -322,6 +324,7 @@ class CollarettoWeft(Resource):
                         pieces=detail.get('pieces'),
                         usable_width=detail.get('usable_width'),
                         gross_length=detail.get('gross_length'),
+                        pcs_seam=detail.get('pcs_seam'),
                         roll_width=detail.get('roll_width'),
                         scrap_rolls=detail.get('scrap_rolls'),
                         rolls_planned=detail.get('rolls_planned'),
@@ -399,10 +402,14 @@ class GetWeftByOrder(Resource):
                     "fabric_code": weft.fabric_code,
                     "fabric_color": weft.fabric_color,
                     "dye_lot": weft.dye_lot,
+                    "table_id": weft.table_id,
+                    "row_id": weft.row_id,
+                    "sequence_number": weft.sequence_number,
                     "details": {
                         "pieces": detail.pieces,
                         "usable_width": detail.usable_width,
                         "gross_length": detail.gross_length,
+                        "pcs_seam": detail.pcs_seam,
                         "roll_width": detail.roll_width,
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
