@@ -444,6 +444,7 @@ class CollarettoDetail(db.Model):
     usable_width = db.Column(db.Float, nullable=False)
     roll_width = db.Column(db.Float, nullable=False)
     gross_length = db.Column(db.Float, nullable=False)
+    pcs_seam = db.Column(db.Integer, nullable=True)
     scrap_rolls = db.Column(db.Float, nullable=True)
     rolls_planned = db.Column(db.Float, nullable=True)
     rolls_actual = db.Column(db.Float, nullable=True)

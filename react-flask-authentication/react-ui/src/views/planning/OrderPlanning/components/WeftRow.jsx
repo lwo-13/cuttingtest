@@ -2,7 +2,7 @@ import React from 'react';
 import { TableRow, TableCell, TextField, Typography, IconButton } from '@mui/material';
 import { DeleteOutline } from '@mui/icons-material';
 
-const AlongRow = ({
+const WeftRow = ({
   row,
   rowId,
   table,
@@ -16,19 +16,23 @@ const AlongRow = ({
   const inputSx = {
     width: '100%',
     minWidth: '65px',
-    maxWidth: '80px',
+    maxWidth: '120px',
     textAlign: 'center',
     "& input": { textAlign: "center", fontWeight: "normal" }
   };
 
   const handleChange = (field, pattern, maxLength) => (e) => {
-    const value = e.target.value.replace(pattern, '').slice(0, maxLength);
+    let value = e.target.value.replace(pattern, '').slice(0, maxLength);
+    if (field === "panelLength") {
+      value = value.replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 4);
+    }
     handleInputChange(tableId, rowId, field, value);
     setUnsavedChanges(true);
   };
 
   return (
     <TableRow key={rowId} sx={{ height: '70px' }}>
+      {/* Pieces */}
       <TableCell sx={{ padding: '0px', textAlign: 'center' }}>
         <TextField
           variant="standard"
@@ -39,6 +43,7 @@ const AlongRow = ({
         />
       </TableCell>
 
+      {/* Usable Width */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
@@ -49,16 +54,46 @@ const AlongRow = ({
         />
       </TableCell>
 
+      {/* Gross Length */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="standard"
-          value={row.theoreticalConsumption || ""}
+          value={row.grossLength || ""}
           disabled={!editable}
-          onChange={handleChange("theoreticalConsumption", /[^0-9.,]/g, 6)}
+          onChange={handleChange("grossLength", /[^0-9.,]/g, 6)}
           sx={inputSx}
         />
       </TableCell>
 
+      {/* Pcs Seam to Seam */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <TextField
+          variant="standard"
+          value={row.pcsSeamtoSeam || ""}
+          disabled={!editable}
+          onChange={handleChange("pcsSeamtoSeam", /[^0-9.]/g, 4)}
+          sx={{
+            ...inputSx,
+            input: {
+              color: row.isPcsSeamCalculated ? 'gray' : 'black',
+              fontStyle: row.isPcsSeamCalculated ? 'italic' : 'normal'
+            }
+          }}
+        />
+      </TableCell>
+
+      {/* Panel Length */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <TextField
+          variant="outlined"
+          value={row.panelLength || ""}
+          disabled={!editable}
+          onChange={handleChange("panelLength")}
+          sx={inputSx}
+        />
+      </TableCell>
+
+      {/* Collaretto Width */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
@@ -69,6 +104,7 @@ const AlongRow = ({
         />
       </TableCell>
 
+      {/* Scrap Rolls */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
@@ -79,24 +115,24 @@ const AlongRow = ({
         />
       </TableCell>
 
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
-        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.rolls || ""}
+      {/* N° Rolls */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>{row.rolls || ""}</Typography>
+      </TableCell>
+
+      {/* N° Panels */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
+      </TableCell>
+
+      {/* Consumption */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>
+          {row.consumption && row.consumption !== "0.00" ? row.consumption : ""}
         </Typography>
       </TableCell>
 
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
-        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.metersCollaretto || ""}
-        </Typography>
-      </TableCell>
-
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
-        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.consumption && row.consumption !== "0.0" ? row.consumption : ""}
-        </Typography>
-      </TableCell>
-
+      {/* Bagno */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
@@ -116,6 +152,7 @@ const AlongRow = ({
         />
       </TableCell>
 
+      {/* Delete */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <IconButton
           onClick={() => {
@@ -132,6 +169,4 @@ const AlongRow = ({
   );
 };
 
-export default AlongRow;
-
-
+export default WeftRow;

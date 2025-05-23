@@ -2,12 +2,12 @@ import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { AddCircleOutline } from '@mui/icons-material';
 
-const AlongActionRow = ({
+const WeftActionRow = ({
   tableId,
   table,
   isTableEditable,
-  handleAddRowAlong,
-  handleRemoveAlongTable,
+  handleAddRowWeft,
+  handleRemoveWeft,
   setUnsavedChanges
 }) => {
   const editable = isTableEditable(table);
@@ -45,7 +45,7 @@ const AlongActionRow = ({
           color="primary"
           startIcon={<AddCircleOutline />}
           onClick={() => {
-            handleAddRowAlong(tableId);
+            handleAddRowWeft(tableId);
             setUnsavedChanges(true);
           }}
         >
@@ -57,7 +57,7 @@ const AlongActionRow = ({
             variant="outlined"
             color="error"
             onClick={() => {
-              handleRemoveAlongTable(tableId);
+              handleRemoveWeft(tableId);
               setUnsavedChanges(true);
             }}
           >
@@ -69,5 +69,5 @@ const AlongActionRow = ({
   );
 };
 
-export default AlongActionRow;
+export default WeftActionRow;
 
