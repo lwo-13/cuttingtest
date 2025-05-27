@@ -21,6 +21,7 @@ const OrderToolbar = ({
           getOptionLabel={(option) => option.id}
           value={orderOptions.find(order => order.id === selectedOrder) || null}
           onChange={(event, newValue) => {
+            console.log("🧪 Order selected:", newValue); // <-- Add this
             onOrderChange(newValue);
           }}
           renderInput={(params) => (
