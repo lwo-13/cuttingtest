@@ -1,30 +1,29 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-const useWeftTables = ({
+const useBiasTables = ({
   setUnsavedChanges,
-  setDeletedWeft
+  setDeletedBias
 }) => {
-  const [weftTables, setWeftTables] = useState([]);
+  const [biasTables, setBiasTables] = useState([]);
 
-  const handleAddWeft = () => {
+  const handleAddBias = () => {
     const tableId = uuidv4();
     const rowId = uuidv4();
 
-    setWeftTables(prev => [
+    setBiasTables(prev => [
       ...prev,
       {
         id: tableId,
         fabricType: "",
         fabricCode: "",
         fabricColor: "",
-        weftExtra: "10",
         rows: [
           {
             id: rowId,
             sequenceNumber: 1,
             pieces: "",
-            usableWidth: "",
+            totalWidth: "",
             grossLength: "",
             pcsSeamtoSeam: "",
             rewoundWidth: "",
@@ -42,13 +41,13 @@ const useWeftTables = ({
     setUnsavedChanges(true);
   };
 
-  const handleRemoveWeft = (tableId) => {
-    setWeftTables(prev => {
+  const handleRemoveBias = (tableId) => {
+    setBiasTables(prev => {
       const removed = prev.find(t => t.id === tableId);
       if (removed) {
         removed.rows.forEach(row => {
           if (row.collarettoName) {
-            setDeletedWeft(prevDeleted => [...prevDeleted, row.collarettoName]);
+            setDeletedBias(prevDeleted => [...prevDeleted, row.collarettoName]);
           }
         });
       }
@@ -64,7 +63,7 @@ const useWeftTables = ({
 
   const handleAddRow = (tableId) => {
     const newRowId = uuidv4();
-    setWeftTables(prev => prev.map(table => {
+    setBiasTables(prev => prev.map(table => {
       if (table.id !== tableId) return table;
       const nextSeq = getNextSequenceNumber(table.rows);
       return {
@@ -75,7 +74,7 @@ const useWeftTables = ({
             id: newRowId,
             sequenceNumber: nextSeq,
             pieces: "",
-            usableWidth: "",
+            totalWidth: "",
             grossLength: "",
             pcsSeamtoSeam: "",
             rewoundWidth: "",
@@ -94,12 +93,12 @@ const useWeftTables = ({
   };
 
   const handleRemoveRow = (tableId, rowId) => {
-    setWeftTables(prev => prev.map(table => {
+    setBiasTables(prev => prev.map(table => {
       if (table.id !== tableId) return table;
 
       const deletedRow = table.rows.find(row => row.id === rowId);
       if (deletedRow?.collarettoName) {
-        setDeletedWeft(prev => [...prev, deletedRow.collarettoName]);
+        setDeletedBias(prev => [...prev, deletedRow.collarettoName]);
       }
 
       const updatedRows = table.rows.filter(row => row.id !== rowId);
@@ -114,7 +113,7 @@ const useWeftTables = ({
   };
 
   const handleInputChange = (tableId, rowId, field, value) => {
-    setWeftTables(prevTables =>
+    setBiasTables(prevTables =>
       prevTables.map(table => {
         if (table.id !== tableId) return table;
 
@@ -124,27 +123,28 @@ const useWeftTables = ({
           const updatedRow = { ...row, [field]: value };
 
           // Parse relevant fields
-          const usableWidth = parseFloat(field === "usableWidth" ? value : row.usableWidth) || 0;
+          const totalWidth = parseFloat(field === "totalWidth" ? value : row.totalWidth) || 0;
           const grossLength = parseFloat(field === "grossLength" ? value : row.grossLength) || 0;
+          const collWidthMM = parseFloat(field === "collarettoWidth" ? value : row.collarettoWidth) || 0;
+          const collWidthM = collWidthMM / 1000;
 
+          // pcsSeamtoSeam logic
           if (field === "pcsSeamtoSeam") {
-            // User is overwriting, use their value and stop calculation
             updatedRow.pcsSeamtoSeam = value;
             updatedRow.isPcsSeamCalculated = false;
           } else {
-            // Only recalculate if previously auto-calculated
             if (!row.pcsSeamtoSeam || row.isPcsSeamCalculated) {
-              updatedRow.pcsSeamtoSeam = usableWidth && grossLength
-                ? ((usableWidth / 100) / grossLength).toFixed(1)
+              const seamTotal = (totalWidth / 100) * Math.SQRT2;
+              const seamUsable = seamTotal - (collWidthMM / 1000);
+              updatedRow.pcsSeamtoSeam = seamUsable > 0 && grossLength > 0
+                ? (seamUsable / grossLength).toFixed(1)
                 : "";
               updatedRow.isPcsSeamCalculated = true;
             }
           }
 
           const rewoundWidth = parseFloat(field === "rewoundWidth" ? value : row.rewoundWidth);
-          const collWidthMM = parseFloat(field === "collarettoWidth" ? value : row.collarettoWidth);
           const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll);
-          const collWidthM = collWidthMM / 1000;
 
           updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
             ? Math.floor(rewoundWidth / collWidthM) - scrap
@@ -152,16 +152,17 @@ const useWeftTables = ({
 
           const pieces = parseFloat(field === "pieces" ? value : row.pieces);
           const rolls = parseFloat(updatedRow.rolls);
-          const extra = parseFloat(table.weftExtra) || 0;
           const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
 
           updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.round((pieces * (1 + extra / 100)) / (rolls * pcsSeam))
-          : "";
+            ? Math.round(pieces / (rolls * pcsSeam))
+            : "";
 
           const panels = parseFloat(updatedRow.panels);
-          updatedRow.consumption = !isNaN(panels) && !isNaN(rewoundWidth)
-            ? (panels * rewoundWidth).toFixed(2)
+          const panelLength = !isNaN(rewoundWidth) ? rewoundWidth * Math.SQRT2 : null;
+
+          updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
+            ? (panels * panelLength).toFixed(2)
             : "";
 
           return updatedRow;
@@ -173,46 +174,15 @@ const useWeftTables = ({
     setUnsavedChanges(true);
   };
 
-
-  const handleExtraChange = (tableId, value) => {
-    const extra = parseFloat(value) / 100 || 0;
-
-    setWeftTables(prev => prev.map(table => {
-      if (table.id !== tableId) return table;
-
-      const updatedRows = table.rows.map(row => {
-        const pieces = parseFloat(row.pieces);
-        const rolls = parseFloat(row.rolls);
-        const rewoundWidth = parseFloat(row.rewoundWidth);
-        const pcsSeam = parseFloat(row.pcsSeamtoSeam);
-
-        const panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.round((pieces * (1 + extra)) / (rolls * pcsSeam))
-          : "";
-
-        const consumption = !isNaN(panels) && !isNaN(rewoundWidth)
-          ? (panels * rewoundWidth).toFixed(2)
-          : "";
-
-        return { ...row, panels, consumption };
-      });
-
-      return { ...table, weftExtra: value, rows: updatedRows };
-    }));
-
-    setUnsavedChanges(true);
-  };
-
   return {
-    weftTables,
-    setWeftTables,
-    handleAddWeft,
-    handleRemoveWeft,
+    biasTables,
+    setBiasTables,
+    handleAddBias,
+    handleRemoveBias,
     handleAddRow,
     handleRemoveRow,
-    handleInputChange,
-    handleExtraChange
+    handleInputChange
   };
 };
 
-export default useWeftTables;
+export default useBiasTables;

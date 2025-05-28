@@ -5,6 +5,7 @@ const useHandleSave = ({
   tables,
   alongTables,
   weftTables,
+  biasTables,
   padPrintInfo,
   manualPattern,
   manualColor,
@@ -20,9 +21,11 @@ const useHandleSave = ({
   deletedMattresses,
   deletedAlong,
   deletedWeft,
+  deletedBias,
   setDeletedMattresses,
   setDeletedAlong,
   setDeletedWeft,
+  setDeletedBias,
   setErrorMessage,
   setOpenError,
   setSuccessMessage,
@@ -39,12 +42,15 @@ const useHandleSave = ({
       const newMattressNames = new Set();
       const newAlongNames = new Set();
       const newWeftNames = new Set();
+      const newBiasNames = new Set();
       const payloads = [];
       const allongPayloads = [];
       const weftPayloads = [];
+      const biasPayloads = [];
       let invalidRow = null;
       let invalidAlongRow = null;
       let invalidWeftRow = null;
+      let invalidBiasRow = null;
 
       // ✅ Check for missing mandatory fields
       const hasInvalidData = tables.some((table, tableIndex) => {
@@ -98,7 +104,7 @@ const useHandleSave = ({
         }
 
         return table.rows.some((row, rowIndex) => {
-          if (!row.pieces || !row.usableWidth || !row.grossLength || !row.panelLength || !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam) {
+          if (!row.pieces || !row.usableWidth || !row.grossLength || !row.rewoundWidth || !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam) {
             invalidWeftRow = `Collaretto Weft ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
             return true;
           }
@@ -109,6 +115,31 @@ const useHandleSave = ({
       // 🚨 Error Handling for Weft
       if (hasInvalidWeftData) {
         setErrorMessage(invalidWeftRow);
+        setOpenError(true);
+        return;
+      }
+
+      const hasInvalidBiasData = biasTables.some((table, tableIndex) => {
+        if (!table.fabricType || !table.fabricCode || !table.fabricColor) {
+          invalidBiasRow = `Collaretto Bias ${tableIndex + 1} is missing required fields (Fabric Type, Code, or Color)`;
+          return true;
+        }
+
+        return table.rows.some((row, rowIndex) => {
+          if (
+            !row.pieces || !row.totalWidth || !row.grossLength ||
+            !row.rewoundWidth || !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam
+          ) {
+            invalidBiasRow = `Collaretto Bias ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
+            return true;
+          }
+          return false;
+        });
+      });
+
+      // 🚨 Error Handling for Bias
+      if (hasInvalidBiasData) {
+        setErrorMessage(invalidBiasRow);
         setOpenError(true);
         return;
       }
@@ -261,6 +292,7 @@ const useHandleSave = ({
             table_id: table.id,
             row_id: row.id,
             sequence_number: row.sequenceNumber,
+            operator: username,
 
             details: [
               {
@@ -268,7 +300,7 @@ const useHandleSave = ({
                 usable_width: parseFloat(row.usableWidth) || 0,
                 gross_length: parseFloat(row.grossLength) || 0,
                 pcs_seam: Math.floor(parseFloat(row.pcsSeamtoSeam) || 0),
-                panel_length: parseFloat(row.panelLength) || 0,
+                rewound_width: parseFloat(row.rewoundWidth) || 0,
                 roll_width: parseFloat(row.collarettoWidth) || 0,
                 scrap_rolls: parseFloat(row.scrapRoll) || 0,
                 rolls_planned: parseFloat(row.rolls) || null,
@@ -282,6 +314,50 @@ const useHandleSave = ({
           };
 
           weftPayloads.push(payload);
+        });
+      });
+
+      biasTables.forEach((table) => {
+        table.rows.forEach((row) => {
+          const collarettoBiasName = `${selectedOrder}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          newBiasNames.add(collarettoBiasName);
+
+          const mattressName = `${selectedOrder}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+
+          const payload = {
+            collaretto: collarettoBiasName,
+            mattress: mattressName,
+            order_commessa: selectedOrder,
+            fabric_type: table.fabricType,
+            fabric_code: table.fabricCode,
+            fabric_color: table.fabricColor,
+            dye_lot: row.bagno || null,
+            item_type: "CB",
+
+            table_id: table.id,
+            row_id: row.id,
+            sequence_number: row.sequenceNumber,
+            operator: username,
+
+            details: [
+              {
+                pieces: parseFloat(row.pieces) || 0,
+                total_width: parseFloat(row.totalWidth) || 0,
+                gross_length: parseFloat(row.grossLength) || 0,
+                pcs_seam: parseFloat(row.pcsSeamtoSeam) || 0,
+                rewound_width: parseFloat(row.rewoundWidth) || 0,
+                roll_width: parseFloat(row.collarettoWidth) || 0,
+                scrap_rolls: parseFloat(row.scrapRoll) || 0,
+                rolls_planned: parseFloat(row.rolls) || null,
+                rolls_actual: null,
+                panels_planned: parseFloat(row.panels) || null,
+                cons_planned: parseFloat(row.consumption) || null,
+                cons_actual: null
+              }
+            ]
+          };
+
+          biasPayloads.push(payload);
         });
       });
 
@@ -355,6 +431,28 @@ const useHandleSave = ({
         });
       };
 
+      const saveBiasRows = () => {
+        return Promise.all(biasPayloads.map(payload =>
+          axios.post('/collaretto/add_bias_row', payload)
+            .then(response => {
+              if (response.data.success) {
+                console.log(`✅ Bias Row ${payload.collaretto} saved successfully.`);
+                return true;
+              } else {
+                console.warn(`⚠️ Failed to save bias row ${payload.collaretto}:`, response.data.message);
+                return false;
+              }
+            })
+            .catch(error => {
+              console.error(`❌ Error saving bias row ${payload.collaretto}:`, error);
+              return false;
+            })
+        )).then(results => {
+          const allSucceeded = results.every(result => result === true);
+          if (!allSucceeded) throw new Error("❌ Some bias rows failed to save.");
+        });
+      };
+
       if (!padPrintInfo && manualPattern && manualColor) {
         try {
           await axios.post('/padprint/create', {
@@ -394,6 +492,7 @@ const useHandleSave = ({
       saveMattresses()
         .then(() => saveAlongRows())
         .then(() => saveWeftRows())
+        .then(() => saveBiasRows())
         .then(() => {
           // ✅ Delete Only Rows That Were Removed from UI
           console.log("🗑️ Mattresses to delete:", deletedMattresses);
@@ -450,7 +549,7 @@ const useHandleSave = ({
           const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
 
           return Promise.allSettled(weftToDelete.map(weft =>
-            axios.delete(`/collaretto/delete_weft/${weft}`)
+            axios.delete(`/collaretto/delete_weft_bias/${weft}`)
               .then(() => {
                 console.log(`🗑️ Deleted weft row: ${weft}`);
                 return { weft, success: true };
@@ -470,8 +569,33 @@ const useHandleSave = ({
           });
         })
         .then(() => {
+          console.log("🗑️ Bias Rows to delete:", deletedBias);
+          const biasToDelete = deletedBias.filter(bias => !newBiasNames.has(bias));
+
+          return Promise.allSettled(biasToDelete.map(bias =>
+            axios.delete(`/collaretto/delete_weft_bias/${bias}`)
+              .then(() => {
+                console.log(`🗑️ Deleted bias row: ${bias}`);
+                return { bias, success: true };
+              })
+              .catch(error => {
+                console.error(`❌ Error deleting bias row: ${bias}`, error);
+                return { bias, success: false };
+              })
+          )).then(results => {
+            const successfulDeletes = results
+              .filter(r => r.status === 'fulfilled' && r.value.success)
+              .map(r => r.value.bias);
+
+            setDeletedBias(prev =>
+              prev.filter(name => !successfulDeletes.includes(name))
+            );
+          });
+        })
+        .then(() => {
           setDeletedAlong([]);
           setDeletedWeft([]);
+          setDeletedBias([]);
           setUnsavedChanges(false);
 
           setSuccessMessage("Saving completed successfully!");

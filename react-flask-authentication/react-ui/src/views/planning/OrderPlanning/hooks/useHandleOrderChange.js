@@ -17,6 +17,7 @@ const handleOrderChange = async (newValue, context) => {
     setTables,
     setAlongTables,
     setWeftTables,
+    setBiasTables,
     setMarkerOptions,
     setManualPattern,
     setManualColor,
@@ -36,6 +37,7 @@ const handleOrderChange = async (newValue, context) => {
     setTables([]);
     setWeftTables([]);
     setAlongTables([]);
+    setBiasTables([]);
     setSelectedStyle("");
     setSelectedSeason("");
     setSelectedColorCode("");
@@ -75,13 +77,14 @@ const handleOrderChange = async (newValue, context) => {
   fetchBrandForStyle(newValue.style);
 
   try {
-    const [mattressRes, markerRes, alongRes, weftRes] = await Promise.all([
+    const [mattressRes, markerRes, alongRes, weftRes, biasRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${newValue.id}`),
       axios.get(`/markers/marker_headers_planning`, {
         params: { style: newValue.style, sizes: sizeNames.join(',') }
       }),
       axios.get(`/collaretto/get_by_order/${newValue.id}`),
-      axios.get(`/collaretto/get_weft_by_order/${newValue.id}`)
+      axios.get(`/collaretto/get_weft_by_order/${newValue.id}`),
+      axios.get(`/collaretto/get_bias_by_order/${newValue.id}`)
     ]);
 
     const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
@@ -175,7 +178,7 @@ const handleOrderChange = async (newValue, context) => {
         usableWidth: weft.details.usable_width,
         grossLength: weft.details.gross_length,
         pcsSeamtoSeam: weft.details.pcs_seam,
-        panelLength: weft.details.panel_length,
+        rewoundWidth: weft.details.rewound_width,
         collarettoWidth: weft.details.roll_width,
         scrapRoll: weft.details.scrap_rolls,
         rolls: weft.details.rolls_planned,
@@ -193,12 +196,49 @@ const handleOrderChange = async (newValue, context) => {
       });
     });
 
+    const biasTablesById = {};
+    for (const bias of biasRes.data?.data || []) {
+      const tableId = bias.table_id;
+      if (!biasTablesById[tableId]) {
+        biasTablesById[tableId] = {
+          id: tableId,
+          fabricType: bias.fabric_type,
+          fabricCode: bias.fabric_code,
+          fabricColor: bias.fabric_color,
+          biasExtra: bias.details.extra,
+          rows: []
+        };
+      }
+
+      biasTablesById[tableId].rows.push({
+        id: bias.row_id,
+        sequenceNumber: bias.sequence_number || 0,
+        collarettoName: bias.collaretto,
+        pieces: bias.details.pieces,
+        totalWidth: bias.details.total_width,
+        grossLength: bias.details.gross_length,
+        pcsSeamtoSeam: bias.details.pcs_seam,
+        rewoundWidth: bias.details.rewound_width,
+        collarettoWidth: bias.details.roll_width,
+        scrapRoll: bias.details.scrap_rolls,
+        rolls: bias.details.rolls_planned,
+        panels: bias.details.panels_planned,
+        consumption: bias.details.cons_planned,
+        bagno: bias.dye_lot
+      });
+    }
+    Object.values(biasTablesById).forEach(table =>
+      table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+    );
+    setBiasTables(Object.values(biasTablesById));
+
     setUnsavedChanges(false);
   } catch (error) {
     console.error("❌ Error in parallel fetch:", error);
     setTables([]);
     setAlongTables([]);
     setWeftTables([]);
+    setBiasTables([]);
     setUnsavedChanges(false);
   }
 };

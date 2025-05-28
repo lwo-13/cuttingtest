@@ -163,7 +163,7 @@ const handleOrderChange = async (newValue, context) => {
         usableWidth: weft.details.usable_width,
         grossLength: weft.details.gross_length,
         pcsSeamtoSeam: weft.details.pcs_seam,
-        panelLength: weft.details.panel_length,
+        rewoundWidth: weft.details.rewound_width,
         collarettoWidth: weft.details.roll_width,
         scrapRoll: weft.details.scrap_rolls,
         rolls: weft.details.rolls_planned,

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDetail, MattressPhase
 from flask_restx import Namespace, Resource
 from datetime import datetime
+import math
 
 collaretto_bp = Blueprint('collaretto_bp', __name__)
 collaretto_api = Namespace('collaretto', description="Collaretto Management")
@@ -233,8 +234,6 @@ class CollarettoWeft(Resource):
                     MattressPhase(mattress_id=existing_mattress.id, status="0 - NOT SET", active=True, operator=data.get("operator"), created_at=datetime.now(), updated_at=datetime.now()),
                     MattressPhase(mattress_id=existing_mattress.id, status="1 - TO LOAD", active=False, created_at=datetime.now(), updated_at=datetime.now()),
                     MattressPhase(mattress_id=existing_mattress.id, status="2 - ON SPREAD", active=False, created_at=datetime.now(), updated_at=datetime.now()),
-                    MattressPhase(mattress_id=existing_mattress.id, status="3 - TO CUT", active=False, created_at=datetime.now(), updated_at=datetime.now()),
-                    MattressPhase(mattress_id=existing_mattress.id, status="4 - ON CUT", active=False, created_at=datetime.now(), updated_at=datetime.now()),
                     MattressPhase(mattress_id=existing_mattress.id, status="5 - COMPLETED", active=False, created_at=datetime.now(), updated_at=datetime.now())
                 ]
                 db.session.add_all(phases)
@@ -246,6 +245,7 @@ class CollarettoWeft(Resource):
                 if existing_detail:
                     print(f"🔄 Updating existing mattress_detail for mattress_id {existing_mattress.id}")
                     existing_detail.layers = detail.get('panels_planned') or 0
+                    existing_detail.length_mattress = detail.get('rewound_width') or 0
                     existing_detail.cons_planned = detail.get('cons_planned') or 0
                     existing_detail.extra = 0
                     existing_detail.updated_at = datetime.now()
@@ -255,7 +255,7 @@ class CollarettoWeft(Resource):
                     new_detail = MattressDetail(
                         mattress_id=existing_mattress.id,
                         layers=detail.get('panels_planned') or 0,
-                        length_mattress=detail.get('panel_length') or 0,
+                        length_mattress=detail.get('rewound_width') or 0,
                         cons_planned=detail.get('cons_planned') or 0,
                         extra=0,
                         created_at=datetime.now(),
@@ -343,7 +343,7 @@ class CollarettoWeft(Resource):
             print("❌ Error saving collaretto weft row:", e)
             return jsonify({"success": False, "message": str(e)})
 
-@collaretto_api.route('/delete_weft/<string:collaretto_name>', methods=['DELETE'])
+@collaretto_api.route('/delete_weft_bias/<string:collaretto_name>', methods=['DELETE'])
 class DeleteWeft(Resource):
     def delete(self, collaretto_name):
         try:
@@ -366,7 +366,7 @@ class DeleteWeft(Resource):
             db.session.delete(collaretto)
 
             db.session.commit()
-            return jsonify({"success": True, "message": f"Weft {collaretto_name} and linked mattress deleted successfully"})
+            return jsonify({"success": True, "message": f"{collaretto_name} and linked mattress deleted successfully"})
 
         except Exception as e:
             db.session.rollback()
@@ -393,7 +393,7 @@ class GetWeftByOrder(Resource):
                 # ✅ Fetch mattress_id from collaretto_detail
                 mattress_id = detail.mattress_id
 
-                # ✅ Fetch the corresponding MattressDetail (panel_length and panels_planned are here)
+                # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
                 result.append({
@@ -416,7 +416,7 @@ class GetWeftByOrder(Resource):
                         "cons_planned": detail.cons_planned,
                         "extra": detail.extra,
                         # ✅ Pull these from MattressDetail
-                        "panel_length": mattress_detail.length_mattress if mattress_detail else None,
+                        "rewound_width": mattress_detail.length_mattress if mattress_detail else None,
                         "panels_planned": mattress_detail.layers if mattress_detail else None
                     }
                 })
@@ -425,4 +425,236 @@ class GetWeftByOrder(Resource):
 
         except Exception as e:
             print(f"❌ Error fetching weft by order: {e}")
+            return jsonify({"success": False, "message": str(e)})
+        
+@collaretto_api.route('/add_bias_row', methods=['POST'])
+class CollarettoBias(Resource):
+    def post(self):
+        data = request.get_json()
+
+        collaretto_name = data.get('collaretto')
+        mattress_name = data.get('mattress')
+        order_commessa = data.get('order_commessa')
+        fabric_type = data.get('fabric_type')
+        fabric_code = data.get('fabric_code')
+        fabric_color = data.get('fabric_color')
+        dye_lot = data.get('dye_lot')
+        item_type = data.get('item_type')
+
+        table_id = data.get('table_id')
+        row_id = data.get('row_id')
+        sequence_number = data.get('sequence_number')
+
+        details = data.get('details', [])
+
+        try:
+            new_mattress_created = False
+
+            existing_mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
+            if existing_mattress:
+                print(f"🔄 Updating existing mattress: {mattress_name}")
+                existing_mattress.order_commessa = order_commessa
+                existing_mattress.fabric_type = fabric_type
+                existing_mattress.fabric_code = fabric_code
+                existing_mattress.fabric_color = fabric_color
+                existing_mattress.dye_lot = dye_lot
+                existing_mattress.item_type = 'ASB'
+                existing_mattress.spreading_method = 'FACE UP'
+                existing_mattress.table_id = table_id
+                existing_mattress.row_id = row_id
+                existing_mattress.sequence_number = sequence_number
+                existing_mattress.updated_at = datetime.now()
+                db.session.flush()
+            else:
+                print(f"➕ Creating new mattress: {mattress_name}")
+                existing_mattress = Mattresses(
+                    mattress=mattress_name,
+                    order_commessa=order_commessa,
+                    fabric_type=fabric_type,
+                    fabric_code=fabric_code,
+                    fabric_color=fabric_color,
+                    dye_lot=dye_lot,
+                    item_type='ASB',
+                    spreading_method='FACE UP',
+                    table_id=table_id,
+                    row_id=row_id,
+                    sequence_number=sequence_number,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.session.add(existing_mattress)
+                db.session.flush()
+                new_mattress_created = True
+
+            if new_mattress_created:
+                print(f"➕ Inserting default MattressPhases for mattress_id {existing_mattress.id}")
+                phases = [
+                    MattressPhase(mattress_id=existing_mattress.id, status="0 - NOT SET", active=True, operator=data.get("operator"), created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="1 - TO LOAD", active=False, created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="2 - ON SPREAD", active=False, created_at=datetime.now(), updated_at=datetime.now()),
+                    MattressPhase(mattress_id=existing_mattress.id, status="5 - COMPLETED", active=False, created_at=datetime.now(), updated_at=datetime.now())
+                ]
+                db.session.add_all(phases)
+
+            # Mattress Detail
+            for detail in details:
+                existing_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+
+                if existing_detail:
+                    print(f"🔄 Updating existing mattress_detail for mattress_id {existing_mattress.id}")
+                    existing_detail.layers = detail.get('panels_planned') or 0
+                    rewound_width = detail.get('rewound_width') or 0
+                    length_mattress = round(rewound_width * math.sqrt(2), 3)
+                    existing_detail.length_mattress = length_mattress
+                    existing_detail.cons_planned = detail.get('cons_planned') or 0
+                    existing_detail.extra = 0
+                    existing_detail.updated_at = datetime.now()
+                    db.session.flush()
+                else:
+                    print(f"➕ Creating new mattress_detail for mattress_id {existing_mattress.id}")
+                    rewound_width = detail.get('rewound_width') or 0
+                    length_mattress = round(rewound_width * math.sqrt(2), 3)
+                    new_detail = MattressDetail(
+                        mattress_id=existing_mattress.id,
+                        layers=detail.get('panels_planned') or 0,
+                        length_mattress=length_mattress,
+                        cons_planned=detail.get('cons_planned') or 0,
+                        extra=0,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.session.add(new_detail)
+
+            # Collaretto CB
+            existing_collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
+            if existing_collaretto:
+                print(f"🔄 Updating existing collaretto: {collaretto_name}")
+                existing_collaretto.order_commessa = order_commessa
+                existing_collaretto.fabric_type = fabric_type
+                existing_collaretto.fabric_code = fabric_code
+                existing_collaretto.fabric_color = fabric_color
+                existing_collaretto.dye_lot = dye_lot
+                existing_collaretto.item_type = item_type
+                existing_collaretto.updated_at = datetime.now()
+                existing_collaretto.table_id = table_id
+                existing_collaretto.row_id = row_id
+                existing_collaretto.sequence_number = sequence_number
+                db.session.flush()
+            else:
+                print(f"➕ Creating new collaretto: {collaretto_name}")
+                existing_collaretto = Collaretto(
+                    collaretto=collaretto_name,
+                    order_commessa=order_commessa,
+                    fabric_type=fabric_type,
+                    fabric_code=fabric_code,
+                    fabric_color=fabric_color,
+                    dye_lot=dye_lot,
+                    item_type=item_type,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                    table_id=table_id,
+                    row_id=row_id,
+                    sequence_number=sequence_number
+                )
+                db.session.add(existing_collaretto)
+                db.session.flush()
+
+            for detail in details:
+                existing_coll_detail = CollarettoDetail.query.filter_by(
+                    collaretto_id=existing_collaretto.id,
+                    mattress_id=existing_mattress.id
+                ).first()
+
+                if existing_coll_detail:
+                    print(f"🔄 Updating existing collaretto_detail for collaretto_id {existing_collaretto.id}")
+                    existing_coll_detail.pieces = detail.get('pieces')
+                    existing_coll_detail.usable_width = detail.get('total_width')  # renamed field
+                    existing_coll_detail.gross_length = detail.get('gross_length')
+                    existing_coll_detail.pcs_seam = float(detail.get('pcs_seam')) if detail.get('pcs_seam') is not None else None
+                    existing_coll_detail.roll_width = detail.get('roll_width')
+                    existing_coll_detail.scrap_rolls = detail.get('scrap_rolls')
+                    existing_coll_detail.rolls_planned = detail.get('rolls_planned')
+                    existing_coll_detail.cons_planned = detail.get('cons_planned')
+                    existing_coll_detail.updated_at = datetime.now()
+                    db.session.flush()
+                else:
+                    print(f"➕ Inserting new collaretto_detail for collaretto_id {existing_collaretto.id}")
+                    new_detail = CollarettoDetail(
+                        collaretto_id=existing_collaretto.id,
+                        mattress_id=existing_mattress.id,
+                        pieces=detail.get('pieces'),
+                        usable_width=detail.get('total_width'),
+                        gross_length=detail.get('gross_length'),
+                        pcs_seam=detail.get('pcs_seam'),
+                        roll_width=detail.get('roll_width'),
+                        scrap_rolls=detail.get('scrap_rolls'),
+                        rolls_planned=detail.get('rolls_planned'),
+                        cons_planned=detail.get('cons_planned'),
+                        created_at=datetime.now(),
+                        updated_at=datetime.now()
+                    )
+                    db.session.add(new_detail)
+
+            db.session.commit()
+            return jsonify({"success": True, "message": "Collaretto Bias Row saved successfully"})
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error saving collaretto bias row:", e)
+            return jsonify({"success": False, "message": str(e)})
+
+@collaretto_api.route('/get_bias_by_order/<order_id>', methods=['GET'])
+class GetBiasByOrder(Resource):
+    def get(self, order_id):
+        try:
+            # ✅ Fetch all Collaretto Bias rows (item_type = 'CB') for the order
+            biases = Collaretto.query.filter_by(order_commessa=order_id, item_type='CB').all()
+
+            if not biases:
+                return jsonify({"success": False, "message": "No Collaretto Bias found for this order", "data": []})
+
+            result = []
+            for bias in biases:
+                # ✅ Get the first collaretto_detail linked to this bias
+                detail = CollarettoDetail.query.filter_by(collaretto_id=bias.id).first()
+                if not detail:
+                    continue  # Skip if no detail exists
+
+                # ✅ Fetch mattress_id from collaretto_detail
+                mattress_id = detail.mattress_id
+
+                # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+
+                length_mattress = mattress_detail.length_mattress if mattress_detail else None
+                rewound_width = round(length_mattress / math.sqrt(2), 3) if length_mattress else None
+
+                result.append({
+                    "collaretto": bias.collaretto,
+                    "fabric_type": bias.fabric_type,
+                    "fabric_code": bias.fabric_code,
+                    "fabric_color": bias.fabric_color,
+                    "dye_lot": bias.dye_lot,
+                    "table_id": bias.table_id,
+                    "row_id": bias.row_id,
+                    "sequence_number": bias.sequence_number,
+                    "details": {
+                        "pieces": detail.pieces,
+                        "total_width": detail.usable_width,
+                        "gross_length": detail.gross_length,
+                        "pcs_seam": detail.pcs_seam,
+                        "roll_width": detail.roll_width,
+                        "scrap_rolls": detail.scrap_rolls,
+                        "rolls_planned": detail.rolls_planned,
+                        "cons_planned": detail.cons_planned,
+                        # ✅ Pull these from MattressDetail
+                        "rewound_width": rewound_width,
+                        "panels_planned": mattress_detail.layers if mattress_detail else None
+                    }
+                })
+
+            return jsonify({"success": True, "data": result})
+
+        except Exception as e:
+            print(f"❌ Error fetching bias by order: {e}")
             return jsonify({"success": False, "message": str(e)})

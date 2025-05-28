@@ -12,7 +12,14 @@ const MattressGroupCardReadOnly = ({ table }) => {
             value={table.fabricType || ''}
             fullWidth
             variant="outlined"
-            InputProps={{ readOnly: true }}
+            InputProps={{
+              readOnly: true,
+              sx: {
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal',
+                }
+              }
+            }}
           />
         </Grid>
 
@@ -23,7 +30,14 @@ const MattressGroupCardReadOnly = ({ table }) => {
             value={table.fabricCode || ''}
             fullWidth
             variant="outlined"
-            InputProps={{ readOnly: true }}
+            InputProps={{
+              readOnly: true,
+              sx: {
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal',
+                }
+              }
+            }}
           />
         </Grid>
 
@@ -34,7 +48,14 @@ const MattressGroupCardReadOnly = ({ table }) => {
             value={table.fabricColor || ''}
             fullWidth
             variant="outlined"
-            InputProps={{ readOnly: true }}
+            InputProps={{
+              readOnly: true,
+              sx: {
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal',
+                }
+              }
+            }}
           />
         </Grid>
 
@@ -45,7 +66,14 @@ const MattressGroupCardReadOnly = ({ table }) => {
             value={table.allowance || ''}
             fullWidth
             variant="outlined"
-            InputProps={{ readOnly: true }}
+            InputProps={{
+              readOnly: true,
+              sx: {
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal',
+                }
+              }
+            }}
           />
         </Grid>
 
@@ -56,7 +84,14 @@ const MattressGroupCardReadOnly = ({ table }) => {
             value={table.spreadingMethod || ''}
             fullWidth
             variant="outlined"
-            InputProps={{ readOnly: true }}
+            InputProps={{
+              readOnly: true,
+              sx: {
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal',
+                }
+              }
+            }}
           />
         </Grid>
 
@@ -67,7 +102,14 @@ const MattressGroupCardReadOnly = ({ table }) => {
             value={table.spreading || ''}
             fullWidth
             variant="outlined"
-            InputProps={{ readOnly: true }}
+            InputProps={{
+              readOnly: true,
+              sx: {
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal',
+                }
+              }
+            }}
           />
         </Grid>
       </Grid>

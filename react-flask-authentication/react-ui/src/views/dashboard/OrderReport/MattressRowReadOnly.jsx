@@ -5,10 +5,13 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
   return (
     <TableRow>
       {/* Mattress Name (short display) */}
-      <TableCell sx={{ minWidth: '120px', maxWidth: '150px', textAlign: 'center', padding: '4px' }}>
-        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.mattressName?.split('-').slice(-2).join('-') || '-'}
-        </Typography>
+      <TableCell sx={{ minWidth: '120px', maxWidth: '150px', textAlign: 'center', padding: '9px' }}>
+        <TextField
+          variant="outlined"
+          value={row.mattressName?.match(/[A-Z]{2,3}-\d{2}-\d{2,3}$/)?.[0] || ''}
+          inputProps={{ readOnly: true, style: { textAlign: 'center' , fontWeight: 'normal' } }}
+          sx={{ width: '100%' }}
+        />
       </TableCell>
 
       {/* Width (KPI) */}
@@ -30,7 +33,7 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       {/* Marker Name */}
       <TableCell sx={{
         padding: '4px',
-        minWidth: '350px',
+        minWidth: '250px',
         maxWidth: '400px',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -90,7 +93,7 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       {/* Planned Consumption */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.expectedConsumption || '-'}
+          {row.cons_actual || '-'}
         </Typography>
       </TableCell>
 
@@ -98,7 +101,7 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <TextField
           variant="outlined"
-          value={row.cons_actual || ''}
+          value={row.cons_real || ''}
           InputProps={{ readOnly: true }}
           sx={{
             width: '100%',

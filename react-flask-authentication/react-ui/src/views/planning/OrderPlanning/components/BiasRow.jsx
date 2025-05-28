@@ -2,7 +2,7 @@ import React from 'react';
 import { TableRow, TableCell, TextField, Typography, IconButton } from '@mui/material';
 import { DeleteOutline } from '@mui/icons-material';
 
-const WeftRow = ({
+const BiasRow = ({
   row,
   rowId,
   table,
@@ -47,9 +47,9 @@ const WeftRow = ({
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
-          value={row.usableWidth || ""}
+          value={row.totalWidth || ""}
           disabled={!editable}
-          onChange={handleChange("usableWidth", /\D/g, 3)}
+          onChange={handleChange("totalWidth", /\D/g, 3)}
           sx={inputSx}
         />
       </TableCell>
@@ -61,6 +61,17 @@ const WeftRow = ({
           value={row.grossLength || ""}
           disabled={!editable}
           onChange={handleChange("grossLength", /[^0-9.,]/g, 6)}
+          sx={inputSx}
+        />
+      </TableCell>
+
+      {/* Collaretto Width */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <TextField
+          variant="outlined"
+          value={row.collarettoWidth || ""}
+          disabled={!editable}
+          onChange={handleChange("collarettoWidth", /\D/g, 4)}
           sx={inputSx}
         />
       </TableCell>
@@ -93,17 +104,6 @@ const WeftRow = ({
         />
       </TableCell>
 
-      {/* Collaretto Width */}
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
-        <TextField
-          variant="outlined"
-          value={row.collarettoWidth || ""}
-          disabled={!editable}
-          onChange={handleChange("collarettoWidth", /\D/g, 4)}
-          sx={inputSx}
-        />
-      </TableCell>
-
       {/* Scrap Rolls */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
@@ -128,7 +128,7 @@ const WeftRow = ({
       {/* Consumption */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>
-          {row.consumption && row.consumption !== "0.00"
+          {row.consumption && parseFloat(row.consumption) !== 0
             ? parseFloat(row.consumption).toFixed(1)
             : ""}
         </Typography>
@@ -171,4 +171,4 @@ const WeftRow = ({
   );
 };
 
-export default WeftRow;
+export default BiasRow;

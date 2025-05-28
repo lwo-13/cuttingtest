@@ -39,6 +39,12 @@ import WeftTableHeader from 'views/planning/OrderPlanning/components/WeftTableHe
 import WeftRow from 'views/planning/OrderPlanning/components/WeftRow';
 import WeftActionRow from 'views/planning/OrderPlanning/components/WeftActionRow';
 
+// Bias Components
+import BiasGroupCard from 'views/planning/OrderPlanning/components/BiasGroupCard';
+import BiasTableHeader from 'views/planning/OrderPlanning/components/BiasTableHeader';
+import BiasRow from 'views/planning/OrderPlanning/components/BiasRow';
+import BiasActionRow from 'views/planning/OrderPlanning/components/BiasActionRow';
+
 // Hooks
 import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
@@ -46,6 +52,7 @@ import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTables';
 import useAlongTables from 'views/planning/OrderPlanning/hooks/useAlongTables';
 import useWeftTables from 'views/planning/OrderPlanning/hooks/useWeftTables';
+import useBiasTables from 'views/planning/OrderPlanning/hooks/useBiasTables';
 import useHandleSave from 'views/planning/OrderPlanning/hooks/useHandleSave';
 import useHandleOrderChange from 'views/planning/OrderPlanning/hooks/useHandleOrderChange';
 import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
@@ -79,6 +86,7 @@ const OrderPlanning = () => {
     const [deletedMattresses, setDeletedMattresses] = useState([]);
     const [deletedAlong, setDeletedAlong] = useState([]);
     const [deletedWeft, setDeletedWeft] = useState([]);
+    const [deletedBias, setDeletedBias] = useState([]);
     const [unsavedChanges, setUnsavedChanges] = useState(false);
 
     const [styleTouched, setStyleTouched] = useState(false);
@@ -153,11 +161,23 @@ const OrderPlanning = () => {
         handleExtraChange: handleWeftExtraChange
     } = useWeftTables({ setUnsavedChanges, setDeletedWeft });
 
+    // Bias Tables
+    const {
+        biasTables,
+        setBiasTables,
+        handleAddBias,
+        handleRemoveBias,
+        handleAddRow: handleAddRowBias,
+        handleRemoveRow: handleRemoveBiasRow,
+        handleInputChange: handleBiasRowChange,
+    } = useBiasTables({ setUnsavedChanges, setDeletedBias });
+
     // Save
     const { saving, handleSave } = useHandleSave({
         tables,
         alongTables,
         weftTables,
+        biasTables,
         padPrintInfo,
         manualPattern,
         manualColor,
@@ -173,9 +193,11 @@ const OrderPlanning = () => {
         deletedMattresses,
         deletedAlong,
         deletedWeft,
+        deletedBias,
         setDeletedMattresses,
         setDeletedAlong,
         setDeletedWeft,
+        setDeletedBias,
         setErrorMessage,
         setOpenError,
         setSuccessMessage,
@@ -200,6 +222,7 @@ const OrderPlanning = () => {
         setTables,
         setAlongTables,
         setWeftTables,
+        setBiasTables,
         setMarkerOptions,
         setManualPattern,
         setManualColor,
@@ -637,6 +660,60 @@ const OrderPlanning = () => {
                 </React.Fragment>
             ))}
 
+            {/* BiasTables Section */}
+            {biasTables.length > 0 && biasTables.map((table) => (
+
+                <React.Fragment key={table.id}>
+                    <Box mt={2} />
+
+                    <MainCard title={`Collaretto in Bias`}>
+                        <BiasGroupCard
+                            key={table.id}
+                            table={table}
+                            tables={biasTables}
+                            fabricTypeOptions={fabricTypeOptions}
+                            isTableEditable={isTableEditable}
+                            setTables={setBiasTables}
+                            setUnsavedChanges={setUnsavedChanges}
+                            />                      
+
+                        {/* Table Section */}
+                        <Box>
+                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                    <Table>
+                                        <BiasTableHeader />
+                                        <TableBody>
+                                        {table.rows.map((row) => (
+                                            <BiasRow
+                                            key={row.id}
+                                            row={row}
+                                            rowId={row.id}
+                                            table={table}
+                                            tableId={table.id}
+                                            handleInputChange={handleBiasRowChange}
+                                            handleRemoveRow={handleRemoveBiasRow}
+                                            setUnsavedChanges={setUnsavedChanges}
+                                            />
+                                        ))}
+                                        </TableBody>
+                                    </Table>
+                            </TableContainer>
+
+                            {/* Button Container */}
+                            <BiasActionRow
+                                tableId={table.id}
+                                table={table}
+                                isTableEditable={isTableEditable}
+                                handleAddRowBias={handleAddRowBias}
+                                handleRemoveBias={handleRemoveBias}
+                                setUnsavedChanges={setUnsavedChanges}
+                            />
+                            
+                        </Box>
+                    </MainCard>
+                </React.Fragment>
+            ))}
+
             {selectedOrder && (
                 <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
                     <Button
@@ -650,7 +727,7 @@ const OrderPlanning = () => {
 
                     <Button
                         variant="contained"
-                        color="secondary" // ✅ Different color to distinguish it
+                        color="secondary"
                         startIcon={<AddCircleOutline />}
                         onClick={handleAddAlong}
                     >
@@ -659,21 +736,21 @@ const OrderPlanning = () => {
 
                     <Button
                         variant="contained"
-                        color="secondary" // ✅ Different color to distinguish it
+                        color="secondary"
                         startIcon={<AddCircleOutline />}
                         onClick={handleAddWeft}
                     >
                         Add Collaretto Weft (Trama)
                     </Button>
 
-                    {/* <Button
+                    <Button
                         variant="contained"
-                        color="secondary" // ✅ Different color to distinguish it
+                        color="secondary"
                         startIcon={<AddCircleOutline />}
-                        onClick={handleAddWeft}
+                        onClick={handleAddBias}
                     >
                         Add Collaretto Bias (Sbieco)
-                    </Button>*/}
+                    </Button>
                 </Box>
             )}
 
