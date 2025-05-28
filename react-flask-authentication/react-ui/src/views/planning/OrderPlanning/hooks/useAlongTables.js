@@ -126,9 +126,9 @@ const useAlongTables = ({ setUnsavedChanges, setDeletedAlong }) => {
           const extra = 1 + (parseFloat(table.alongExtra) / 100 || 0);
 
           updatedRow.rolls = collWidth > 0 ? Math.floor(width / collWidth) - scrap : 0;
-          updatedRow.metersCollaretto = (pieces * theoCons * extra).toFixed(1);
+          updatedRow.metersCollaretto = (pieces * theoCons * extra).toFixed(2);
           updatedRow.consumption = updatedRow.rolls > 0
-            ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(1)
+            ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(2)
             : "0";
 
           return updatedRow;
@@ -156,7 +156,7 @@ const useAlongTables = ({ setUnsavedChanges, setDeletedAlong }) => {
         return {
           ...row,
           metersCollaretto: meters.toFixed(1),
-          consumption: rolls > 0 ? (meters / rolls).toFixed(1) : "0"
+          consumption: rolls > 0 ? (meters / rolls).toFixed(2) : "0"
         };
       });
 

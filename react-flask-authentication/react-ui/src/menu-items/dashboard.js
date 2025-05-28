@@ -1,11 +1,5 @@
 // assets
-import { IconDashboard, IconDeviceAnalytics, IconLayoutKanban } from '@tabler/icons';
-
-// constant
-const icons = {
-    IconDashboard: IconDashboard,
-    IconDeviceAnalytics
-};
+import { IconDashboard, IconDeviceAnalytics, IconListCheck } from '@tabler/icons';
 
 //-----------------------|| DASHBOARD MENU ITEMS ||-----------------------//
 
@@ -19,8 +13,17 @@ export const dashboard = {
             title: 'KPI Dashboard',
             type: 'item',
             url: '/dashboard/default',
-            icon: icons['IconDashboard'],
+            icon: IconDashboard,
+            breadcrumbs: false
+        },
+        {
+            id: 'orderreport',
+            title: 'Order Report',
+            type: 'item',
+            url: '/dashboard/orderreport',
+            icon: IconListCheck,
             breadcrumbs: false
         }
+
     ]
 };

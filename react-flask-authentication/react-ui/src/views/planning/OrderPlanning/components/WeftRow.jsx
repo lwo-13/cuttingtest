@@ -128,7 +128,9 @@ const WeftRow = ({
       {/* Consumption */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>
-          {row.consumption && row.consumption !== "0.00" ? row.consumption : ""}
+          {row.consumption && row.consumption !== "0.00"
+            ? parseFloat(row.consumption).toFixed(1)
+            : ""}
         </Typography>
       </TableCell>
 

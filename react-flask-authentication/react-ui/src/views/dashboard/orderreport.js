@@ -4,28 +4,24 @@ import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-materia
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
-import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
-import { useHistory } from "react-router-dom";
 
 // Order Planning Components
-import OrderActionBar from 'views/planning/OrderPlanning/components/OrderActionBar';
 import OrderToolbar from 'views/planning/OrderPlanning/components/OrderToolbar';
 import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuantities';
 
-// Cutting Room Selection
-import CuttingRoomSelector from 'views/planning/OrderPlanning/components/CuttingRoomSelector';
+// Cutting Room Info
+import CuttingRoomInfo from 'views/dashboard/OrderReport/CuttingRoomInfo';
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
-import PadPrintInfoManual from 'views/planning/OrderPlanning/components/PadPrintInfoManual';
 
 // Mattress Components
-import MattressGroupCard from 'views/planning/OrderPlanning/components/MattressGroupCard';
+import MattressGroupCardReadOnly from 'views/dashboard/OrderReport/MattressGroupCardReadOnly';
 import PlannedQuantityBar from 'views/planning/OrderPlanning/components/PlannedQuantityBar';
-import MattressTableHeader from 'views/planning/OrderPlanning/components/MattressTableHeader';
-import MattressRow from 'views/planning/OrderPlanning/components/MattressRow';
-import MattressActionRow from 'views/planning/OrderPlanning/components/MattressActionRow';
+import MattressTableHeader from 'views/dashboard/OrderReport/MattressTableHeader';
+import MattressRowReadOnly from 'views/dashboard/OrderReport/MattressRowReadOnly';
+import MattressActionRowReadOnly from 'views/dashboard/OrderReport/MattressActionRowReadOnly';
 
 // Along Components
 import AlongGroupCard from 'views/planning/OrderPlanning/components/AlongGroupCard';
@@ -43,29 +39,14 @@ import WeftActionRow from 'views/planning/OrderPlanning/components/WeftActionRow
 import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
-import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTables';
-import useAlongTables from 'views/planning/OrderPlanning/hooks/useAlongTables';
-import useWeftTables from 'views/planning/OrderPlanning/hooks/useWeftTables';
-import useHandleSave from 'views/planning/OrderPlanning/hooks/useHandleSave';
-import useHandleOrderChange from 'views/planning/OrderPlanning/hooks/useHandleOrderChange';
+import useHandleOrderChange from 'views/dashboard/OrderReport/useHandleOrderChange';
 import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
 
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
-import { usePrintStyles, handlePrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
-// Sample Fabric Types
-const fabricTypeOptions = ["01", "02", "03", "04", "05", "06", "10", "13"];
-
-// Spreading Options
-const spreadingOptions = ["AUTOMATIC", "MANUAL"];
-
-// Spreading Methods
-const spreadingMethods = ["FACE UP", "FACE DOWN", "FACE TO FACE"];
-
-const OrderPlanning = () => {
-    const history = useHistory();
+const OrderReport = () => {
 
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -76,10 +57,6 @@ const OrderPlanning = () => {
     const [orderSizes, setOrderSizes] = useState([]); // ✅ Stores full objects (for qty display)
     const [orderSizeNames, setOrderSizeNames] = useState([]); // ✅ Stores only size names (for table columns)
     const [markerOptions, setMarkerOptions] = useState([]);
-    const [deletedMattresses, setDeletedMattresses] = useState([]);
-    const [deletedAlong, setDeletedAlong] = useState([]);
-    const [deletedWeft, setDeletedWeft] = useState([]);
-    const [unsavedChanges, setUnsavedChanges] = useState(false);
 
     const [styleTouched, setStyleTouched] = useState(false);
 
@@ -89,19 +66,11 @@ const OrderPlanning = () => {
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
 
-    // State for unsaved changes dialog
-    const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
-    const [pendingNavigation, setPendingNavigation] = useState(null);
-
     // Italian Ratio
     const italianRatios = useItalianRatios(selectedOrder);
 
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
-    
-    // Manual Pad Print
-    const [manualPattern, setManualPattern] = useState('');
-    const [manualColor, setManualColor] = useState('');
 
     // Fetch Brand
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
@@ -117,71 +86,10 @@ const OrderPlanning = () => {
     // User
     const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
-    // Mattress Tables
-    const {
-        tables,
-        setTables,
-        handleAddTable,
-        handleRemoveTable,
-        handleAddRow,
-        handleRemoveRow,
-        handleInputChange,
-        updateExpectedConsumption
-    } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges });
-
-    // Along Tables
-    const {
-        alongTables,
-        setAlongTables,
-        handleAddTable: handleAddAlong,
-        handleRemoveTable: handleRemoveAlong,
-        handleAddRow: handleAddRowAlong,
-        handleRemoveRow: handleRemoveAlongRow,
-        handleInputChange: handleAlongRowChange,
-        handleExtraChange: handleAlongExtraChange
-    } = useAlongTables({ setUnsavedChanges, setDeletedAlong });
-
-    // Weft Tables
-    const {
-        weftTables,
-        setWeftTables,
-        handleAddWeft,
-        handleRemoveWeft,
-        handleAddRow: handleAddRowWeft,
-        handleRemoveRow: handleRemoveWeftRow,
-        handleInputChange: handleWeftRowChange,
-        handleExtraChange: handleWeftExtraChange
-    } = useWeftTables({ setUnsavedChanges, setDeletedWeft });
-
-    // Save
-    const { saving, handleSave } = useHandleSave({
-        tables,
-        alongTables,
-        weftTables,
-        padPrintInfo,
-        manualPattern,
-        manualColor,
-        selectedOrder,
-        selectedStyle,
-        selectedColorCode,
-        selectedSeason,
-        selectedProductionCenter,
-        selectedCuttingRoom,
-        selectedDestination,
-        username,
-        brand,
-        deletedMattresses,
-        deletedAlong,
-        deletedWeft,
-        setDeletedMattresses,
-        setDeletedAlong,
-        setDeletedWeft,
-        setErrorMessage,
-        setOpenError,
-        setSuccessMessage,
-        setOpenSuccess,
-        setUnsavedChanges
-    });
+    // Tables
+    const [tables, setTables] = useState([]);
+    const [alongTables, setAlongTables] = useState([]);
+    const [weftTables, setWeftTables] = useState([]);
 
     // Order Change
     const { onOrderChange } = useHandleOrderChange({
@@ -189,7 +97,6 @@ const OrderPlanning = () => {
         setOrderSizes,
         setOrderSizeNames,
         setSelectedStyle,
-        setStyleTouched,
         setSelectedSeason,
         setSelectedColorCode,
         setSelectedProductionCenter,
@@ -201,135 +108,71 @@ const OrderPlanning = () => {
         setAlongTables,
         setWeftTables,
         setMarkerOptions,
-        setManualPattern,
-        setManualColor,
-        setUnsavedChanges,
-        handleWeftRowChange,
         sortSizes,
         clearBrand,
-        clearPadPrintInfo,
-        styleTouched
+        clearPadPrintInfo
     });
 
-    // Print Styles
-    usePrintStyles();
 
     // Average Consumption per table
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
 
-
-    const handleCloseError = (event, reason) => {
-        if (reason === 'clickaway') return;
-        setOpenError(false);
-    };
-
-    const handleCloseSuccess = (event, reason) => {
-        if (reason === "clickaway") return;
-        setOpenSuccess(false);
-    };
-
-    // Handle closing the unsaved changes dialog
-    const handleCloseUnsavedDialog = () => {
-        setOpenUnsavedDialog(false);
-        setPendingNavigation(null);
-    };
-
-    // Handle confirming navigation when there are unsaved changes
-    const handleConfirmNavigation = () => {
-        setOpenUnsavedDialog(false);
-
-        // If we have a pending navigation function, execute it
-        if (pendingNavigation && typeof pendingNavigation === 'function') {
-            pendingNavigation();
-        }
-
-        setPendingNavigation(null);
-    };
-
-    // Override history.block to show our custom dialog
+    // Fetch order data
     useEffect(() => {
-        // This will be called when the user tries to navigate away
-        const unblock = history.block((location) => {
-            if (unsavedChanges) {
-                // Store the navigation function to be called after user confirms
-                setPendingNavigation(() => () => history.push(location.pathname));
-                setOpenUnsavedDialog(true);
-                return false; // Prevent immediate navigation
+        Promise.all([
+            axios.get('/orders/order_lines'),
+            axios.get('/mattress/order_ids')
+        ])
+            .then(([ordersRes, mattressRes]) => {
+            if (!ordersRes.data.success || !mattressRes.data.success) {
+                console.error("Failed to fetch order or mattress data");
+                return;
             }
-            return true; // Allow navigation
-        });
 
-        return () => {
-            // Clean up when component unmounts
-            unblock();
-        };
-    }, [history, unsavedChanges]);
+            const mattressOrderIds = new Set(
+                (mattressRes.data.data || []).map(item => item.order_commessa)
+            );
 
-    // Handle page navigation warning when unsaved changes exist (browser close/refresh)
-    useEffect(() => {
-        // Function to handle beforeunload event
-        const handleBeforeUnload = (event) => {
-            if (unsavedChanges) {
-                // Standard way to show a confirmation dialog before leaving the page
-                const message = "You have unsaved changes, either save or delete them.";
-                event.preventDefault();
-                event.returnValue = message; // For older browsers
-                return message; // For modern browsers
-            }
-        };
+            const ordersMap = new Map();
 
-        // Add event listener when component mounts or unsavedChanges changes
-        window.addEventListener('beforeunload', handleBeforeUnload);
+            ordersRes.data.data.forEach(row => {
+                const orderId = row.order_commessa;
 
-        // Clean up event listener when component unmounts or unsavedChanges changes
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [unsavedChanges]);
-
-    // Fetch order data from Flask API
-    useEffect(() => {
-        axios.get('/orders/order_lines')
-            .then(response => {
-                if (response.data.success) {
-                    const ordersMap = new Map();
-
-                    response.data.data.forEach(row => {
-                        if (row.status === 3) {  // ✅ Only include status = 3
-                            if (!ordersMap.has(row.order_commessa)) {
-                                ordersMap.set(row.order_commessa, {
-                                    id: row.order_commessa,  // ✅ Use only id
-                                    style: row.style,  // ✅ Unique style per order
-                                    season: row.season,  // ✅ Unique season per order
-                                    colorCode: row.color_code,  // ✅ Unique color code per order
-                                    sizes: []  // ✅ Initialize array for sizes
-                                });
-                            }
-
-                            // Append sizes dynamically
-                            ordersMap.get(row.order_commessa).sizes.push({
-                                size: row.size,
-                                qty: parseFloat(row.quantity.toString().replace(",", "")) || 0 // ✅ Convert quantity to number
-                            });
-                        }
+                if (mattressOrderIds.has(orderId)) {
+                if (!ordersMap.has(orderId)) {
+                    ordersMap.set(orderId, {
+                    id: orderId,
+                    style: row.style,
+                    season: row.season,
+                    colorCode: row.color_code,
+                    sizes: []
                     });
-
-                    const sortedOrders = Array.from(ordersMap.values()).map(order => ({
-                        ...order,
-                        sizes: sortSizes(order.sizes || [])
-                    }));
-                    setOrderOptions(sortedOrders);
-
-                    const uniqueStyles = [
-                        ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
-                      ];
-                      setStyleOptions(uniqueStyles);
-                } else {
-                    console.error("Failed to fetch orders");
                 }
-            })
-            .catch(error => console.error("Error fetching order data:", error));
+
+                ordersMap.get(orderId).sizes.push({
+                    size: row.size,
+                    qty: parseFloat(row.quantity.toString().replace(",", "")) || 0
+                });
+                }
+            });
+
+            const sortedOrders = Array.from(ordersMap.values()).map(order => ({
+                ...order,
+                sizes: sortSizes(order.sizes || [])
+            }));
+
+            setOrderOptions(sortedOrders);
+
+            const uniqueStyles = [
+                ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
+            ];
+            setStyleOptions(uniqueStyles);
+        })
+        .catch(error => {
+            console.error("Error fetching filtered order data:", error);
+        });
     }, []);
+
 
     const filteredOrders = selectedStyle
         ? orderOptions.filter(order => order.style === selectedStyle)
@@ -372,10 +215,6 @@ const OrderPlanning = () => {
         }
       };
 
-    const isTableEditable = (table) => {
-        return table.rows.every(row => row.isEditable !== false);
-    };
-
     return (
         <>
             {/* Order Bar */}
@@ -387,16 +226,6 @@ const OrderPlanning = () => {
                 }}
             >
                 <MainCard title="Order Details">
-
-                    {/* Order Actions Bar */}
-                    <OrderActionBar
-                        unsavedChanges={unsavedChanges}
-                        handleSave={handleSave}
-                        handlePrint={handlePrint}
-                        isPinned={isPinned}
-                        setIsPinned={setIsPinned}
-                        saving={saving}
-                    />
 
                     {/* Order Toolbar */}
                     <OrderToolbar
@@ -421,33 +250,18 @@ const OrderPlanning = () => {
             
             {/* Production Center */}
             {selectedOrder && (
-                <CuttingRoomSelector
+                <CuttingRoomInfo
                     productionCenter={selectedProductionCenter}
-                    setProductionCenter={setSelectedProductionCenter}
                     cuttingRoom={selectedCuttingRoom}
-                    setCuttingRoom={setSelectedCuttingRoom}
                     destination={selectedDestination}
-                    setDestination={setSelectedDestination}
                 />
             )}
 
             <Box mt={2} />
 
             {/* Pad Print Section */}
-            {selectedOrder && (
-                <>
-                    {padPrintInfo ? (
-                        <PadPrintInfo padPrintInfo={padPrintInfo} />
-                    ) : (
-                        <PadPrintInfoManual
-                            brand={brand?.toLowerCase()}
-                            pattern={manualPattern}
-                            setPattern={setManualPattern}
-                            color={manualColor}
-                            setColor={setManualColor}
-                        />
-                    )}
-                </>
+            {selectedOrder && padPrintInfo && (
+                    <PadPrintInfo padPrintInfo={padPrintInfo} />
             )}
 
             <Box mt={2} />
@@ -476,17 +290,8 @@ const OrderPlanning = () => {
                         }
                     >
 
-                    <MattressGroupCard
+                    <MattressGroupCardReadOnly
                         table={table}
-                        tableId={table.id}
-                        tables={tables}
-                        fabricTypeOptions={fabricTypeOptions}
-                        spreadingMethods={spreadingMethods}
-                        spreadingOptions={spreadingOptions}
-                        isTableEditable={isTableEditable}
-                        setTables={setTables}
-                        setUnsavedChanges={setUnsavedChanges}
-                        updateExpectedConsumption={updateExpectedConsumption}
                     />
 
                         {/* Table Section */}
@@ -496,18 +301,10 @@ const OrderPlanning = () => {
                                     <MattressTableHeader orderSizes={orderSizes} />
                                     <TableBody>
                                         {table.rows.map((row) => (
-                                            <MattressRow
+                                            <MattressRowReadOnly
                                             key={row.id}
                                             row={row}
-                                            rowId={row.id}
-                                            tableId={table.id}
-                                            table={table}
                                             orderSizes={orderSizes}
-                                            markerOptions={markerOptions}
-                                            setTables={setTables}
-                                            handleInputChange={handleInputChange}
-                                            handleRemoveRow={handleRemoveRow}
-                                            setUnsavedChanges={setUnsavedChanges}
                                             />
                                         ))}
                                     </TableBody>
@@ -515,13 +312,9 @@ const OrderPlanning = () => {
                             </TableContainer>
 
                             {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
-                            <MattressActionRow
+                            <MattressActionRowReadOnly
                                 avgConsumption={avgConsumption[table.id]}
-                                tableId={table.id}
-                                isTableEditable={isTableEditable}
                                 table={table}
-                                handleAddRow={(tableId) => handleAddRow(tableId)}
-                                handleRemoveTable={handleRemoveTable}
                             />
 
                         </Box>
@@ -530,7 +323,7 @@ const OrderPlanning = () => {
             ))}
 
             {/* Along Tables Section */}
-            {alongTables.length > 0 && alongTables.map((table) => (
+            {/* {alongTables.length > 0 && alongTables.map((table) => (
                 <React.Fragment key={table.id}>
 
                     <Box mt={2} />
@@ -546,7 +339,7 @@ const OrderPlanning = () => {
                             handleAlongExtraChange={handleAlongExtraChange}
                         />
 
-                        {/* Table Section */}
+                        {/* Table Section
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
@@ -568,7 +361,7 @@ const OrderPlanning = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* Button Container */}
+                            {/* Button Container
                            <AlongActionRow
                                 tableId={table.id}
                                 table={table}
@@ -583,7 +376,7 @@ const OrderPlanning = () => {
                 </React.Fragment>
             ))}
 
-            {/* Weft Tables Section */}
+            {/* Weft Tables Section
             {weftTables.length > 0 && weftTables.map((table) => (
 
                 <React.Fragment key={table.id}>
@@ -600,7 +393,7 @@ const OrderPlanning = () => {
                             handleWeftExtraChange={handleWeftExtraChange}
                             />                      
 
-                        {/* Table Section */}
+                        {/* Table Section
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                     <Table>
@@ -622,7 +415,7 @@ const OrderPlanning = () => {
                                     </Table>
                             </TableContainer>
 
-                            {/* Button Container */}
+                            {/* Button Container
                             <WeftActionRow
                                 tableId={table.id}
                                 table={table}
@@ -635,49 +428,9 @@ const OrderPlanning = () => {
                         </Box>
                     </MainCard>
                 </React.Fragment>
-            ))}
+            ))}*/}
 
-            {selectedOrder && (
-                <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<AddCircleOutline />}
-                        onClick={handleAddTable}
-                    >
-                        Add Mattress
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        color="secondary" // ✅ Different color to distinguish it
-                        startIcon={<AddCircleOutline />}
-                        onClick={handleAddAlong}
-                    >
-                        Add Collaretto Along Grain (Ordito)
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        color="secondary" // ✅ Different color to distinguish it
-                        startIcon={<AddCircleOutline />}
-                        onClick={handleAddWeft}
-                    >
-                        Add Collaretto Weft (Trama)
-                    </Button>
-
-                    {/* <Button
-                        variant="contained"
-                        color="secondary" // ✅ Different color to distinguish it
-                        startIcon={<AddCircleOutline />}
-                        onClick={handleAddWeft}
-                    >
-                        Add Collaretto Bias (Sbieco)
-                    </Button>*/}
-                </Box>
-            )}
-
-            {/* Error Snackbar */}
+            {/* Error Snackbar
             <Snackbar
                 open={openError}
                 autoHideDuration={5000}
@@ -689,7 +442,7 @@ const OrderPlanning = () => {
                 </Alert>
             </Snackbar>
 
-            {/* ✅ Success Message Snackbar */}
+            {/* ✅ Success Message Snackbar
             <Snackbar
                 open={openSuccess}
                 autoHideDuration={5000}
@@ -699,31 +452,10 @@ const OrderPlanning = () => {
                 <Alert onClose={handleCloseSuccess} severity="success" sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}>
                     {successMessage}
                 </Alert>
-            </Snackbar>
+            </Snackbar>*/}
 
-            {/* Unsaved Changes Dialog */}
-            <Dialog
-                open={openUnsavedDialog}
-                onClose={handleCloseUnsavedDialog}
-                aria-labelledby="unsaved-changes-dialog-title"
-                aria-describedby="unsaved-changes-dialog-description"
-            >
-                <DialogTitle id="unsaved-changes-dialog-title">
-                    Unsaved Changes
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="unsaved-changes-dialog-description">
-                        You have unsaved changes, either save or delete them.
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseUnsavedDialog} color="primary" variant="contained">
-                        OK
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </>
     );
 };
 
-export default OrderPlanning;
+export default OrderReport;

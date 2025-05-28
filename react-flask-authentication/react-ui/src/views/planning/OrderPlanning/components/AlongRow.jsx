@@ -87,13 +87,17 @@ const AlongRow = ({
 
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.metersCollaretto || ""}
+          {row.metersCollaretto && !isNaN(row.metersCollaretto)
+            ? parseFloat(row.metersCollaretto).toFixed(1)
+            : ""}
         </Typography>
       </TableCell>
 
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.consumption && row.consumption !== "0.0" ? row.consumption : ""}
+          {row.consumption && !isNaN(row.consumption) && parseFloat(row.consumption) !== 0
+            ? parseFloat(row.consumption).toFixed(1)
+            : ""}
         </Typography>
       </TableCell>
 

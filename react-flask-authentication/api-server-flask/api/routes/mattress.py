@@ -668,8 +668,6 @@ class ApproveMattressesResource(Resource):
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
 
-
-
 @mattress_api.route('/update_status/<int:mattress_id>', methods=['PUT'])
 class UpdateMattressStatusResource(Resource):
     """Update the status of a mattress"""
@@ -762,4 +760,19 @@ class UpdateLayersAResource(Resource):
             db.session.rollback()
             import traceback
             traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500
+        
+@mattress_api.route('/order_ids')
+class MattressOrderIdsResource(Resource):
+    def get(self):
+        """Fetch all unique order_commessa from mattresses"""
+        try:
+            # Query distinct order_commessa from the database
+            result = db.session.query(Mattresses.order_commessa).distinct().all()
+
+            # Flatten the result: list of dicts instead of list of tuples
+            data = [{"order_commessa": row[0]} for row in result if row[0] is not None]
+
+            return {"success": True, "data": data}, 200
+        except Exception as e:
             return {"success": False, "message": str(e)}, 500

@@ -153,14 +153,15 @@ const useWeftTables = ({
           const pieces = parseFloat(field === "pieces" ? value : row.pieces);
           const rolls = parseFloat(updatedRow.rolls);
           const extra = parseFloat(table.weftExtra) || 0;
+          const pcsSeam = Math.floor(parseFloat(updatedRow.pcsSeamtoSeam)) || 0;
 
-          updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && rolls > 0
-            ? Math.floor((pieces * (1 + extra / 100)) / rolls)
+          updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && rolls > 0 && pcsSeam > 0
+            ? Math.round((pieces * (1 + extra / 100)) / (rolls * pcsSeam))
             : "";
 
           const panels = parseFloat(updatedRow.panels);
           updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
-            ? (panels * panelLength).toFixed(1)
+            ? (panels * panelLength).toFixed(2)
             : "";
 
           return updatedRow;
@@ -175,6 +176,7 @@ const useWeftTables = ({
 
   const handleExtraChange = (tableId, value) => {
     const extra = parseFloat(value) / 100 || 0;
+
     setWeftTables(prev => prev.map(table => {
       if (table.id !== tableId) return table;
 
@@ -182,12 +184,14 @@ const useWeftTables = ({
         const pieces = parseFloat(row.pieces);
         const rolls = parseFloat(row.rolls);
         const panelLength = parseFloat(row.panelLength);
-        const panels = !isNaN(pieces) && !isNaN(rolls) && rolls > 0
-          ? Math.floor((pieces * (1 + extra)) / rolls)
+        const pcsSeam = Math.floor(parseFloat(row.pcsSeamtoSeam)) || 0;
+
+        const panels = !isNaN(pieces) && !isNaN(rolls) && rolls > 0 && pcsSeam > 0
+          ? Math.round((pieces * (1 + extra)) / (rolls * pcsSeam))
           : "";
 
         const consumption = !isNaN(panels) && !isNaN(panelLength)
-          ? (panels * panelLength).toFixed(1)
+          ? (panels * panelLength).toFixed(2)
           : "";
 
         return { ...row, panels, consumption };
@@ -195,6 +199,7 @@ const useWeftTables = ({
 
       return { ...table, weftExtra: value, rows: updatedRows };
     }));
+
     setUnsavedChanges(true);
   };
 

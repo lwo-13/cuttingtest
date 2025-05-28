@@ -141,7 +141,7 @@ const MattressRow = ({
       {/* Expected Consumption */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.expectedConsumption}
+          {row.expectedConsumption ? parseFloat(row.expectedConsumption).toFixed(1) : ""}
         </Typography>
       </TableCell>
 

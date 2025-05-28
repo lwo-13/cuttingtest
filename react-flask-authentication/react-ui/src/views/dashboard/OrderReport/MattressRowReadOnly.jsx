@@ -1,0 +1,127 @@
+import React from 'react';
+import { TableRow, TableCell, TextField, Typography } from '@mui/material';
+
+const MattressRowReadOnly = ({ row, orderSizes }) => {
+  return (
+    <TableRow>
+      {/* Mattress Name (short display) */}
+      <TableCell sx={{ minWidth: '120px', maxWidth: '150px', textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.mattressName?.split('-').slice(-2).join('-') || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Width (KPI) */}
+      <TableCell sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
+        <TextField
+          variant="outlined"
+          value={row.width || ''}
+          InputProps={{ readOnly: true }}
+          sx={{
+            width: '100%',
+            minWidth: '60px',
+            maxWidth: '70px',
+            textAlign: 'center',
+            "& input": { textAlign: 'center', fontWeight: 'normal' }
+          }}
+        />
+      </TableCell>
+
+      {/* Marker Name */}
+      <TableCell sx={{
+        padding: '4px',
+        minWidth: '350px',
+        maxWidth: '400px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }}>
+        <Typography sx={{ textAlign: 'center', fontWeight: 'normal' }}>
+          {row.markerName || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Pieces Per Size
+      {orderSizes.map((size) => (
+        <TableCell key={size.size} sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
+          <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+            {row.piecesPerSize?.[size.size] || 0}
+          </Typography>
+        </TableCell>
+      ))} */}
+
+      {/* Marker Length */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.markerLength || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Efficiency */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.efficiency || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Planned Layers */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.layers || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Actual Layers (KPI) */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <TextField
+          variant="outlined"
+          value={row.layers_a || ''}
+          InputProps={{ readOnly: true }}
+          sx={{
+            width: '100%',
+            minWidth: '65px',
+            maxWidth: '80px',
+            textAlign: 'center',
+            "& input": { textAlign: 'center', fontWeight: 'normal' }
+          }}
+        />
+      </TableCell>
+
+      {/* Planned Consumption */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.expectedConsumption || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Actual Consumption (KPI) */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <TextField
+          variant="outlined"
+          value={row.cons_actual || ''}
+          InputProps={{ readOnly: true }}
+          sx={{
+            width: '100%',
+            minWidth: '65px',
+            maxWidth: '80px',
+            textAlign: 'center',
+            "& input": { textAlign: 'center', fontWeight: 'normal' }
+          }}
+        />
+      </TableCell>
+
+      {/* Bagno */}
+      <TableCell sx={{ minWidth: '90px', maxWidth: '120px', textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.bagno || '-'}
+        </Typography>
+      </TableCell>
+
+      {/* Empty Cell (icon placeholder) */}
+      <TableCell />
+    </TableRow>
+  );
+};
+
+export default MattressRowReadOnly;
+

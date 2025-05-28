@@ -9,6 +9,7 @@ import RoleGuard from './../utils/route-guard/RoleGuard';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
+const OrderReport = Loadable(lazy(() => import('../views/dashboard/orderreport')));
 
 // planning routing
 const KanbanBoard = Loadable(lazy(() => import('../views/planning/kanbanboard')));
@@ -55,6 +56,7 @@ const MainRoutes = () => {
         <Route
             path={[
                 '/dashboard/default',
+                '/dashboard/orderreport',
 
                 '/planning/kanbanboard',
                 '/planning/orderplanning',
@@ -86,6 +88,7 @@ const MainRoutes = () => {
                 <Switch location={location} key={location.pathname}>
                     <AuthGuard>
                         <Route path="/dashboard/default" component={DashboardDefault} />
+                        <Route path="/dashboard/orderreport" component={OrderReport} />
 
                         <Route path="/planning/kanbanboard" component={KanbanBoard} />
                         <Route path="/planning/orderplanning" component={OrderPlanning} />

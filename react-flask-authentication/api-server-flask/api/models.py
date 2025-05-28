@@ -272,6 +272,7 @@ class MattressDetail(db.Model):
     length_mattress = db.Column(db.Float, nullable=False)
     cons_planned = db.Column(db.Float, nullable=False)
     cons_actual = db.Column(db.Float, nullable=True)
+    cons_real = db.Column(db.Float, nullable=True)
     extra = db.Column(db.Float, nullable=False)
     pcs_bundle = db.Column(db.Float, nullable=True)
     print_travel = db.Column(db.Boolean, default=False)
