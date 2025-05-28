@@ -44,8 +44,8 @@ const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView'
 const CutterView = Loadable(lazy(() => import('../views/cutter/cutterView')));
 
 // operators routing
-const OperatorManagement = Loadable(lazy(() => import('../views/operators/operatorManagement')));
-const CutterOperatorManagement = Loadable(lazy(() => import('../views/cutter-operators/cutterOperatorManagement')));
+const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
+const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
@@ -124,7 +124,7 @@ const MainRoutes = () => {
 
                         <Route path="/operators/spreader-management">
                             <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
-                                <OperatorManagement />
+                                <SpreaderOperatorManagement />
                             </RoleGuard>
                         </Route>
 

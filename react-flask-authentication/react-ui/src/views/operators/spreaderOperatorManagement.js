@@ -26,7 +26,7 @@ import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/ico
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
-const OperatorManagement = () => {
+const SpreaderOperatorManagement = () => {
   const [operators, setOperators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openAddDialog, setOpenAddDialog] = useState(false);
@@ -38,7 +38,14 @@ const OperatorManagement = () => {
   const [editOperatorActive, setEditOperatorActive] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Fetch operators on component mount
+  // Standard dialog style
+  const dialogStyle = {
+    width: '400px',
+    maxWidth: '90%',
+    borderRadius: 3,
+    p: 2
+  };
+
   useEffect(() => {
     fetchOperators();
   }, []);
@@ -62,7 +69,6 @@ const OperatorManagement = () => {
         message: `API Error: ${error.message || 'Unknown error'}`,
         severity: 'error'
       });
-      console.error('Error fetching operators:', error);
     } finally {
       setLoading(false);
     }
@@ -106,7 +112,6 @@ const OperatorManagement = () => {
         message: `API Error: ${error.message || 'Unknown error'}`,
         severity: 'error'
       });
-      console.error('Error adding operator:', error);
     }
   };
 
@@ -147,7 +152,6 @@ const OperatorManagement = () => {
         message: `API Error: ${error.message || 'Unknown error'}`,
         severity: 'error'
       });
-      console.error('Error updating operator:', error);
     }
   };
 
@@ -176,7 +180,6 @@ const OperatorManagement = () => {
         message: `API Error: ${error.message || 'Unknown error'}`,
         severity: 'error'
       });
-      console.error('Error deleting operator:', error);
     }
   };
 
@@ -242,15 +245,12 @@ const OperatorManagement = () => {
                     <TableCell>{operator.id}</TableCell>
                     <TableCell>{operator.name}</TableCell>
                     <TableCell>
-                      <Box display="flex" alignItems="center">
-                        <Typography
-                          variant="body2"
-                          color={operator.active ? 'success.main' : 'error.main'}
-                          sx={{ mr: 1 }}
-                        >
-                          {operator.active ? 'Active' : 'Inactive'}
-                        </Typography>
-                      </Box>
+                      <Typography
+                        variant="body2"
+                        color={operator.active ? 'success.main' : 'error.main'}
+                      >
+                        {operator.active ? 'Active' : 'Inactive'}
+                      </Typography>
                     </TableCell>
                     <TableCell>{operator.created_at}</TableCell>
                     <TableCell>{operator.updated_at}</TableCell>
@@ -271,11 +271,15 @@ const OperatorManagement = () => {
       )}
 
       {/* Add Operator Dialog */}
-      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)}>
-        <DialogTitle>Add New Operator</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Enter the name of the new spreader operator. This name will appear in the dropdown menu on the spreader view.
+      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} PaperProps={{ sx: dialogStyle }}>
+        <DialogTitle
+          sx={{ textAlign: 'center', fontSize: '1.6rem', fontWeight: 'bold', pb: 1 }}
+        >
+          Add New Operator
+        </DialogTitle>
+        <DialogContent sx={{ pt: 0 }}>
+          <DialogContentText sx={{ mb: 2 }}>
+            Enter the name of the new spreader operator.
           </DialogContentText>
           <TextField
             autoFocus
@@ -285,18 +289,21 @@ const OperatorManagement = () => {
             fullWidth
             value={newOperatorName}
             onChange={(e) => setNewOperatorName(e.target.value)}
+            sx={{
+              mt: 1,
+              '& .MuiInputBase-input': { fontWeight: 'normal' },
+              '& .MuiInputLabel-root': { fontWeight: 'normal' }
+            }}
           />
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpenAddDialog(false)}>Cancel</Button>
-          <Button onClick={handleAddOperator} color="primary">
-            Add
-          </Button>
+          <Button onClick={handleAddOperator} color="primary">Add</Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Operator Dialog */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)}>
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} PaperProps={{ sx: dialogStyle }}>
         <DialogTitle>Edit Operator</DialogTitle>
         <DialogContent>
           <TextField
@@ -307,6 +314,10 @@ const OperatorManagement = () => {
             fullWidth
             value={editOperatorName}
             onChange={(e) => setEditOperatorName(e.target.value)}
+            sx={{
+              '& .MuiInputBase-input': { fontWeight: 'normal' },
+              '& .MuiInputLabel-root': { fontWeight: 'normal' }
+            }}
           />
           <Box display="flex" alignItems="center" mt={2}>
             <Typography variant="body1" mr={2}>
@@ -321,14 +332,12 @@ const OperatorManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
-          <Button onClick={handleEditOperator} color="primary">
-            Save
-          </Button>
+          <Button onClick={handleEditOperator} color="primary">Save</Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} PaperProps={{ sx: dialogStyle }}>
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -337,9 +346,7 @@ const OperatorManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
-          <Button onClick={handleDeleteOperator} color="error">
-            Delete
-          </Button>
+          <Button onClick={handleDeleteOperator} color="error">Delete</Button>
         </DialogActions>
       </Dialog>
 
@@ -353,4 +360,5 @@ const OperatorManagement = () => {
   );
 };
 
-export default OperatorManagement;
+export default SpreaderOperatorManagement;
+

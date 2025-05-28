@@ -18,23 +18,21 @@ const MenuList = () => {
 
     // Filter menu items based on user role
     const filteredItems = menuItem.items.filter((group) => {
-        // For Spreader role, only show the spreader menu
-        if (userRole === 'Spreader') {
-            return group.id === 'spreader';
-        }
+        switch (group.id) {
+            case 'spreader':
+                return userRole === 'Spreader';
 
-        // For Cutter role, only show the cutter menu
-        if (userRole === 'Cutter') {
-            return group.id === 'cutter';
-        }
+            case 'cutter':
+                return userRole === 'Cutter';
 
-        // For Administrator, Manager, and Project Admin roles, show all menus
-        if (userRole === 'Administrator' || userRole === 'Manager' || userRole === 'Project Admin') {
-            return true;
-        }
+            case 'operators':
+                return ['Manager', 'Project Admin'].includes(userRole);
 
-        // For other roles (like Planner), show all except spreader and cutter menus
-        return group.id !== 'spreader' && group.id !== 'cutter';
+            default:
+                // Hide everything for Spreader and Cutter except their own group
+                if (['Spreader', 'Cutter'].includes(userRole)) return false;
+                return true;
+        }
     });
 
     const updatedItems = filteredItems.map((group) => ({
