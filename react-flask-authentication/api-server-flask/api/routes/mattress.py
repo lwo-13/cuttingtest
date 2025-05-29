@@ -461,111 +461,224 @@ class UpdatePrintTravelStatus(Resource):
             db.session.rollback()
             return {"success": False, "msg": str(e)}, 500
 
-@mattress_api.route('/update_device/<int:mattress_id>', methods=['PUT'])
-class UpdateDeviceResource(Resource):
+@mattress_api.route('/move_mattress/<int:mattress_id>', methods=['PUT'])
+class MoveMattressResource(Resource):
     def put(self, mattress_id):
+        """Completely rewritten robust mattress movement API"""
         data = request.get_json()
-        new_device = data.get('device')
-        day = data.get('day', 'today')
-        shift = data.get('shift', '1shift')
+        target_device = data.get('device')
+        target_day = data.get('day', 'today')
+        target_shift = data.get('shift')
+        target_position = data.get('position')
         operator = data.get('operator', 'Unknown')
 
-        if not new_device:
+        if not target_device:
             return {"success": False, "message": "Device is required"}, 400
 
         try:
-            # Get all mattress phases
-            all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
-            if not all_phases:
-                return {"success": False, "message": "Mattress phases not found"}, 404
+            # Start transaction
+            with db.session.begin():
+                # Get mattress phases
+                all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
+                if not all_phases:
+                    return {"success": False, "message": "Mattress phases not found"}, 404
 
-            # Deactivate current active phases
-            for phase in all_phases:
-                if phase.active:
+                # Get current kanban entry
+                current_kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+
+                # Step 1: Handle phase updates
+                for phase in all_phases:
                     phase.active = False
 
-            if new_device == "SP0":
-                # ✅ Activate "0 - NOT SET"
-                not_set = next((p for p in all_phases if p.status == "0 - NOT SET"), None)
-                if not_set:
-                    not_set.active = True
-                    not_set.device = "SP0"
-                    if operator:
-                        not_set.operator = operator
+                if target_device == "SP0":
+                    # Moving to unassigned
+                    not_set_phase = next((p for p in all_phases if p.status == "0 - NOT SET"), None)
+                    if not_set_phase:
+                        not_set_phase.active = True
+                        not_set_phase.device = "SP0"
+                        not_set_phase.operator = operator
 
-                # ❌ Remove Kanban entry
-                kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
-                if kanban:
-                    db.session.delete(kanban)
+                    # Remove from kanban completely
+                    if current_kanban:
+                        self._remove_from_kanban(current_kanban)
+                        db.session.delete(current_kanban)
 
-            else:
-                # ✅ Activate "1 - TO LOAD"
-                to_load = next((p for p in all_phases if p.status == "1 - TO LOAD"), None)
-                if to_load:
-                    to_load.active = True
-                    to_load.device = new_device
-                    if operator:
-                        to_load.operator = operator
-
-                # 🔁 Insert or update Kanban
-                kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
-                if not kanban:
-                    max_pos = db.session.query(db.func.max(MattressKanban.position)).filter_by(day=day, shift=shift).scalar() or 0
-                    kanban = MattressKanban(
-                        mattress_id=mattress_id,
-                        day=day,
-                        shift=shift,
-                        position=max_pos + 1
-                    )
-                    db.session.add(kanban)
                 else:
-                    kanban.day = day
-                    kanban.shift = shift
+                    # Moving to spreader device
+                    to_load_phase = next((p for p in all_phases if p.status == "1 - TO LOAD"), None)
+                    if to_load_phase:
+                        to_load_phase.active = True
+                        to_load_phase.device = target_device
+                        to_load_phase.operator = operator
 
-            db.session.commit()
-            return {"success": True, "message": "Phase, device, kanban, and operator updated"}, 200
+                    # Handle kanban entry
+                    if current_kanban:
+                        # Update existing kanban entry
+                        self._move_existing_kanban(current_kanban, target_day, target_shift, target_position)
+                    else:
+                        # Create new kanban entry
+                        self._create_new_kanban(mattress_id, target_day, target_shift, target_position)
+
+            return {"success": True, "message": "Mattress moved successfully"}, 200
 
         except Exception as e:
             db.session.rollback()
-            return {"success": False, "message": str(e)}, 500
+            return {"success": False, "message": f"Error: {str(e)}"}, 500
+
+    def _remove_from_kanban(self, kanban_entry):
+        """Remove kanban entry and reorder remaining items"""
+        old_day = kanban_entry.day
+        old_shift = kanban_entry.shift
+        old_position = kanban_entry.position
+
+        # Shift all items after this position up by 1
+        items_to_shift = db.session.query(MattressKanban).filter(
+            MattressKanban.day == old_day,
+            MattressKanban.shift == old_shift,
+            MattressKanban.position > old_position
+        ).all()
+
+        for item in items_to_shift:
+            item.position -= 1
+
+    def _move_existing_kanban(self, kanban_entry, target_day, target_shift, target_position):
+        """Move existing kanban entry to new position"""
+        old_day = kanban_entry.day
+        old_shift = kanban_entry.shift
+        old_position = kanban_entry.position
+
+        # Check if moving within same column
+        same_column = (old_day == target_day and old_shift == target_shift)
+
+        if same_column and target_position is not None:
+            # Reordering within same column
+            self._reorder_within_column(kanban_entry, old_position, target_position, target_day, target_shift)
+        else:
+            # Moving to different column
+            # Remove from old position
+            self._remove_from_kanban(kanban_entry)
+
+            # Add to new position
+            if target_position is not None:
+                # Insert at specific position
+                self._insert_at_position(target_day, target_shift, target_position)
+                kanban_entry.position = target_position
+            else:
+                # Add to end
+                max_pos = self._get_max_position(target_day, target_shift)
+                kanban_entry.position = max_pos + 1
+
+            kanban_entry.day = target_day
+            kanban_entry.shift = target_shift
+
+    def _create_new_kanban(self, mattress_id, target_day, target_shift, target_position):
+        """Create new kanban entry"""
+        if target_position is not None:
+            # Insert at specific position
+            self._insert_at_position(target_day, target_shift, target_position)
+            new_position = target_position
+        else:
+            # Add to end
+            new_position = self._get_max_position(target_day, target_shift) + 1
+
+        new_kanban = MattressKanban(
+            mattress_id=mattress_id,
+            day=target_day,
+            shift=target_shift,
+            position=new_position
+        )
+        db.session.add(new_kanban)
+
+    def _reorder_within_column(self, kanban_entry, old_position, new_position, day, shift):
+        """Reorder items within the same column with improved logic"""
+        if old_position == new_position:
+            return
+
+        print(f"Reordering within column: {old_position} -> {new_position}")
+
+        # Get all items in the same column (excluding the one being moved)
+        all_items = db.session.query(MattressKanban).filter(
+            MattressKanban.day == day,
+            MattressKanban.shift == shift,
+            MattressKanban.mattress_id != kanban_entry.mattress_id
+        ).order_by(MattressKanban.position).all()
+
+        # Create a new ordered list
+        new_order = []
+        moved_item_inserted = False
+
+        for i, item in enumerate(all_items):
+            # Adjust for the removed item
+            current_pos = item.position if item.position < old_position else item.position - 1
+
+            # Insert the moved item at the correct position
+            if not moved_item_inserted and current_pos >= new_position:
+                new_order.append(kanban_entry)
+                moved_item_inserted = True
+
+            new_order.append(item)
+
+        # If we haven't inserted the moved item yet, add it to the end
+        if not moved_item_inserted:
+            new_order.append(kanban_entry)
+
+        # Update all positions
+        for i, item in enumerate(new_order):
+            item.position = i
+            print(f"Setting position {i} for mattress {item.mattress_id}")
+
+        print(f"Final position for moved item: {kanban_entry.position}")
+
+    def _insert_at_position(self, day, shift, position):
+        """Insert space at specific position by shifting items down"""
+        items_to_shift = db.session.query(MattressKanban).filter(
+            MattressKanban.day == day,
+            MattressKanban.shift == shift,
+            MattressKanban.position >= position
+        ).all()
+
+        for item in items_to_shift:
+            item.position += 1
+
+    def _get_max_position(self, day, shift):
+        """Get maximum position for given day/shift"""
+        max_pos = db.session.query(db.func.max(MattressKanban.position)).filter(
+            MattressKanban.day == day,
+            MattressKanban.shift == shift
+        ).scalar()
+        return max_pos or 0
+
+@mattress_api.route('/update_device/<int:mattress_id>', methods=['PUT'])
+class UpdateDeviceResource(Resource):
+    """Legacy endpoint - redirects to new unified move endpoint"""
+    def put(self, mattress_id):
+        data = request.get_json()
+        # Redirect to new unified endpoint
+        move_resource = MoveMattressResource()
+        return move_resource.put(mattress_id)
 
 @mattress_api.route('/update_position/<int:mattress_id>', methods=['PUT'])
 class UpdateKanbanPositionResource(Resource):
+    """Legacy endpoint - redirects to new unified move endpoint"""
     def put(self, mattress_id):
         data = request.get_json()
-        new_position = data.get('position')
-        day = data.get('day')
-        shift = data.get('shift')
+        # Add device info for unified endpoint
+        kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+        if kanban:
+            # Get device from active phase
+            active_phase = db.session.query(MattressPhase).filter_by(
+                mattress_id=mattress_id, active=True
+            ).first()
+            if active_phase:
+                data['device'] = active_phase.device
+            else:
+                data['device'] = 'SP0'
+        else:
+            data['device'] = 'SP0'
 
-        if new_position is None or not day or not shift:
-            return {"success": False, "message": "Missing parameters (position, day, shift)"}, 400
-
-        try:
-            # Get all entries for the same day and shift, excluding the one being moved
-            kanban_entries = db.session.query(MattressKanban).filter(
-                MattressKanban.day == day,
-                MattressKanban.shift == shift,
-                MattressKanban.mattress_id != mattress_id
-            ).order_by(MattressKanban.position).all()
-
-            # Insert the mattress at the correct position
-            new_entries = kanban_entries[:new_position] + [mattress_id] + kanban_entries[new_position:]
-
-            for idx, entry in enumerate(new_entries):
-                if isinstance(entry, int):
-                    # Update the moved mattress
-                    target = db.session.query(MattressKanban).filter_by(mattress_id=entry).first()
-                    if target:
-                        target.position = idx
-                else:
-                    entry.position = idx
-
-            db.session.commit()
-            return {"success": True, "message": "Position updated"}, 200
-
-        except Exception as e:
-            db.session.rollback()
-            return {"success": False, "message": str(e)}, 500
+        # Redirect to new unified endpoint
+        move_resource = MoveMattressResource()
+        return move_resource.put(mattress_id)
 
 @mattress_api.route('/approval')
 class MattressApproval(Resource):
@@ -761,7 +874,7 @@ class UpdateLayersAResource(Resource):
             import traceback
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
-        
+
 @mattress_api.route('/order_ids')
 class MattressOrderIdsResource(Resource):
     def get(self):

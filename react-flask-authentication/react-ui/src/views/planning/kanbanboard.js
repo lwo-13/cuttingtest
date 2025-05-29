@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Paper, Box, Grid, Button, Typography } from "@mui/material"; 
-import MainCard from "../../ui-component/cards/MainCard"; 
+import { Paper, Box, Grid, Button, Typography } from "@mui/material";
+import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
 import { useSelector } from "react-redux";
@@ -24,24 +24,26 @@ const KanbanBoard = () => {
   const username = useSelector((state) => state.account?.user?.username) || "Unknown";
   const scrollContainerRef = useRef(null);
   const scrollAnimationRef = useRef(null);
-  
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleDragScroll = (e) => {
     const container = scrollContainerRef.current;
-    if (!container) return;
-    
+    // Only scroll if we're actually dragging something
+    if (!container || !isDragging) return;
+
     const containerRect = container.getBoundingClientRect();
     const baseSpeed = 5; // Lower base speed for smoother scrolling
-    
+
     // Calculate distances from top and bottom of container
     const distanceFromTop = e.clientY - containerRect.top;
     const distanceFromBottom = containerRect.bottom - e.clientY;
     const threshold = 150; // Increased threshold for earlier activation
-    
+
     const animate = () => {
       if (!container) return;
-      
+
       let scrollDelta = 0;
-      
+
       // Calculate scroll speed based on distance from edges
       if (distanceFromTop < threshold) {
         const intensity = 1 - (distanceFromTop / threshold);
@@ -50,7 +52,7 @@ const KanbanBoard = () => {
         const intensity = 1 - (distanceFromBottom / threshold);
         scrollDelta = baseSpeed * intensity * intensity; // Quadratic easing
       }
-      
+
       if (scrollDelta !== 0) {
         const newScrollTop = Math.max(0, Math.min(
           container.scrollHeight - container.clientHeight,
@@ -60,12 +62,12 @@ const KanbanBoard = () => {
         scrollAnimationRef.current = requestAnimationFrame(animate);
       }
     };
-    
+
     // Cancel any existing animation
     if (scrollAnimationRef.current) {
       cancelAnimationFrame(scrollAnimationRef.current);
     }
-    
+
     // Start new animation if we're in the scroll zones
     if (distanceFromTop < threshold || distanceFromBottom < threshold) {
       scrollAnimationRef.current = requestAnimationFrame(animate);
@@ -86,78 +88,196 @@ const KanbanBoard = () => {
   }, []);
 
   const fetchMattresses = () => {
+    console.log('Fetching mattresses for day:', selectedDay);
     axios.get(`/mattress/kanban?day=${selectedDay.toLowerCase()}`)
       .then((res) => {
+        console.log('Fetch response:', res.data);
         if (res.data.success) {
           setMattresses(res.data.data);
+          console.log('Mattresses loaded:', res.data.data.length);
         } else {
           console.error("Error fetching data:", res.data.message);
         }
       })
-      .catch((err) => console.error("API Error:", err));
+      .catch((err) => {
+        console.error("API Error:", err);
+        console.error("Error details:", err.response?.data);
+      });
   };
 
-  const moveMattress = (id, newDevice, shift, position = null) => {
-    const prevMattresses = [...mattresses];
-    setMattresses((prev) => prev.map((m) => (m.id === id ? { ...m, device: newDevice, shift } : m)));
+  const moveMattress = async (id, targetDevice, targetShift, targetPosition = null) => {
+    console.log(`Moving mattress ${id} to device ${targetDevice}, shift ${targetShift}, position ${targetPosition}`);
 
-    axios.put(`/mattress/update_device/${id}`, {
-      device: newDevice,
-      shift,
+    const prevMattresses = [...mattresses];
+
+    // Immediate optimistic update for better UX
+    setMattresses((prev) => {
+      const mattressToMove = prev.find(m => m.id === id);
+      if (!mattressToMove) return prev;
+
+      // Check if this is a same-column move
+      const isSameColumn = mattressToMove.device === targetDevice && mattressToMove.shift === targetShift;
+
+      if (isSameColumn && targetPosition !== null) {
+        // Same column reordering - handle precisely
+        const columnItems = prev.filter(m =>
+          m.device === targetDevice && m.shift === targetShift
+        ).sort((a, b) => a.position - b.position);
+
+        const otherItems = prev.filter(m =>
+          !(m.device === targetDevice && m.shift === targetShift)
+        );
+
+        // Remove the item being moved
+        const filteredColumnItems = columnItems.filter(m => m.id !== id);
+
+        // Insert at target position
+        const updatedMattress = { ...mattressToMove, device: targetDevice, shift: targetShift };
+        filteredColumnItems.splice(targetPosition, 0, updatedMattress);
+
+        return [...otherItems, ...filteredColumnItems];
+      } else {
+        // Cross-column move or move to SP0
+        const updatedMattress = {
+          ...mattressToMove,
+          device: targetDevice,
+          shift: targetShift
+        };
+
+        // Remove from current position
+        let result = prev.filter(m => m.id !== id);
+
+        // Add to new position
+        if (targetDevice === "SP0") {
+          // Moving to unassigned - just add to the list
+          result.push(updatedMattress);
+        } else {
+          // Moving to spreader column
+          const targetColumnItems = result.filter(m =>
+            m.device === targetDevice && m.shift === targetShift
+          ).sort((a, b) => a.position - b.position);
+
+          if (targetPosition !== null && targetPosition <= targetColumnItems.length) {
+            // Insert at specific position
+            const otherItems = result.filter(m =>
+              !(m.device === targetDevice && m.shift === targetShift)
+            );
+
+            // Insert at target position
+            targetColumnItems.splice(targetPosition, 0, updatedMattress);
+            result = [...otherItems, ...targetColumnItems];
+          } else {
+            // Add to end
+            result.push(updatedMattress);
+          }
+        }
+
+        return result;
+      }
+    });
+
+    // API call
+    const baseURL = 'http://localhost:5000/api';
+    const endpoint = `${baseURL}/mattress/move_mattress/${id}`;
+    const payload = {
+      device: targetDevice,
+      shift: targetShift,
       day: selectedDay.toLowerCase(),
       operator: username,
-      position
-    })
-    .then(() => fetchMattresses())
-    .catch((err) => {
-      console.error("Failed to update:", err);
-      setMattresses(prevMattresses);
-    });
-  };
+      position: targetPosition
+    };
 
-  const updateMattressPosition = (mattressId, newPosition, shift, day) => {
-    axios.put(`/mattress/update_position/${mattressId}`, {
-      position: newPosition,
-      shift: shift,
-      day: day.toLowerCase()
-    })
-    .then(() => {
-      console.log("Position updated");
-      axios.get(`/mattress/kanban?day=${day.toLowerCase()}`)
-        .then((res) => {
-          if (res.data.success) {
-            setMattresses(res.data.data);
-          }
+    console.log('API call:', endpoint, payload);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('Move successful:', data);
+        // Refresh after short delay to show the movement
+        setTimeout(() => {
+          fetchMattresses();
+        }, 300);
+      } else {
+        throw new Error(data.message || 'Move failed');
+      }
+    } catch (err) {
+      console.error("Failed to move mattress:", err);
+
+      // Try fallback to old endpoint
+      try {
+        console.log('Trying fallback endpoint...');
+        const fallbackEndpoint = `${baseURL}/mattress/update_device/${id}`;
+
+        const fallbackResponse = await fetch(fallbackEndpoint, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
         });
-    })
-    .catch(err => console.error("Failed to update position:", err));
+
+        const fallbackData = await fallbackResponse.json();
+
+        if (fallbackData.success) {
+          console.log('Fallback successful');
+          setTimeout(() => {
+            fetchMattresses();
+          }, 300);
+        } else {
+          throw new Error('Fallback also failed');
+        }
+      } catch (fallbackErr) {
+        console.error("Both endpoints failed:", fallbackErr);
+        // Rollback optimistic update
+        setMattresses(prevMattresses);
+      }
+    }
   };
 
   // Add event listeners for drag scroll
   useEffect(() => {
+    const handleDragStart = () => setIsDragging(true);
+    const handleDragEnd = () => setIsDragging(false);
+
     window.addEventListener('dragover', handleDragScroll);
+    window.addEventListener('dragstart', handleDragStart);
+    window.addEventListener('dragend', handleDragEnd);
+    window.addEventListener('drop', handleDragEnd);
+
     return () => {
       window.removeEventListener('dragover', handleDragScroll);
+      window.removeEventListener('dragstart', handleDragStart);
+      window.removeEventListener('dragend', handleDragEnd);
+      window.removeEventListener('drop', handleDragEnd);
     };
-  }, []);
+  }, [isDragging]);
 
   return (
     <>
       <FilterBar selectedDay={selectedDay} setSelectedDay={setSelectedDay} />
       <DndProvider backend={HTML5Backend}>
-        <Box 
+        <Box
           ref={scrollContainerRef}
-          display="flex" 
-          gap={2} 
-          p={2} 
-          sx={{ 
-            width: '100%', 
+          display="flex"
+          gap={2}
+          p={2}
+          sx={{
+            width: '100%',
             height: 'calc(100vh - 180px)', // Adjust based on your layout
             overflowX: 'auto',
             overflowY: 'auto',
-            alignItems: 'start', 
+            alignItems: 'start',
             scrollbarWidth: 'thin',
-            '&::-webkit-scrollbar': { 
+            '&::-webkit-scrollbar': {
               width: '8px',
               height: '8px'
             },
@@ -185,7 +305,6 @@ const KanbanBoard = () => {
               }
               moveMattress={moveMattress}
               selectedDay={selectedDay}
-              updateMattressPosition={updateMattressPosition} 
             />
           ))}
         </Box>
@@ -194,46 +313,58 @@ const KanbanBoard = () => {
   );
 };
 
-const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMattressPosition }) => {
+const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const isSpreader = device !== "SP0";
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   const sortedMattresses = [...mattresses].sort((a, b) => a.position - b.position);
   const firstShift = sortedMattresses.filter(m => m.shift === '1shift');
   const secondShift = sortedMattresses.filter(m => m.shift === '2shift');
 
   // Filter mattresses based on search term for SP0
-  const filteredMattresses = device === "SP0" 
-    ? sortedMattresses.filter(m => 
+  const filteredMattresses = device === "SP0"
+    ? sortedMattresses.filter(m =>
         m.mattress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.order_commessa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.fabric_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.marker?.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : sortedMattresses;  const [{ isOverFirst }, dropFirst] = useDrop({
+    : sortedMattresses;
+
+  const [{ isOverFirst }, dropFirst] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      if (item.fromDevice === device && item.fromShift === '1shift') {
-        const newIndex = item.index; // ✅ Use updated drop index
-        updateMattressPosition(item.id, newIndex, '1shift', selectedDay);
-      } else {
-        moveMattress(item.id, device, '1shift');
-      }
+      console.log('Dropping on first shift:', item);
+      // Always use target position if available (from hover over specific cards)
+      const targetPosition = item.targetPosition !== undefined ? item.targetPosition : null;
+      moveMattress(item.id, device, '1shift', targetPosition);
     },
     collect: (monitor) => ({ isOverFirst: !!monitor.isOver() })
-  });  const [{ isOverSecond }, dropSecond] = useDrop({
+  });
+
+  const [{ isOverSecond }, dropSecond] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      if (item.fromDevice === device && item.fromShift === '2shift') {
-        const newIndex = item.index; // ✅ Use updated drop index
-        updateMattressPosition(item.id, newIndex, '2shift', selectedDay);
-      } else {
-        moveMattress(item.id, device, '2shift');
-      }
+      console.log('Dropping on second shift:', item);
+      // Always use target position if available (from hover over specific cards)
+      const targetPosition = item.targetPosition !== undefined ? item.targetPosition : null;
+      moveMattress(item.id, device, '2shift', targetPosition);
     },
     collect: (monitor) => ({ isOverSecond: !!monitor.isOver() })
-  });return (
-    <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '100%' }}>
+  });
+
+  // For SP0 (unassigned) column
+  const [{ isOverUnassigned }, dropUnassigned] = useDrop({
+    accept: "MATTRESS",
+    drop: (item, monitor) => {
+      console.log('Dropping on unassigned:', item);
+      moveMattress(item.id, "SP0", null, null);
+    },
+    collect: (monitor) => ({ isOverUnassigned: !!monitor.isOver() })
+  });
+
+  return (
+    <Box sx={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '300px' }}>
       <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2 }}>
         {device === "SP0" ? "To Assign" : device}
         {device === "SP0" && (
@@ -257,65 +388,110 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay, updateMat
       </Paper>
       {isSpreader ? (
         <>
-          <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, mb: 2 }}>
+          <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, mb: 2, border: isOverFirst ? "2px dashed #9c27b0" : "2px solid transparent" }}>
             <Box sx={{ fontWeight: 'bold', mb: 1 }}>1st Shift</Box>
-            {firstShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} />)}
+            {firstShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift="1shift" device={device} />)}
           </Paper>
-          <Paper ref={dropSecond} sx={{ p: 2, bgcolor: isOverSecond ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200 }}>
+          <Paper ref={dropSecond} sx={{ p: 2, bgcolor: isOverSecond ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, border: isOverSecond ? "2px dashed #9c27b0" : "2px solid transparent" }}>
             <Box sx={{ fontWeight: 'bold', mb: 1 }}>2nd Shift</Box>
-            {secondShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} />)}
+            {secondShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift="2shift" device={device} />)}
           </Paper>
         </>
       ) : (
-        <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "green.200" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 300 }}>
-          {filteredMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} />)}
+        <Paper ref={device === "SP0" ? dropUnassigned : dropFirst} sx={{ p: 2, bgcolor: (device === "SP0" ? isOverUnassigned : isOverFirst) ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 300, border: (device === "SP0" ? isOverUnassigned : isOverFirst) ? "2px dashed #9c27b0" : "2px solid transparent" }}>
+          {filteredMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={null} device={device} />)}
         </Paper>
       )}
     </Box>
   );
 };
 
-const KanbanItem = ({ mattress, index }) => {
+const KanbanItem = ({ mattress, index, shift, device }) => {
   const ref = useRef(null);
+
   const [{ isDragging }, drag] = useDrag({
     type: "MATTRESS",
-    item: {
-      id: mattress.id,
-      index,
-      fromDevice: mattress.device,
-      fromShift: mattress.shift
+    item: () => {
+      console.log('Starting drag for mattress:', mattress.id, 'from device:', mattress.device || device, 'shift:', mattress.shift || shift);
+      return {
+        id: mattress.id,
+        index,
+        fromDevice: mattress.device || device,
+        fromShift: mattress.shift || shift,
+        targetPosition: undefined
+      };
     },
     collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
   });
-  const [, drop] = useDrop({
+
+  const [{ isOver, canDrop }, drop] = useDrop({
     accept: "MATTRESS",
     hover: (item, monitor) => {
       if (!ref.current || item.id === mattress.id) {
         return;
       }
 
-      // Only handle hover if in same column/shift
-      if (item.fromDevice === mattress.device && item.fromShift === mattress.shift) {
-        const dragIndex = item.index;
-        const hoverIndex = index;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      const fromDevice = item.fromDevice;
+      const fromShift = item.fromShift;
+      const currentDevice = mattress.device || device;
+      const currentShift = mattress.shift || shift;
 
-        const hoverBoundingRect = ref.current.getBoundingClientRect();
-        const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
-        const clientOffset = monitor.getClientOffset();
-        const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+      // Handle position updates for both same column and cross-column moves
+      const isSameColumn = fromDevice === currentDevice && fromShift === currentShift;
 
-        // Moving downwards
-        if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
-          return;
-        }
-        // Moving upwards
-        if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
-          return;
-        }
-
-        item.index = hoverIndex;
+      if (isSameColumn && dragIndex === hoverIndex) {
+        return;
       }
-    }
+
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      // For same column moves, use precise logic
+      if (isSameColumn) {
+        let targetPosition = hoverIndex;
+
+        // Determine if we're inserting before or after the hovered item
+        if (dragIndex < hoverIndex) {
+          // Moving down: if mouse is in bottom half, insert after (position = hoverIndex)
+          // if mouse is in top half, insert before (position = hoverIndex - 1)
+          if (hoverClientY < hoverMiddleY) {
+            targetPosition = Math.max(0, hoverIndex - 1);
+          } else {
+            targetPosition = hoverIndex;
+          }
+        } else {
+          // Moving up: if mouse is in top half, insert before (position = hoverIndex)
+          // if mouse is in bottom half, insert after (position = hoverIndex + 1)
+          if (hoverClientY < hoverMiddleY) {
+            targetPosition = hoverIndex;
+          } else {
+            targetPosition = hoverIndex + 1;
+          }
+        }
+
+        // Prevent unnecessary updates
+        if (item.targetPosition === targetPosition) {
+          return;
+        }
+
+        console.log(`Same column move: drag ${dragIndex} -> target ${targetPosition} (hover ${hoverIndex}, mouse ${hoverClientY < hoverMiddleY ? 'top' : 'bottom'})`);
+        item.targetPosition = targetPosition;
+        item.index = targetPosition;
+        return;
+      }
+
+      // For cross-column moves, always use hover index
+      console.log('Cross-column move: setting target position:', hoverIndex, 'for item:', item.id);
+      item.targetPosition = hoverIndex;
+    },
+    collect: (monitor) => ({
+      isOver: !!monitor.isOver(),
+      canDrop: !!monitor.canDrop()
+    })
   });
 
   drag(drop(ref));
@@ -334,7 +510,47 @@ const KanbanItem = ({ mattress, index }) => {
   );
 
   const content = (
-    <MainCard ref={ref} sx={{ mb: 1, opacity: isDragging ? 0.5 : 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+    <Box sx={{ position: 'relative' }}>
+      {/* Drop indicator line */}
+      {isOver && (
+        <Box sx={{
+          position: 'absolute',
+          top: -2,
+          left: 0,
+          right: 0,
+          height: '4px',
+          bgcolor: '#9c27b0',
+          borderRadius: '2px',
+          zIndex: 1000,
+          boxShadow: '0 0 8px rgba(156, 39, 176, 0.6)',
+          animation: 'pulse 1s infinite'
+        }} />
+      )}
+
+      <MainCard ref={ref} sx={{
+        mb: 1,
+        opacity: isDragging ? 0.5 : 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        cursor: 'grab',
+        transform: isDragging ? 'rotate(5deg) scale(1.05)' : isOver ? 'scale(1.02)' : 'none',
+        transition: 'all 0.3s ease',
+        border: isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
+        bgcolor: isOver ? '#f3e5f5' : 'white',
+        boxShadow: isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
+        width: '100%',
+        height: '120px',
+        minHeight: '120px',
+        maxHeight: '120px',
+        padding: '12px',
+        '&:hover': {
+          transform: isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }
+      }}>
       <strong>Mattress:</strong> {mattress.mattress} <br />
       {mattress.marker && mattress.marker !== '--' && (<><strong>Marker:</strong> {mattress.marker} <br /></>)}
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1 }}>
@@ -372,7 +588,8 @@ const KanbanItem = ({ mattress, index }) => {
           <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#7b1fa2' }}>layers</Typography>
         </Box>
       </Box>
-    </MainCard>
+      </MainCard>
+    </Box>
   );
 
   return isDragging ? content : <Tooltip title={tooltipContent} arrow placement="right" enterDelay={300}>{content}</Tooltip>;
