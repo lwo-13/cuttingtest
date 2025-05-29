@@ -184,7 +184,8 @@ const handleOrderChange = async (newValue, context) => {
         rolls: weft.details.rolls_planned,
         panels: weft.details.panels_planned,
         consumption: weft.details.cons_planned,
-        bagno: weft.dye_lot
+        bagno: weft.dye_lot,
+        isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(weft.phase_status)
       });
     }
     Object.values(weftTablesById).forEach(table => table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber));
@@ -224,7 +225,8 @@ const handleOrderChange = async (newValue, context) => {
         rolls: bias.details.rolls_planned,
         panels: bias.details.panels_planned,
         consumption: bias.details.cons_planned,
-        bagno: bias.dye_lot
+        bagno: bias.dye_lot,
+        isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(bias.phase_status)
       });
     }
     Object.values(biasTablesById).forEach(table =>

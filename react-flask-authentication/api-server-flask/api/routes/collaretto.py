@@ -396,6 +396,13 @@ class GetWeftByOrder(Resource):
                 # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
+                # ✅ Fetch phase_status from active MattressPhase
+                phase_status = None
+                if mattress_id:
+                    active_phase = MattressPhase.query.filter_by(mattress_id=mattress_id, active=True).first()
+                    if active_phase:
+                        phase_status = active_phase.status
+
                 result.append({
                     "collaretto": weft.collaretto,
                     "fabric_type": weft.fabric_type,
@@ -405,6 +412,7 @@ class GetWeftByOrder(Resource):
                     "table_id": weft.table_id,
                     "row_id": weft.row_id,
                     "sequence_number": weft.sequence_number,
+                    "phase_status": phase_status,
                     "details": {
                         "pieces": detail.pieces,
                         "usable_width": detail.usable_width,
@@ -629,6 +637,13 @@ class GetBiasByOrder(Resource):
                 length_mattress = mattress_detail.length_mattress if mattress_detail else None
                 rewound_width = round(length_mattress / math.sqrt(2), 3) if length_mattress else None
 
+                # ✅ Fetch phase_status from active MattressPhase
+                phase_status = None
+                if mattress_id:
+                    active_phase = MattressPhase.query.filter_by(mattress_id=mattress_id, active=True).first()
+                    if active_phase:
+                        phase_status = active_phase.status
+
                 result.append({
                     "collaretto": bias.collaretto,
                     "fabric_type": bias.fabric_type,
@@ -638,6 +653,7 @@ class GetBiasByOrder(Resource):
                     "table_id": bias.table_id,
                     "row_id": bias.row_id,
                     "sequence_number": bias.sequence_number,
+                    "phase_status": phase_status,
                     "details": {
                         "pieces": detail.pieces,
                         "total_width": detail.usable_width,

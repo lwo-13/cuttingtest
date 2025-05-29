@@ -17,6 +17,34 @@ const AlongActionRow = ({
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
+  // Grouping by collaretto type: grossLength + collarettoWidth
+  const groupedStats = {};
+
+  table.rows.forEach((row) => {
+    const gross = parseFloat(row.theoreticalConsumption);
+    const width = parseFloat(row.collarettoWidth);
+    const consumption = parseFloat(row.consumption);
+    const pieces = parseFloat(row.pieces);
+
+    if (isNaN(gross) || isNaN(width) || isNaN(consumption) || isNaN(pieces)) return;
+
+    const key = `${gross.toFixed(2)}-${width.toFixed(0)}`;
+
+    if (!groupedStats[key]) {
+      groupedStats[key] = { totalCons: 0, totalPcs: 0 };
+    }
+
+    groupedStats[key].totalCons += consumption;
+    groupedStats[key].totalPcs += pieces;
+  });
+
+  // Friendly labels
+  const typeLabels = {};
+  let typeIndex = 0;
+  Object.keys(groupedStats).forEach((key) => {
+    typeLabels[key] = `Type ${String.fromCharCode(65 + typeIndex++)}`;
+  });
+
   return (
     <Box
       mt={2}
@@ -26,13 +54,19 @@ const AlongActionRow = ({
       flexWrap="wrap"
       gap={2}
     >
-      {/* Left side: Total Consumption */}
-      <Box sx={{ minWidth: '200px', height: '32px' }}>
+      {/* Left side: Avg Consumption Summary */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center', minHeight: '32px' }}>
+        {Object.entries(groupedStats).map(([key, stats]) => {
+          const avg = stats.totalPcs > 0 ? stats.totalCons / stats.totalPcs : 0;
+          return (
+            <Typography key={key} variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              ({key}): Avg Cons {avg.toFixed(3)} m/pc
+            </Typography>
+          );
+        })}
+
         {totalConsumption > 0 && (
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
-          >
+          <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
             Total Cons: {totalConsumption.toFixed(0)} m
           </Typography>
         )}
@@ -70,4 +104,3 @@ const AlongActionRow = ({
 };
 
 export default AlongActionRow;
-

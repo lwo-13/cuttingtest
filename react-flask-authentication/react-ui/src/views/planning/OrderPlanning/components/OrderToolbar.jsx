@@ -14,11 +14,6 @@ const OrderToolbar = ({
   onOrderChange
 }) => {
 
-  console.log("▶️ selectedOrder:", selectedOrder);
-  console.log("▶️ orderOptions IDs:", orderOptions.map(o => o?.id));
-  console.log("▶️ filteredOrders IDs:", filteredOrders.map(o => o?.id));
-  console.log("▶️ is selectedOrder in orderOptions:", orderOptions.some(o => o?.id === selectedOrder?.id));
-
   return (
     <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
       {/* Order Selection */}
