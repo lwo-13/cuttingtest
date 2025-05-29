@@ -1,31 +1,33 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 
-const MattressActionRowReadOnly = ({ avgConsumption = 0, table }) => {
+const MattressActionRowReadOnly = ({ table }) => {
   const rows = table.rows || [];
 
-  // Expected total consumption
+  // Sum of cons_actual (Expected Total)
   const expectedTotal = rows.reduce((sum, row) => {
-    const val = parseFloat(row.expectedConsumption);
+    const val = parseFloat(row.cons_actual);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
-  // Actual total consumption
-  const actualTotal = rows.reduce((sum, row) => {
-    const val = parseFloat(row.cons_actual);
+  // Sum of cons_real (Real/Total Cons)
+  const realTotal = rows.reduce((sum, row) => {
+    const val = parseFloat(row.cons_real);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
   // Total pieces for actual avg
   const totalPieces = rows.reduce((total, row) => {
-    const pcs = row.piecesPerSize || {};
-    const rowTotal = Object.values(pcs).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-    return total + rowTotal;
+    const pcsPerSize = row.piecesPerSize || {};
+    const piecesPerLayer = Object.values(pcsPerSize).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+    const layers = parseFloat(row.layers_a) || 0;
+    return total + (piecesPerLayer * layers);
   }, 0);
 
-  const actualAvg = totalPieces > 0 ? actualTotal / totalPieces : 0;
+  const expectedAvg = totalPieces > 0 ? expectedTotal / totalPieces : 0;
+  const realAvg = totalPieces > 0 ? realTotal / totalPieces : 0;
 
-  const showConsumption = expectedTotal > 0 || actualTotal > 0;
+  const showConsumption = expectedTotal > 0 || realTotal > 0;
 
   return (
     <Box
@@ -40,16 +42,16 @@ const MattressActionRowReadOnly = ({ avgConsumption = 0, table }) => {
       {showConsumption && (
         <>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Expected Avg Cons: {(avgConsumption || 0).toFixed(2)} m/pc
+            Expected Avg Cons: {expectedAvg.toFixed(2)} m/pc
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
             Expected Total Cons: {expectedTotal.toFixed(0)} m
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Avg Cons: {actualAvg.toFixed(2)} m/pc
+            Avg Cons: {realAvg.toFixed(2)} m/pc
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Total Cons: {actualTotal.toFixed(0)} m
+            Total Cons: {realTotal.toFixed(0)} m
           </Typography>
         </>
       )}

@@ -24,7 +24,7 @@ import {
     DialogActions,
     TextField
 } from '@mui/material';
-
+import LayersIcon from '@mui/icons-material/Layers';
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import useCollapseMenu from '../../hooks/useCollapseMenu';
@@ -238,11 +238,16 @@ const SpreaderView = () => {
 
         setProcessingMattress(selectedMattress.id);
 
-        // First update the status to "3 - TO CUT"
+        // First update the status to "3 - TO CUT" or "5 - COMPLETE"
+        const nextStatus = ['ASW', 'ASB'].includes(selectedMattress.item_type)
+            ? '5 - COMPLETED'
+            : '3 - TO CUT';
+
+        // First update the status
         axios.put(`/mattress/update_status/${selectedMattress.id}`, {
-            status: "3 - TO CUT",
+            status: nextStatus,
             operator: operatorName,
-            device: spreaderDevice // Explicitly set the device to ensure it's updated
+            device: spreaderDevice
         })
         .then((res) => {
             if (res.data.success) {
@@ -292,42 +297,66 @@ const SpreaderView = () => {
                 {/* Header with mattress ID and pieces/layers info */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box>
-                        <Typography variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
-                            Mattress: {mattress.mattress}
+                        <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+                            {mattress.mattress}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            Status: {mattress.status}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                        <Box sx={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            alignItems: 'baseline',
-                            mb: 0.5,
-                            bgcolor: '#e3f2fd', // Light blue background
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 1
-                        }}>
-                            <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
-                                {mattress.total_pcs || 0}
+
+                        {mattress.marker && (
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                <strong>Marker:</strong> {mattress.marker}
                             </Typography>
-                            <Typography sx={{ ml: 1, fontSize: '1rem', color: '#1976d2' }}>pcs</Typography>
+                        )}
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: mattress.status?.includes('ON SPREAD') ? 'secondary.main' : 'text.secondary',
+                                bgcolor: mattress.status?.includes('ON SPREAD') ? '#f3e5f5' : '#ffffff',
+                                px: 1,
+                                py: 1,
+                                borderRadius: 2,
+                                minWidth: 100,
+                                fontWeight: 'bold',
+                                fontSize: '0.875rem'
+                            }}
+                        >
+                            {mattress.status?.split(' - ')[1] || mattress.status}
                         </Box>
+                        {mattress.total_pcs > 0 && (
+                            <Box sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: '#e3f2fd',
+                                px: 1,
+                                py: 1,
+                                borderRadius: 2,
+                                minWidth: 100
+                            }}>
+                                <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+                                {mattress.total_pcs}
+                                </Typography>
+                                <Typography sx={{ ml: 1, fontSize: '1rem', color: '#1976d2' }}>pcs</Typography>
+                            </Box>
+                        )}
                         <Box sx={{
                             display: 'flex',
-                            justifyContent: 'flex-end',
-                            alignItems: 'baseline',
-                            bgcolor: '#f3e5f5', // Light purple background
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 1
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            bgcolor: '#f3e5f5',
+                            px: 1,
+                            py: 1,
+                            borderRadius: 2,
+                            minWidth: 100
                         }}>
                             <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
                                 {mattress.layers || 0}
                             </Typography>
-                            <Typography sx={{ ml: 1, fontSize: '1rem', color: '#7b1fa2' }}>layers</Typography>
+                            <LayersIcon sx={{ fontSize: 26, color: '#9c27b0', ml: 1 }} />
                         </Box>
                     </Box>
                 </Box>
@@ -339,11 +368,14 @@ const SpreaderView = () => {
                     <Grid item xs={6}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Order:</strong> {mattress.order_commessa}</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
-                        <Typography variant="body2"><strong>Type:</strong> {mattress.fabric_type}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Bagno:</strong> {mattress.dye_lot}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Spreading Method:</strong> {mattress.spreading_method}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Marker:</strong> {mattress.marker || 'N/A'}</Typography>
-                        <Typography variant="body2"><strong>Sizes:</strong> {mattress.sizes || 'N/A'}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Width:</strong> {mattress.width} cm</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Length:</strong> {mattress.marker_length || 'N/A'} m</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Extra:</strong> {mattress.extra || 'N/A'} m</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sizes:</strong> {mattress.sizes || 'N/A'}</Typography>
                     </Grid>
                 </Grid>
 
@@ -369,7 +401,7 @@ const SpreaderView = () => {
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                         <Button
                             variant="contained"
-                            color="success"
+                            color="secondary"
                             disabled={processingMattress === mattress.id || !selectedOperator}
                             onClick={() => handleOpenFinishDialog(mattress)}
                         >
@@ -412,8 +444,8 @@ const SpreaderView = () => {
             <MainCard
                 title={
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography variant="h3" component="span">
-                            {`${spreaderDevice} Assigned Mattresses - Today`}
+                        <Typography variant="h2" component="span">
+                            {`Spreader ${spreaderDevice} Job Queue`}
                         </Typography>
                         {refreshing && (
                             <CircularProgress
@@ -503,7 +535,6 @@ const SpreaderView = () => {
                     sx: { position: 'relative', overflow: 'visible' }
                 }}
             >
-                <DialogTitle>Finish Spreading</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', pt: 1 }}>
                         <Typography variant="body1" gutterBottom>
@@ -582,7 +613,7 @@ const SpreaderView = () => {
                     <Button
                         onClick={handleFinishSpreading}
                         variant="contained"
-                        color="success"
+                        color="secondary" 
                         disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
                     >
                         {processingMattress === (selectedMattress?.id) ? 'Processing...' : 'Confirm'}

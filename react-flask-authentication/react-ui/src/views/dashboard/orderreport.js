@@ -43,7 +43,7 @@ import useHandleOrderChange from 'views/dashboard/OrderReport/useHandleOrderChan
 import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
 
 // Utils
-import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
+import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/dashboard/OrderReport/plannedQuantities';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 const OrderReport = () => {
@@ -259,13 +259,6 @@ const OrderReport = () => {
 
             <Box mt={2} />
 
-            {/* Pad Print Section */}
-            {selectedOrder && padPrintInfo && (
-                    <PadPrintInfo padPrintInfo={padPrintInfo} />
-            )}
-
-            <Box mt={2} />
-
             {/* Mattress Group Section */}
             {tables.length > 0 && tables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
@@ -313,7 +306,6 @@ const OrderReport = () => {
 
                             {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
                             <MattressActionRowReadOnly
-                                avgConsumption={avgConsumption[table.id]}
                                 table={table}
                             />
 
