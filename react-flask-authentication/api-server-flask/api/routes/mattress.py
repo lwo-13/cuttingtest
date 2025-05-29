@@ -335,7 +335,8 @@ class GetKanbanMattressesResource(Resource):
                 MattressMarker.marker_length,
                 MattressMarker.marker_width,
                 MattressDetail.layers,
-                MattressDetail.extra,
+                # Use CollarettoDetail.extra for collaretto mattresses, MattressDetail.extra for regular mattresses
+                db.func.coalesce(CollarettoDetail.extra, MattressDetail.extra).label('extra'),
                 MattressDetail.cons_planned,
                 MattressDetail.length_mattress,
                 CollarettoDetail.usable_width,

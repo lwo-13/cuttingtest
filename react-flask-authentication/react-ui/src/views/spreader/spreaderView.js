@@ -373,9 +373,15 @@ const SpreaderView = () => {
                     </Grid>
                     <Grid item xs={6}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Width:</strong> {mattress.width} cm</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Length:</strong> {mattress.marker_length || 'N/A'} m</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>Length:</strong> {mattress.marker_length || 'N/A'} m
+                            {/* Only show extra for non-collaretto weft/bias mattresses */}
+                            {mattress.extra && mattress.extra > 0 &&
+                             mattress.item_type !== 'ASW' && mattress.item_type !== 'ASB' && (
+                                <span style={{ color: '#666', fontSize: '0.9em' }}> (+{mattress.extra} extra)</span>
+                            )}
+                        </Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sector:</strong> {mattress.sector || 'N/A'}</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Extra:</strong> {mattress.extra || 'N/A'} m</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sizes:</strong> {mattress.sizes || 'N/A'}</Typography>
                     </Grid>
                 </Grid>
