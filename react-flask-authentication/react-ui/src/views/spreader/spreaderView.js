@@ -307,7 +307,7 @@ const SpreaderView = () => {
                             </Typography>
                         )}
                     </Box>
-                    
+
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                         <Box
                             sx={{
@@ -374,6 +374,7 @@ const SpreaderView = () => {
                     <Grid item xs={6}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Width:</strong> {mattress.width} cm</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Length:</strong> {mattress.marker_length || 'N/A'} m</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sector:</strong> {mattress.sector || 'N/A'}</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Extra:</strong> {mattress.extra || 'N/A'} m</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sizes:</strong> {mattress.sizes || 'N/A'}</Typography>
                     </Grid>
@@ -613,7 +614,7 @@ const SpreaderView = () => {
                     <Button
                         onClick={handleFinishSpreading}
                         variant="contained"
-                        color="secondary" 
+                        color="secondary"
                         disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
                     >
                         {processingMattress === (selectedMattress?.id) ? 'Processing...' : 'Confirm'}

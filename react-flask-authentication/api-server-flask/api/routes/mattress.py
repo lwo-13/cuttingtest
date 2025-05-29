@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
@@ -342,12 +342,15 @@ class GetKanbanMattressesResource(Resource):
                 # Adding left join on mattress_kanban
                 db.func.coalesce(MattressKanban.day, 'Not Assigned').label('day'),
                 db.func.coalesce(MattressKanban.shift, 'Not Assigned').label('shift'),
-                db.func.coalesce(MattressKanban.position, 0).label('position')
+                db.func.coalesce(MattressKanban.position, 0).label('position'),
+                # Adding sector information from production_center
+                db.func.coalesce(ProductionCenter.destination, 'No Sector Assigned').label('sector')
             ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
              .outerjoin(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
              .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \
              .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
+             .outerjoin(ProductionCenter, Mattresses.order_commessa == ProductionCenter.order_commessa) \
              .filter(MattressPhase.active == True) \
              .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"]))
 
@@ -408,6 +411,7 @@ class GetKanbanMattressesResource(Resource):
                     "total_pcs": total_pcs,
                     "created_at": row.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                     "day": row.day,  # Includes 'Not Assigned' if not found in mattress_kanban
+                    "sector": row.sector,  # Adding sector information
                     "shift": row.shift,  # Includes 'Not Assigned' if not found in mattress_kanban
                     "position": row.position  # Defaults to 0 if not found in mattress_kanban
                 })
@@ -899,3 +903,6 @@ class MattressOrderIdsResource(Resource):
             return {"success": True, "data": data}, 200
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+
+
+
