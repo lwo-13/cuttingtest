@@ -24,7 +24,7 @@ const MattressTableHeader = ({ orderSizes }) => {
         <TableCell align="center">Planned Layers</TableCell>
         <TableCell align="center">Actual Layers</TableCell>
 
-        <TableCell align="center">Planned Cons [m]</TableCell>
+        <TableCell align="center">Actual Cons [m]</TableCell>
         <TableCell align="center">Real Cons [m]</TableCell>
 
         <TableCell align="center">Bagno</TableCell>

@@ -50,7 +50,7 @@ const handleOrderChange = async (newValue, context) => {
     return;
   }
 
-  setSelectedOrder(newValue.id);
+  setSelectedOrder(newValue);
   const sizesSorted = sortSizes(newValue.sizes || []);
   setOrderSizes(sizesSorted);
   const sizeNames = sizesSorted.map(size => size.size);

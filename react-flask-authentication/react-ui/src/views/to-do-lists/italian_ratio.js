@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Typography, Autocomplete, TextField, Grid, Button, Box, IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   Snackbar, Alert
  } from '@mui/material';
@@ -61,6 +61,8 @@ const ItalianRatio = () => {
   const [styleOptions, setStyleOptions] = useState([]);
   const [styleTouched, setStyleTouched] = useState(false);
 
+  const lastStyleRef = useRef('');
+
   const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
 
   const [availableSizes, setAvailableSizes] = useState([]);
@@ -84,7 +86,7 @@ const ItalianRatio = () => {
       setOrderOptions(orders);
 
       // ✅ Derive unique styles from that list
-      const uniqueStyles = [...new Set(orders.map(order => order.style).filter(Boolean))];
+      const uniqueStyles = [...new Set(orders.map(order => order.style).filter(Boolean))].sort();
       setStyleOptions(uniqueStyles);
     });
   }, []);
@@ -93,9 +95,14 @@ const ItalianRatio = () => {
     if (!selectedOrder?.id) {
       clearBrand();
       setSelectedSeason('');
-      setSelectedStyle('');
       setSelectedColorCode('');
       setFetchedSizes([]);
+
+      if (!styleTouched) {
+        setSelectedStyle('');
+        lastStyleRef.current = ''; // ✅ clear style tracker
+      }
+
       return;
     }
 
@@ -103,7 +110,10 @@ const ItalianRatio = () => {
       const lines = res.data.data;
       if (lines.length > 0) {
         setSelectedSeason(lines[0].season || '');
-        if (!styleTouched) setSelectedStyle(lines[0].style || '');
+        if (!styleTouched) {
+          setSelectedStyle(lines[0].style || '');
+          lastStyleRef.current = lines[0].style || '';
+        }
         setSelectedColorCode(lines[0].color_code || '');
         if (lines[0].style) fetchBrandForStyle(lines[0].style);
         const sizes = [...new Set(lines.map((line) => line.size))];
@@ -111,7 +121,7 @@ const ItalianRatio = () => {
       }
     });
 
-    setRatios([{ size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }]);
+    setRatios([{ size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }]);
   }, [selectedOrder?.id]); // 👈 track the ID
 
   useEffect(() => {
@@ -180,9 +190,10 @@ const ItalianRatio = () => {
       });
   };
 
-  const filteredOrders = selectedStyle
-  ? orderOptions.filter(order => order?.style === selectedStyle)
-  : orderOptions;
+  const filteredOrders = useMemo(() =>
+    orderOptions?.filter(o => !selectedStyle || o.style === selectedStyle) || [],
+    [orderOptions, selectedStyle]
+  );
 
   const handleCloseError = () => setOpenError(false);
   const handleCloseSuccess = () => setOpenSuccess(false);
@@ -196,18 +207,16 @@ const ItalianRatio = () => {
             styleOptions={styleOptions}
             selectedStyle={selectedStyle}
             onStyleChange={(newStyle, touched = false) => {
-              setStyleTouched(touched);
-            
-              if (touched) {
-                // First reset order (trigger a re-render)
+              if (!touched || !newStyle || newStyle === lastStyleRef.current) return;
+
+              lastStyleRef.current = newStyle;
+              setStyleTouched(true);
+              setSelectedStyle(newStyle);
+
+              // Clear order if it doesn’t match new style
+              const matchingOrders = orderOptions.filter(order => order.style === newStyle);
+              if (!matchingOrders.some(order => order.id === selectedOrder?.id)) {
                 setSelectedOrder(null);
-            
-                // Then in next tick, apply the style — when order list is cleared
-                setTimeout(() => {
-                  setSelectedStyle(newStyle);
-                }, 0);
-              } else {
-                setSelectedStyle(newStyle);
               }
             }}
             orderOptions={filteredOrders}

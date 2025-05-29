@@ -35,6 +35,9 @@ const MattressRow = ({
             const value = e.target.value.replace(/\D/g, '').slice(0, 3);
             handleInputChange(tableId, rowId, "width", value);
             handleInputChange(tableId, rowId, "markerName", ""); // clear markerName when width changes
+            handleInputChange(tableId, rowId, "markerLength", ""); // optional: reset marker length too
+            handleInputChange(tableId, rowId, "efficiency", "");   // optional: reset efficiency too
+            handleInputChange(tableId, rowId, "piecesPerSize", {}); // ✅ reset pcs per size
             setUnsavedChanges(true);
           }}
           sx={{

@@ -90,14 +90,14 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
         />
       </TableCell>
 
-      {/* Planned Consumption */}
+      {/* Actual Consumption */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.cons_actual || '-'}
+          {typeof row.cons_actual === 'number' ? row.cons_actual.toFixed(1) : '-'}
         </Typography>
       </TableCell>
 
-      {/* Actual Consumption (KPI) */}
+      {/* Real Consumption (KPI) */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <TextField
           variant="outlined"
