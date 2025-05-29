@@ -393,7 +393,7 @@ const OrderPlanning = () => {
         } else {
           setSelectedStyle(newStyle);
         }
-      };
+    };
 
     const isTableEditable = (table) => {
         return table.rows.every(row => row.isEditable !== false);
@@ -426,7 +426,8 @@ const OrderPlanning = () => {
                         styleOptions={styleOptions}
                         selectedStyle={selectedStyle}
                         onStyleChange={handleStyleChange}
-                        orderOptions={filteredOrders}
+                        orderOptions={orderOptions}
+                        filteredOrders={filteredOrders}
                         selectedOrder={selectedOrder}
                         onOrderChange={onOrderChange}
                         selectedSeason={selectedSeason}

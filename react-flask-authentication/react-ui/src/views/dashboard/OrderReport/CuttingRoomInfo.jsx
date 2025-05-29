@@ -9,7 +9,7 @@ const CuttingRoomInfo = ({ productionCenter, cuttingRoom, destination }) => {
   return (
     <MainCard title="Production Center Info">
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={3} sm={2} md={1.5}>
           <TextField
             label="Production Center"
             value={productionCenter}
@@ -18,7 +18,7 @@ const CuttingRoomInfo = ({ productionCenter, cuttingRoom, destination }) => {
             variant="outlined"
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={6} sm={4} md={2.5}>
           <TextField
             label="Cutting Room"
             value={cuttingRoom}
@@ -27,7 +27,7 @@ const CuttingRoomInfo = ({ productionCenter, cuttingRoom, destination }) => {
             variant="outlined"
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={6} sm={4} md={2.5}>
           <TextField
             label="Destination"
             value={destination}

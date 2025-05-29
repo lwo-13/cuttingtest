@@ -38,7 +38,7 @@ const handleOrderChange = async (newValue, context) => {
     return;
   }
 
-  setSelectedOrder(newValue.id);
+  setSelectedOrder(newValue);
   const sizesSorted = sortSizes(newValue.sizes || []);
   setOrderSizes(sizesSorted);
   setOrderSizeNames(sizesSorted.map(size => size.size));
@@ -99,7 +99,9 @@ const handleOrderChange = async (newValue, context) => {
         efficiency: marker?.efficiency || "",
         piecesPerSize: marker?.size_quantities || {},
         layers: mattress.layers || "",
-        expectedConsumption: mattress.cons_planned || "",
+        layers_a: mattress.layers_a || "",
+        cons_actual: mattress.cons_actual || "",
+        cons_real: mattress.cons_real || "",
         bagno: mattress.dye_lot,
         sequenceNumber: mattress.sequence_number || 0
       });

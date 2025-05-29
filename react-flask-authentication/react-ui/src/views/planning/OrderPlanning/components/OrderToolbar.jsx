@@ -2,28 +2,33 @@ import React from 'react';
 import { Grid, TextField, Autocomplete } from '@mui/material';
 
 const OrderToolbar = ({
-  styleOptions,
+  styleOptions = [],
   selectedStyle,
   onStyleChange,
-  orderOptions,
+  orderOptions = [],
+  filteredOrders = [],
   selectedOrder,
   selectedSeason,
   selectedBrand,
   selectedColorCode,
   onOrderChange
 }) => {
+
+  console.log("▶️ selectedOrder:", selectedOrder);
+  console.log("▶️ orderOptions IDs:", orderOptions.map(o => o?.id));
+  console.log("▶️ filteredOrders IDs:", filteredOrders.map(o => o?.id));
+  console.log("▶️ is selectedOrder in orderOptions:", orderOptions.some(o => o?.id === selectedOrder?.id));
+
   return (
     <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
       {/* Order Selection */}
       <Grid item xs={6} sm={4} md={2.5}>
         <Autocomplete
-          options={orderOptions}
-          getOptionLabel={(option) => option.id}
-          value={orderOptions.find(order => order.id === selectedOrder) || null}
-          onChange={(event, newValue) => {
-            console.log("🧪 Order selected:", newValue); // <-- Add this
-            onOrderChange(newValue);
-          }}
+          options={filteredOrders.length > 0 ? filteredOrders : orderOptions}
+          getOptionLabel={(option) => option?.id || ''}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          value={selectedOrder || null}
+          onChange={(event, newValue) => onOrderChange(newValue || null)}
           renderInput={(params) => (
             <TextField {...params} label="Order/Commessa" variant="outlined" />
           )}
@@ -35,7 +40,7 @@ const OrderToolbar = ({
       <Grid item xs={3} sm={2} md={1.5}>
         <Autocomplete
           options={styleOptions}
-          value={selectedStyle}
+          value={selectedStyle || ''}
           onChange={(e, newValue) => {
             const newVal = newValue || '';
             if (newVal !== selectedStyle) {

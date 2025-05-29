@@ -217,9 +217,12 @@ class GetMattressesByOrder(Resource):
         try:
             mattresses = db.session.query(
                 Mattresses,
-                MattressDetail.layers,  # Fetch `layers` from mattress_details
+                MattressDetail.layers,
+                MattressDetail.layers_a,
                 MattressDetail.extra,
                 MattressDetail.cons_planned,
+                MattressDetail.cons_actual,
+                MattressDetail.cons_real,
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
                 MattressPhase.status.label('phase_status')
             ).outerjoin(
@@ -239,7 +242,7 @@ class GetMattressesByOrder(Resource):
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers, extra, cons_planned, marker_name, phase_status  in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, marker_name, phase_status  in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
@@ -249,10 +252,13 @@ class GetMattressesByOrder(Resource):
                     "dye_lot": mattress.dye_lot,
                     "item_type": mattress.item_type,
                     "spreading_method": mattress.spreading_method,
-                    "layers": layers if layers is not None else "",  # Ensure empty if no value
+                    "layers": layers if layers is not None else "",
+                    "layers_a": layers_a if layers_a is not None else "",
                     "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
                     "allowance": extra if extra is not None else 0,
                     "cons_planned": cons_planned if cons_planned is not None else "",
+                    "cons_actual": cons_actual if cons_actual is not None else "",
+                    "cons_real": cons_real if cons_real is not None else "",
 
                     "table_id": mattress.table_id,
                     "row_id": mattress.row_id,
