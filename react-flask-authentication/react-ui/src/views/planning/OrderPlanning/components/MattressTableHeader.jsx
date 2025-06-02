@@ -1,27 +1,30 @@
 import React from 'react';
 import { TableCell, TableHead, TableRow } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const MattressTableHeader = ({ orderSizes }) => {
+  const { t } = useTranslation();
+
   return (
     <TableHead>
       <TableRow>
-        <TableCell align="center" sx={{ minWidth: '100px' }}>Width [cm]</TableCell>
-        <TableCell align="center" sx={{ minWidth: '400px' }}>Marker Name</TableCell>
+        <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.width')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '400px' }}>{t('table.markerName')}</TableCell>
 
         {/* Dynamic Sizes */}
         {orderSizes.length > 0 &&
           orderSizes.map((size) => (
             <TableCell align="center" key={size.size}>
-              {size.size || "N/A"}
+              {size.size || t('table.na')}
             </TableCell>
           ))
         }
 
-        <TableCell align="center" sx={{ minWidth: '100px' }}>Length [m]</TableCell>
-        <TableCell align="center" sx={{ minWidth: '70px' }}>Eff %</TableCell>
-        <TableCell align="center">Layers</TableCell>
-        <TableCell align="center" sx={{ minWidth: '100px' }}>Cons [m]</TableCell>
-        <TableCell align="center">Bagno</TableCell>
+        <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.length')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '70px' }}>{t('table.efficiency')}</TableCell>
+        <TableCell align="center">{t('table.layers')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.consumption')}</TableCell>
+        <TableCell align="center">{t('table.bagno')}</TableCell>
         <TableCell />
       </TableRow>
     </TableHead>

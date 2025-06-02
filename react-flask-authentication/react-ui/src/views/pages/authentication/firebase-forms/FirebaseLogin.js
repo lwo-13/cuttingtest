@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
@@ -78,6 +79,7 @@ const useStyles = makeStyles((theme) => ({
 
 const FirebaseLogin = (props, { ...others }) => {
     const classes = useStyles();
+    const { t } = useTranslation();
 
     const customization = useSelector((state) => state.customization);
     const scriptedRef = useScriptRef();
@@ -129,7 +131,7 @@ const FirebaseLogin = (props, { ...others }) => {
                                 disableRipple
                                 disabled
                             >
-                                OR
+                                {t('login.or', 'OR')}
                             </Button>
                         </AnimateButton>
                         <Divider className={classes.signDivider} orientation="horizontal" />
@@ -141,7 +143,7 @@ const FirebaseLogin = (props, { ...others }) => {
                             mb: 2
                         }}
                     >
-                        <Typography variant="subtitle1">Sign in with Email address</Typography>
+                        <Typography variant="subtitle1">{t('login.signInWithEmail', 'Sign in with Email address')}</Typography>
                     </Box>
                 </Grid>
             </Grid>
@@ -186,7 +188,7 @@ const FirebaseLogin = (props, { ...others }) => {
                 {({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
                     <form noValidate onSubmit={handleSubmit} {...others}>
                         <FormControl fullWidth error={Boolean(touched.email && errors.email)} className={classes.loginInput}>
-                            <InputLabel htmlFor="outlined-adornment-email-login">Email Address / Username</InputLabel>
+                            <InputLabel htmlFor="outlined-adornment-email-login">{t('login.emailOrUsername', 'Email Address / Username')}</InputLabel>
                             <OutlinedInput
                                 id="outlined-adornment-email-login"
                                 type="email"
@@ -210,7 +212,7 @@ const FirebaseLogin = (props, { ...others }) => {
                         </FormControl>
 
                         <FormControl fullWidth error={Boolean(touched.password && errors.password)} className={classes.loginInput}>
-                            <InputLabel htmlFor="outlined-adornment-password-login">Password</InputLabel>
+                            <InputLabel htmlFor="outlined-adornment-password-login">{t('login.password')}</InputLabel>
                             <OutlinedInput
                                 id="outlined-adornment-password-login"
                                 type={showPassword ? 'text' : 'password'}
@@ -230,7 +232,7 @@ const FirebaseLogin = (props, { ...others }) => {
                                         </IconButton>
                                     </InputAdornment>
                                 }
-                                label="Password"
+                                label={t('login.password')}
                                 inputProps={{
                                     classes: {
                                         notchedOutline: classes.notchedOutline
@@ -254,7 +256,7 @@ const FirebaseLogin = (props, { ...others }) => {
                                         color="primary"
                                     />
                                 }
-                                label="Remember me"
+                                label={t('login.rememberMe')}
                             />
                             <Typography
                                 variant="subtitle1"
@@ -263,7 +265,7 @@ const FirebaseLogin = (props, { ...others }) => {
                                 color="secondary"
                                 sx={{ textDecoration: 'none' }}
                             >
-                                Forgot Password?
+                                {t('login.forgotPassword', 'Forgot Password?')}
                             </Typography>
                         </Stack>
                         {errors.submit && (
@@ -291,7 +293,7 @@ const FirebaseLogin = (props, { ...others }) => {
                                     variant="contained"
                                     color="secondary"
                                 >
-                                    Sign in
+                                    {t('login.signIn')}
                                 </Button>
                             </AnimateButton>
                         </Box>

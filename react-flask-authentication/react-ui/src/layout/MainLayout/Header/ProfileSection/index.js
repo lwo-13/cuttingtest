@@ -23,7 +23,9 @@ import {
     Switch,
     Typography,
     Select,
-    MenuItem
+    MenuItem,
+    Button,
+    ButtonGroup
 
 } from '@mui/material';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -125,6 +127,7 @@ const ProfileSection = () => {
     const customization = useSelector((state) => state.customization);
     const account = useSelector((state) => state.account);
     const dispatcher = useDispatch();
+    const { t, i18n } = useTranslation();
 
     const [sdm, setSdm] = React.useState(true);
     const [value, setValue] = React.useState('');
@@ -134,7 +137,21 @@ const ProfileSection = () => {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
 
-    const { i18n } = useTranslation();
+    // Handle language change with persistence
+    const handleLanguageChange = (newLanguage) => {
+        console.log('Language change triggered:', newLanguage);
+        i18n.changeLanguage(newLanguage);
+        localStorage.setItem('language', newLanguage);
+        console.log('Language changed to:', newLanguage);
+    };
+
+    // Load saved language on component mount
+    React.useEffect(() => {
+        const savedLanguage = localStorage.getItem('language');
+        if (savedLanguage && savedLanguage !== i18n.language) {
+            i18n.changeLanguage(savedLanguage);
+        }
+    }, [i18n]);
 
     const handleLogout = () => {
         dispatcher(logoutUser());   // ✅ Trigger the logout action (Redux handles API + state)
@@ -146,6 +163,13 @@ const ProfileSection = () => {
     };
     const handleClose = (event) => {
         if (anchorRef.current && anchorRef.current.contains(event.target)) {
+            return;
+        }
+
+        // Don't close if clicking on Select or its menu items
+        if (event.target.closest('.MuiSelect-root') ||
+            event.target.closest('.MuiMenuItem-root') ||
+            event.target.closest('.MuiMenu-paper')) {
             return;
         }
 
@@ -209,9 +233,9 @@ const ProfileSection = () => {
                                     <CardContent className={classes.cardContent}>
                                         <Grid container direction="column" spacing={0}>
                                             <Grid item className={classes.flex}>
-                                                <Typography variant="h4">Hello,</Typography>
+                                                <Typography variant="h4">{t('profile.hello', 'Hello')},</Typography>
                                                 <Typography component="span" variant="h4" className={classes.name}>
-                                                    {account?.user?.username || 'User'}
+                                                    {account?.user?.username || t('profile.user', 'User')}
                                                 </Typography>
                                             </Grid>
                                             <Grid item>
@@ -225,7 +249,7 @@ const ProfileSection = () => {
                                             id="input-search-profile"
                                             value={value}
                                             onChange={(e) => setValue(e.target.value)}
-                                            placeholder="Search profile options"
+                                            placeholder={t('profile.searchPlaceholder', 'Search profile options')}
                                             startAdornment={
                                                 <InputAdornment position="start">
                                                     <IconSearch stroke={1.5} size="1.3rem" className={classes.startAdornment} />
@@ -244,7 +268,7 @@ const ProfileSection = () => {
                                                         <Grid item>
                                                             <Grid item container alignItems="center" justifyContent="space-between">
                                                                 <Grid item>
-                                                                    <Typography variant="subtitle1">Start DND Mode</Typography>
+                                                                    <Typography variant="subtitle1">{t('profile.dndMode', 'Start DND Mode')}</Typography>
                                                                 </Grid>
                                                                 <Grid item>
                                                                     <Switch
@@ -260,7 +284,7 @@ const ProfileSection = () => {
                                                         <Grid item>
                                                             <Grid item container alignItems="center" justifyContent="space-between">
                                                                 <Grid item>
-                                                                    <Typography variant="subtitle1">Allow Notifications</Typography>
+                                                                    <Typography variant="subtitle1">{t('profile.allowNotifications', 'Allow Notifications')}</Typography>
                                                                 </Grid>
                                                                 <Grid item>
                                                                     <Switch
@@ -272,22 +296,40 @@ const ProfileSection = () => {
                                                                 </Grid>
                                                             </Grid>
                                                         </Grid>
+                                                        <Grid item>
+                                                            <Grid item container alignItems="center" justifyContent="space-between">
+                                                                <Grid item>
+                                                                    <Typography variant="subtitle1">{t('profile.language', 'Language')}</Typography>
+                                                                </Grid>
+                                                                <Grid item>
+                                                                    <ButtonGroup size="small" variant="outlined">
+                                                                        <Button
+                                                                            variant={i18n.language === 'en' ? 'contained' : 'outlined'}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleLanguageChange('en');
+                                                                            }}
+                                                                            sx={{ minWidth: '50px', fontSize: '0.75rem' }}
+                                                                        >
+                                                                            🇺🇸 EN
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant={i18n.language === 'bg' ? 'contained' : 'outlined'}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleLanguageChange('bg');
+                                                                            }}
+                                                                            sx={{ minWidth: '50px', fontSize: '0.75rem' }}
+                                                                        >
+                                                                            🇧🇬 BG
+                                                                        </Button>
+                                                                    </ButtonGroup>
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Grid>
                                                     </Grid>
                                                 </CardContent>
                                             </Card>
-
-                                            {/* 🌐 Language Switcher */}
-                                            <Select
-                                                value={i18n.language}
-                                                onChange={(e) => i18n.changeLanguage(e.target.value)}
-                                                variant="outlined"
-                                                size="small"
-                                                sx={{ m: 2, width: '120px' }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                >
-                                                <MenuItem value="en">EN</MenuItem>
-                                                <MenuItem value="bg">BG</MenuItem>
-                                            </Select>
 
                                             <Divider />
                                             <List component="nav" className={classes.navContainer}>
@@ -300,7 +342,7 @@ const ProfileSection = () => {
                                                     <ListItemIcon>
                                                         <IconLogout stroke={1.5} size="1.3rem" />
                                                     </ListItemIcon>
-                                                    <ListItemText primary={<Typography variant="body2">Logout</Typography>} />
+                                                    <ListItemText primary={<Typography variant="body2">{t('profile.logout', 'Logout')}</Typography>} />
                                                 </ListItemButton>
                                             </List>
                                         </PerfectScrollbar>

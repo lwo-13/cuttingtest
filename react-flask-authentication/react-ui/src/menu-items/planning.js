@@ -1,16 +1,17 @@
 // assets
 import { IconLayoutKanban, IconTemplate  } from '@tabler/icons';
+import i18n from '../i18n';
 
 //-----------------------|| PLANNING MENU ITEMS ||-----------------------//
 
 const planning = {
   id: 'planning',
-  title: 'Planning',
+  title: i18n.t('sidebar.planning'),
   type: 'group',
   children: [
     {
         id: 'kanban',
-        title: 'Board',
+        title: i18n.t('sidebar.board'),
         type: 'item',
         url: '/planning/kanbanboard',
         icon: IconLayoutKanban,
@@ -18,7 +19,7 @@ const planning = {
     },
     {
       id: 'orderplanning',
-      title: 'Order Planning',
+      title: i18n.t('sidebar.orderPlanning'),
       type: 'item',
       url: '/planning/orderplanning',
       icon: IconTemplate,

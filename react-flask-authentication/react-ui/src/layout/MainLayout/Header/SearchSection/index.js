@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
@@ -82,6 +83,7 @@ const useStyles = makeStyles((theme) => ({
 
 const SearchSection = () => {
     const classes = useStyles();
+    const { t } = useTranslation();
     const [value, setValue] = useState('');
 
     return (
@@ -113,7 +115,7 @@ const SearchSection = () => {
                                                             id="input-search-header"
                                                             value={value}
                                                             onChange={(e) => setValue(e.target.value)}
-                                                            placeholder="Search"
+                                                            placeholder={t('common.search', 'Search')}
                                                             startAdornment={
                                                                 <InputAdornment position="start">
                                                                     <IconSearch
@@ -169,7 +171,7 @@ const SearchSection = () => {
                     id="input-search-header"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    placeholder="Search"
+                    placeholder={t('common.search', 'Search')}
                     startAdornment={
                         <InputAdornment position="start">
                             <IconSearch stroke={1.5} size="1rem" className={classes.startAdornment} />

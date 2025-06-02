@@ -1,30 +1,53 @@
 import React, { useEffect, useState, useRef } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Paper, Box, Grid, Button, Typography } from "@mui/material";
+import { Paper, Box, Grid, Button, Typography, Alert, Snackbar } from "@mui/material";
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
 import { useSelector } from "react-redux";
+import { useTranslation } from 'react-i18next';
 
 const devices = ["SP0", "SP1", "SP2", "SP3", "MS"];
 
-const FilterBar = ({ selectedDay, setSelectedDay }) => {
+const FilterBar = ({ selectedDay, setSelectedDay, onTransitionDay, isTransitioning }) => {
+  const { t } = useTranslation();
+
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", bgcolor: "white", p: 2, borderRadius: 2, mb: 2 }}>
-      <Button variant={selectedDay === "Today" ? "contained" : "outlined"} color="primary" onClick={() => setSelectedDay("Today")} sx={{ mr: 2 }}>Today</Button>
-      <Button variant={selectedDay === "Tomorrow" ? "contained" : "outlined"} color="secondary" onClick={() => setSelectedDay("Tomorrow")}>Tomorrow</Button>
+    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", bgcolor: "white", p: 2, borderRadius: 2, mb: 2, gap: 2 }}>
+      <Button variant={selectedDay === "Today" ? "contained" : "outlined"} color="primary" onClick={() => setSelectedDay("Today")}>
+        {t('common.today', 'Today')}
+      </Button>
+      <Button variant={selectedDay === "Tomorrow" ? "contained" : "outlined"} color="secondary" onClick={() => setSelectedDay("Tomorrow")}>
+        {t('common.tomorrow', 'Tomorrow')}
+      </Button>
+      {/* Manual transition button - commented out as requested
+      <Button
+        variant="outlined"
+        color="warning"
+        onClick={onTransitionDay}
+        disabled={isTransitioning}
+        sx={{ ml: 2 }}
+      >
+        {isTransitioning ? t('common.processing') : "Move Tomorrow → Today"}
+      </Button>
+      */}
     </Box>
   );
 };
 
 const KanbanBoard = () => {
+  const { t } = useTranslation();
   const [mattresses, setMattresses] = useState([]);
   const [selectedDay, setSelectedDay] = useState("Today");
   const username = useSelector((state) => state.account?.user?.username) || "Unknown";
   const scrollContainerRef = useRef(null);
   const scrollAnimationRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionMessage, setTransitionMessage] = useState("");
+  const [showTransitionAlert, setShowTransitionAlert] = useState(false);
+  const lastTransitionDateRef = useRef(null);
 
   const handleDragScroll = (e) => {
     const container = scrollContainerRef.current;
@@ -105,10 +128,91 @@ const KanbanBoard = () => {
       });
   };
 
+  // Function to handle manual day transition
+  const handleDayTransition = async () => {
+    setIsTransitioning(true);
+    try {
+      const response = await axios.post('/mattress/transition_day');
+      if (response.data.success) {
+        setTransitionMessage(`Successfully moved ${response.data.moved_count} items from tomorrow to today`);
+        setShowTransitionAlert(true);
+        // Update the last transition date
+        lastTransitionDateRef.current = new Date().toDateString();
+        localStorage.setItem('lastTransitionDate', lastTransitionDateRef.current);
+        // Refresh the current view
+        fetchMattresses();
+      } else {
+        setTransitionMessage(`Error: ${response.data.message}`);
+        setShowTransitionAlert(true);
+      }
+    } catch (error) {
+      console.error('Day transition failed:', error);
+      setTransitionMessage(`Failed to transition day: ${error.message}`);
+      setShowTransitionAlert(true);
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
+  // Function to check if day transition is needed
+  const checkForDayTransition = async () => {
+    const today = new Date().toDateString();
+    const lastTransition = lastTransitionDateRef.current || localStorage.getItem('lastTransitionDate');
+
+    // If we haven't transitioned today, automatically perform the transition
+    if (lastTransition !== today) {
+      console.log('New day detected, performing automatic day transition');
+      try {
+        const response = await axios.post('/mattress/transition_day');
+        if (response.data.success) {
+          console.log(`Auto-transition successful: moved ${response.data.moved_count} items from tomorrow to today`);
+          // Update the last transition date
+          lastTransitionDateRef.current = today;
+          localStorage.setItem('lastTransitionDate', today);
+          // Refresh the current view to show the changes
+          fetchMattresses();
+          // Show notification about automatic transition
+          setTransitionMessage(`Automatic day transition: moved ${response.data.moved_count} items from tomorrow to today`);
+          setShowTransitionAlert(true);
+        } else {
+          console.error('Auto-transition failed:', response.data.message);
+        }
+      } catch (error) {
+        console.error('Auto-transition error:', error);
+      }
+    }
+  };
+
+  // Check for day transition on component mount and periodically
+  useEffect(() => {
+    // Load last transition date from localStorage
+    lastTransitionDateRef.current = localStorage.getItem('lastTransitionDate');
+    checkForDayTransition();
+
+    // Check every hour for day changes
+    const interval = setInterval(checkForDayTransition, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const moveMattress = async (id, targetDevice, targetShift, targetPosition = null) => {
     console.log(`Moving mattress ${id} to device ${targetDevice}, shift ${targetShift}, position ${targetPosition}`);
 
     const prevMattresses = [...mattresses];
+
+    // MS validation: Check if trying to move AS mattress to MS device
+    const mattressToMove = mattresses.find(m => m.id === id);
+    if (mattressToMove && targetDevice === "MS" && mattressToMove.spreading_method !== "MANUAL") {
+      setTransitionMessage("ERROR: Only Manual Spreading (MS) mattresses can be assigned to MS device");
+      setShowTransitionAlert(true);
+      return;
+    }
+
+    // AS validation: Check if trying to move MS mattress to AS device
+    if (mattressToMove && ["SP1", "SP2", "SP3"].includes(targetDevice) && mattressToMove.spreading_method === "MANUAL") {
+      setTransitionMessage("ERROR: Manual Spreading (MS) mattresses cannot be assigned to automatic spreader devices. Use MS device instead.");
+      setShowTransitionAlert(true);
+      return;
+    }
 
     // Immediate optimistic update for better UX
     setMattresses((prev) => {
@@ -137,19 +241,19 @@ const KanbanBoard = () => {
 
         return [...otherItems, ...filteredColumnItems];
       } else {
-        // Cross-column move or move to SP0
+        // Cross-column move or move to SP0/MS
         const updatedMattress = {
           ...mattressToMove,
           device: targetDevice,
-          shift: targetShift
+          shift: targetDevice === "MS" ? null : targetShift // MS doesn't use shifts
         };
 
         // Remove from current position
         let result = prev.filter(m => m.id !== id);
 
         // Add to new position
-        if (targetDevice === "SP0") {
-          // Moving to unassigned - just add to the list
+        if (targetDevice === "SP0" || targetDevice === "MS") {
+          // Moving to unassigned or MS - just add to the list
           result.push(updatedMattress);
         } else {
           // Moving to spreader column
@@ -263,7 +367,12 @@ const KanbanBoard = () => {
 
   return (
     <>
-      <FilterBar selectedDay={selectedDay} setSelectedDay={setSelectedDay} />
+      <FilterBar
+        selectedDay={selectedDay}
+        setSelectedDay={setSelectedDay}
+        onTransitionDay={handleDayTransition}
+        isTransitioning={isTransitioning}
+      />
       <DndProvider backend={HTML5Backend}>
         <Box
           ref={scrollContainerRef}
@@ -309,19 +418,36 @@ const KanbanBoard = () => {
           ))}
         </Box>
       </DndProvider>
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={showTransitionAlert}
+        autoHideDuration={6000}
+        onClose={() => setShowTransitionAlert(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setShowTransitionAlert(false)}
+          severity={transitionMessage.includes('Error') || transitionMessage.includes('Failed') || transitionMessage.includes('ERROR') ? 'error' : 'success'}
+          sx={{ width: '100%' }}
+        >
+          {transitionMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
 
 const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
-  const isSpreader = device !== "SP0";
+  const { t } = useTranslation();
+  const isSpreader = device !== "SP0" && device !== "MS"; // MS is treated like SP0 (single column)
   const [searchTerm, setSearchTerm] = useState("");
 
   const sortedMattresses = [...mattresses].sort((a, b) => a.position - b.position);
   const firstShift = sortedMattresses.filter(m => m.shift === '1shift');
   const secondShift = sortedMattresses.filter(m => m.shift === '2shift');
 
-  // Filter mattresses based on search term for SP0
+  // Filter mattresses based on search term for SP0 only
   const filteredMattresses = device === "SP0"
     ? sortedMattresses.filter(m =>
         m.mattress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -363,15 +489,25 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
     collect: (monitor) => ({ isOverUnassigned: !!monitor.isOver() })
   });
 
+  // For MS (manual spreading) column
+  const [{ isOverMS }, dropMS] = useDrop({
+    accept: "MATTRESS",
+    drop: (item, monitor) => {
+      console.log('Dropping on MS:', item);
+      moveMattress(item.id, "MS", null, null);
+    },
+    collect: (monitor) => ({ isOverMS: !!monitor.isOver() })
+  });
+
   return (
     <Box sx={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '300px' }}>
       <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2 }}>
-        {device === "SP0" ? "To Assign" : device}
+        {device === "SP0" ? t('kanban.toAssign') : device === "MS" ? t('kanban.manualSpreading') : device}
         {device === "SP0" && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
             <input
               type="text"
-              placeholder="Search by order, fabric, marker..."
+              placeholder={t('kanban.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -389,16 +525,26 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
       {isSpreader ? (
         <>
           <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, mb: 2, border: isOverFirst ? "2px dashed #9c27b0" : "2px solid transparent" }}>
-            <Box sx={{ fontWeight: 'bold', mb: 1 }}>1st Shift</Box>
+            <Box sx={{ fontWeight: 'bold', mb: 1 }}>{t('kanban.firstShift')}</Box>
             {firstShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift="1shift" device={device} />)}
           </Paper>
           <Paper ref={dropSecond} sx={{ p: 2, bgcolor: isOverSecond ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, border: isOverSecond ? "2px dashed #9c27b0" : "2px solid transparent" }}>
-            <Box sx={{ fontWeight: 'bold', mb: 1 }}>2nd Shift</Box>
+            <Box sx={{ fontWeight: 'bold', mb: 1 }}>{t('kanban.secondShift')}</Box>
             {secondShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift="2shift" device={device} />)}
           </Paper>
         </>
       ) : (
-        <Paper ref={device === "SP0" ? dropUnassigned : dropFirst} sx={{ p: 2, bgcolor: (device === "SP0" ? isOverUnassigned : isOverFirst) ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 300, border: (device === "SP0" ? isOverUnassigned : isOverFirst) ? "2px dashed #9c27b0" : "2px solid transparent" }}>
+        <Paper
+          ref={device === "SP0" ? dropUnassigned : device === "MS" ? dropMS : dropFirst}
+          sx={{
+            p: 2,
+            bgcolor: (device === "SP0" ? isOverUnassigned : device === "MS" ? isOverMS : isOverFirst) ? "#e1bee7" : "#f5f5f5",
+            flexGrow: 1,
+            borderRadius: 2,
+            minHeight: 300,
+            border: (device === "SP0" ? isOverUnassigned : device === "MS" ? isOverMS : isOverFirst) ? "2px dashed #9c27b0" : "2px solid transparent"
+          }}
+        >
           {filteredMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={null} device={device} />)}
         </Paper>
       )}
@@ -407,6 +553,7 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
 };
 
 const KanbanItem = ({ mattress, index, shift, device }) => {
+  const { t } = useTranslation();
   const ref = useRef(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -498,14 +645,14 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
 
   const tooltipContent = (
     <Box>
-      <strong>Order:</strong> {mattress.order_commessa} <br />
-      <strong>Fabric:</strong> {mattress.fabric_code} &nbsp;&nbsp; {mattress.fabric_color} <br />
-      <strong>Bagno:</strong> {mattress.dye_lot} <br />
-      <strong>Marker Length:</strong> {mattress.marker_length} m<br />
-      <strong>Marker Width:</strong> {mattress.width} cm<br />
-      {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>Sizes:</strong> {mattress.sizes}</Box>)}
-      <strong>Consumption:</strong> {mattress.consumption} m<br />
-      <strong>Spreading Method:</strong> {mattress.spreading_method} <br />
+      <strong>{t('common.order', 'Order')}:</strong> {mattress.order_commessa} <br />
+      <strong>{t('common.fabric', 'Fabric')}:</strong> {mattress.fabric_code} &nbsp;&nbsp; {mattress.fabric_color} <br />
+      <strong>{t('table.bagno')}:</strong> {mattress.dye_lot} <br />
+      <strong>{t('common.markerLength', 'Marker Length')}:</strong> {mattress.marker_length} m<br />
+      <strong>{t('common.markerWidth', 'Marker Width')}:</strong> {mattress.width} cm<br />
+      {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>{t('common.sizes', 'Sizes')}:</strong> {mattress.sizes}</Box>)}
+      <strong>{t('table.consumption')}:</strong> {mattress.consumption} m<br />
+      <strong>{t('common.spreadingMethod', 'Spreading Method')}:</strong> {mattress.spreading_method} <br />
     </Box>
   );
 
@@ -551,8 +698,8 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
         }
       }}>
-      <strong>Mattress:</strong> {mattress.mattress} <br />
-      {mattress.marker && mattress.marker !== '--' && (<><strong>Marker:</strong> {mattress.marker} <br /></>)}
+      <strong>{t('kanban.mattress')}:</strong> {mattress.mattress} <br />
+      {mattress.marker && mattress.marker !== '--' && (<><strong>{t('kanban.marker')}:</strong> {mattress.marker} <br /></>)}
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1 }}>
         {mattress.total_pcs > 0 && (
           <Box sx={{
@@ -568,7 +715,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
             <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
               {mattress.total_pcs}
             </Typography>
-            <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#1976d2' }}>pcs</Typography>
+            <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#1976d2' }}>{t('kanban.pieces')}</Typography>
           </Box>
         )}
 
@@ -585,7 +732,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
             {mattress.layers || 0}
           </Typography>
-          <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#7b1fa2' }}>layers</Typography>
+          <Typography sx={{ ml: 1, fontSize: '0.9rem', color: '#7b1fa2' }}>{t('kanban.layers')}</Typography>
         </Box>
       </Box>
       </MainCard>

@@ -1,16 +1,17 @@
 // assets
 import { IconDashboard, IconDeviceAnalytics, IconListCheck } from '@tabler/icons';
+import i18n from '../i18n';
 
 //-----------------------|| DASHBOARD MENU ITEMS ||-----------------------//
 
 export const dashboard = {
     id: 'dashboard',
-    title: 'Dashboard',
+    title: i18n.t('sidebar.dashboard'),
     type: 'group',
     children: [
         {
             id: 'default',
-            title: 'KPI Dashboard',
+            title: i18n.t('sidebar.kpiDashboard'),
             type: 'item',
             url: '/dashboard/default',
             icon: IconDashboard,
@@ -18,7 +19,7 @@ export const dashboard = {
         },
         {
             id: 'orderreport',
-            title: 'Order Report',
+            title: i18n.t('sidebar.orderReport', 'Order Report'),
             type: 'item',
             url: '/dashboard/orderreport',
             icon: IconListCheck,

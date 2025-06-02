@@ -1,5 +1,6 @@
 // assets
 import { IconBrandChrome, IconHelp, IconSitemap } from '@tabler/icons';
+import i18n from '../i18n';
 
 // constant
 const icons = {
@@ -16,7 +17,7 @@ export const other = {
     children: [
         {
             id: 'sample-page',
-            title: 'Sample Page',
+            title: i18n.t('menu.samplePage'),
             type: 'item',
             url: '/sample-page',
             icon: icons['IconBrandChrome'],
@@ -24,7 +25,7 @@ export const other = {
         },
         {
             id: 'documentation',
-            title: 'Documentation',
+            title: i18n.t('menu.documentation'),
             type: 'item',
             url: 'https://docs.appseed.us/products/react/flask-berry-dashboard',
             icon: icons['IconHelp'],

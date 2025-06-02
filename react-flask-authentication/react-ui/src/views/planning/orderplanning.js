@@ -7,6 +7,7 @@ import axios from 'utils/axiosInstance';
 import { v4 as uuidv4 } from 'uuid';
 import { useSelector } from "react-redux";
 import { useHistory } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 
 // Order Planning Components
 import OrderActionBar from 'views/planning/OrderPlanning/components/OrderActionBar';
@@ -72,6 +73,7 @@ const spreadingOptions = ["AUTOMATIC", "MANUAL"];
 const spreadingMethods = ["FACE UP", "FACE DOWN", "FACE TO FACE"];
 
 const OrderPlanning = () => {
+    const { t } = useTranslation();
     const history = useHistory();
 
     const [orderOptions, setOrderOptions] = useState([]);
@@ -409,7 +411,7 @@ const OrderPlanning = () => {
                     zIndex: isPinned ? 1000 : 'auto',
                 }}
             >
-                <MainCard title="Order Details">
+                <MainCard title={t('orderPlanning.orderDetails', 'Order Details')}>
 
                     {/* Order Actions Bar */}
                     <OrderActionBar
@@ -485,7 +487,7 @@ const OrderPlanning = () => {
                         key={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                {`Mattresses`}
+                                {t('orderPlanning.mattresses', 'Mattresses')}
 
                                 {/* Table-Specific Planned Quantities - Hide if Empty */}
                                 <PlannedQuantityBar
@@ -723,7 +725,7 @@ const OrderPlanning = () => {
                         startIcon={<AddCircleOutline />}
                         onClick={handleAddTable}
                     >
-                        Add Mattress
+                        {t('orderPlanning.addMattress', 'Add Mattress')}
                     </Button>
 
                     <Button
@@ -732,7 +734,7 @@ const OrderPlanning = () => {
                         startIcon={<AddCircleOutline />}
                         onClick={handleAddAlong}
                     >
-                        Add Collaretto Along Grain (Ordito)
+                        {t('orderPlanning.addCollarettoAlong', 'Add Collaretto Along Grain (Ordito)')}
                     </Button>
 
                     <Button
@@ -741,7 +743,7 @@ const OrderPlanning = () => {
                         startIcon={<AddCircleOutline />}
                         onClick={handleAddWeft}
                     >
-                        Add Collaretto Weft (Trama)
+                        {t('orderPlanning.addCollarettoWeft', 'Add Collaretto Weft (Trama)')}
                     </Button>
 
                     <Button
@@ -750,7 +752,7 @@ const OrderPlanning = () => {
                         startIcon={<AddCircleOutline />}
                         onClick={handleAddBias}
                     >
-                        Add Collaretto Bias (Sbieco)
+                        {t('orderPlanning.addCollarettoBias', 'Add Collaretto Bias (Sbieco)')}
                     </Button>
                 </Box>
             )}
@@ -787,16 +789,16 @@ const OrderPlanning = () => {
                 aria-describedby="unsaved-changes-dialog-description"
             >
                 <DialogTitle id="unsaved-changes-dialog-title">
-                    Unsaved Changes
+                    {t('orderPlanning.unsavedChanges', 'Unsaved Changes')}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="unsaved-changes-dialog-description">
-                        You have unsaved changes, either save or delete them.
+                        {t('orderPlanning.unsavedChangesMessage', 'You have unsaved changes, either save or delete them.')}
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseUnsavedDialog} color="primary" variant="contained">
-                        OK
+                        {t('common.ok', 'OK')}
                     </Button>
                 </DialogActions>
             </Dialog>

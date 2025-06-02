@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import {
     Box,
     Typography,
@@ -24,6 +25,7 @@ import axios from 'utils/axiosInstance';
 import useCollapseMenu from '../../hooks/useCollapseMenu';
 
 const CutterView = () => {
+    const { t } = useTranslation();
     // Automatically collapse the sidebar menu
     useCollapseMenu(true);
 
@@ -56,8 +58,8 @@ const CutterView = () => {
 
         // Mapping of cutter devices to spreader devices
         const mapping = {
-            'CT1': ['SP1'],         // Cutter1 receives from Spreader1
-            'CT2': ['SP2', 'SP3']   // Cutter2 receives from Spreader2 and Spreader3
+            'CT1': ['SP1'],             // Cutter1 receives from Spreader1
+            'CT2': ['SP2', 'SP3', 'MS'] // Cutter2 receives from Spreader2, Spreader3, and Manual Spreading (MS)
         };
 
         return mapping[cutterDevice] || [];
@@ -291,7 +293,7 @@ const CutterView = () => {
                     .then(() => {
                         setSnackbar({
                             open: true,
-                            message: "Marker name copied to clipboard",
+                            message: t('cutter.markerCopied'),
                             severity: "success"
                         });
                     })
@@ -307,7 +309,7 @@ const CutterView = () => {
             console.error('Failed to copy text: ', err);
             setSnackbar({
                 open: true,
-                message: "Failed to copy to clipboard",
+                message: t('cutter.copyFailed'),
                 severity: "error"
             });
         }
@@ -337,7 +339,7 @@ const CutterView = () => {
             if (successful) {
                 setSnackbar({
                     open: true,
-                    message: "Marker name copied to clipboard",
+                    message: t('cutter.markerCopied'),
                     severity: "success"
                 });
             } else {
@@ -347,7 +349,7 @@ const CutterView = () => {
             console.error('Fallback copy method failed: ', err);
             setSnackbar({
                 open: true,
-                message: "Failed to copy to clipboard",
+                message: t('cutter.copyFailed'),
                 severity: "error"
             });
         }
@@ -364,14 +366,14 @@ const CutterView = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Box>
                             <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                                Mattress: {mattress.mattress}
+                                {t('kanban.mattress')}: {mattress.mattress}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Status: {mattress.status}
+                                {t('cutter.status')}: {mattress.status}
                             </Typography>
                             {sourceDevice && sourceDevice !== cutterDevice && (
                                 <Typography variant="body2" color="primary">
-                                    <strong>From: {sourceDevice}</strong>
+                                    <strong>{t('cutter.from')}: {sourceDevice}</strong>
                                 </Typography>
                             )}
                         </Box>
@@ -389,7 +391,7 @@ const CutterView = () => {
                                 <Typography variant="h5" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
                                     {mattress.total_pcs || 0}
                                 </Typography>
-                                <Typography sx={{ fontSize: '0.75rem', color: '#1976d2' }}>pieces</Typography>
+                                <Typography sx={{ fontSize: '0.75rem', color: '#1976d2' }}>{t('kanban.pieces')}</Typography>
                             </Box>
                             <Box sx={{
                                 display: 'flex',
@@ -404,7 +406,7 @@ const CutterView = () => {
                                 <Typography variant="h5" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
                                     {mattress.layers || 0}
                                 </Typography>
-                                <Typography sx={{ fontSize: '0.75rem', color: '#7b1fa2' }}>layers</Typography>
+                                <Typography sx={{ fontSize: '0.75rem', color: '#7b1fa2' }}>{t('kanban.layers')}</Typography>
                             </Box>
                         </Box>
                     </Box>
@@ -419,8 +421,8 @@ const CutterView = () => {
                         mt: 0.5,
                         alignItems: 'center'
                     }}>
-                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>Order:</strong> {mattress.order_commessa}</Typography>
-                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
+                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.order')}:</strong> {mattress.order_commessa}</Typography>
+                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.fabric')}:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
                         <Box sx={{
                             display: 'flex',
                             alignItems: 'center',
@@ -428,9 +430,9 @@ const CutterView = () => {
                             position: 'relative',
                             top: '-1px' // Move up by 1mm for perfect alignment
                         }}>
-                            <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>Marker:</strong> {mattress.marker || 'N/A'}</Typography>
+                            <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('kanban.marker')}:</strong> {mattress.marker || t('table.na')}</Typography>
                             {mattress.marker && (
-                                <Tooltip title="Copy marker name">
+                                <Tooltip title={t('common.copyMarkerName', 'Copy marker name')}>
                                     <IconButton
                                         size="small"
                                         onClick={() => copyToClipboard(mattress.marker)}
@@ -458,9 +460,9 @@ const CutterView = () => {
                                 color="primary"
                                 disabled={processingMattress === mattress.id || !selectedOperator || activeCuttingMattress !== null}
                                 onClick={() => handleStartCutting(mattress.id)}
-                                title={activeCuttingMattress ? `Cannot start cutting: Mattress ${activeCuttingMattress.mattress} is already being cut on ${cutterDevice}` : ""}
+                                title={activeCuttingMattress ? t('cutter.cannotStartCutting', { mattress: activeCuttingMattress.mattress, device: cutterDevice }) : ""}
                             >
-                                {processingMattress === mattress.id ? 'Processing...' : 'Start Cutting'}
+                                {processingMattress === mattress.id ? t('cutter.processing') : t('cutter.startCutting')}
                             </Button>
                         </Box>
                     )}
@@ -472,7 +474,7 @@ const CutterView = () => {
                                 disabled={processingMattress === mattress.id || !selectedOperator}
                                 onClick={() => handleFinishCutting(mattress.id, mattress.layers)}
                             >
-                                {processingMattress === mattress.id ? 'Processing...' : 'Finish Cutting'}
+                                {processingMattress === mattress.id ? t('cutter.processing') : t('cutter.finishCutting')}
                             </Button>
                         </Box>
                     )}
@@ -527,19 +529,19 @@ const CutterView = () => {
                 secondary={
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <FormControl sx={{ minWidth: 200 }}>
-                            <InputLabel id="operator-select-label">Current Operator</InputLabel>
+                            <InputLabel id="operator-select-label">{t('cutter.selectOperator')}</InputLabel>
                             <Select
                                 labelId="operator-select-label"
                                 id="operator-select"
                                 value={selectedOperator}
-                                label="Current Operator"
+                                label={t('cutter.selectOperator')}
                                 onChange={(e) => setSelectedOperator(e.target.value)}
                                 size="small"
                                 disabled={loadingOperators}
                             >
                                 {operators.length === 0 ? (
                                     <MenuItem value="" disabled>
-                                        No operators available
+                                        {t('common.noOperatorsAvailable', 'No operators available')}
                                     </MenuItem>
                                 ) : (
                                     operators.map((op) => (
@@ -551,7 +553,7 @@ const CutterView = () => {
                             </Select>
                         </FormControl>
                         <Typography variant="caption" color="textSecondary" sx={{ ml: 2 }}>
-                            Last updated: {lastRefreshTime.toLocaleTimeString()}
+                            {t('common.lastUpdated', 'Last updated')}: {lastRefreshTime.toLocaleTimeString()}
                         </Typography>
                     </Box>
                 }
@@ -566,15 +568,15 @@ const CutterView = () => {
                         borderRadius: 2
                     }}>
                         <Typography variant="h5" gutterBottom color="primary">
-                            Cutter Assignment Information
+                            {t('cutter.assignmentInfo')}
                         </Typography>
                         <Typography variant="body1" sx={{ mb: 1 }}>
                             {cutterDevice === 'CT1' ?
-                                'You are assigned to receive mattresses from Spreader1 (SP1).' :
-                                'You are assigned to receive mattresses from Spreader2 (SP2) and Spreader3 (SP3).'}
+                                t('cutter.assignmentCT1') :
+                                t('cutter.assignmentCT2')}
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
-                            Mattresses with status "3 - TO CUT" from your assigned spreader(s) will appear here.
+                            {t('cutter.statusInfo')}
                         </Typography>
                     </Paper>
                 </Box>
@@ -587,12 +589,12 @@ const CutterView = () => {
                         maxWidth: '800px',
                         width: '100%'
                     }}>
-                        <Typography variant="h4" gutterBottom>Mattresses to Cut</Typography>
+                        <Typography variant="h4" gutterBottom>{t('cutter.mattressesToCut', 'Mattresses to Cut')}</Typography>
                         <Divider sx={{ mb: 2 }} />
                         {mattresses && mattresses.length > 0 ? (
                             mattresses.map(renderMattressCard)
                         ) : (
-                            <Typography variant="body2" color="textSecondary">No mattresses assigned for cutting</Typography>
+                            <Typography variant="body2" color="textSecondary">{t('cutter.noMattresses', 'No mattresses assigned for cutting')}</Typography>
                         )}
                     </Paper>
                 </Box>

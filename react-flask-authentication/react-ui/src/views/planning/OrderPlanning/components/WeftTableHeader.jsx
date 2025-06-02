@@ -1,23 +1,28 @@
 import React from 'react';
 import { TableHead, TableRow, TableCell } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
-const WeftTableHeader = () => (
-  <TableHead>
-    <TableRow sx={{ height: "50px" }}>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Usable Width [cm]</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Pcs Seam to Seam</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Rewound Width [m]</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Rolls</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Rolls</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Panels</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Cons [m]</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
-      <TableCell /> {/* empty cell for actions or buttons */}
-    </TableRow>
-  </TableHead>
-);
+const WeftTableHeader = () => {
+  const { t } = useTranslation();
+
+  return (
+    <TableHead>
+      <TableRow sx={{ height: "50px" }}>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.pieces')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.usableWidth')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.grossLength')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.pcsSeamToSeam')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.rewoundWidth')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.collarettoWidth')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.scrapRolls')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.numberOfRolls')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.numberOfPanels', 'N° Panels')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.consumption')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.bagno')}</TableCell>
+        <TableCell /> {/* empty cell for actions or buttons */}
+      </TableRow>
+    </TableHead>
+  );
+};
 
 export default WeftTableHeader;

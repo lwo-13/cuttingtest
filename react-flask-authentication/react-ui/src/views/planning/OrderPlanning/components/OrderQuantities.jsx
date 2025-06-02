@@ -15,6 +15,7 @@ import {
 import PropTypes from 'prop-types';
 import Chart from 'react-apexcharts';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
+import { useTranslation } from 'react-i18next';
 
 const evaluateRatioShift = (italianRatios, zalliRatios, orderedSizes) => {
   const sizeWeights = orderedSizes.reduce((acc, size, index) => {
@@ -57,6 +58,7 @@ const evaluateRatioShift = (italianRatios, zalliRatios, orderedSizes) => {
 };
 
 const OrderQuantities = ({ orderSizes, italianRatios }) => {
+  const { t } = useTranslation();
   const [openPopup, setOpenPopup] = useState(false);
 
   const theme = useTheme();
@@ -163,7 +165,7 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
         {/* Total Field */}
         <Grid item xs={4} sm={3} md={1.4}>
           <TextField
-            label="Total"
+            label={t('orderPlanning.total', 'Total')}
             variant="outlined"
             value={totalQty}
             slotProps={{ input: { readOnly: true } }}
@@ -178,7 +180,7 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
             <Grid item xs={4} sm={3} md={1.4} key={index}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
-                  label={`Size: ${size.size}`}
+                  label={`${t('orderPlanning.size', 'Size')}: ${size.size}`}
                   variant="outlined"
                   value={size.qty}
                   slotProps={{ input: { readOnly: true } }}
@@ -224,7 +226,7 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
                     ? theme.palette.success.main
                     : undefined
               }}
-              title="Italian Ratio"
+              title={t('orderPlanning.italianRatio', 'Italian Ratio')}
             >
               🇮🇹
             </Button>
@@ -239,7 +241,7 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
               align="center"
               sx={{ fontWeight: 'normal' }}
             >
-              Order Ratio Analysis
+              {t('orderPlanning.orderRatioAnalysis', 'Order Ratio Analysis')}
             </Typography>
 
             {/* 📊 Chart */}
@@ -279,7 +281,7 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
           </DialogContent>
 
           <DialogActions>
-            <Button onClick={() => setOpenPopup(false)}>Close</Button>
+            <Button onClick={() => setOpenPopup(false)}>{t('common.close', 'Close')}</Button>
           </DialogActions>
         </Dialog>
 

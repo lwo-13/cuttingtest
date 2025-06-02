@@ -1,5 +1,6 @@
 import React from 'react';
 import { Grid, TextField, Autocomplete } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const OrderToolbar = ({
   styleOptions = [],
@@ -13,6 +14,7 @@ const OrderToolbar = ({
   selectedColorCode,
   onOrderChange
 }) => {
+  const { t } = useTranslation();
 
   return (
     <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
@@ -25,7 +27,7 @@ const OrderToolbar = ({
           value={selectedOrder || null}
           onChange={(event, newValue) => onOrderChange(newValue || null)}
           renderInput={(params) => (
-            <TextField {...params} label="Order/Commessa" variant="outlined" />
+            <TextField {...params} label={t('orderPlanning.orderCommessa', 'Order/Commessa')} variant="outlined" />
           )}
           sx={{ width: '100%', "& .MuiAutocomplete-input": { fontWeight: 'normal' } }}
         />
@@ -42,7 +44,7 @@ const OrderToolbar = ({
               onStyleChange(newVal, true); // ✅ only fire when it changes
             }
           }}
-          renderInput={(params) => <TextField {...params} label="Style" variant="outlined" fullWidth />}
+          renderInput={(params) => <TextField {...params} label={t('orderPlanning.style', 'Style')} variant="outlined" fullWidth />}
           sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Grid>
@@ -50,7 +52,7 @@ const OrderToolbar = ({
       {/* Color */}
       <Grid item xs={3} sm={2} md={1.5}>
         <TextField
-          label="Color"
+          label={t('orderPlanning.color', 'Color')}
           variant="outlined"
           value={selectedColorCode || ""}
           inputProps={{ readOnly: true }}
@@ -61,7 +63,7 @@ const OrderToolbar = ({
       {/* Season */}
       <Grid item xs={3} sm={2} md={1.5}>
         <TextField
-          label="Season"
+          label={t('orderPlanning.season', 'Season')}
           variant="outlined"
           value={selectedSeason || ""}
           inputProps={{ readOnly: true }}
@@ -72,7 +74,7 @@ const OrderToolbar = ({
       {/* Brand */}
       <Grid item xs={3} sm={2} md={1.5}>
         <TextField
-          label="Brand"
+          label={t('orderPlanning.brand', 'Brand')}
           variant="outlined"
           value={selectedBrand || ""}
           inputProps={{ readOnly: true }}

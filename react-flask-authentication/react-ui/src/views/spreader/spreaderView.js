@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import {
     Box,
     Typography,
@@ -24,12 +25,13 @@ import {
     DialogActions,
     TextField
 } from '@mui/material';
-import LayersIcon from '@mui/icons-material/Layers';
+
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import useCollapseMenu from '../../hooks/useCollapseMenu';
 
 const SpreaderView = () => {
+    const { t } = useTranslation();
     // Automatically collapse the sidebar menu
     useCollapseMenu(true);
 
@@ -61,7 +63,7 @@ const SpreaderView = () => {
 
     useEffect(() => {
         if (!spreaderDevice) {
-            setError("Invalid spreader username format. Expected format: Spreader1, Spreader2, etc.");
+            setError(t('spreader.invalidUsername'));
             setLoading(false);
             return;
         }
@@ -162,7 +164,7 @@ const SpreaderView = () => {
         if (activeSpreadingMattress) {
             setSnackbar({
                 open: true,
-                message: `Cannot start spreading. Mattress ${activeSpreadingMattress.mattress} is already being spread on ${spreaderDevice}.`,
+                message: t('spreader.cannotStartSpreading', { mattress: activeSpreadingMattress.mattress, device: spreaderDevice }),
                 severity: "error"
             });
             return;
@@ -226,7 +228,7 @@ const SpreaderView = () => {
         if (!actualLayers || isNaN(actualLayers) || Number(actualLayers) <= 0) {
             setSnackbar({
                 open: true,
-                message: "Please enter a valid number of layers",
+                message: t('spreader.enterValidLayers'),
                 severity: "error"
             });
             return;
@@ -303,7 +305,7 @@ const SpreaderView = () => {
 
                         {mattress.marker && (
                             <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                <strong>Marker:</strong> {mattress.marker}
+                                <strong>{t('kanban.marker')}:</strong> {mattress.marker}
                             </Typography>
                         )}
                     </Box>
@@ -340,7 +342,7 @@ const SpreaderView = () => {
                                 <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
                                 {mattress.total_pcs}
                                 </Typography>
-                                <Typography sx={{ ml: 1, fontSize: '1rem', color: '#1976d2' }}>pcs</Typography>
+                                <Typography sx={{ ml: 1, fontSize: '1rem', color: '#1976d2' }}>{t('kanban.pieces')}</Typography>
                             </Box>
                         )}
                         <Box sx={{
@@ -354,9 +356,8 @@ const SpreaderView = () => {
                             minWidth: 100
                         }}>
                             <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
-                                {mattress.layers || 0}
+                                {mattress.layers || 0} {t('kanban.layers')}
                             </Typography>
-                            <LayersIcon sx={{ fontSize: 26, color: '#9c27b0', ml: 1 }} />
                         </Box>
                     </Box>
                 </Box>
@@ -366,23 +367,23 @@ const SpreaderView = () => {
                 {/* Details section */}
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
                     <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Order:</strong> {mattress.order_commessa}</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Fabric:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Bagno:</strong> {mattress.dye_lot}</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Spreading Method:</strong> {mattress.spreading_method}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.order')}:</strong> {mattress.order_commessa}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.fabric')}:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('table.bagno')}:</strong> {mattress.dye_lot}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.spreadingMethod')}:</strong> {mattress.spreading_method}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Width:</strong> {mattress.width} cm</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('table.width')}:</strong> {mattress.width} cm</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}>
-                            <strong>Length:</strong> {mattress.marker_length || 'N/A'} m
+                            <strong>{t('table.length')}:</strong> {mattress.marker_length || t('table.na')} m
                             {/* Only show extra for non-collaretto weft/bias mattresses */}
                             {mattress.extra && mattress.extra > 0 &&
                              mattress.item_type !== 'ASW' && mattress.item_type !== 'ASB' && (
-                                <span style={{ color: '#666', fontSize: '0.9em' }}> (+{mattress.extra} extra)</span>
+                                <span style={{ color: '#666', fontSize: '0.9em' }}> (+{mattress.extra} {t('common.extra', 'extra')})</span>
                             )}
                         </Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sector:</strong> {mattress.sector || 'N/A'}</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Sizes:</strong> {mattress.sizes || 'N/A'}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.sector', 'Sector')}:</strong> {mattress.sector || t('table.na')}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.sizes')}:</strong> {mattress.sizes || t('table.na')}</Typography>
                     </Grid>
                 </Grid>
 
@@ -398,9 +399,9 @@ const SpreaderView = () => {
                                 activeSpreadingMattress !== null
                             }
                             onClick={() => handleStartSpreading(mattress.id)}
-                            title={activeSpreadingMattress ? `Cannot start spreading: Mattress ${activeSpreadingMattress.mattress} is already being spread on ${spreaderDevice}` : ""}
+                            title={activeSpreadingMattress ? t('spreader.cannotStartSpreading', { mattress: activeSpreadingMattress.mattress, device: spreaderDevice }) : ""}
                         >
-                            {processingMattress === mattress.id ? 'Processing...' : 'Start Spreading'}
+                            {processingMattress === mattress.id ? t('spreader.processing') : t('spreader.startSpreading')}
                         </Button>
                     </Box>
                 )}
@@ -412,7 +413,7 @@ const SpreaderView = () => {
                             disabled={processingMattress === mattress.id || !selectedOperator}
                             onClick={() => handleOpenFinishDialog(mattress)}
                         >
-                            {processingMattress === mattress.id ? 'Processing...' : 'Finish Spreading'}
+                            {processingMattress === mattress.id ? t('spreader.processing') : t('spreader.finishSpreading')}
                         </Button>
                     </Box>
                 )}
@@ -440,7 +441,7 @@ const SpreaderView = () => {
         return (
             <Box m={2}>
                 <Alert severity="warning">
-                    This page is only accessible to users with the Spreader role.
+                    {t('spreader.accessRestricted', 'This page is only accessible to users with the Spreader role.')}
                 </Alert>
             </Box>
         );
@@ -452,7 +453,7 @@ const SpreaderView = () => {
                 title={
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="h2" component="span">
-                            {`Spreader ${spreaderDevice} Job Queue`}
+                            {t('spreader.jobQueue', `Spreader ${spreaderDevice} Job Queue`)}
                         </Typography>
                         {refreshing && (
                             <CircularProgress
@@ -466,19 +467,19 @@ const SpreaderView = () => {
                 secondary={
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <FormControl sx={{ minWidth: 200 }}>
-                            <InputLabel id="operator-select-label">Current Operator</InputLabel>
+                            <InputLabel id="operator-select-label">{t('spreader.selectOperator')}</InputLabel>
                             <Select
                                 labelId="operator-select-label"
                                 id="operator-select"
                                 value={selectedOperator}
-                                label="Current Operator"
+                                label={t('spreader.selectOperator')}
                                 onChange={(e) => setSelectedOperator(e.target.value)}
                                 size="small"
                                 disabled={loadingOperators}
                             >
                                 {operators.length === 0 ? (
                                     <MenuItem value="" disabled>
-                                        No operators available
+                                        {t('common.noOperatorsAvailable')}
                                     </MenuItem>
                                 ) : (
                                     operators.map((op) => (
@@ -490,7 +491,7 @@ const SpreaderView = () => {
                             </Select>
                         </FormControl>
                         <Typography variant="caption" color="textSecondary" sx={{ ml: 2 }}>
-                            Last updated: {lastRefreshTime.toLocaleTimeString()}
+                            {t('common.lastUpdated')}: {lastRefreshTime.toLocaleTimeString()}
                         </Typography>
                     </Box>
                 }
@@ -498,23 +499,23 @@ const SpreaderView = () => {
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                            <Typography variant="h4" gutterBottom>1st Shift</Typography>
+                            <Typography variant="h4" gutterBottom>{t('kanban.firstShift')}</Typography>
                             <Divider sx={{ mb: 2 }} />
                             {mattresses.firstShift && mattresses.firstShift.length > 0 ? (
                                 mattresses.firstShift.map(renderMattressCard)
                             ) : (
-                                <Typography variant="body2" color="textSecondary">No mattresses assigned for 1st shift</Typography>
+                                <Typography variant="body2" color="textSecondary">{t('spreader.noMattressesFirstShift', 'No mattresses assigned for 1st shift')}</Typography>
                             )}
                         </Paper>
                     </Grid>
                     <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                            <Typography variant="h4" gutterBottom>2nd Shift</Typography>
+                            <Typography variant="h4" gutterBottom>{t('kanban.secondShift')}</Typography>
                             <Divider sx={{ mb: 2 }} />
                             {mattresses.secondShift && mattresses.secondShift.length > 0 ? (
                                 mattresses.secondShift.map(renderMattressCard)
                             ) : (
-                                <Typography variant="body2" color="textSecondary">No mattresses assigned for 2nd shift</Typography>
+                                <Typography variant="body2" color="textSecondary">{t('spreader.noMattressesSecondShift', 'No mattresses assigned for 2nd shift')}</Typography>
                             )}
                         </Paper>
                     </Grid>
@@ -545,11 +546,11 @@ const SpreaderView = () => {
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', pt: 1 }}>
                         <Typography variant="body1" gutterBottom>
-                            Please enter the actual number of layers loaded:
+                            {t('spreader.enterActualLayers', 'Please enter the actual number of layers loaded:')}
                         </Typography>
                         <TextField
                             margin="dense"
-                            label="Actual Layers"
+                            label={t('spreader.actualLayers')}
                             type="number"
                             fullWidth={false}
                             value={actualLayers}
@@ -566,10 +567,10 @@ const SpreaderView = () => {
                         />
                         {selectedMattress && (
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-                                <strong>Mattress:</strong> {selectedMattress.mattress}<br />
-                                <strong>Planned Layers:</strong> {selectedMattress.layers}<br />
-                                <strong>Planned Consumption:</strong> {selectedMattress.consumption} m<br />
-                                <strong>Estimated Actual Consumption:</strong> {
+                                <strong>{t('spreader.mattressInfo')}:</strong> {selectedMattress.mattress}<br />
+                                <strong>{t('spreader.plannedLayers')}:</strong> {selectedMattress.layers}<br />
+                                <strong>{t('spreader.plannedConsumption')}:</strong> {selectedMattress.consumption} m<br />
+                                <strong>{t('spreader.estimatedActualConsumption')}:</strong> {
                                     actualLayers && selectedMattress.consumption && selectedMattress.layers ?
                                     ((selectedMattress.consumption / selectedMattress.layers) * Number(actualLayers)).toFixed(2) :
                                     '0.00'
@@ -616,14 +617,14 @@ const SpreaderView = () => {
                     </Button>
                 </Box>
                 <DialogActions>
-                    <Button onClick={handleCloseFinishDialog}>Cancel</Button>
+                    <Button onClick={handleCloseFinishDialog}>{t('common.cancel')}</Button>
                     <Button
                         onClick={handleFinishSpreading}
                         variant="contained"
                         color="secondary"
                         disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
                     >
-                        {processingMattress === (selectedMattress?.id) ? 'Processing...' : 'Confirm'}
+                        {processingMattress === (selectedMattress?.id) ? t('spreader.processing') : t('common.confirm')}
                     </Button>
                 </DialogActions>
             </Dialog>

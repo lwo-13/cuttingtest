@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // material-ui
 import { Box, Grid, Typography } from '@mui/material';
@@ -16,6 +17,7 @@ import { gridSpacing } from './../../../store/constant';
 //-----------------------|| DEFAULT DASHBOARD ||-----------------------//
 
 const Dashboard = () => {
+    const { t } = useTranslation();
     const [isLoading, setLoading] = useState(true);
     useEffect(() => {
         setLoading(false);
@@ -74,10 +76,10 @@ const Dashboard = () => {
                 >
                     <ConstructionIcon sx={{ fontSize: 80, color: 'orange' }} />
                     <Typography variant="h4" sx={{ mt: 2 }}>
-                        WORK IN PROGRESS
+                        {t('dashboard.workInProgress', 'WORK IN PROGRESS')}
                     </Typography>
                     <Typography variant="subtitle1" sx={{ mt: 1 }}>
-                        Cutting λν - ZALLI
+                        {t('dashboard.cuttingSystem', 'Cutting λν - ZALLI')}
                     </Typography>
                 </Box>
             </Box>

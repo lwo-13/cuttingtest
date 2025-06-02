@@ -1,16 +1,17 @@
 // assets
 import { IconClipboardList, IconLayoutCollage, IconBrandAppleArcade, IconSquareRoundedCheck } from '@tabler/icons';
+import i18n from '../i18n';
 
 //-----------------------|| TABLES MENU ITEMS ||-----------------------//
 
 const tables = {
   id: 'tables',
-  title: 'Tables',
+  title: i18n.t('sidebar.tables'),
   type: 'group',
   children: [
     {
         id: 'orders',
-        title: 'Orders',
+        title: i18n.t('sidebar.orders'),
         type: 'item',
         url: '/tables/orders',
         icon: IconClipboardList,
@@ -18,7 +19,7 @@ const tables = {
     },
     {
       id: 'markerdb',           // Unique ID for your page
-      title: 'Marker Database',         // Label in the sidebar
+      title: i18n.t('sidebar.markerDatabase'),         // Label in the sidebar
       type: 'item',                 // It's a single link
       url: '/tables/markerdb', // URL route (adjust as needed)
       icon: IconLayoutCollage,    // Choose your icon
@@ -26,7 +27,7 @@ const tables = {
     },
     {
       id: 'padprints',
-      title: 'Pad Prints',
+      title: i18n.t('sidebar.padPrints'),
       type: 'collapse',
       icon: IconBrandAppleArcade,
       children: [
