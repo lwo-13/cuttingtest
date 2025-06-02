@@ -52,11 +52,15 @@ def token_required(f):
             data = jwt.decode(token, BaseConfig.SECRET_KEY, algorithms=["HS256"])
             current_user = Users.query.filter_by(username=data["username"]).first()
 
-            if not isinstance(current_user, Users):  # ✅ Ensure it's a User object
-                print(f"DEBUG: User lookup failed for token: {token}")
+            if not isinstance(current_user, Users):
                 return {"success": False, "msg": "User not found."}, 400
-
-            return f(current_user, *args, **kwargs)
+            # For Flask-RESTX Resource classes, we need to pass current_user differently
+            if args and hasattr(args[0], '__class__') and 'Resource' in str(args[0].__class__):
+                # This is a Flask-RESTX Resource method call
+                return f(args[0], current_user, *args[1:], **kwargs)
+            else:
+                # This is a regular function call
+                return f(current_user, *args, **kwargs)
 
         except jwt.ExpiredSignatureError:
             return {"success": False, "msg": "Token expired"}, 400

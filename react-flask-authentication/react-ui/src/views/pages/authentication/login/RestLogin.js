@@ -25,7 +25,7 @@ import {
 // third party
 import * as Yup from 'yup';
 import { Formik } from 'formik';
-import axios from 'utils/axiosInstance';
+import axiosInstance from 'utils/axiosInstance';
 
 // project imports
 import useScriptRef from '../../../../hooks/useScriptRef';
@@ -109,8 +109,8 @@ const RestLogin = (props, { ...others }) => {
                 })}
                 onSubmit={(values, { setErrors, setStatus, setSubmitting }) => {
                     try {
-                        axios
-                            .post(configData.API_SERVER + 'users/login', {
+                        axiosInstance
+                            .post('/users/login', {
                                 password: values.password,
                                 username: values.username
                             })

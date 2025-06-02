@@ -4,22 +4,24 @@ Copyright (c) 2019 - present AppSeed.us
 """
 
 import os
-import random
-import string
 from datetime import timedelta
+import pytz
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 class BaseConfig():
     
-    SECRET_KEY = os.getenv('SECRET_KEY') or ''.join(random.choice(string.ascii_lowercase) for _ in range(32))
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY') or ''.join(random.choice(string.ascii_lowercase) for _ in range(32))
+    SECRET_KEY = 'internal-app-secret-key'
+    JWT_SECRET_KEY = 'internal-app-jwt-key'
 
     GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
     GITHUB_CLIENT_SECRET = os.getenv('GITHUB_SECRET_KEY')
     
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Timezone configuration - Change this to your timezone
+    TIMEZONE = pytz.timezone('Europe/Sofia')  # Bulgaria timezone (UTC+2/UTC+3)
 
     # MS SQL Server Credentials
     DB_ENGINE = 'mssql+pyodbc'

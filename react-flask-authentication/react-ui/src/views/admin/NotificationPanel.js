@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 
 // material-ui
 import {
     Grid,
-    Card,
-    CardContent,
-    CardHeader,
     Typography,
     TextField,
     Button,
@@ -43,7 +39,6 @@ import { IconSend, IconUsers, IconTrash, IconAlertTriangle } from '@tabler/icons
 import MainCard from '../../ui-component/cards/MainCard';
 
 const NotificationPanel = () => {
-    const { t } = useTranslation();
     
     // Form state
     const [formData, setFormData] = useState({
@@ -75,20 +70,24 @@ const NotificationPanel = () => {
             const response = await axios.get('/notifications/active_users');
             if (response.data.success) {
                 setActiveUsers(response.data.data);
+            } else {
+                console.error('Error fetching active users:', response.data.message);
             }
         } catch (error) {
-            console.error('Error fetching active users:', error);
+            console.error('Error fetching active users:', error.response?.data?.message || error.message);
         }
     };
-    
+
     const fetchActiveNotifications = async () => {
         try {
             const response = await axios.get('/notifications/active');
             if (response.data.success) {
                 setActiveNotifications(response.data.data);
+            } else {
+                console.error('Error fetching active notifications:', response.data.message);
             }
         } catch (error) {
-            console.error('Error fetching active notifications:', error);
+            console.error('Error fetching active notifications:', error.response?.data?.message || error.message);
         }
     };
     
@@ -117,7 +116,7 @@ const NotificationPanel = () => {
             });
             return;
         }
-        
+
         setLoading(true);
         try {
             const response = await axios.post('/notifications/send', formData);
@@ -127,7 +126,7 @@ const NotificationPanel = () => {
                     message: 'Notification sent successfully!',
                     severity: 'success'
                 });
-                
+
                 // Reset form
                 setFormData({
                     title: '',
@@ -137,11 +136,15 @@ const NotificationPanel = () => {
                     expires_in_minutes: 60,
                     target_roles: []
                 });
-                
+
                 // Refresh notifications list
                 fetchActiveNotifications();
             } else {
-                throw new Error(response.data.message);
+                setSnackbar({
+                    open: true,
+                    message: `Error: ${response.data.message}`,
+                    severity: 'error'
+                });
             }
         } catch (error) {
             setSnackbar({
@@ -164,6 +167,12 @@ const NotificationPanel = () => {
                     severity: 'success'
                 });
                 fetchActiveNotifications();
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: `Error: ${response.data.message}`,
+                    severity: 'error'
+                });
             }
         } catch (error) {
             setSnackbar({

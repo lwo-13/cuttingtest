@@ -3,10 +3,10 @@ from functools import wraps
 import json
 
 import jwt
-from flask import Blueprint, request, Response, stream_with_context
+from flask import Blueprint, request
 from flask_restx import Namespace, Resource, fields
 
-from api.models import db, Users, SystemNotification, UserNotificationRead
+from api.models import db, Users, SystemNotification, UserNotificationRead, get_local_time
 from api.config import BaseConfig
 from api.routes.auth import token_required
 
@@ -27,10 +27,18 @@ notification_model = notifications_api.model('NotificationModel', {
 def admin_required(f):
     """Decorator to require admin privileges"""
     @wraps(f)
-    def decorated_function(current_user, *args, **kwargs):
+    def decorated_function(*args, **kwargs):
+        # For Flask-RESTX Resource classes, current_user is the second parameter
+        if len(args) >= 2 and hasattr(args[0], '__class__') and 'Resource' in str(args[0].__class__):
+            # Flask-RESTX Resource method: args[0] = self, args[1] = current_user
+            current_user = args[1]
+        else:
+            # Regular function: args[0] = current_user
+            current_user = args[0]
+
         if current_user.role not in ['Administrator', 'Manager', 'Project Admin']:
             return {"success": False, "msg": "Admin privileges required"}, 403
-        return f(current_user, *args, **kwargs)
+        return f(*args, **kwargs)
     return decorated_function
 
 @notifications_api.route('/send')
@@ -40,13 +48,14 @@ class SendNotificationResource(Resource):
     @notifications_api.expect(notification_model, validate=True)
     def post(self, current_user):
         """Send a system notification (Admin only)"""
+
         try:
             req_data = request.get_json()
             
             # Calculate expiration time
             expires_at = None
             if req_data.get('expires_in_minutes'):
-                expires_at = datetime.utcnow() + timedelta(minutes=req_data['expires_in_minutes'])
+                expires_at = get_local_time() + timedelta(minutes=req_data['expires_in_minutes'])
             
             # Handle target roles
             target_roles = None
@@ -80,13 +89,14 @@ class GetActiveNotificationsResource(Resource):
     @token_required
     def get(self, current_user):
         """Get active notifications for the current user"""
+
         try:
             # Get all active notifications
             query = SystemNotification.query.filter(
                 SystemNotification.is_active == True,
                 db.or_(
                     SystemNotification.expires_at.is_(None),
-                    SystemNotification.expires_at > datetime.utcnow()
+                    SystemNotification.expires_at > get_local_time()
                 )
             )
             
@@ -175,9 +185,10 @@ class GetActiveUsersResource(Resource):
     @admin_required
     def get(self, current_user):
         """Get list of currently active users (Admin only)"""
+
         try:
             # Get users with active JWT tokens (logged in within last hour)
-            cutoff_time = datetime.utcnow() - timedelta(hours=1)
+            cutoff_time = get_local_time() - timedelta(hours=1)
             
             # This is a simplified approach - in a real system you'd track user activity more precisely
             active_users = Users.query.filter(
@@ -202,70 +213,4 @@ class GetActiveUsersResource(Resource):
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
 
-# Server-Sent Events endpoint for real-time notifications
-@notifications_bp.route('/api/notifications/stream')
-def notification_stream():
-    """Server-Sent Events stream for real-time notifications"""
-    def event_stream():
-        # This is a basic implementation - in production you'd want to use Redis or similar
-        # for better scalability and persistence
-        while True:
-            try:
-                # Check for new notifications every 5 seconds
-                import time
-                time.sleep(5)
-                
-                # Get current user from token (simplified)
-                auth_header = request.headers.get('Authorization')
-                if auth_header:
-                    try:
-                        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-                        payload = jwt.decode(token, BaseConfig.SECRET_KEY, algorithms=['HS256'])
-                        username = payload['username']
-                        user = Users.get_by_username(username)
-                        
-                        if user:
-                            # Get unread notifications for this user
-                            notifications = SystemNotification.query.filter(
-                                SystemNotification.is_active == True,
-                                db.or_(
-                                    SystemNotification.expires_at.is_(None),
-                                    SystemNotification.expires_at > datetime.utcnow()
-                                )
-                            ).all()
-                            
-                            unread_notifications = []
-                            for notification in notifications:
-                                # Check role targeting
-                                if notification.target_roles:
-                                    target_roles = json.loads(notification.target_roles)
-                                    if user.role not in target_roles:
-                                        continue
-                                
-                                # Check if unread
-                                read_record = UserNotificationRead.query.filter_by(
-                                    user_id=user.id,
-                                    notification_id=notification.id
-                                ).first()
-                                
-                                if not read_record:
-                                    unread_notifications.append(notification.to_dict())
-                            
-                            if unread_notifications:
-                                yield f"data: {json.dumps({'notifications': unread_notifications})}\n\n"
-                    except:
-                        pass
-                        
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-    
-    return Response(
-        stream_with_context(event_stream()),
-        mimetype='text/event-stream',
-        headers={
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Cache-Control'
-        }
-    )
+# Note: SSE endpoint removed - using polling approach instead for better reliability

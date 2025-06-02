@@ -8,8 +8,16 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.inspection import inspect
-
+import pytz
 import uuid
+
+def get_local_time():
+    """Get current time in the configured timezone"""
+    from api.config import BaseConfig
+    utc_now = datetime.utcnow()
+    utc_time = pytz.utc.localize(utc_now)
+    local_time = utc_time.astimezone(BaseConfig.TIMEZONE)
+    return local_time.replace(tzinfo=None)  # Remove timezone info for database storage
 
 db = SQLAlchemy()
 
@@ -103,7 +111,7 @@ class SystemNotification(db.Model):
     notification_type = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='info')  # info, warning, error, success
     priority = db.Column(db.String(20, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='normal')  # low, normal, high, critical
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=get_local_time)
     expires_at = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     target_roles = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # JSON string of roles, null means all users
@@ -135,7 +143,7 @@ class UserNotificationRead(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     notification_id = db.Column(db.Integer, db.ForeignKey('system_notifications.id'), nullable=False)
-    read_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime, nullable=False, default=get_local_time)
 
     def __repr__(self):
         return f"UserNotificationRead: User {self.user_id} read notification {self.notification_id}"

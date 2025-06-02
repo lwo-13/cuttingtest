@@ -1,21 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'utils/axiosInstance';
 
 // material-ui
 import {
     Alert,
     AlertTitle,
     Snackbar,
-    Button,
     Box,
     Typography,
     Chip,
-    IconButton,
-    Collapse,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemSecondaryAction
+    IconButton
 } from '@mui/material';
 
 // icons
@@ -24,17 +18,8 @@ import { IconX, IconAlertTriangle, IconInfoCircle, IconCheck, IconExclamationMar
 const SystemNotificationAlert = () => {
     const [notifications, setNotifications] = useState([]);
     const [dismissedNotifications, setDismissedNotifications] = useState(new Set());
-    
-    useEffect(() => {
-        fetchNotifications();
-        
-        // Set up polling for new notifications every 30 seconds
-        const interval = setInterval(fetchNotifications, 30000);
-        
-        return () => clearInterval(interval);
-    }, []);
-    
-    const fetchNotifications = async () => {
+
+    const fetchNotifications = useCallback(async () => {
         try {
             const response = await axios.get('/notifications/active');
             if (response.data.success) {
@@ -43,24 +28,38 @@ const SystemNotificationAlert = () => {
                     notification => !dismissedNotifications.has(notification.id) && !notification.is_read
                 );
                 setNotifications(activeNotifications);
+            } else {
+                console.error('Error fetching notifications:', response.data.message);
             }
         } catch (error) {
-            console.error('Error fetching notifications:', error);
+            console.error('Error fetching notifications:', error.response?.data?.message || error.message);
         }
-    };
+    }, [dismissedNotifications]);
+
+    useEffect(() => {
+        fetchNotifications();
+
+        // Set up polling for new notifications every 30 seconds
+        const interval = setInterval(fetchNotifications, 30000);
+
+        return () => clearInterval(interval);
+    }, [fetchNotifications]);
     
     const handleDismiss = async (notificationId) => {
         try {
             // Mark as read on server
-            await axios.post(`/notifications/mark_read/${notificationId}`);
-            
-            // Add to local dismissed set
-            setDismissedNotifications(prev => new Set([...prev, notificationId]));
-            
-            // Remove from current notifications
-            setNotifications(prev => prev.filter(n => n.id !== notificationId));
+            const response = await axios.post(`/notifications/mark_read/${notificationId}`);
+            if (response.data.success) {
+                // Add to local dismissed set
+                setDismissedNotifications(prev => new Set([...prev, notificationId]));
+
+                // Remove from current notifications
+                setNotifications(prev => prev.filter(n => n.id !== notificationId));
+            } else {
+                console.error('Error dismissing notification:', response.data.message);
+            }
         } catch (error) {
-            console.error('Error dismissing notification:', error);
+            console.error('Error dismissing notification:', error.response?.data?.message || error.message);
         }
     };
     
