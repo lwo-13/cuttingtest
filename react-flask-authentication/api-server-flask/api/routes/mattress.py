@@ -479,7 +479,7 @@ class UpdatePrintTravelStatus(Resource):
 @mattress_api.route('/move_mattress/<int:mattress_id>', methods=['PUT'])
 class MoveMattressResource(Resource):
     def put(self, mattress_id):
-        """Completely rewritten robust mattress movement API"""
+        """Completely rewritten robust mattress movement API with MS validation"""
         data = request.get_json()
         target_device = data.get('device')
         target_day = data.get('day', 'today')
@@ -493,6 +493,21 @@ class MoveMattressResource(Resource):
         try:
             # Start transaction
             with db.session.begin():
+                # Get mattress info to check spreading method
+                mattress = db.session.query(Mattresses).filter_by(id=mattress_id).first()
+                if not mattress:
+                    return {"success": False, "message": "Mattress not found"}, 404
+
+                # MS (Manual Spreading) validation rules
+                if target_device == "MS":
+                    # Rule: Only MS mattresses can be placed on MS device
+                    if mattress.spreading_method != "MANUAL":
+                        return {"success": False, "message": "Only Manual Spreading (MS) mattresses can be assigned to MS device"}, 400
+                elif target_device in ["SP1", "SP2", "SP3"]:
+                    # Rule: MS mattresses cannot be placed on automatic spreaders
+                    if mattress.spreading_method == "MANUAL":
+                        return {"success": False, "message": "Manual Spreading (MS) mattresses cannot be assigned to automatic spreader devices. Use MS device instead."}, 400
+
                 # Get mattress phases
                 all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
                 if not all_phases:
@@ -526,7 +541,10 @@ class MoveMattressResource(Resource):
                         to_load_phase.device = target_device
                         to_load_phase.operator = operator
 
-                    # Handle kanban entry
+                    # Handle kanban entry - MS device doesn't use shifts
+                    if target_device == "MS":
+                        target_shift = None  # MS doesn't use shifts
+
                     if current_kanban:
                         # Update existing kanban entry
                         self._move_existing_kanban(current_kanban, target_day, target_shift, target_position)
@@ -786,15 +804,103 @@ class ApproveMattressesResource(Resource):
                 MattressPhase.status == "1 - TO LOAD"
             ).update({"active": True, "operator": operator}, synchronize_session='evaluate')
 
+            # Auto-assign MS mattresses to MS device
+            ms_mattresses = db.session.query(Mattresses).filter(
+                Mattresses.id.in_(mattress_ids),
+                Mattresses.spreading_method == "MANUAL"
+            ).all()
+
+            auto_assigned_count = 0
+            for mattress in ms_mattresses:
+                # Update the phase to assign to MS device
+                ms_phase = db.session.query(MattressPhase).filter(
+                    MattressPhase.mattress_id == mattress.id,
+                    MattressPhase.status == "1 - TO LOAD",
+                    MattressPhase.active == True
+                ).first()
+
+                if ms_phase:
+                    ms_phase.device = "MS"
+
+                    # Create kanban entry for MS device (no shift needed)
+                    max_position = db.session.query(db.func.max(MattressKanban.position)).filter(
+                        MattressKanban.day == 'today',
+                        MattressKanban.shift.is_(None)  # MS doesn't use shifts
+                    ).scalar() or 0
+
+                    new_kanban = MattressKanban(
+                        mattress_id=mattress.id,
+                        day='today',
+                        shift=None,  # MS doesn't use shifts
+                        position=max_position + 1
+                    )
+                    db.session.add(new_kanban)
+                    auto_assigned_count += 1
+
             db.session.commit()
 
-            return {"success": True, "message": f"Deactivated: {deactivated}, Activated: {activated}"}, 200
+            message = f"Deactivated: {deactivated}, Activated: {activated}"
+            if auto_assigned_count > 0:
+                message += f", Auto-assigned {auto_assigned_count} MS mattresses to MS device"
+
+            return {"success": True, "message": message}, 200
 
         except Exception as e:
             db.session.rollback()
             import traceback
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/transition_day', methods=['POST'])
+class TransitionDayResource(Resource):
+    """Transition all tomorrow items to today with proper priority handling"""
+
+    def post(self):
+        """Move all 'tomorrow' items to 'today' while preserving existing 'today' items priority"""
+        try:
+            with db.session.begin():
+                # Get all current 'today' items to determine max positions per shift
+                today_items = db.session.query(MattressKanban).filter_by(day='today').all()
+
+                # Calculate max positions for each shift in 'today'
+                shift_max_positions = {}
+                for item in today_items:
+                    shift_key = item.shift
+                    if shift_key not in shift_max_positions:
+                        shift_max_positions[shift_key] = 0
+                    shift_max_positions[shift_key] = max(shift_max_positions[shift_key], item.position)
+
+                # Get all 'tomorrow' items
+                tomorrow_items = db.session.query(MattressKanban).filter_by(day='tomorrow').order_by(
+                    MattressKanban.shift, MattressKanban.position
+                ).all()
+
+                # Move 'tomorrow' items to 'today' with positions after existing 'today' items
+                for item in tomorrow_items:
+                    shift_key = item.shift
+                    # Get the next available position for this shift
+                    next_position = shift_max_positions.get(shift_key, 0) + 1
+
+                    # Update the item
+                    item.day = 'today'
+                    item.position = next_position
+
+                    # Update max position for this shift
+                    shift_max_positions[shift_key] = next_position
+
+                # Commit the transaction
+                db.session.commit()
+
+                moved_count = len(tomorrow_items)
+                return {
+                    "success": True,
+                    "message": f"Successfully moved {moved_count} items from tomorrow to today",
+                    "moved_count": moved_count
+                }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Error during day transition: {str(e)}"}, 500
 
 @mattress_api.route('/update_status/<int:mattress_id>', methods=['PUT'])
 class UpdateMattressStatusResource(Resource):
