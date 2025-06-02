@@ -94,6 +94,56 @@ class JWTTokenBlocklist(db.Model):
         db.session.add(self)
         db.session.commit()
 
+class SystemNotification(db.Model):
+    __tablename__ = 'system_notifications'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    message = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    notification_type = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='info')  # info, warning, error, success
+    priority = db.Column(db.String(20, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='normal')  # low, normal, high, critical
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    target_roles = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # JSON string of roles, null means all users
+
+    def __repr__(self):
+        return f"SystemNotification: {self.title}"
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'message': self.message,
+            'notification_type': self.notification_type,
+            'priority': self.priority,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'is_active': self.is_active,
+            'target_roles': self.target_roles
+        }
+
+class UserNotificationRead(db.Model):
+    __tablename__ = 'user_notification_read'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    notification_id = db.Column(db.Integer, db.ForeignKey('system_notifications.id'), nullable=False)
+    read_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"UserNotificationRead: User {self.user_id} read notification {self.notification_id}"
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+
 class MarkerHeader(db.Model):
     __tablename__ = 'marker_headers'
 

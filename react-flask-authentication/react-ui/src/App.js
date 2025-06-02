@@ -12,6 +12,8 @@ import theme from './themes';
 // project imports
 import NavigationScroll from './layout/NavigationScroll';
 import { BadgeCountProvider } from './contexts/BadgeCountContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import SystemNotificationAlert from './components/SystemNotificationAlert';
 
 //-----------------------|| APP ||-----------------------//
 
@@ -31,9 +33,12 @@ const App = () => {
                 }}
                 />
                 <BadgeCountProvider>
-                    <NavigationScroll>
-                        <Routes />
-                    </NavigationScroll>
+                    <NotificationProvider>
+                        <NavigationScroll>
+                            <Routes />
+                            <SystemNotificationAlert />
+                        </NavigationScroll>
+                    </NotificationProvider>
                 </BadgeCountProvider>
             </ThemeProvider>
         </StyledEngineProvider>

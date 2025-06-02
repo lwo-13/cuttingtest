@@ -47,6 +47,9 @@ const CutterView = Loadable(lazy(() => import('../views/cutter/cutterView')));
 const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
 const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
 
+// admin routing
+const NotificationPanel = Loadable(lazy(() => import('../views/admin/NotificationPanel')));
+
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
 const MainRoutes = () => {
@@ -81,7 +84,8 @@ const MainRoutes = () => {
                 '/spreader/view',
                 '/cutter/view',
                 '/operators/spreader-management',
-                '/operators/cutter-management'
+                '/operators/cutter-management',
+                '/admin/notifications'
             ]}
         >
             <MainLayout>
@@ -131,6 +135,12 @@ const MainRoutes = () => {
                         <Route path="/operators/cutter-management">
                             <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
                                 <CutterOperatorManagement />
+                            </RoleGuard>
+                        </Route>
+
+                        <Route path="/admin/notifications">
+                            <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
+                                <NotificationPanel />
                             </RoleGuard>
                         </Route>
                     </AuthGuard>

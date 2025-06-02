@@ -6,13 +6,14 @@ import planning from './planning';
 import spreader from './spreader';
 import cutter from './cutter';
 import operators from './operators';
+import { admin } from './admin';
 import { utilities } from './utilities';
 import { other } from './other';
 
 //-----------------------|| MENU ITEMS ||-----------------------//
 
 const menuItems = {
-    items: [dashboard, planning, todo, tables, importPrintTools, spreader, cutter, operators]
+    items: [dashboard, planning, todo, tables, importPrintTools, spreader, cutter, operators, admin]
 };
 
 export default menuItems;
