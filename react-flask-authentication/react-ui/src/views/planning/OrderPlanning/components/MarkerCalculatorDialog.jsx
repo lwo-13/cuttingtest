@@ -18,7 +18,9 @@ import {
     Divider,
     IconButton,
     Chip,
-    Autocomplete
+    Autocomplete,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Add, Delete, Calculate } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
@@ -43,6 +45,9 @@ const MarkerCalculatorDialog = ({
 
     // State to prevent duplicate loading requests
     const [isLoading, setIsLoading] = useState(false);
+
+    // State for success snackbar
+    const [showSuccessSnackbar, setShowSuccessSnackbar] = useState(false);
 
     // Get current table's markers
     const testMarkers = testMarkersByTable[tableId] || [];
@@ -97,6 +102,24 @@ const MarkerCalculatorDialog = ({
                 ? markersOrUpdater(prev[tableId] || [])
                 : markersOrUpdater
         }));
+    };
+
+    // Generate marker name based on style and quantities
+    const generateMarkerName = (quantities, index) => {
+        const nonZeroQuantities = [];
+        orderSizeNames.forEach(sizeName => {
+            const qty = parseInt(quantities[sizeName]) || 0;
+            if (qty > 0) {
+                nonZeroQuantities.push(`${qty}${sizeName}`);
+            }
+        });
+
+        if (nonZeroQuantities.length > 0) {
+            const quantitiesStr = nonZeroQuantities.join('');
+            return `${selectedStyle}-${quantitiesStr} ${index}`;
+        } else {
+            return `${selectedStyle}-Marker ${index}`;
+        }
     };
 
     const addNewMarker = () => {
@@ -239,15 +262,14 @@ const MarkerCalculatorDialog = ({
                 table_id: tableId,
                 order_commessa: selectedOrder.id,  // Use selectedOrder.id instead of selectedOrder.commessa
                 selected_baseline: selectedBaseline,
+                style: selectedStyle,  // Add style for marker naming
                 markers: markersData
             };
-
-            console.log('Sending payload:', payload);  // Debug log
 
             const response = await axios.post('/marker_calculator/save', payload);
 
             if (response.data.success) {
-                console.log('Calculator data saved successfully');
+                setShowSuccessSnackbar(true);
                 return true;
             } else {
                 console.error('Failed to save calculator data:', response.data.message);
@@ -294,11 +316,6 @@ const MarkerCalculatorDialog = ({
                 const qtyWithLayers = qty * markerLayers;
                 calculatedTotals.bySize[sizeName] += qtyWithLayers;
                 calculatedTotals.totalPiecesWithLayers += qtyWithLayers;
-
-                // Debug logging
-                if (qty > 0) {
-                    console.log(`Marker: ${marker.markerName || 'Unnamed'}, Size: ${sizeName}, Qty: ${qty}, Layers: ${markerLayers}, Total: ${qtyWithLayers}`);
-                }
             });
         });
 
@@ -432,9 +449,9 @@ const MarkerCalculatorDialog = ({
                                         <TableCell sx={{ padding: '4px', minWidth: '180px', maxWidth: '200px', textAlign: 'center' }}>
                                             <TextField
                                                 variant="outlined"
-                                                value={marker.markerName || `Marker ${index + 1}`}
+                                                value={marker.markerName || generateMarkerName(marker.quantities, index + 1)}
                                                 onChange={(e) => updateMarkerField(marker.id, "markerName", e.target.value)}
-                                                placeholder={`Marker ${index + 1}`}
+                                                placeholder={generateMarkerName(marker.quantities, index + 1)}
                                                 error={isMarkerNameDuplicate(marker.id, marker.markerName)}
                                                 helperText={isMarkerNameDuplicate(marker.id, marker.markerName) ? "Duplicate name" : ""}
                                                 sx={{
@@ -581,6 +598,23 @@ const MarkerCalculatorDialog = ({
                     Close Without Saving
                 </Button>
             </DialogActions>
+
+            {/* Success Snackbar */}
+            <Snackbar
+                open={showSuccessSnackbar}
+                autoHideDuration={3000}
+                onClose={() => setShowSuccessSnackbar(false)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert
+                    onClose={() => setShowSuccessSnackbar(false)}
+                    severity="success"
+                    variant="filled"
+                    sx={{ width: '100%' }}
+                >
+                    Calculator data saved successfully!
+                </Alert>
+            </Snackbar>
         </Dialog>
     );
 };

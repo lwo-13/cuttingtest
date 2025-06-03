@@ -7,13 +7,34 @@ import traceback
 marker_calculator_bp = Blueprint('marker_calculator_bp', __name__)
 marker_calculator_api = Namespace('marker_calculator', description="Marker Calculator Data Management")
 
+def generate_marker_name(marker_data, style, index):
+    """Generate a marker name based on style and quantities"""
+    quantities = marker_data.get('quantities', {})
+
+    # Filter out zero quantities and build the name
+    non_zero_quantities = []
+    for size, qty in quantities.items():
+        try:
+            qty_value = int(qty) if qty != '' else 0
+            if qty_value > 0:
+                non_zero_quantities.append(f"{qty_value}{size}")
+        except (ValueError, TypeError):
+            continue
+
+    # Build the marker name
+    if non_zero_quantities:
+        quantities_str = "".join(non_zero_quantities)
+        return f"{style}-{quantities_str} {index}"
+    else:
+        # Fallback if no quantities
+        return f"{style}-Marker {index}"
+
 @marker_calculator_api.route('/save', methods=['POST'])
 class SaveCalculatorData(Resource):
     def post(self):
         """Save calculator data for a specific table and order"""
         try:
             data = request.get_json()
-            print(f"Received data: {data}")  # Debug log
 
             # Validate required fields
             required_fields = ['table_id', 'order_commessa', 'selected_baseline', 'markers']
@@ -24,6 +45,7 @@ class SaveCalculatorData(Resource):
             table_id = data['table_id']
             order_commessa = data['order_commessa']
             selected_baseline = data['selected_baseline']
+            style = data.get('style', 'STYLE')  # Default to 'STYLE' if not provided
             markers_data = data['markers']
 
             # Check if calculator data already exists for this table and order
@@ -60,15 +82,12 @@ class SaveCalculatorData(Resource):
                 return {"success": False, "message": "Duplicate marker names are not allowed within the same calculator"}, 400
 
             # Save markers and quantities
-            print(f"Processing {len(markers_data)} markers")  # Debug log
             for index, marker_data in enumerate(markers_data):
                 marker_name = marker_data.get('marker_name', '').strip()
 
-                # Use default name if empty
+                # Use default name if empty - generate based on style and quantities
                 if not marker_name:
-                    marker_name = f"Marker {index + 1}"
-
-                print(f"Saving marker: {marker_name}, layers: {marker_data.get('layers', 1)}")  # Debug log
+                    marker_name = generate_marker_name(marker_data, style, index + 1)
 
                 marker = MarkerCalculatorMarker(
                     calculator_data_id=calculator_data.id,
@@ -80,12 +99,10 @@ class SaveCalculatorData(Resource):
 
                 # Save quantities for this marker
                 quantities = marker_data.get('quantities', {})
-                print(f"Saving quantities for {marker_name}: {quantities}")  # Debug log
                 for size, quantity in quantities.items():
                     # Save all quantities (including zeros) for completeness
                     try:
                         quantity_value = int(quantity) if quantity != '' else 0
-                        print(f"  - Size {size}: {quantity_value}")  # Debug log
                         quantity_record = MarkerCalculatorQuantity(
                             marker_id=marker.id,
                             size=size,
@@ -93,7 +110,7 @@ class SaveCalculatorData(Resource):
                         )
                         db.session.add(quantity_record)
                     except (ValueError, TypeError):
-                        print(f"  - Skipping invalid quantity for size {size}: {quantity}")  # Debug log
+                        # Skip invalid quantity values
                         continue
 
             db.session.commit()
