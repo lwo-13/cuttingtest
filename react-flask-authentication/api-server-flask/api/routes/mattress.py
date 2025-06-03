@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, SystemSettings
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
 import time
+from datetime import datetime, date
 from sqlalchemy.exc import OperationalError
 
 mattress_bp = Blueprint('mattress_bp', __name__)
@@ -851,12 +852,42 @@ class ApproveMattressesResource(Resource):
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
 
-@mattress_api.route('/transition_day', methods=['POST'])
-class TransitionDayResource(Resource):
-    """Transition all tomorrow items to today with proper priority handling"""
+@mattress_api.route('/check_day_transition', methods=['POST'])
+class CheckDayTransitionResource(Resource):
+    """Check if day transition is needed and perform it if necessary"""
 
     def post(self):
-        """Move all 'tomorrow' items to 'today' while preserving existing 'today' items priority"""
+        """Check if we need to transition from tomorrow to today based on database-stored date"""
+        try:
+            today_str = date.today().isoformat()  # Format: YYYY-MM-DD
+
+            # Get the last transition date from database
+            last_transition_setting = db.session.query(SystemSettings).filter_by(
+                setting_key='last_day_transition'
+            ).first()
+
+            last_transition_date = None
+            if last_transition_setting:
+                last_transition_date = last_transition_setting.setting_value
+
+            # If we haven't transitioned today, perform the transition
+            if last_transition_date != today_str:
+                return self._perform_transition(today_str)
+            else:
+                # Already transitioned today
+                return {
+                    "success": True,
+                    "message": "Day transition already completed for today",
+                    "moved_count": 0,
+                    "already_done": True
+                }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Error checking day transition: {str(e)}"}, 500
+
+    def _perform_transition(self, today_str):
+        """Perform the actual transition from tomorrow to today"""
         try:
             with db.session.begin():
                 # Get all current 'today' items to determine max positions per shift
@@ -888,6 +919,21 @@ class TransitionDayResource(Resource):
                     # Update max position for this shift
                     shift_max_positions[shift_key] = next_position
 
+                # Update or create the last transition date setting
+                last_transition_setting = db.session.query(SystemSettings).filter_by(
+                    setting_key='last_day_transition'
+                ).first()
+
+                if last_transition_setting:
+                    last_transition_setting.setting_value = today_str
+                    last_transition_setting.updated_at = datetime.now()
+                else:
+                    new_setting = SystemSettings(
+                        setting_key='last_day_transition',
+                        setting_value=today_str
+                    )
+                    db.session.add(new_setting)
+
                 # Commit the transaction
                 db.session.commit()
 
@@ -895,12 +941,13 @@ class TransitionDayResource(Resource):
                 return {
                     "success": True,
                     "message": f"Successfully moved {moved_count} items from tomorrow to today",
-                    "moved_count": moved_count
+                    "moved_count": moved_count,
+                    "already_done": False
                 }, 200
 
         except Exception as e:
             db.session.rollback()
-            return {"success": False, "message": f"Error during day transition: {str(e)}"}, 500
+            raise e
 
 @mattress_api.route('/update_status/<int:mattress_id>', methods=['PUT'])
 class UpdateMattressStatusResource(Resource):
