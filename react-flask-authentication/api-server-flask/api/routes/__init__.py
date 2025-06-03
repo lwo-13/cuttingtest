@@ -38,7 +38,6 @@ def register_blueprints(app):
     app.register_blueprint(collaretto_bp, url_prefix="/api/collaretto")
     app.register_blueprint(operators_bp, url_prefix="/api/operators")
     app.register_blueprint(cutter_operators_bp, url_prefix="/api/cutter_operators")
-    app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(marker_calculator_bp, url_prefix="/api/marker_calculator")
 
     # Attach Namespaces so they appear in the Swagger docs
