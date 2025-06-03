@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 const devices = ["SP0", "SP1", "SP2", "SP3", "MS"];
 
-const FilterBar = ({ selectedDay, setSelectedDay, onTransitionDay, isTransitioning }) => {
+const FilterBar = ({ selectedDay, setSelectedDay }) => {
   const { t } = useTranslation();
 
   return (
@@ -44,10 +44,8 @@ const KanbanBoard = () => {
   const scrollContainerRef = useRef(null);
   const scrollAnimationRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
   const [showTransitionAlert, setShowTransitionAlert] = useState(false);
-  const lastTransitionDateRef = useRef(null);
 
   const handleDragScroll = (e) => {
     const container = scrollContainerRef.current;
@@ -128,65 +126,28 @@ const KanbanBoard = () => {
       });
   };
 
-  // Function to handle manual day transition
-  const handleDayTransition = async () => {
-    setIsTransitioning(true);
-    try {
-      const response = await axios.post('/mattress/transition_day');
-      if (response.data.success) {
-        setTransitionMessage(`Successfully moved ${response.data.moved_count} items from tomorrow to today`);
-        setShowTransitionAlert(true);
-        // Update the last transition date
-        lastTransitionDateRef.current = new Date().toDateString();
-        localStorage.setItem('lastTransitionDate', lastTransitionDateRef.current);
-        // Refresh the current view
-        fetchMattresses();
-      } else {
-        setTransitionMessage(`Error: ${response.data.message}`);
-        setShowTransitionAlert(true);
-      }
-    } catch (error) {
-      console.error('Day transition failed:', error);
-      setTransitionMessage(`Failed to transition day: ${error.message}`);
-      setShowTransitionAlert(true);
-    } finally {
-      setIsTransitioning(false);
-    }
-  };
-
-  // Function to check if day transition is needed
+  // Function to check if day transition is needed (database-based)
   const checkForDayTransition = async () => {
-    const today = new Date().toDateString();
-    const lastTransition = lastTransitionDateRef.current || localStorage.getItem('lastTransitionDate');
-
-    // If we haven't transitioned today, automatically perform the transition
-    if (lastTransition !== today) {
-      console.log('New day detected, performing automatic day transition');
-      try {
-        const response = await axios.post('/mattress/transition_day');
-        if (response.data.success) {
-          console.log(`Auto-transition successful: moved ${response.data.moved_count} items from tomorrow to today`);
-          // Update the last transition date
-          lastTransitionDateRef.current = today;
-          localStorage.setItem('lastTransitionDate', today);
-          // Refresh the current view to show the changes
-          fetchMattresses();
-          // Show notification about automatic transition
+    try {
+      const response = await axios.post('/mattress/check_day_transition');
+      if (response.data.success) {
+        if (!response.data.already_done && response.data.moved_count > 0) {
+          // Show notification only if transition actually happened
           setTransitionMessage(`Automatic day transition: moved ${response.data.moved_count} items from tomorrow to today`);
           setShowTransitionAlert(true);
-        } else {
-          console.error('Auto-transition failed:', response.data.message);
+          // Refresh the current view to show the changes
+          fetchMattresses();
         }
-      } catch (error) {
-        console.error('Auto-transition error:', error);
+      } else {
+        console.error('Day transition check failed:', response.data.message);
       }
+    } catch (error) {
+      console.error('Day transition check error:', error);
     }
   };
 
   // Check for day transition on component mount and periodically
   useEffect(() => {
-    // Load last transition date from localStorage
-    lastTransitionDateRef.current = localStorage.getItem('lastTransitionDate');
     checkForDayTransition();
 
     // Check every hour for day changes
@@ -370,8 +331,6 @@ const KanbanBoard = () => {
       <FilterBar
         selectedDay={selectedDay}
         setSelectedDay={setSelectedDay}
-        onTransitionDay={handleDayTransition}
-        isTransitioning={isTransitioning}
       />
       <DndProvider backend={HTML5Backend}>
         <Box
