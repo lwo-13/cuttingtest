@@ -15,7 +15,6 @@ from .padprint import padprint_bp, padprint_api
 from .collaretto import collaretto_bp, collaretto_api
 from .operators import operators_bp, operators_api  # Spreader operators module
 from .cutter_operators import cutter_operators_bp, cutter_operators_api  # Cutter operators module
-from .notifications import notifications_bp, notifications_api  # System notifications module
 from .marker_calculator import marker_calculator_bp, marker_calculator_api  # Marker calculator module
 
 # Define the main RESTx API with Swagger documentation settings
@@ -39,7 +38,6 @@ def register_blueprints(app):
     app.register_blueprint(collaretto_bp, url_prefix="/api/collaretto")
     app.register_blueprint(operators_bp, url_prefix="/api/operators")
     app.register_blueprint(cutter_operators_bp, url_prefix="/api/cutter_operators")
-    app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(marker_calculator_bp, url_prefix="/api/marker_calculator")
 
     # Attach Namespaces so they appear in the Swagger docs
@@ -52,5 +50,4 @@ def register_blueprints(app):
     rest_api.add_namespace(collaretto_api, path="/api/collaretto")
     rest_api.add_namespace(operators_api, path="/api/operators")
     rest_api.add_namespace(cutter_operators_api, path="/api/cutter_operators")
-    rest_api.add_namespace(notifications_api, path="/api/notifications")
     rest_api.add_namespace(marker_calculator_api, path="/api/marker_calculator")
