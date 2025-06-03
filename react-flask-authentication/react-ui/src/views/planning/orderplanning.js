@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
-import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
+import { AddCircleOutline, DeleteOutline, Save, Print, Calculate } from '@mui/icons-material';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -45,6 +45,9 @@ import BiasGroupCard from 'views/planning/OrderPlanning/components/BiasGroupCard
 import BiasTableHeader from 'views/planning/OrderPlanning/components/BiasTableHeader';
 import BiasRow from 'views/planning/OrderPlanning/components/BiasRow';
 import BiasActionRow from 'views/planning/OrderPlanning/components/BiasActionRow';
+
+// Calculator Component
+import MarkerCalculatorDialog from 'views/planning/OrderPlanning/components/MarkerCalculatorDialog';
 
 // Hooks
 import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
@@ -102,6 +105,10 @@ const OrderPlanning = () => {
     // State for unsaved changes dialog
     const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
+
+    // State for calculator dialog
+    const [openCalculatorDialog, setOpenCalculatorDialog] = useState(false);
+    const [currentCalculatorTableId, setCurrentCalculatorTableId] = useState(null);
 
     // Italian Ratio
     const italianRatios = useItalianRatios(selectedOrder);
@@ -257,6 +264,37 @@ const OrderPlanning = () => {
     const handleCloseUnsavedDialog = () => {
         setOpenUnsavedDialog(false);
         setPendingNavigation(null);
+    };
+
+    // Calculate effective order quantities for a table (cascading from previous tables)
+    const getEffectiveOrderQuantities = (targetTableId) => {
+        const tableIndex = tables.findIndex(table => table.id === targetTableId);
+
+        // First table uses original order quantities
+        if (tableIndex === 0) {
+            return orderSizes;
+        }
+
+        // Subsequent tables use calculated quantities from previous table
+        const previousTable = tables[tableIndex - 1];
+        const previousTableTotals = getTablePlannedQuantities(previousTable);
+
+        // Convert to the same format as orderSizes
+        return orderSizeNames.map(sizeName => ({
+            size: sizeName,
+            qty: previousTableTotals[sizeName] || 0
+        }));
+    };
+
+    // Handle calculator dialog
+    const handleOpenCalculator = (tableId) => {
+        setCurrentCalculatorTableId(tableId);
+        setOpenCalculatorDialog(true);
+    };
+
+    const handleCloseCalculator = () => {
+        setOpenCalculatorDialog(false);
+        setCurrentCalculatorTableId(null);
     };
 
     // Handle confirming navigation when there are unsaved changes
@@ -487,7 +525,20 @@ const OrderPlanning = () => {
                         key={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                {t('orderPlanning.mattresses', 'Mattresses')}
+                                <Box display="flex" alignItems="center" gap={1}>
+                                    {t('orderPlanning.mattresses', 'Mattresses')}
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenCalculator(table.id)}
+                                        sx={{
+                                            color: 'primary.main',
+                                            '&:hover': { backgroundColor: 'primary.light', color: 'white' }
+                                        }}
+                                        title="Marker Calculator"
+                                    >
+                                        <Calculate fontSize="small" />
+                                    </IconButton>
+                                </Box>
 
                                 {/* Table-Specific Planned Quantities - Hide if Empty */}
                                 <PlannedQuantityBar
@@ -802,6 +853,21 @@ const OrderPlanning = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Marker Calculator Dialog */}
+            {selectedOrder && currentCalculatorTableId && (
+                <MarkerCalculatorDialog
+                    open={openCalculatorDialog}
+                    onClose={handleCloseCalculator}
+                    orderSizes={orderSizes}
+                    orderSizeNames={orderSizeNames}
+                    selectedStyle={selectedStyle}
+                    tableId={currentCalculatorTableId}
+                    tables={tables}
+                    getTablePlannedQuantities={getTablePlannedQuantities}
+                    selectedOrder={selectedOrder}
+                />
+            )}
         </>
     );
 };

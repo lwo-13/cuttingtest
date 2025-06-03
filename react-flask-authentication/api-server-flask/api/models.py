@@ -446,6 +446,87 @@ class MattressSize(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+class MarkerCalculatorData(db.Model):
+    __tablename__ = 'marker_calculator_data'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    table_id = db.Column(db.String(36), nullable=False)  # Links to mattress table_id
+    order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    selected_baseline = db.Column(db.String(50), nullable=False, default='original')  # 'original' or table_id
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    # Composite unique constraint to ensure one record per table per order
+    __table_args__ = (
+        db.UniqueConstraint('table_id', 'order_commessa', name='uq_calculator_table_order'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "table_id": self.table_id,
+            "order_commessa": self.order_commessa,
+            "selected_baseline": self.selected_baseline,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+class MarkerCalculatorMarker(db.Model):
+    __tablename__ = 'marker_calculator_markers'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    calculator_data_id = db.Column(db.Integer, db.ForeignKey('marker_calculator_data.id', ondelete='CASCADE'), nullable=False)
+    marker_name = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    layers = db.Column(db.Integer, nullable=False, default=1)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    # Relationship
+    calculator_data = db.relationship('MarkerCalculatorData', backref=db.backref('markers', cascade='all, delete-orphan'))
+
+    # Composite unique constraint to prevent duplicate marker names within the same calculator
+    __table_args__ = (
+        db.UniqueConstraint('calculator_data_id', 'marker_name', name='uq_calculator_marker_name'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "calculator_data_id": self.calculator_data_id,
+            "marker_name": self.marker_name,
+            "layers": self.layers,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+class MarkerCalculatorQuantity(db.Model):
+    __tablename__ = 'marker_calculator_quantities'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    marker_id = db.Column(db.Integer, db.ForeignKey('marker_calculator_markers.id', ondelete='CASCADE'), nullable=False)
+    size = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    # Relationship
+    marker = db.relationship('MarkerCalculatorMarker', backref=db.backref('quantities', cascade='all, delete-orphan'))
+
+    # Composite unique constraint to ensure one quantity per marker per size
+    __table_args__ = (
+        db.UniqueConstraint('marker_id', 'size', name='uq_marker_size_quantity'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "marker_id": self.marker_id,
+            "size": self.size,
+            "quantity": self.quantity,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
 class Collaretto(db.Model):
     __tablename__ = 'collaretto'
 

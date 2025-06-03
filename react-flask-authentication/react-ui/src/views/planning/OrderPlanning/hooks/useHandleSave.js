@@ -477,7 +477,7 @@ const useHandleSave = ({
 
       try {
         await axios.post('/orders/production_center/save', {
-          order_commessa: selectedOrder,
+          order_commessa: selectedOrder.id, 
           production_center: selectedProductionCenter,
           cutting_room: selectedCuttingRoom,
           destination: selectedDestination || null
