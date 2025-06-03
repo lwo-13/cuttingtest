@@ -625,6 +625,16 @@ class MattressKanban(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
+
+class SystemSettings(db.Model):
+    __tablename__ = 'system_settings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    setting_key = db.Column(db.String(100), nullable=False, unique=True)
+    setting_value = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
 class ZalliItemsView(db.Model):
     __tablename__ = 'zalli_items_view'
     __table_args__ = {'info': {'read_only': True}}
