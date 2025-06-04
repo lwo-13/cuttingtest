@@ -60,62 +60,49 @@ const CombinedImports = () => {
     setBatchDialogOpen(true);
   };
 
+  // Style Cleaning
+  const cleanStyle = (fullStyle) => {
+    if (!fullStyle) return 'N/A';
+
+    const suffixesToExclude = ['NEW', 'MODIF', 'MOD'];
+    let parts = fullStyle.split('_');
+
+    // Step 1: Remove season prefix (e.g., '25T2')
+    if (parts.length > 1) parts.shift();
+
+    // Step 2: Remove known suffix if present
+    if (parts.length > 1 && suffixesToExclude.includes(parts.at(-1))) {
+      parts.pop();
+    }
+
+    // Step 3: Handle wrapping pattern like F_1MM1193_R
+    if (
+      parts.length >= 3 &&
+      parts[0].length === 1 &&
+      parts.at(-1).length === 1
+    ) {
+      return parts.slice(1, -1).join('_');
+    }
+
+    return parts.join('_');
+  };
+
   // Parse XML and Open Dialog
-  const handleOpenDialog = () => {
+  const handleOpenDialog = async () => {
     if (!selectedXML) {
       alert('Please select an XML file first.');
       return;
     }
 
-    const reader = new FileReader();
+    const extractedData = await parseXMLFile(selectedXML);
 
-    reader.onload = (e) => {
-      const xmlString = e.target.result;
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+     if (!extractedData.length) {
+      alert('No marker data found in the file.');
+      return;
+    }
 
-      // Extract data from <NewVariant> elements inside <MarkerContent>
-      const newVariants = Array.from(xmlDoc.getElementsByTagName("NewVariant"));
-      const extractedData = newVariants.map((variant) => {
-        let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
-
-        // ✅ Extract clean style
-        const suffixesToExclude = ['NEW', 'MODIF'];
-        const styleParts = fullStyle.split('_');
-
-        // Remove known suffix if present
-        if (suffixesToExclude.includes(styleParts.at(-1))) {
-          styleParts.pop();
-        }
-
-        // Remove season (first part)
-        styleParts.shift();
-
-        // Remove second part if there's still more than one part
-        if (styleParts.length > 1) {
-          styleParts.shift();
-        }
-
-        const style = styleParts.join('_');
-
-        // Extract rotation180 value
-        const rotation180Elem = variant.getElementsByTagName("Rotation180")[0];
-        const rotation180 = rotation180Elem ?
-          (rotation180Elem.getAttribute("Value") === "True") : false;
-
-        return {
-          style,  // Use the trimmed style
-          size: variant.getElementsByTagName("Size")[0]?.getAttribute("Value") || "N/A",
-          qty: variant.getElementsByTagName("Quantity")[0]?.getAttribute("Value") || "0",
-          rotation180: rotation180
-        };
-      });
-
-      setMarkerInfo(extractedData);
-      setDialogOpen(true);
-    };
-
-    reader.readAsText(selectedXML);
+    setMarkerInfo(extractedData);
+    setDialogOpen(true);
   };
 
   // Handle updates to editable fields
@@ -213,6 +200,7 @@ const CombinedImports = () => {
       const reader = new FileReader();
 
       reader.onload = (e) => {
+        console.log("File loaded");
         try {
           const xmlString = e.target.result;
           const parser = new DOMParser();
@@ -227,26 +215,8 @@ const CombinedImports = () => {
 
           const newVariants = Array.from(markerContent.getElementsByTagName("NewVariant"));
           const extractedData = newVariants.map((variant) => {
-            let fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
-
-            // ✅ Extract clean style
-            const suffixesToExclude = ['NEW', 'MODIF'];
-            const styleParts = fullStyle.split('_');
-
-            // Remove known suffix if present
-            if (suffixesToExclude.includes(styleParts.at(-1))) {
-              styleParts.pop();
-            }
-
-            // Remove season (first part)
-            styleParts.shift();
-
-            // Remove second part if there's still more than one part
-            if (styleParts.length > 1) {
-              styleParts.shift();
-            }
-
-            const style = styleParts.join('_');
+            const fullStyle = variant.getElementsByTagName("Model")[0]?.getAttribute("Value") || "N/A";
+            const style = cleanStyle(fullStyle); 
 
             // Extract rotation180 value
             const rotation180Elem = variant.getElementsByTagName("Rotation180")[0];
