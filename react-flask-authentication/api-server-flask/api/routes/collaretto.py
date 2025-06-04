@@ -14,9 +14,10 @@ class CollarettoAlong(Resource):
         try:
             # ✅ Extract Collaretto level data
             collaretto_name = data.get('collaretto')
+            row_id = data.get('row_id')
 
             # ✅ Check if collaretto exists
-            existing_collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
+            existing_collaretto = Collaretto.query.filter_by(row_id=row_id).first()
 
             if existing_collaretto:
                 print(f"🔄 Updating existing collaretto: {collaretto_name}")
@@ -191,7 +192,7 @@ class CollarettoWeft(Resource):
         try:
             new_mattress_created = False
             # ✅ Check if mattress already exists
-            existing_mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
+            existing_mattress = Mattresses.query.filter_by(row_id=row_id).first()
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {mattress_name}")
                 existing_mattress.order_commessa = order_commessa
@@ -264,7 +265,7 @@ class CollarettoWeft(Resource):
                     db.session.add(new_detail)
 
             # ✅ Check if collaretto exists
-            existing_collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
+            existing_collaretto = Collaretto.query.filter_by(row_id=data.get('row_id')).first()
             if existing_collaretto:
                 print(f"🔄 Updating existing collaretto: {collaretto_name}")
                 existing_collaretto.order_commessa = order_commessa
@@ -458,7 +459,7 @@ class CollarettoBias(Resource):
         try:
             new_mattress_created = False
 
-            existing_mattress = Mattresses.query.filter_by(mattress=mattress_name).first()
+            existing_mattress = Mattresses.query.filter_by(row_id=row_id).first()
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {mattress_name}")
                 existing_mattress.order_commessa = order_commessa
@@ -534,7 +535,7 @@ class CollarettoBias(Resource):
                     db.session.add(new_detail)
 
             # Collaretto CB
-            existing_collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
+            existing_collaretto = Collaretto.query.filter_by(row_id=row_id).first()
             if existing_collaretto:
                 print(f"🔄 Updating existing collaretto: {collaretto_name}")
                 existing_collaretto.order_commessa = order_commessa

@@ -173,7 +173,7 @@ const useHandleSave = ({
 
           // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
           const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
-          const mattressName = `${selectedOrder}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const mattressName = `${selectedOrder.style}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
 
           newMattressNames.add(mattressName); // ✅ Track UI rows
 
@@ -185,7 +185,7 @@ const useHandleSave = ({
 
           const mattressData = {
             mattress: mattressName,
-            order_commessa: selectedOrder,
+            order_commessa: selectedOrder.id,
             fabric_type: table.fabricType,
             fabric_code: table.fabricCode,
             fabric_color: table.fabricColor,
@@ -230,13 +230,13 @@ const useHandleSave = ({
       alongTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (along) name WITH padded index
-          const collarettoName = `${selectedOrder}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const collarettoName = `${selectedOrder.style}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
           newAlongNames.add(collarettoName);
 
           // ✅ Build the payload for this row
           const payload = {
             collaretto: collarettoName,
-            order_commessa: selectedOrder,
+            order_commessa: selectedOrder.id,
             fabric_type: table.fabricType,
             fabric_code: table.fabricCode,
             fabric_color: table.fabricColor,
@@ -273,16 +273,16 @@ const useHandleSave = ({
       weftTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (weft) name WITH padded index
-          const collarettoWeftName = `${selectedOrder}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const collarettoWeftName = `${selectedOrder.style}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
           newWeftNames.add(collarettoWeftName);
 
-          const mattressName = `${selectedOrder}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const mattressName = `${selectedOrder.style}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
 
           // ✅ Build the payload for this weft row
           const payload = {
             collaretto: collarettoWeftName,
             mattress: mattressName,
-            order_commessa: selectedOrder,
+            order_commessa: selectedOrder.id,
             fabric_type: table.fabricType,
             fabric_code: table.fabricCode,
             fabric_color: table.fabricColor,
@@ -319,15 +319,15 @@ const useHandleSave = ({
 
       biasTables.forEach((table) => {
         table.rows.forEach((row) => {
-          const collarettoBiasName = `${selectedOrder}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const collarettoBiasName = `${selectedOrder.style}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
           newBiasNames.add(collarettoBiasName);
 
-          const mattressName = `${selectedOrder}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const mattressName = `${selectedOrder.style}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
 
           const payload = {
             collaretto: collarettoBiasName,
             mattress: mattressName,
-            order_commessa: selectedOrder,
+            order_commessa: selectedOrder.id,
             fabric_type: table.fabricType,
             fabric_code: table.fabricCode,
             fabric_color: table.fabricColor,

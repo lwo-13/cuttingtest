@@ -27,7 +27,7 @@ class MattressResource(Resource):
                     return {"success": False, "message": f"Missing required field: {field}"}, 400
 
             # ✅ Check if the mattress already exists
-            existing_mattress = Mattresses.query.filter_by(mattress=data["mattress"]).first()
+            existing_mattress = Mattresses.query.filter_by(row_id=data["row_id"]).first()
 
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {data['mattress']}")
