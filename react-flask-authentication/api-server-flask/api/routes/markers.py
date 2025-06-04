@@ -108,8 +108,19 @@ class ImportMarker(Resource):
             full_marker_name = marker_elem.attrib.get('Name', '').replace('\\', '/').upper()
             marker_name = os.path.splitext(os.path.basename(full_marker_name))[0]
 
-            if MarkerHeader.query.filter_by(marker_name=marker_name).first():
-                return {"success": False, "msg": f"Marker '{marker_name}' already exists"}, 409  # Use 409 Conflict
+            creation_type = request.form.get('creationType', '').upper()
+
+            existing_marker = MarkerHeader.query.filter_by(
+                marker_name=marker_name,
+                marker_length=marker_length,
+                creation_type=creation_type
+            ).first()
+
+            if existing_marker:
+                return {
+                    "success": False,
+                    "msg": f"Marker '{marker_name}' with length {marker_length} and creation type '{creation_type}' already exists"
+                }, 409
 
             # Extract <Fabric> Data
             fabric_elem = root.find('Fabric')
@@ -187,7 +198,7 @@ class ImportMarker(Resource):
                 model=model,  # Ensure model is populated here
                 variant=variant,  # Ensure variant is populated here
                 status='ACTIVE',
-                creation_type=request.form.get('creationType', '').upper()
+                creation_type=creation_type
             )
 
             db.session.add(new_marker)
