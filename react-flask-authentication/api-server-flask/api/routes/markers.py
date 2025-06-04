@@ -110,18 +110,6 @@ class ImportMarker(Resource):
 
             creation_type = request.form.get('creationType', '').upper()
 
-            existing_marker = MarkerHeader.query.filter_by(
-                marker_name=marker_name,
-                marker_length=marker_length,
-                creation_type=creation_type
-            ).first()
-
-            if existing_marker:
-                return {
-                    "success": False,
-                    "msg": f"Marker '{marker_name}' with length {marker_length} and creation type '{creation_type}' already exists"
-                }, 409
-
             # Extract <Fabric> Data
             fabric_elem = root.find('Fabric')
             marker_type = fabric_elem.attrib.get('MarkerType', '').upper()
@@ -135,6 +123,18 @@ class ImportMarker(Resource):
             marker_length = float(width_elem.find('Length').attrib.get('Value', 0).replace(',', '.'))
             efficiency = float(width_elem.find('Efficiency').attrib.get('Value', 0).replace(',', '.'))
             meters_by_variants = float(width_elem.find('MetersByVariants').attrib.get('Value', 0).replace(',', '.'))
+
+            existing_marker = MarkerHeader.query.filter_by(
+                marker_name=marker_name,
+                marker_length=marker_length,
+                creation_type=creation_type
+            ).first()
+
+            if existing_marker:
+                return {
+                    "success": False,
+                    "msg": f"Marker '{marker_name}' with length {marker_length} and creation type '{creation_type}' already exists"
+                }, 409
 
             # Extract <Tolerances> Data
             tolerances_elem = root.find('Tolerances')
