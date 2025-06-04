@@ -889,61 +889,60 @@ class CheckDayTransitionResource(Resource):
     def _perform_transition(self, today_str):
         """Perform the actual transition from tomorrow to today"""
         try:
-            with db.session.begin():
-                # Get all current 'today' items to determine max positions per shift
-                today_items = db.session.query(MattressKanban).filter_by(day='today').all()
+            # Get all current 'today' items to determine max positions per shift
+            today_items = db.session.query(MattressKanban).filter_by(day='today').all()
 
-                # Calculate max positions for each shift in 'today'
-                shift_max_positions = {}
-                for item in today_items:
-                    shift_key = item.shift
-                    if shift_key not in shift_max_positions:
-                        shift_max_positions[shift_key] = 0
-                    shift_max_positions[shift_key] = max(shift_max_positions[shift_key], item.position)
+            # Calculate max positions for each shift in 'today'
+            shift_max_positions = {}
+            for item in today_items:
+                shift_key = item.shift
+                if shift_key not in shift_max_positions:
+                    shift_max_positions[shift_key] = 0
+                shift_max_positions[shift_key] = max(shift_max_positions[shift_key], item.position)
 
-                # Get all 'tomorrow' items
-                tomorrow_items = db.session.query(MattressKanban).filter_by(day='tomorrow').order_by(
-                    MattressKanban.shift, MattressKanban.position
-                ).all()
+            # Get all 'tomorrow' items
+            tomorrow_items = db.session.query(MattressKanban).filter_by(day='tomorrow').order_by(
+                MattressKanban.shift, MattressKanban.position
+            ).all()
 
-                # Move 'tomorrow' items to 'today' with positions after existing 'today' items
-                for item in tomorrow_items:
-                    shift_key = item.shift
-                    # Get the next available position for this shift
-                    next_position = shift_max_positions.get(shift_key, 0) + 1
+            # Move 'tomorrow' items to 'today' with positions after existing 'today' items
+            for item in tomorrow_items:
+                shift_key = item.shift
+                # Get the next available position for this shift
+                next_position = shift_max_positions.get(shift_key, 0) + 1
 
-                    # Update the item
-                    item.day = 'today'
-                    item.position = next_position
+                # Update the item
+                item.day = 'today'
+                item.position = next_position
 
-                    # Update max position for this shift
-                    shift_max_positions[shift_key] = next_position
+                # Update max position for this shift
+                shift_max_positions[shift_key] = next_position
 
-                # Update or create the last transition date setting
-                last_transition_setting = db.session.query(SystemSettings).filter_by(
-                    setting_key='last_day_transition'
-                ).first()
+            # Update or create the last transition date setting
+            last_transition_setting = db.session.query(SystemSettings).filter_by(
+                setting_key='last_day_transition'
+            ).first()
 
-                if last_transition_setting:
-                    last_transition_setting.setting_value = today_str
-                    last_transition_setting.updated_at = datetime.now()
-                else:
-                    new_setting = SystemSettings(
-                        setting_key='last_day_transition',
-                        setting_value=today_str
-                    )
-                    db.session.add(new_setting)
+            if last_transition_setting:
+                last_transition_setting.setting_value = today_str
+                last_transition_setting.updated_at = datetime.now()
+            else:
+                new_setting = SystemSettings(
+                    setting_key='last_day_transition',
+                    setting_value=today_str
+                )
+                db.session.add(new_setting)
 
-                # Commit the transaction
-                db.session.commit()
+            # Commit the transaction
+            db.session.commit()
 
-                moved_count = len(tomorrow_items)
-                return {
-                    "success": True,
-                    "message": f"Successfully moved {moved_count} items from tomorrow to today",
-                    "moved_count": moved_count,
-                    "already_done": False
-                }, 200
+            moved_count = len(tomorrow_items)
+            return {
+                "success": True,
+                "message": f"Successfully moved {moved_count} items from tomorrow to today",
+                "moved_count": moved_count,
+                "already_done": False
+            }, 200
 
         except Exception as e:
             db.session.rollback()
