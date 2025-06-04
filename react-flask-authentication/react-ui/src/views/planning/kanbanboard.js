@@ -241,9 +241,7 @@ const KanbanBoard = () => {
       }
     });
 
-    // API call
-    const baseURL = 'http://localhost:5000/api';
-    const endpoint = `${baseURL}/mattress/move_mattress/${id}`;
+    // API call using axios instance (respects REACT_APP_BACKEND_SERVER)
     const payload = {
       device: targetDevice,
       shift: targetShift,
@@ -252,27 +250,19 @@ const KanbanBoard = () => {
       position: targetPosition
     };
 
-    console.log('API call:', endpoint, payload);
+    console.log('API call:', `/mattress/move_mattress/${id}`, payload);
 
     try {
-      const response = await fetch(endpoint, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await axios.put(`/mattress/move_mattress/${id}`, payload);
 
-      const data = await response.json();
-
-      if (data.success) {
-        console.log('Move successful:', data);
+      if (response.data.success) {
+        console.log('Move successful:', response.data);
         // Refresh after short delay to show the movement
         setTimeout(() => {
           fetchMattresses();
         }, 300);
       } else {
-        throw new Error(data.message || 'Move failed');
+        throw new Error(response.data.message || 'Move failed');
       }
     } catch (err) {
       console.error("Failed to move mattress:", err);
@@ -280,19 +270,9 @@ const KanbanBoard = () => {
       // Try fallback to old endpoint
       try {
         console.log('Trying fallback endpoint...');
-        const fallbackEndpoint = `${baseURL}/mattress/update_device/${id}`;
+        const fallbackResponse = await axios.put(`/mattress/update_device/${id}`, payload);
 
-        const fallbackResponse = await fetch(fallbackEndpoint, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const fallbackData = await fallbackResponse.json();
-
-        if (fallbackData.success) {
+        if (fallbackResponse.data.success) {
           console.log('Fallback successful');
           setTimeout(() => {
             fetchMattresses();
