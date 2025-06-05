@@ -119,6 +119,7 @@ const handleOrderChange = async (newValue, context) => {
         layers: mattress.layers || "",
         expectedConsumption: mattress.cons_planned || "",
         bagno: mattress.dye_lot,
+        status: mattress.bagno_ready ? "ready" : "not_ready", // Load status from bagno_ready field
         isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(mattress.phase_status),
         sequenceNumber: mattress.sequence_number || 0
       });

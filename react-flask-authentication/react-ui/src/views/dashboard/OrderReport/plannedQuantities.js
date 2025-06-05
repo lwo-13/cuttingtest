@@ -23,8 +23,7 @@ export const getTablePlannedByBagno = (table) => {
   }
 
   table.rows.forEach(row => {
-    const bagno = row.bagno;
-    if (!bagno || bagno === 'Unknown') return;
+    const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
 
     const layers = parseInt(row.layers_a);
     if (isNaN(layers) || layers <= 0) return;
@@ -51,7 +50,7 @@ export const getMetersByBagno = (table) => {
   const bagnoMeters = {};
 
   table.rows.forEach(row => {
-    const bagno = row.bagno || 'Unknown';
+    const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
     const consumption = parseFloat(row.cons_real) || 0;
 
     bagnoMeters[bagno] = (bagnoMeters[bagno] || 0) + consumption;

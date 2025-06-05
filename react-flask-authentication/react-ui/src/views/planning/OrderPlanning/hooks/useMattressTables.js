@@ -35,6 +35,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
             layers: "",
             expectedConsumption: "",
             bagno: "",
+            status: "not_ready",
             isEditable: true,
             sequenceNumber: 1
           }
@@ -101,6 +102,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
               layers: "",
               expectedConsumption: "",
               bagno: "",
+              status: "not_ready",
               isEditable: true,
               sequenceNumber: nextSequence
             }

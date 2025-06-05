@@ -51,13 +51,15 @@ class MattressResource(Resource):
                     mattress_detail.length_mattress = data["length_mattress"]
                     mattress_detail.cons_planned = data["cons_planned"]
                     mattress_detail.extra = data["extra"]
+                    mattress_detail.bagno_ready = data.get("bagno_ready")
                 else:
                     new_mattress_detail = MattressDetail(
                         mattress_id=existing_mattress.id,
                         layers=data["layers"],
                         length_mattress=data["length_mattress"],
                         cons_planned=data["cons_planned"],
-                        extra=data["extra"]
+                        extra=data["extra"],
+                        bagno_ready=data.get("bagno_ready")
                     )
                     db.session.add(new_mattress_detail)
 
@@ -129,7 +131,8 @@ class MattressResource(Resource):
                     layers=data["layers"],
                     length_mattress=data["length_mattress"],
                     cons_planned=data["cons_planned"],
-                    extra=data["extra"]
+                    extra=data["extra"],
+                    bagno_ready=data.get("bagno_ready")
                 )
                 db.session.add(new_mattress_detail)
 
@@ -224,6 +227,7 @@ class GetMattressesByOrder(Resource):
                 MattressDetail.cons_planned,
                 MattressDetail.cons_actual,
                 MattressDetail.cons_real,
+                MattressDetail.bagno_ready,  # Add bagno_ready field
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
                 MattressPhase.status.label('phase_status')
             ).outerjoin(
@@ -243,7 +247,7 @@ class GetMattressesByOrder(Resource):
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, marker_name, phase_status  in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, marker_name, phase_status  in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
@@ -260,6 +264,7 @@ class GetMattressesByOrder(Resource):
                     "cons_planned": cons_planned if cons_planned is not None else "",
                     "cons_actual": cons_actual if cons_actual is not None else "",
                     "cons_real": cons_real if cons_real is not None else "",
+                    "bagno_ready": bagno_ready if bagno_ready is not None else False,  # Add bagno_ready field
 
                     "table_id": mattress.table_id,
                     "row_id": mattress.row_id,

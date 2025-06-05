@@ -166,6 +166,7 @@
     "layers": "Layers",
     "consumption": "Cons [m]",
     "bagno": "Bagno",
+    "status": "Status",
     "mattress": "Mattress",
     "na": "N/A",
     "numberOfPanels": "N° Panels",

@@ -7,7 +7,7 @@ import {
   IconButton,
   Autocomplete
 } from '@mui/material';
-import { DeleteOutline } from '@mui/icons-material';
+import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 import LockOutlined from '@mui/icons-material/LockOutlined';
 
 const MattressRow = ({
@@ -163,6 +163,30 @@ const MattressRow = ({
             "& input": { textAlign: 'center', fontWeight: 'normal' }
           }}
         />
+      </TableCell>
+
+      {/* Status Icon */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+        {editable ? (
+          <IconButton
+            onClick={() => {
+              const newStatus = row.status === 'ready' ? 'not_ready' : 'ready';
+              handleInputChange(tableId, rowId, "status", newStatus);
+            }}
+            sx={{
+              color: row.status === 'ready' ? 'success.main' : 'grey.400',
+              '&:hover': {
+                color: row.status === 'ready' ? 'success.dark' : 'grey.600'
+              }
+            }}
+          >
+            {row.status === 'ready' ? <CheckCircle /> : <RadioButtonUnchecked />}
+          </IconButton>
+        ) : (
+          <IconButton disabled>
+            {row.status === 'ready' ? <CheckCircle color="disabled" /> : <RadioButtonUnchecked color="disabled" />}
+          </IconButton>
+        )}
       </TableCell>
 
       {/* Delete or Lock Icon */}

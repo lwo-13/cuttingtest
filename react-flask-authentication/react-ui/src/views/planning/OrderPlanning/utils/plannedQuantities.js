@@ -22,12 +22,8 @@ export const getTablePlannedByBagno = (table) => {
     }
 
     table.rows.forEach((row, rowIndex) => {
-        // Skip rows without a valid bagno
-        if (!row.bagno || row.bagno === 'Unknown') {
-            return;
-        }
-
-        const bagno = row.bagno;
+        // Use "No Bagno" for rows without a valid bagno
+        const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
 
         // Skip rows without valid piecesPerSize
         if (!row.piecesPerSize || typeof row.piecesPerSize !== 'object') {
@@ -62,7 +58,7 @@ export const getMetersByBagno = (table) => {
     const bagnoMeters = {};
 
     table.rows.forEach(row => {
-      const bagno = row.bagno || 'Unknown';
+      const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
       const consumption = parseFloat(row.expectedConsumption) || 0;
 
       bagnoMeters[bagno] = (bagnoMeters[bagno] || 0) + consumption;
