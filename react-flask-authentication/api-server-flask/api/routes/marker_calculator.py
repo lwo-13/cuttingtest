@@ -79,7 +79,7 @@ class SaveCalculatorData(Resource):
                 # Update existing data
                 existing_data.selected_baseline = selected_baseline
                 calculator_data = existing_data
-                
+
                 # Delete existing markers and quantities
                 for marker in existing_data.markers:
                     db.session.delete(marker)
