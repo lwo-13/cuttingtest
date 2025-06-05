@@ -121,13 +121,33 @@ const MarkerCalculatorDialog = ({
             delete newData[tabValue];
             return newData;
         });
+
+        // Remove baseline for the deleted tab
+        setBaselineByTab(prev => {
+            const newBaselines = { ...prev };
+            delete newBaselines[tabValue];
+            return newBaselines;
+        });
     };
 
     // State for test markers per material type - using object to store data for each material type
     const [testMarkersByMaterial, setTestMarkersByMaterial] = useState({});
 
-    // State for selected baseline (which table's output to use as input)
-    const [selectedBaseline, setSelectedBaseline] = useState('original');
+    // State for selected baseline (tab-specific)
+    const [baselineByTab, setBaselineByTab] = useState({});
+
+    // Get current tab's baseline
+    const getCurrentBaseline = () => {
+        return baselineByTab[currentMaterialType] || 'original';
+    };
+
+    // Set current tab's baseline
+    const setCurrentBaseline = (baseline) => {
+        setBaselineByTab(prev => ({
+            ...prev,
+            [currentMaterialType]: baseline
+        }));
+    };
 
     // State to prevent duplicate loading requests
     const [isLoading, setIsLoading] = useState(false);
@@ -161,13 +181,15 @@ const MarkerCalculatorDialog = ({
         return totals;
     };
 
-    // Calculate effective order quantities based on selected baseline
+    // Calculate effective order quantities based on current tab's baseline
     const getEffectiveOrderQuantities = () => {
-        if (selectedBaseline === 'original') {
+        const currentBaseline = getCurrentBaseline();
+
+        if (currentBaseline === 'original') {
             return orderSizes;
-        } else if (selectedBaseline.startsWith('calc_tab_')) {
+        } else if (currentBaseline.startsWith('calc_tab_')) {
             // Use another calculator tab's totals
-            const tabValue = selectedBaseline.replace('calc_tab_', '');
+            const tabValue = currentBaseline.replace('calc_tab_', '');
             const tabTotals = calculateTabTotals(tabValue);
             return orderSizeNames.map(sizeName => ({
                 size: sizeName,
@@ -175,7 +197,7 @@ const MarkerCalculatorDialog = ({
             }));
         } else {
             // Find the selected table
-            const baselineTable = tables.find(table => table.id === selectedBaseline);
+            const baselineTable = tables.find(table => table.id === currentBaseline);
             if (!baselineTable) {
                 return orderSizes;
             }
@@ -323,17 +345,14 @@ const MarkerCalculatorDialog = ({
             if (response.data.success && response.data.data) {
                 const tabsData = response.data.data;
                 const loadedTabsData = {};
-                let hasAnyData = false;
+                const loadedBaselines = {};
 
                 // Process each tab's data
                 Object.entries(tabsData).forEach(([tabNumber, tabData]) => {
                     const tabValue = `calc_${tabNumber}`;
 
-                    // Set baseline from the first tab found
-                    if (!hasAnyData) {
-                        setSelectedBaseline(tabData.selected_baseline);
-                        hasAnyData = true;
-                    }
+                    // Store baseline for this tab
+                    loadedBaselines[tabValue] = tabData.selected_baseline;
 
                     // Convert markers to the format expected by the component
                     const loadedMarkers = tabData.markers.map(marker => ({
@@ -358,8 +377,9 @@ const MarkerCalculatorDialog = ({
                     setCurrentMaterialType(newTabs[0].value);
                 }
 
-                // Set all loaded markers data
+                // Set all loaded markers data and baselines
                 setTestMarkersByMaterial(loadedTabsData);
+                setBaselineByTab(loadedBaselines);
             } else {
                 // No saved data, initialize with one empty marker if none exist
                 if (testMarkers.length === 0) {
@@ -422,7 +442,7 @@ const MarkerCalculatorDialog = ({
                     const payload = {
                         order_commessa: selectedOrder.id,
                         tab_number: tabNumber,
-                        selected_baseline: selectedBaseline,
+                        selected_baseline: baselineByTab[tabValue] || 'original',
                         style: selectedStyle,
                         markers: markersData
                     };
@@ -594,10 +614,10 @@ const MarkerCalculatorDialog = ({
                             options={baselineOptions}
                             getOptionLabel={(option) => option.label}
                             getOptionDisabled={(option) => option.disabled || false}
-                            value={baselineOptions.find(opt => opt.value === selectedBaseline) || baselineOptions[0]}
+                            value={baselineOptions.find(opt => opt.value === getCurrentBaseline()) || baselineOptions[0]}
                             onChange={(event, newValue) => {
                                 if (newValue && !newValue.disabled) {
-                                    setSelectedBaseline(newValue.value || 'original');
+                                    setCurrentBaseline(newValue.value || 'original');
                                 }
                             }}
                             renderInput={(params) => (
@@ -610,9 +630,9 @@ const MarkerCalculatorDialog = ({
                             sx={{ width: 300 }}
                         />
                         <Typography variant="body2" color="text.secondary">
-                            {selectedBaseline === 'original'
+                            {getCurrentBaseline() === 'original'
                                 ? "Using original order quantities"
-                                : `Using output from ${baselineOptions.find(opt => opt.value === selectedBaseline)?.label}`
+                                : `Using output from ${baselineOptions.find(opt => opt.value === getCurrentBaseline())?.label}`
                             }
                         </Typography>
                     </Box>
@@ -800,9 +820,9 @@ const MarkerCalculatorDialog = ({
                                     <TableCell align="center"><strong>Size</strong></TableCell>
                                     <TableCell align="center">
                                         <strong>
-                                            {selectedBaseline === 'original'
+                                            {getCurrentBaseline() === 'original'
                                                 ? "Order Qty"
-                                                : `${baselineOptions.find(opt => opt.value === selectedBaseline)?.label || 'Baseline'}`
+                                                : `${baselineOptions.find(opt => opt.value === getCurrentBaseline())?.label || 'Baseline'}`
                                             }
                                         </strong>
                                     </TableCell>
