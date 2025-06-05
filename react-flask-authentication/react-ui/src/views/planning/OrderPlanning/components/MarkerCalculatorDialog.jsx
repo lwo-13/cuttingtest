@@ -20,9 +20,11 @@ import {
     Chip,
     Autocomplete,
     Snackbar,
-    Alert
+    Alert,
+    Tabs,
+    Tab
 } from '@mui/material';
-import { Add, Delete, Calculate } from '@mui/icons-material';
+import { Add, Delete, Calculate, Close } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'utils/axiosInstance';
 
@@ -32,13 +34,97 @@ const MarkerCalculatorDialog = ({
     orderSizes,
     orderSizeNames,
     selectedStyle,
-    tableId,
     tables,
     getTablePlannedQuantities,
     selectedOrder
 }) => {
-    // State for test markers per table - using object to store data for each table
-    const [testMarkersByTable, setTestMarkersByTable] = useState({});
+    // State for calculator tabs - iterative numbering system
+    const [calculatorTabs, setCalculatorTabs] = useState([
+        { value: 'calc_01', label: '01' }
+    ]);
+
+    // State for current material type tab
+    const [currentMaterialType, setCurrentMaterialType] = useState('calc_01');
+
+    // Add new calculator tab
+    const addNewTab = () => {
+        const nextNumber = calculatorTabs.length + 1;
+        const paddedNumber = nextNumber.toString().padStart(2, '0');
+        const newTab = {
+            value: `calc_${paddedNumber}`,
+            label: paddedNumber
+        };
+
+        setCalculatorTabs(prev => [...prev, newTab]);
+        setCurrentMaterialType(newTab.value); // Switch to the new tab
+    };
+
+    // Remove calculator tab with confirmation
+    const removeTab = async (tabValue) => {
+        if (calculatorTabs.length <= 1) return; // Don't allow removing the last tab
+
+        // Check if tab has data
+        const tabMarkers = testMarkersByMaterial[tabValue];
+        const hasData = tabMarkers && tabMarkers.length > 0 &&
+                       tabMarkers.some(marker =>
+                           marker.markerName ||
+                           marker.width ||
+                           marker.layers ||
+                           Object.values(marker.quantities || {}).some(qty => qty && qty !== '0')
+                       );
+
+        // Show confirmation if tab has data
+        if (hasData) {
+            const tabNumber = tabValue.replace('calc_', '');
+            const confirmed = window.confirm(
+                `Are you sure you want to delete Tab ${tabNumber}? This will permanently remove all markers and data in this tab.`
+            );
+            if (!confirmed) return;
+        }
+
+        try {
+            // Extract tab number from tabValue (e.g., 'calc_01' -> '01')
+            const tabNumber = tabValue.replace('calc_', '');
+
+            // Delete from backend if it exists
+            const response = await axios.delete(`/marker_calculator/delete/${selectedOrder.id}/${tabNumber}`);
+
+            if (response.data.success) {
+                console.log(`✅ Tab ${tabNumber} deleted from database`);
+            } else {
+                console.warn(`⚠️ Tab ${tabNumber} not found in database (may not have been saved yet)`);
+            }
+        } catch (error) {
+            // If the tab doesn't exist in the database, that's okay (it might not have been saved yet)
+            if (error.response?.status === 404) {
+                console.log(`Tab ${tabValue} not found in database - probably wasn't saved yet`);
+            } else {
+                console.error('Error deleting tab from database:', error);
+                // Don't prevent frontend deletion even if backend delete fails
+            }
+        }
+
+        // Remove from frontend regardless of backend result
+        setCalculatorTabs(prev => prev.filter(tab => tab.value !== tabValue));
+
+        // If we're removing the current tab, switch to the first available tab
+        if (currentMaterialType === tabValue) {
+            const remainingTabs = calculatorTabs.filter(tab => tab.value !== tabValue);
+            if (remainingTabs.length > 0) {
+                setCurrentMaterialType(remainingTabs[0].value);
+            }
+        }
+
+        // Remove data for the deleted tab
+        setTestMarkersByMaterial(prev => {
+            const newData = { ...prev };
+            delete newData[tabValue];
+            return newData;
+        });
+    };
+
+    // State for test markers per material type - using object to store data for each material type
+    const [testMarkersByMaterial, setTestMarkersByMaterial] = useState({});
 
     // State for selected baseline (which table's output to use as input)
     const [selectedBaseline, setSelectedBaseline] = useState('original');
@@ -49,63 +135,105 @@ const MarkerCalculatorDialog = ({
     // State for success snackbar
     const [showSuccessSnackbar, setShowSuccessSnackbar] = useState(false);
 
-    // Get current table's markers
-    const testMarkers = testMarkersByTable[tableId] || [];
+    // Get current material type's markers
+    const testMarkers = testMarkersByMaterial[currentMaterialType] || [];
+
+    // Calculate totals for a specific calculator tab
+    const calculateTabTotals = (tabValue) => {
+        const tabMarkers = testMarkersByMaterial[tabValue] || [];
+        const totals = {};
+
+        // Initialize size totals
+        orderSizeNames.forEach(sizeName => {
+            totals[sizeName] = 0;
+        });
+
+        // Sum up quantities from all markers in the tab
+        tabMarkers.forEach(marker => {
+            const markerLayers = parseInt(marker.layers) || 1;
+            orderSizeNames.forEach(sizeName => {
+                const qty = parseInt(marker.quantities[sizeName]) || 0;
+                const qtyWithLayers = qty * markerLayers;
+                totals[sizeName] += qtyWithLayers;
+            });
+        });
+
+        return totals;
+    };
 
     // Calculate effective order quantities based on selected baseline
     const getEffectiveOrderQuantities = () => {
         if (selectedBaseline === 'original') {
             return orderSizes;
+        } else if (selectedBaseline.startsWith('calc_tab_')) {
+            // Use another calculator tab's totals
+            const tabValue = selectedBaseline.replace('calc_tab_', '');
+            const tabTotals = calculateTabTotals(tabValue);
+            return orderSizeNames.map(sizeName => ({
+                size: sizeName,
+                qty: tabTotals[sizeName] || 0
+            }));
+        } else {
+            // Find the selected table
+            const baselineTable = tables.find(table => table.id === selectedBaseline);
+            if (!baselineTable) {
+                return orderSizes;
+            }
+
+            // Get calculated quantities from the selected table
+            const baselineTableTotals = getTablePlannedQuantities(baselineTable);
+
+            // Convert to the same format as orderSizes
+            return orderSizeNames.map(sizeName => ({
+                size: sizeName,
+                qty: baselineTableTotals[sizeName] || 0
+            }));
         }
-
-        // Find the selected table
-        const baselineTable = tables.find(table => table.id === selectedBaseline);
-        if (!baselineTable) {
-            return orderSizes;
-        }
-
-        // Get calculated quantities from the selected table
-        const baselineTableTotals = getTablePlannedQuantities(baselineTable);
-
-        // Convert to the same format as orderSizes
-        return orderSizeNames.map(sizeName => ({
-            size: sizeName,
-            qty: baselineTableTotals[sizeName] || 0
-        }));
     };
 
     const effectiveOrderSizes = getEffectiveOrderQuantities();
 
-    // Get current table info
-    const currentTable = tables.find(table => table.id === tableId);
-    const currentFabricType = currentTable?.fabricType || 'Unknown';
-
-    // Create baseline options using fabric type for identification
-    const baselineOptions = [
-        { value: 'original', label: 'Original Order Quantities' },
-        ...tables
-            .filter(table => table.id !== tableId) // Exclude current table
-            .map((table) => {
+    // Create baseline options including other calculator tabs
+    const baselineOptions = useMemo(() => {
+        const options = [
+            { value: 'original', label: 'Original Order Quantities' },
+            ...tables.map((table) => {
                 const fabricType = table.fabricType || 'Unknown';
                 return {
                     value: table.id,
                     label: `${fabricType} Output`
                 };
             })
-    ];
+        ];
 
-    // Helper to update markers for current table
+        // Add other calculator tabs as baseline options (exclude current tab)
+        calculatorTabs.forEach(tab => {
+            if (tab.value !== currentMaterialType) {
+                const tabMarkers = testMarkersByMaterial[tab.value];
+                const hasMarkers = tabMarkers && tabMarkers.length > 0;
+                options.push({
+                    value: `calc_tab_${tab.value}`,
+                    label: `Calculator Tab ${tab.label}${hasMarkers ? '' : ' (empty)'}`,
+                    disabled: !hasMarkers
+                });
+            }
+        });
+
+        return options;
+    }, [tables, calculatorTabs, currentMaterialType, testMarkersByMaterial]);
+
+    // Helper to update markers for current material type
     const setTestMarkers = (markersOrUpdater) => {
-        setTestMarkersByTable(prev => ({
+        setTestMarkersByMaterial(prev => ({
             ...prev,
-            [tableId]: typeof markersOrUpdater === 'function'
-                ? markersOrUpdater(prev[tableId] || [])
+            [currentMaterialType]: typeof markersOrUpdater === 'function'
+                ? markersOrUpdater(prev[currentMaterialType] || [])
                 : markersOrUpdater
         }));
     };
 
     // Generate marker name based on style and quantities
-    const generateMarkerName = (quantities, index) => {
+    const generateMarkerName = (quantities) => {
         const nonZeroQuantities = [];
         orderSizeNames.forEach(sizeName => {
             const qty = parseInt(quantities[sizeName]) || 0;
@@ -116,9 +244,9 @@ const MarkerCalculatorDialog = ({
 
         if (nonZeroQuantities.length > 0) {
             const quantitiesStr = nonZeroQuantities.join('');
-            return `${selectedStyle}-${quantitiesStr} ${index}`;
+            return `${selectedStyle}-${quantitiesStr}`;
         } else {
-            return `${selectedStyle}-Marker ${index}`;
+            return '';
         }
     };
 
@@ -126,11 +254,12 @@ const MarkerCalculatorDialog = ({
         const newMarker = {
             id: uuidv4(),
             markerName: '',
+            width: '',
             quantities: orderSizeNames.reduce((acc, sizeName) => {
                 acc[sizeName] = 0;
                 return acc;
             }, {}),
-            layers: 1
+            layers: ''
         };
         setTestMarkers(prev => [...prev, newMarker]);
     };
@@ -147,16 +276,7 @@ const MarkerCalculatorDialog = ({
         }, 0);
     };
 
-    // Check if marker name is duplicate
-    const isMarkerNameDuplicate = (markerId, markerName) => {
-        if (!markerName || markerName.trim() === '') return false;
 
-        return testMarkers.some(marker =>
-            marker.id !== markerId &&
-            marker.markerName &&
-            marker.markerName.trim().toLowerCase() === markerName.trim().toLowerCase()
-        );
-    };
 
     const updateMarkerField = (markerId, field, value) => {
         setTestMarkers(prev =>
@@ -187,104 +307,153 @@ const MarkerCalculatorDialog = ({
 
     // Load saved data when dialog opens
     useEffect(() => {
-        if (open && tableId && selectedOrder?.id && !isLoading) {
+        if (open && selectedOrder?.id && !isLoading) {
             loadCalculatorData();
         }
-    }, [open, tableId, selectedOrder?.id]); // Use selectedOrder.id instead of the whole object
+    }, [open, selectedOrder?.id]); // Only load when dialog opens
 
-    // Load calculator data from API
+    // Load calculator data from API (tab-specific)
     const loadCalculatorData = async () => {
         if (isLoading) return; // Prevent duplicate requests
 
         setIsLoading(true);
         try {
-            const response = await axios.get(`/marker_calculator/load/${tableId}/${selectedOrder.id}`);
+            const response = await axios.get(`/marker_calculator/load/${selectedOrder.id}`);
 
             if (response.data.success && response.data.data) {
-                const data = response.data.data;
+                const tabsData = response.data.data;
+                const loadedTabsData = {};
+                let hasAnyData = false;
 
-                // Set baseline
-                setSelectedBaseline(data.selected_baseline);
+                // Process each tab's data
+                Object.entries(tabsData).forEach(([tabNumber, tabData]) => {
+                    const tabValue = `calc_${tabNumber}`;
 
-                // Convert markers to the format expected by the component
-                const loadedMarkers = data.markers.map(marker => ({
-                    id: uuidv4(), // Generate new client-side ID
-                    markerName: marker.marker_name,
-                    layers: marker.layers,
-                    quantities: marker.quantities
-                }));
+                    // Set baseline from the first tab found
+                    if (!hasAnyData) {
+                        setSelectedBaseline(tabData.selected_baseline);
+                        hasAnyData = true;
+                    }
 
-                // Set markers for this table
-                setTestMarkersByTable(prev => ({
-                    ...prev,
-                    [tableId]: loadedMarkers
-                }));
+                    // Convert markers to the format expected by the component
+                    const loadedMarkers = tabData.markers.map(marker => ({
+                        id: uuidv4(), // Generate new client-side ID
+                        markerName: marker.marker_name,
+                        width: marker.marker_width || '',
+                        layers: marker.layers,
+                        quantities: marker.quantities
+                    }));
+
+                    loadedTabsData[tabValue] = loadedMarkers;
+                });
+
+                // Update calculator tabs to match loaded data
+                const loadedTabNumbers = Object.keys(tabsData).sort();
+                if (loadedTabNumbers.length > 0) {
+                    const newTabs = loadedTabNumbers.map(tabNumber => ({
+                        value: `calc_${tabNumber}`,
+                        label: tabNumber
+                    }));
+                    setCalculatorTabs(newTabs);
+                    setCurrentMaterialType(newTabs[0].value);
+                }
+
+                // Set all loaded markers data
+                setTestMarkersByMaterial(loadedTabsData);
             } else {
-                // No saved data, initialize with one empty marker
+                // No saved data, initialize with one empty marker if none exist
                 if (testMarkers.length === 0) {
                     addNewMarker();
                 }
             }
         } catch (error) {
             console.error('Error loading calculator data:', error);
-            // Initialize with one empty marker on error
+            // Initialize with one empty marker on error if none exist
             if (testMarkers.length === 0) {
                 addNewMarker();
             }
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    // Check if there are any duplicate marker names
-    const hasDuplicateMarkerNames = () => {
-        const markerNames = testMarkers
-            .map(marker => marker.markerName?.trim().toLowerCase())
-            .filter(name => name && name !== '');
 
-        return markerNames.length !== new Set(markerNames).size;
-    };
 
-    // Save calculator data to API
+    // Save calculator data to API (tab-specific) with deadlock handling
     const saveCalculatorData = async () => {
+        const maxRetries = 3;
+        const retryDelay = 1000; // 1 second
+
+        const saveWithRetry = async (payload, retryCount = 0) => {
+            try {
+                return await axios.post('/marker_calculator/save', payload);
+            } catch (error) {
+                // Check if it's a deadlock error (SQL Server error 1205)
+                const isDeadlock = error.response?.data?.message?.includes('1205') ||
+                                 error.response?.data?.message?.includes('deadlock') ||
+                                 error.message?.includes('1205') ||
+                                 error.message?.includes('deadlock');
+
+                if (isDeadlock && retryCount < maxRetries) {
+                    console.warn(`Deadlock detected, retrying in ${retryDelay * (retryCount + 1)}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1))); // Exponential backoff
+                    return saveWithRetry(payload, retryCount + 1);
+                }
+                throw error;
+            }
+        };
+
         try {
-            // Check for duplicate marker names before saving
-            if (hasDuplicateMarkerNames()) {
-                alert('Cannot save: Duplicate marker names found. Please ensure all marker names are unique.');
-                return false;
+            // Save each tab sequentially to avoid deadlocks (instead of parallel)
+            const results = [];
+
+            for (const [tabValue, tabMarkers] of Object.entries(testMarkersByMaterial)) {
+                if (tabMarkers && Array.isArray(tabMarkers) && tabMarkers.length > 0) {
+                    // Extract tab number from tabValue (e.g., 'calc_01' -> '01')
+                    const tabNumber = tabValue.replace('calc_', '');
+
+                    const markersData = tabMarkers.map(marker => ({
+                        marker_name: marker.markerName || '',
+                        marker_width: marker.width ? parseFloat(marker.width) : null,
+                        layers: marker.layers ? parseInt(marker.layers) : 1,
+                        quantities: marker.quantities || {}
+                    }));
+
+                    const payload = {
+                        order_commessa: selectedOrder.id,
+                        tab_number: tabNumber,
+                        selected_baseline: selectedBaseline,
+                        style: selectedStyle,
+                        markers: markersData
+                    };
+
+                    console.log(`Saving tab ${tabNumber}...`);
+                    const response = await saveWithRetry(payload);
+                    results.push(response);
+                    console.log(`✅ Tab ${tabNumber} saved successfully`);
+                }
             }
 
-            const markersData = testMarkers.map(marker => ({
-                marker_name: marker.markerName || '',
-                layers: marker.layers || 1,
-                quantities: marker.quantities || {}
-            }));
+            // Check if all saves were successful
+            const allSuccessful = results.every(response => response.data.success);
 
-            const payload = {
-                table_id: tableId,
-                order_commessa: selectedOrder.id,  // Use selectedOrder.id instead of selectedOrder.commessa
-                selected_baseline: selectedBaseline,
-                style: selectedStyle,  // Add style for marker naming
-                markers: markersData
-            };
-
-            const response = await axios.post('/marker_calculator/save', payload);
-
-            if (response.data.success) {
+            if (allSuccessful) {
                 setShowSuccessSnackbar(true);
                 return true;
             } else {
-                console.error('Failed to save calculator data:', response.data.message);
-                alert(`Failed to save: ${response.data.message}`);
+                const failedResponses = results.filter(response => !response.data.success);
+                console.error('Failed to save some calculator data:', failedResponses);
+                alert(`Failed to save some tabs: ${failedResponses.map(r => r.data.message).join(', ')}`);
                 return false;
             }
         } catch (error) {
             console.error('Error saving calculator data:', error);
+            const errorMessage = error.response?.data?.message || error.message;
 
-            // Show detailed error information
-            if (error.response && error.response.data) {
-                console.error('Server response:', error.response.data);
-                alert(`Save failed: ${error.response.data.message || 'Unknown server error'}`);
+            if (errorMessage.includes('1205') || errorMessage.includes('deadlock')) {
+                alert('Database is busy. Please try saving again in a moment.');
             } else {
-                alert('Save failed: Network or server error');
+                alert(`Save failed: ${errorMessage}`);
             }
             return false;
         }
@@ -354,11 +523,63 @@ const MarkerCalculatorDialog = ({
             <DialogTitle>
                 <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
                     <Calculate />
-                    Marker Calculator - Test Combinations {currentFabricType && `(${currentFabricType})`}
+                    Marker Calculator - Test Combinations
                 </Box>
             </DialogTitle>
 
             <DialogContent>
+                {/* Calculator Tabs */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Tabs
+                            value={currentMaterialType}
+                            onChange={(event, newValue) => setCurrentMaterialType(newValue)}
+                            variant="scrollable"
+                            scrollButtons="auto"
+                        >
+                            {calculatorTabs.map((tab) => (
+                                <Tab
+                                    key={tab.value}
+                                    label={
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <span>{tab.label}</span>
+                                            {calculatorTabs.length > 1 && (
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeTab(tab.value);
+                                                    }}
+                                                    sx={{
+                                                        ml: 0.5,
+                                                        p: 0.25,
+                                                        '&:hover': { backgroundColor: 'error.light' }
+                                                    }}
+                                                >
+                                                    <Close fontSize="small" />
+                                                </IconButton>
+                                            )}
+                                        </Box>
+                                    }
+                                    value={tab.value}
+                                />
+                            ))}
+                        </Tabs>
+
+                        {/* Add New Tab Button */}
+                        <IconButton
+                            onClick={addNewTab}
+                            sx={{
+                                ml: 2,
+                                color: 'primary.main',
+                                '&:hover': { backgroundColor: 'primary.light', color: 'white' }
+                            }}
+                            title="Add New Calculator Tab"
+                        >
+                            <Add />
+                        </IconButton>
+                    </Box>
+                </Box>
                 <Box mb={3} display="flex" flexDirection="column" alignItems="center" gap={2}>
                     <Typography variant="h6" gutterBottom>
                         Style: {selectedStyle}
@@ -372,9 +593,12 @@ const MarkerCalculatorDialog = ({
                         <Autocomplete
                             options={baselineOptions}
                             getOptionLabel={(option) => option.label}
+                            getOptionDisabled={(option) => option.disabled || false}
                             value={baselineOptions.find(opt => opt.value === selectedBaseline) || baselineOptions[0]}
                             onChange={(event, newValue) => {
-                                setSelectedBaseline(newValue?.value || 'original');
+                                if (newValue && !newValue.disabled) {
+                                    setSelectedBaseline(newValue.value || 'original');
+                                }
                             }}
                             renderInput={(params) => (
                                 <TextField
@@ -425,19 +649,20 @@ const MarkerCalculatorDialog = ({
                             {/* Table Header */}
                             <TableHead>
                                 <TableRow>
-                                    <TableCell align="center" sx={{ minWidth: '200px' }}>Marker Name</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: '80px', padding: '4px' }}>Width</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: '200px', padding: '4px' }}>Marker Name</TableCell>
 
                                     {/* Dynamic Sizes */}
                                     {effectiveOrderSizes.length > 0 &&
                                         effectiveOrderSizes.map((size) => (
-                                            <TableCell align="center" key={size.size}>
+                                            <TableCell align="center" key={size.size} sx={{ padding: '4px' }}>
                                                 {size.size}
                                             </TableCell>
                                         ))
                                     }
 
-                                    <TableCell align="center">Layers</TableCell>
-                                    <TableCell />
+                                    <TableCell align="center" sx={{ padding: '4px' }}>Layers</TableCell>
+                                    <TableCell sx={{ padding: '4px' }} />
                                 </TableRow>
                             </TableHead>
 
@@ -445,23 +670,42 @@ const MarkerCalculatorDialog = ({
                             <TableBody>
                                 {testMarkers.map((marker, index) => (
                                     <TableRow key={marker.id}>
+                                        {/* Width */}
+                                        <TableCell sx={{ padding: '4px', minWidth: '70px', maxWidth: '80px', textAlign: 'center' }}>
+                                            <TextField
+                                                type="number"
+                                                variant="outlined"
+                                                value={marker.width || ''}
+                                                onChange={(e) => updateMarkerField(marker.id, "width", e.target.value)}
+                                                inputProps={{ min: 0, step: 0.1 }}
+                                                sx={{
+                                                    width: '100%',
+                                                    "& input": {
+                                                        fontWeight: 'normal',
+                                                        textAlign: 'center',
+                                                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                                                            '-webkit-appearance': 'none',
+                                                            margin: 0
+                                                        },
+                                                        '&[type=number]': {
+                                                            '-moz-appearance': 'textfield'
+                                                        }
+                                                    }
+                                                }}
+                                                size="small"
+                                            />
+                                        </TableCell>
+
                                         {/* Marker Name */}
                                         <TableCell sx={{ padding: '4px', minWidth: '180px', maxWidth: '200px', textAlign: 'center' }}>
                                             <TextField
                                                 variant="outlined"
-                                                value={marker.markerName || generateMarkerName(marker.quantities, index + 1)}
+                                                value={marker.markerName || generateMarkerName(marker.quantities)}
                                                 onChange={(e) => updateMarkerField(marker.id, "markerName", e.target.value)}
-                                                placeholder={generateMarkerName(marker.quantities, index + 1)}
-                                                error={isMarkerNameDuplicate(marker.id, marker.markerName)}
-                                                helperText={isMarkerNameDuplicate(marker.id, marker.markerName) ? "Duplicate name" : ""}
+                                                placeholder={generateMarkerName(marker.quantities)}
                                                 sx={{
                                                     width: '100%',
-                                                    "& input": { fontWeight: 'normal', textAlign: 'center' },
-                                                    "& .MuiFormHelperText-root": {
-                                                        fontSize: '0.7rem',
-                                                        textAlign: 'center',
-                                                        margin: '2px 0 0 0'
-                                                    }
+                                                    "& input": { fontWeight: 'normal', textAlign: 'center' }
                                                 }}
                                                 size="small"
                                             />
@@ -480,7 +724,17 @@ const MarkerCalculatorDialog = ({
                                                     inputProps={{ min: 0 }}
                                                     sx={{
                                                         width: '100%',
-                                                        "& input": { textAlign: 'center', fontWeight: 'normal' }
+                                                        "& input": {
+                                                            textAlign: 'center',
+                                                            fontWeight: 'normal',
+                                                            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                                                                '-webkit-appearance': 'none',
+                                                                margin: 0
+                                                            },
+                                                            '&[type=number]': {
+                                                                '-moz-appearance': 'textfield'
+                                                            }
+                                                        }
                                                     }}
                                                     size="small"
                                                 />
@@ -491,22 +745,31 @@ const MarkerCalculatorDialog = ({
                                         <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
                                             <TextField
                                                 type="number"
-                                                value={marker.layers || 1}
+                                                value={marker.layers || ''}
                                                 onChange={(e) => {
-                                                    const value = Math.max(1, parseInt(e.target.value) || 1);
-                                                    updateMarkerField(marker.id, "layers", value);
+                                                    updateMarkerField(marker.id, "layers", e.target.value);
                                                 }}
                                                 inputProps={{ min: 1 }}
                                                 sx={{
                                                     width: '100%',
-                                                    "& input": { textAlign: 'center', fontWeight: "normal" }
+                                                    "& input": {
+                                                        textAlign: 'center',
+                                                        fontWeight: "normal",
+                                                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                                                            '-webkit-appearance': 'none',
+                                                            margin: 0
+                                                        },
+                                                        '&[type=number]': {
+                                                            '-moz-appearance': 'textfield'
+                                                        }
+                                                    }
                                                 }}
                                                 size="small"
                                             />
                                         </TableCell>
 
                                         {/* Delete Button */}
-                                        <TableCell>
+                                        <TableCell sx={{ padding: '4px' }}>
                                             <IconButton
                                                 onClick={() => removeMarker(marker.id)}
                                                 color="error"
@@ -589,8 +852,6 @@ const MarkerCalculatorDialog = ({
                     onClick={saveCalculatorData}
                     variant="contained"
                     color="primary"
-                    disabled={hasDuplicateMarkerNames()}
-                    title={hasDuplicateMarkerNames() ? "Cannot save: Duplicate marker names found" : "Save calculator data"}
                 >
                     Save
                 </Button>

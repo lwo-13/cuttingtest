@@ -392,22 +392,22 @@ class MarkerCalculatorData(db.Model):
     __tablename__ = 'marker_calculator_data'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    table_id = db.Column(db.String(36), nullable=False)  # Links to mattress table_id
     order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
-    selected_baseline = db.Column(db.String(50), nullable=False, default='original')  # 'original' or table_id
+    tab_number = db.Column(db.String(10), nullable=False)  # Tab identifier (e.g., '01', '02', '03')
+    selected_baseline = db.Column(db.String(50), nullable=False, default='original')  # 'original', table_id, or 'calc_tab_XX'
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
-    # Composite unique constraint to ensure one record per table per order
+    # Composite unique constraint to ensure one record per tab per order
     __table_args__ = (
-        db.UniqueConstraint('table_id', 'order_commessa', name='uq_calculator_table_order'),
+        db.UniqueConstraint('order_commessa', 'tab_number', name='uq_calculator_order_tab'),
     )
 
     def to_dict(self):
         return {
             "id": self.id,
-            "table_id": self.table_id,
             "order_commessa": self.order_commessa,
+            "tab_number": self.tab_number,
             "selected_baseline": self.selected_baseline,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -419,6 +419,7 @@ class MarkerCalculatorMarker(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     calculator_data_id = db.Column(db.Integer, db.ForeignKey('marker_calculator_data.id', ondelete='CASCADE'), nullable=False)
     marker_name = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    marker_width = db.Column(db.Float, nullable=True)  # Add width field
     layers = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
@@ -426,16 +427,12 @@ class MarkerCalculatorMarker(db.Model):
     # Relationship
     calculator_data = db.relationship('MarkerCalculatorData', backref=db.backref('markers', cascade='all, delete-orphan'))
 
-    # Composite unique constraint to prevent duplicate marker names within the same calculator
-    __table_args__ = (
-        db.UniqueConstraint('calculator_data_id', 'marker_name', name='uq_calculator_marker_name'),
-    )
-
     def to_dict(self):
         return {
             "id": self.id,
             "calculator_data_id": self.calculator_data_id,
             "marker_name": self.marker_name,
+            "marker_width": self.marker_width,
             "layers": self.layers,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

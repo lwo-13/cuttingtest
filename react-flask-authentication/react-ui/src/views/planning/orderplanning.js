@@ -108,7 +108,6 @@ const OrderPlanning = () => {
 
     // State for calculator dialog
     const [openCalculatorDialog, setOpenCalculatorDialog] = useState(false);
-    const [currentCalculatorTableId, setCurrentCalculatorTableId] = useState(null);
 
     // Italian Ratio
     const italianRatios = useItalianRatios(selectedOrder);
@@ -287,14 +286,12 @@ const OrderPlanning = () => {
     };
 
     // Handle calculator dialog
-    const handleOpenCalculator = (tableId) => {
-        setCurrentCalculatorTableId(tableId);
+    const handleOpenCalculator = () => {
         setOpenCalculatorDialog(true);
     };
 
     const handleCloseCalculator = () => {
         setOpenCalculatorDialog(false);
-        setCurrentCalculatorTableId(null);
     };
 
     // Handle confirming navigation when there are unsaved changes
@@ -529,7 +526,7 @@ const OrderPlanning = () => {
                                     {t('orderPlanning.mattresses', 'Mattresses')}
                                     <IconButton
                                         size="small"
-                                        onClick={() => handleOpenCalculator(table.id)}
+                                        onClick={handleOpenCalculator}
                                         sx={{
                                             color: 'primary.main',
                                             '&:hover': { backgroundColor: 'primary.light', color: 'white' }
@@ -855,14 +852,13 @@ const OrderPlanning = () => {
             </Dialog>
 
             {/* Marker Calculator Dialog */}
-            {selectedOrder && currentCalculatorTableId && (
+            {selectedOrder && (
                 <MarkerCalculatorDialog
                     open={openCalculatorDialog}
                     onClose={handleCloseCalculator}
                     orderSizes={orderSizes}
                     orderSizeNames={orderSizeNames}
                     selectedStyle={selectedStyle}
-                    tableId={currentCalculatorTableId}
                     tables={tables}
                     getTablePlannedQuantities={getTablePlannedQuantities}
                     selectedOrder={selectedOrder}
