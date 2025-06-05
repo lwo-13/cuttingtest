@@ -345,6 +345,7 @@ class GetKanbanMattressesResource(Resource):
                 db.func.coalesce(CollarettoDetail.extra, MattressDetail.extra).label('extra'),
                 MattressDetail.cons_planned,
                 MattressDetail.length_mattress,
+                MattressDetail.bagno_ready,  # Add bagno_ready field
                 CollarettoDetail.usable_width,
                 # Adding left join on mattress_kanban
                 db.func.coalesce(MattressKanban.day, 'Not Assigned').label('day'),
@@ -359,7 +360,8 @@ class GetKanbanMattressesResource(Resource):
              .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
              .outerjoin(ProductionCenter, Mattresses.order_commessa == ProductionCenter.order_commessa) \
              .filter(MattressPhase.active == True) \
-             .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"]))
+             .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"])) \
+             .filter(MattressDetail.bagno_ready == True)  # Only show mattresses with bagno_ready = True
 
             if day_filter:
                 if day_filter in ["today", "tomorrow"]:
@@ -414,6 +416,7 @@ class GetKanbanMattressesResource(Resource):
                     "layers": row.layers,
                     "extra": row.extra,
                     "consumption": row.cons_planned,
+                    "bagno_ready": row.bagno_ready,  # Include bagno_ready field
                     "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
                     "total_pcs": total_pcs,
                     "created_at": row.created_at.strftime('%Y-%m-%d %H:%M:%S'),
