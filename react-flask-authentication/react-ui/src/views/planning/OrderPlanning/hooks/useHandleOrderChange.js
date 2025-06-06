@@ -23,7 +23,8 @@ const handleOrderChange = async (newValue, context) => {
     sortSizes,
     clearBrand,
     clearPadPrintInfo,
-    styleTouched
+    styleTouched,
+    setShowCommentCard
   } = context;
 
   if (!newValue) {
@@ -44,6 +45,7 @@ const handleOrderChange = async (newValue, context) => {
     setManualColor('');
     setUnsavedChanges(false);
     setStyleTouched(false);
+    if (setShowCommentCard) setShowCommentCard(false);
     return;
   }
 
@@ -63,14 +65,15 @@ const handleOrderChange = async (newValue, context) => {
   fetchBrandForStyle(newValue.style);
 
   try {
-    const [mattressRes, markerRes, alongRes, weftRes, biasRes] = await Promise.all([
+    const [mattressRes, markerRes, alongRes, weftRes, biasRes, commentRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${newValue.id}`),
       axios.get(`/markers/marker_headers_planning`, {
         params: { style: newValue.style, sizes: sizeNames.join(',') }
       }),
       axios.get(`/collaretto/get_by_order/${newValue.id}`),
       axios.get(`/collaretto/get_weft_by_order/${newValue.id}`),
-      axios.get(`/collaretto/get_bias_by_order/${newValue.id}`)
+      axios.get(`/collaretto/get_bias_by_order/${newValue.id}`),
+      axios.get(`/orders/comments/get/${newValue.id}`)
     ]);
 
     const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
@@ -265,6 +268,12 @@ const handleOrderChange = async (newValue, context) => {
     });
     setBiasTables(Object.values(biasTablesById));
 
+    // Show comment card if there's an existing comment
+    if (setShowCommentCard) {
+      const hasExistingComment = commentRes.data?.success && commentRes.data?.data?.comment_text;
+      setShowCommentCard(!!hasExistingComment);
+    }
+
     setUnsavedChanges(false);
   } catch (error) {
     console.error("❌ Error in parallel fetch:", error);
@@ -272,6 +281,7 @@ const handleOrderChange = async (newValue, context) => {
     setAlongTables([]);
     setWeftTables([]);
     setBiasTables([]);
+    if (setShowCommentCard) setShowCommentCard(false);
     setUnsavedChanges(false);
   }
 };

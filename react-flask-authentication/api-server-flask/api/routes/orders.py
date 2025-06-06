@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
-from api.models import db, OrderLinesView, OrderRatio, ProductionCenter
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments
 
 # ✅ Create Blueprint and API instance
 orders_bp = Blueprint('orders', __name__)
@@ -215,5 +215,56 @@ class GetProductionCenter(Resource):
                 }, 200
             else:
                 return {"success": True, "data": None}, 200  # Still a success, just empty
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/comments/save', methods=['POST'])
+class SaveOrderComment(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            order_commessa = data.get('order_commessa')
+            comment_text = data.get('comment_text', '').strip()
+
+            if not order_commessa:
+                return {"success": False, "msg": "order_commessa is required"}, 400
+
+            # Find existing comment or create new one
+            existing_comment = db.session.query(OrderComments).filter_by(order_commessa=order_commessa).first()
+
+            if comment_text:  # If there's actual comment text
+                if existing_comment:
+                    existing_comment.comment_text = comment_text
+                else:
+                    new_comment = OrderComments(
+                        order_commessa=order_commessa,
+                        comment_text=comment_text
+                    )
+                    db.session.add(new_comment)
+            else:  # If comment is empty, delete the record
+                if existing_comment:
+                    db.session.delete(existing_comment)
+                # If no existing comment and empty text, do nothing
+
+            db.session.commit()
+            return {"success": True, "msg": "Comment saved successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error in /comments/save:", e)
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/comments/get/<string:order_commessa>', methods=['GET'])
+class GetOrderComment(Resource):
+    def get(self, order_commessa):
+        try:
+            comment = db.session.query(OrderComments).filter_by(order_commessa=order_commessa).first()
+            if comment:
+                return {
+                    "success": True,
+                    "data": comment.to_dict()
+                }, 200
+            else:
+                return {"success": True, "data": None}, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500

@@ -28,7 +28,8 @@ const useHandleSave = ({
   setOpenError,
   setSuccessMessage,
   setOpenSuccess,
-  setUnsavedChanges
+  setUnsavedChanges,
+  commentData
 }) => {
   const [saving, setSaving] = useState(false);
 
@@ -78,57 +79,64 @@ const useHandleSave = ({
         });
       });
 
-      // ✅ Check for duplicate production center combinations within the same order (across all table types)
+      // ✅ Check for duplicate production center combinations within the same table type
       // Combination key includes: cutting room + destination + fabric type
-      const usedCombinations = new Set();
       let hasDuplicateCombinations = false;
 
-      // Check mattress tables
+      // Check mattress tables (within mattress tables only)
+      const mattressCombinations = new Set();
       hasDuplicateCombinations = tables.some((table, tableIndex) => {
         const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
-        if (usedCombinations.has(combinationKey)) {
-          invalidRow = `Mattress Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+
+        if (mattressCombinations.has(combinationKey)) {
+          invalidRow = `Mattress Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within mattress tables.`;
           return true;
         }
-        usedCombinations.add(combinationKey);
+        mattressCombinations.add(combinationKey);
         return false;
       });
 
-      // Check along tables
+      // Check along tables (within along tables only)
       if (!hasDuplicateCombinations) {
+        const alongCombinations = new Set();
         hasDuplicateCombinations = alongTables.some((table, tableIndex) => {
           const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
-          if (usedCombinations.has(combinationKey)) {
-            invalidAlongRow = `Collaretto Along ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+
+          if (alongCombinations.has(combinationKey)) {
+            invalidAlongRow = `Collaretto Along ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within along tables.`;
             return true;
           }
-          usedCombinations.add(combinationKey);
+          alongCombinations.add(combinationKey);
           return false;
         });
       }
 
-      // Check weft tables
+      // Check weft tables (within weft tables only)
       if (!hasDuplicateCombinations) {
+        const weftCombinations = new Set();
         hasDuplicateCombinations = weftTables.some((table, tableIndex) => {
           const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
-          if (usedCombinations.has(combinationKey)) {
-            invalidWeftRow = `Collaretto Weft ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+
+          if (weftCombinations.has(combinationKey)) {
+            invalidWeftRow = `Collaretto Weft ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within weft tables.`;
             return true;
           }
-          usedCombinations.add(combinationKey);
+          weftCombinations.add(combinationKey);
           return false;
         });
       }
 
-      // Check bias tables
+      // Check bias tables (within bias tables only)
       if (!hasDuplicateCombinations) {
+        const biasCombinations = new Set();
         hasDuplicateCombinations = biasTables.some((table, tableIndex) => {
           const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
-          if (usedCombinations.has(combinationKey)) {
-            invalidBiasRow = `Collaretto Bias ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+
+          if (biasCombinations.has(combinationKey)) {
+            invalidBiasRow = `Collaretto Bias ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within bias tables.`;
             return true;
           }
-          usedCombinations.add(combinationKey);
+          biasCombinations.add(combinationKey);
           return false;
         });
       }
@@ -721,6 +729,31 @@ const useHandleSave = ({
               prev.filter(name => !successfulDeletes.includes(name))
             );
           });
+        })
+        .then(() => {
+          // ✅ Save comment if there are changes (including deletions)
+          if (commentData && commentData.hasChanges && selectedOrder) {
+            return axios.post('/orders/comments/save', {
+              order_commessa: selectedOrder.id,
+              comment_text: commentData.comment_text  // Empty string for deletions
+            }).then(response => {
+              if (response.data.success) {
+                if (commentData.isDeleted) {
+                  console.log('✅ Comment deleted successfully');
+                } else {
+                  console.log('✅ Comment saved successfully');
+                }
+                // Reset comment state
+                if (commentData.resetState) {
+                  commentData.resetState();
+                }
+              } else {
+                console.warn('⚠️ Failed to save comment:', response.data.msg);
+              }
+            }).catch(error => {
+              console.error('❌ Error saving comment:', error);
+            });
+          }
         })
         .then(() => {
           setDeletedAlong([]);

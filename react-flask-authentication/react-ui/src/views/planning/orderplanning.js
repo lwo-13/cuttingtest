@@ -49,6 +49,9 @@ import BiasActionRow from 'views/planning/OrderPlanning/components/BiasActionRow
 // Calculator Component
 import MarkerCalculatorDialog from 'views/planning/OrderPlanning/components/MarkerCalculatorDialog';
 
+// Comment Component
+import CommentCard from 'views/planning/OrderPlanning/components/CommentCard';
+
 // Hooks
 import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
@@ -108,6 +111,10 @@ const OrderPlanning = () => {
 
     // State for calculator dialog
     const [openCalculatorDialog, setOpenCalculatorDialog] = useState(false);
+
+    // State for comment card
+    const [showCommentCard, setShowCommentCard] = useState(false);
+    const [commentData, setCommentData] = useState({ comment_text: '', hasChanges: false, resetState: null });
 
     // State for card collapse/expand functionality
     const [collapsedCards, setCollapsedCards] = useState({
@@ -212,7 +219,8 @@ const OrderPlanning = () => {
         setOpenError,
         setSuccessMessage,
         setOpenSuccess,
-        setUnsavedChanges
+        setUnsavedChanges,
+        commentData
     });
 
     // Order Change
@@ -238,7 +246,8 @@ const OrderPlanning = () => {
         sortSizes,
         clearBrand,
         clearPadPrintInfo,
-        styleTouched
+        styleTouched,
+        setShowCommentCard
     });
 
     // Print Styles
@@ -291,6 +300,28 @@ const OrderPlanning = () => {
 
     const handleCloseCalculator = () => {
         setOpenCalculatorDialog(false);
+    };
+
+    // Handle comment card
+    const handleAddComment = () => {
+        setShowCommentCard(true);
+        setUnsavedChanges(true);
+    };
+
+    const handleRemoveComment = () => {
+        setShowCommentCard(false);
+        // Mark comment for deletion by setting empty text with changes flag
+        setCommentData({
+            comment_text: '',
+            hasChanges: true,
+            resetState: null,
+            isDeleted: true  // Flag to indicate this comment should be deleted
+        });
+        setUnsavedChanges(true);
+    };
+
+    const handleCommentChange = (data) => {
+        setCommentData(data);
     };
 
     // Handle card collapse/expand functionality
@@ -842,6 +873,18 @@ const OrderPlanning = () => {
                 </React.Fragment>
             ))}
 
+            {/* Comment Card Section */}
+            {selectedOrder && showCommentCard && (
+                <Box mt={3}>
+                    <CommentCard
+                        selectedOrder={selectedOrder}
+                        onRemove={handleRemoveComment}
+                        setUnsavedChanges={setUnsavedChanges}
+                        onCommentChange={handleCommentChange}
+                    />
+                </Box>
+            )}
+
             {selectedOrder && (
                 <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
                     <Button
@@ -879,6 +922,17 @@ const OrderPlanning = () => {
                     >
                         {t('orderPlanning.addCollarettoBias', 'Add Collaretto Bias (Sbieco)')}
                     </Button>
+
+                    {!showCommentCard && (
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<AddCircleOutline />}
+                            onClick={handleAddComment}
+                        >
+                            {t('orderPlanning.addComment', 'Add Comment')}
+                        </Button>
+                    )}
                 </Box>
             )}
 
