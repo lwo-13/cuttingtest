@@ -3,7 +3,8 @@ import { Grid, Autocomplete, TextField, Box, Paper, Typography } from '@mui/mate
 import {
   getProductionCenterOptions,
   getCuttingRoomOptions,
-  getDestinationOptions
+  getDestinationOptions,
+  getAutoSelectedDestination
 } from 'utils/productionCenterConfig';
 
 const MattressGroupCard = ({
@@ -61,12 +62,15 @@ const MattressGroupCard = ({
               value={cuttingRoomOptions.find(opt => opt.value === table.cuttingRoom) || null}
               disabled={!isTableEditable(table) || !table.productionCenter}
               onChange={(event, newValue) => {
+                const selectedCuttingRoom = newValue?.value || null;
+                const autoDestination = selectedCuttingRoom ? getAutoSelectedDestination(selectedCuttingRoom) : null;
+
                 setTables(prev =>
                   prev.map(t =>
                     t.id === table.id ? {
                       ...t,
-                      cuttingRoom: newValue?.value || null,
-                      destination: null // Reset destination when cutting room changes
+                      cuttingRoom: selectedCuttingRoom,
+                      destination: autoDestination // Auto-select if only one destination, otherwise null
                     } : t
                   )
                 );
