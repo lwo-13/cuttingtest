@@ -585,6 +585,16 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
   const tooltipContent = (
     <Box>
       <strong>{t('common.order', 'Order')}:</strong> {mattress.order_commessa} <br />
+      {/* Production Center fields (before fabric info) */}
+      {mattress.production_center && mattress.production_center !== 'Not Assigned' && (
+        <><strong>{t('common.productionCenter', 'Production Center')}:</strong> {mattress.production_center} <br /></>
+      )}
+      {mattress.cutting_room && mattress.cutting_room !== 'Not Assigned' && (
+        <><strong>{t('common.cuttingRoom', 'Cutting Room')}:</strong> {mattress.cutting_room} <br /></>
+      )}
+      {mattress.destination && mattress.destination !== 'Not Assigned' && (
+        <><strong>{t('common.destination', 'Destination')}:</strong> {mattress.destination} <br /></>
+      )}
       <strong>{t('common.fabric', 'Fabric')}:</strong> {mattress.fabric_code} &nbsp;&nbsp; {mattress.fabric_color} <br />
       <strong>{t('table.bagno')}:</strong> {mattress.dye_lot} <br />
       <strong>{t('common.markerLength', 'Marker Length')}:</strong> {mattress.marker_length} m<br />

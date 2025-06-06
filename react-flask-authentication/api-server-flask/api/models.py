@@ -643,3 +643,31 @@ class ProductionCenter(db.Model):
         default=db.func.current_timestamp(),
         onupdate=db.func.current_timestamp()
     )
+
+class MattressProductionCenter(db.Model):
+    __tablename__ = 'mattress_production_center'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    table_id = db.Column(db.String(36), nullable=False, unique=True)  # Links to all table types
+    table_type = db.Column(db.String(10), nullable=False)  # 'MATTRESS', 'ALONG', 'WEFT', 'BIAS'
+    production_center = db.Column(db.String(50), nullable=True)
+    cutting_room = db.Column(db.String(50), nullable=True)
+    destination = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=db.func.current_timestamp(),
+        onupdate=db.func.current_timestamp()
+    )
+
+    def to_dict(self):
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                result[column.name] = value
+        return result
+

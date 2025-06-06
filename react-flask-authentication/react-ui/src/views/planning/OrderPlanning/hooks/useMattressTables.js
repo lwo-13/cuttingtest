@@ -15,6 +15,10 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
 
       const newTable = {
         id: newTableId,
+        // Production center fields (before fabric info)
+        productionCenter: "",
+        cuttingRoom: "",
+        destination: "",
         fabricType: "",
         fabricCode: "",
         fabricColor: "",

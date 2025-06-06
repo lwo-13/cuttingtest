@@ -14,8 +14,7 @@ import OrderActionBar from 'views/planning/OrderPlanning/components/OrderActionB
 import OrderToolbar from 'views/planning/OrderPlanning/components/OrderToolbar';
 import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuantities';
 
-// Cutting Room Selection
-import CuttingRoomSelector from 'views/planning/OrderPlanning/components/CuttingRoomSelector';
+
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
@@ -122,10 +121,7 @@ const OrderPlanning = () => {
     // Fetch Brand
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
 
-    // Cutting Room Assignemnt
-    const [selectedProductionCenter, setSelectedProductionCenter] = useState('');
-    const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('');
-    const [selectedDestination, setSelectedDestination] = useState('');
+
 
     // Pin Order Planning Card
     const [isPinned, setIsPinned] = useState(false);
@@ -193,9 +189,6 @@ const OrderPlanning = () => {
         selectedStyle,
         selectedColorCode,
         selectedSeason,
-        selectedProductionCenter,
-        selectedCuttingRoom,
-        selectedDestination,
         username,
         brand,
         deletedMattresses,
@@ -222,9 +215,6 @@ const OrderPlanning = () => {
         setStyleTouched,
         setSelectedSeason,
         setSelectedColorCode,
-        setSelectedProductionCenter,
-        setSelectedCuttingRoom,
-        setSelectedDestination,
         fetchPadPrintInfo,
         fetchBrandForStyle,
         setTables,
@@ -477,20 +467,6 @@ const OrderPlanning = () => {
 
                 </MainCard>
             </Box>
-
-            <Box mt={2} />
-            
-            {/* Production Center */}
-            {selectedOrder && (
-                <CuttingRoomSelector
-                    productionCenter={selectedProductionCenter}
-                    setProductionCenter={setSelectedProductionCenter}
-                    cuttingRoom={selectedCuttingRoom}
-                    setCuttingRoom={setSelectedCuttingRoom}
-                    destination={selectedDestination}
-                    setDestination={setSelectedDestination}
-                />
-            )}
 
             <Box mt={2} />
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, SystemSettings
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, MattressProductionCenter, SystemSettings
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
@@ -229,13 +229,19 @@ class GetMattressesByOrder(Resource):
                 MattressDetail.cons_real,
                 MattressDetail.bagno_ready,  # Add bagno_ready field
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
-                MattressPhase.status.label('phase_status')
+                MattressPhase.status.label('phase_status'),
+                # Add table-specific production center fields
+                MattressProductionCenter.production_center,
+                MattressProductionCenter.cutting_room,
+                MattressProductionCenter.destination
             ).outerjoin(
                 MattressDetail, Mattresses.id == MattressDetail.mattress_id
             ).outerjoin(
                 MattressMarker, Mattresses.id == MattressMarker.mattress_id
             ).outerjoin(
                 MattressPhase, db.and_(Mattresses.id == MattressPhase.mattress_id, MattressPhase.active == True)
+            ).outerjoin(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
             ).filter(
                 Mattresses.order_commessa == order_commessa,
                 Mattresses.item_type.in_(['AS', 'MS'])
@@ -247,10 +253,14 @@ class GetMattressesByOrder(Resource):
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, marker_name, phase_status  in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
+                    # Table-specific production center fields (before fabric info)
+                    "production_center": production_center,
+                    "cutting_room": cutting_room,
+                    "destination": destination,
                     "fabric_type": mattress.fabric_type,
                     "fabric_code": mattress.fabric_code,
                     "fabric_color": mattress.fabric_color,
@@ -330,6 +340,7 @@ class GetKanbanMattressesResource(Resource):
                 MattressPhase.device,
                 Mattresses.mattress,
                 Mattresses.order_commessa,
+                Mattresses.table_id,  # Add table_id for joining with mattress production center
                 Mattresses.fabric_type,
                 Mattresses.fabric_code,
                 Mattresses.fabric_color,
@@ -351,13 +362,18 @@ class GetKanbanMattressesResource(Resource):
                 db.func.coalesce(MattressKanban.day, 'Not Assigned').label('day'),
                 db.func.coalesce(MattressKanban.shift, 'Not Assigned').label('shift'),
                 db.func.coalesce(MattressKanban.position, 0).label('position'),
-                # Adding sector information from production_center
+                # Adding table-specific production center information
+                db.func.coalesce(MattressProductionCenter.production_center, 'Not Assigned').label('production_center'),
+                db.func.coalesce(MattressProductionCenter.cutting_room, 'Not Assigned').label('cutting_room'),
+                db.func.coalesce(MattressProductionCenter.destination, 'Not Assigned').label('destination'),
+                # Adding sector information from production_center (order-level fallback)
                 db.func.coalesce(ProductionCenter.destination, 'No Sector Assigned').label('sector')
             ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
              .outerjoin(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
              .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \
              .outerjoin(CollarettoDetail, MattressPhase.mattress_id == CollarettoDetail.mattress_id) \
+             .outerjoin(MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id) \
              .outerjoin(ProductionCenter, Mattresses.order_commessa == ProductionCenter.order_commessa) \
              .filter(MattressPhase.active == True) \
              .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"])) \
@@ -404,6 +420,11 @@ class GetKanbanMattressesResource(Resource):
                     "status": row.status,
                     "device": row.device if row.device else "SP0",
                     "order_commessa": row.order_commessa,
+                    "table_id": row.table_id,
+                    # Table-specific production center fields (before fabric info)
+                    "production_center": row.production_center,
+                    "cutting_room": row.cutting_room,
+                    "destination": row.destination,
                     "fabric_type": row.fabric_type,
                     "fabric_code": row.fabric_code,
                     "fabric_color": row.fabric_color,
@@ -421,7 +442,7 @@ class GetKanbanMattressesResource(Resource):
                     "total_pcs": total_pcs,
                     "created_at": row.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                     "day": row.day,  # Includes 'Not Assigned' if not found in mattress_kanban
-                    "sector": row.sector,  # Adding sector information
+                    "sector": row.sector,  # Adding sector information (order-level fallback)
                     "shift": row.shift,  # Includes 'Not Assigned' if not found in mattress_kanban
                     "position": row.position  # Defaults to 0 if not found in mattress_kanban
                 })
@@ -788,6 +809,72 @@ class MattressApproval(Resource):
             import traceback
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/production_center/save', methods=['POST'])
+class SaveMattressProductionCenter(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            table_id = data.get("table_id")
+            table_type = data.get("table_type", "MATTRESS")  # Default to MATTRESS for backward compatibility
+            production_center = data.get("production_center")
+            cutting_room = data.get("cutting_room")
+            destination = data.get("destination")
+
+            if not table_id:
+                return {"success": False, "msg": "table_id is required"}, 400
+
+            # Validate table_type
+            if table_type not in ['MATTRESS', 'ALONG', 'WEFT', 'BIAS']:
+                return {"success": False, "msg": "table_type must be MATTRESS, ALONG, WEFT, or BIAS"}, 400
+
+            # Check if record exists
+            existing = db.session.query(MattressProductionCenter).filter_by(table_id=table_id).first()
+
+            if existing:
+                # Update existing record
+                existing.table_type = table_type
+                existing.production_center = production_center
+                existing.cutting_room = cutting_room
+                existing.destination = destination
+            else:
+                # Create new record
+                new_entry = MattressProductionCenter(
+                    table_id=table_id,
+                    table_type=table_type,
+                    production_center=production_center,
+                    cutting_room=cutting_room,
+                    destination=destination
+                )
+                db.session.add(new_entry)
+
+            db.session.commit()
+            return {"success": True}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error in /mattress/production_center/save:", e)
+            return {"success": False, "msg": str(e)}, 500
+
+@mattress_api.route('/production_center/get/<string:table_id>', methods=['GET'])
+class GetMattressProductionCenter(Resource):
+    def get(self, table_id):
+        try:
+            record = db.session.query(MattressProductionCenter).filter_by(table_id=table_id).first()
+            if record:
+                return {
+                    "success": True,
+                    "data": {
+                        "table_type": record.table_type,
+                        "production_center": record.production_center,
+                        "cutting_room": record.cutting_room,
+                        "destination": record.destination
+                    }
+                }, 200
+            else:
+                return {"success": True, "data": None}, 200  # Still a success, just empty
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/approve')
 class ApproveMattressesResource(Resource):

@@ -9,9 +9,6 @@ const handleOrderChange = async (newValue, context) => {
     setStyleTouched,
     setSelectedSeason,
     setSelectedColorCode,
-    setSelectedProductionCenter,
-    setSelectedCuttingRoom,
-    setSelectedDestination,
     fetchPadPrintInfo,
     fetchBrandForStyle,
     setTables,
@@ -59,18 +56,7 @@ const handleOrderChange = async (newValue, context) => {
   setSelectedSeason(newValue.season);
   setSelectedColorCode(newValue.colorCode);
 
-  try {
-    const productionRes = await axios.get(`/orders/production_center/get/${newValue.id}`);
-    const prodData = productionRes.data?.data;
-    setSelectedProductionCenter(prodData?.production_center || '');
-    setSelectedCuttingRoom(prodData?.cutting_room || '');
-    setSelectedDestination(prodData?.destination || '');
-  } catch (err) {
-    console.error("❌ Failed to fetch Production Center info:", err);
-    setSelectedProductionCenter('');
-    setSelectedCuttingRoom('');
-    setSelectedDestination('');
-  }
+
 
   console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
   fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
@@ -98,6 +84,10 @@ const handleOrderChange = async (newValue, context) => {
       if (!tablesById[tableId]) {
         tablesById[tableId] = {
           id: tableId,
+          // Production center fields (before fabric info)
+          productionCenter: mattress.production_center || "",
+          cuttingRoom: mattress.cutting_room || "",
+          destination: mattress.destination || "",
           fabricType: mattress.fabric_type,
           fabricCode: mattress.fabric_code,
           fabricColor: mattress.fabric_color,
@@ -133,6 +123,10 @@ const handleOrderChange = async (newValue, context) => {
       if (!alongTablesById[tableId]) {
         alongTablesById[tableId] = {
           id: tableId,
+          // Production center fields (will be loaded separately)
+          productionCenter: "",
+          cuttingRoom: "",
+          destination: "",
           fabricType: along.fabric_type,
           fabricCode: along.fabric_code,
           fabricColor: along.fabric_color,
@@ -156,7 +150,6 @@ const handleOrderChange = async (newValue, context) => {
       });
     }
     Object.values(alongTablesById).forEach(table => table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber));
-    setAlongTables(Object.values(alongTablesById));
 
     const weftTablesById = {};
     for (const weft of weftRes.data?.data || []) {
@@ -164,6 +157,10 @@ const handleOrderChange = async (newValue, context) => {
       if (!weftTablesById[tableId]) {
         weftTablesById[tableId] = {
           id: tableId,
+          // Production center fields (will be loaded separately)
+          productionCenter: "",
+          cuttingRoom: "",
+          destination: "",
           fabricType: weft.fabric_type,
           fabricCode: weft.fabric_code,
           fabricColor: weft.fabric_color,
@@ -190,13 +187,6 @@ const handleOrderChange = async (newValue, context) => {
       });
     }
     Object.values(weftTablesById).forEach(table => table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber));
-    const loadedWeftTables = Object.values(weftTablesById);
-    setWeftTables(loadedWeftTables);
-    loadedWeftTables.forEach(table => {
-      table.rows.forEach(row => {
-        handleWeftRowChange(table.id, row.id, "usableWidth", row.usableWidth || "0");
-      });
-    });
 
     const biasTablesById = {};
     for (const bias of biasRes.data?.data || []) {
@@ -204,6 +194,10 @@ const handleOrderChange = async (newValue, context) => {
       if (!biasTablesById[tableId]) {
         biasTablesById[tableId] = {
           id: tableId,
+          // Production center fields (will be loaded separately)
+          productionCenter: "",
+          cuttingRoom: "",
+          destination: "",
           fabricType: bias.fabric_type,
           fabricCode: bias.fabric_code,
           fabricColor: bias.fabric_color,
@@ -233,6 +227,42 @@ const handleOrderChange = async (newValue, context) => {
     Object.values(biasTablesById).forEach(table =>
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
+
+    // Load production center data for all collaretto tables
+    const allCollarettoTables = [
+      ...Object.values(alongTablesById),
+      ...Object.values(weftTablesById),
+      ...Object.values(biasTablesById)
+    ];
+
+    // Fetch production center data for each collaretto table
+    const productionCenterPromises = allCollarettoTables.map(table =>
+      axios.get(`/mattress/production_center/get/${table.id}`)
+        .then(response => {
+          if (response.data.success && response.data.data) {
+            table.productionCenter = response.data.data.production_center || "";
+            table.cuttingRoom = response.data.data.cutting_room || "";
+            table.destination = response.data.data.destination || "";
+          }
+          return table;
+        })
+        .catch(error => {
+          console.warn(`Failed to load production center data for table ${table.id}:`, error);
+          return table;
+        })
+    );
+
+    // Wait for all production center data to load, then set the tables
+    await Promise.all(productionCenterPromises);
+
+    setAlongTables(Object.values(alongTablesById));
+    const loadedWeftTables = Object.values(weftTablesById);
+    setWeftTables(loadedWeftTables);
+    loadedWeftTables.forEach(table => {
+      table.rows.forEach(row => {
+        handleWeftRowChange(table.id, row.id, "usableWidth", row.usableWidth || "0");
+      });
+    });
     setBiasTables(Object.values(biasTablesById));
 
     setUnsavedChanges(false);

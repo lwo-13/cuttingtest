@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'utils/axiosInstance';
+import { getCombinationKey } from 'utils/productionCenterConfig';
 
 const useHandleSave = ({
   tables,
@@ -13,9 +14,6 @@ const useHandleSave = ({
   selectedStyle,
   selectedColorCode,
   selectedSeason,
-  selectedProductionCenter,
-  selectedCuttingRoom,
-  selectedDestination,
   username,
   brand,
   deletedMattresses,
@@ -39,6 +37,12 @@ const useHandleSave = ({
     setSaving(true);
 
     try {
+      // Helper function to get last 6 digits of order ID
+      const getOrderSuffix = (orderId) => {
+        const orderStr = String(orderId);
+        return orderStr.length > 6 ? orderStr.slice(-6) : orderStr;
+      };
+
       const newMattressNames = new Set();
       const newAlongNames = new Set();
       const newWeftNames = new Set();
@@ -59,6 +63,12 @@ const useHandleSave = ({
           return true; // 🚨 Stop processing immediately
         }
 
+        // ✅ Check for missing production center fields
+        if (!table.productionCenter || !table.cuttingRoom || !table.destination) {
+          invalidRow = `Mattress Group ${tableIndex + 1} is missing Production Center, Cutting Room, or Destination`;
+          return true; // 🚨 Stop processing immediately
+        }
+
         return table.rows.some((row, rowIndex) => {
           if (!row.markerName || !row.layers || parseInt(row.layers) <= 0) {
             invalidRow = `Mattress Group ${tableIndex + 1}, Row ${rowIndex + 1} is missing a Marker or Layers`;
@@ -68,16 +78,79 @@ const useHandleSave = ({
         });
       });
 
+      // ✅ Check for duplicate production center combinations within the same order (across all table types)
+      // Combination key includes: cutting room + destination + fabric type
+      const usedCombinations = new Set();
+      let hasDuplicateCombinations = false;
+
+      // Check mattress tables
+      hasDuplicateCombinations = tables.some((table, tableIndex) => {
+        const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+        if (usedCombinations.has(combinationKey)) {
+          invalidRow = `Mattress Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+          return true;
+        }
+        usedCombinations.add(combinationKey);
+        return false;
+      });
+
+      // Check along tables
+      if (!hasDuplicateCombinations) {
+        hasDuplicateCombinations = alongTables.some((table, tableIndex) => {
+          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+          if (usedCombinations.has(combinationKey)) {
+            invalidAlongRow = `Collaretto Along ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+            return true;
+          }
+          usedCombinations.add(combinationKey);
+          return false;
+        });
+      }
+
+      // Check weft tables
+      if (!hasDuplicateCombinations) {
+        hasDuplicateCombinations = weftTables.some((table, tableIndex) => {
+          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+          if (usedCombinations.has(combinationKey)) {
+            invalidWeftRow = `Collaretto Weft ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+            return true;
+          }
+          usedCombinations.add(combinationKey);
+          return false;
+        });
+      }
+
+      // Check bias tables
+      if (!hasDuplicateCombinations) {
+        hasDuplicateCombinations = biasTables.some((table, tableIndex) => {
+          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+          if (usedCombinations.has(combinationKey)) {
+            invalidBiasRow = `Collaretto Bias ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once per order.`;
+            return true;
+          }
+          usedCombinations.add(combinationKey);
+          return false;
+        });
+      }
+
       // 🚨 Show Error Message If Validation Fails
-      if (hasInvalidData) {
-        setErrorMessage(invalidRow);
+      if (hasInvalidData || hasDuplicateCombinations) {
+        const errorMessage = invalidRow || invalidAlongRow || invalidWeftRow || invalidBiasRow;
+        setErrorMessage(errorMessage);
         setOpenError(true);
+        setSaving(false);
         return; // ✅ Prevents saving invalid data
       }
 
       const hasInvalidAlongData = alongTables.some((table, tableIndex) => {
         if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.alongExtra) {
           invalidAlongRow = `Collaretto Along ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color or Extra)`;
+          return true;
+        }
+
+        // ✅ Check for missing production center fields
+        if (!table.productionCenter || !table.cuttingRoom || !table.destination) {
+          invalidAlongRow = `Collaretto Along ${tableIndex + 1} is missing Production Center, Cutting Room, or Destination`;
           return true;
         }
 
@@ -103,6 +176,12 @@ const useHandleSave = ({
           return true;
         }
 
+        // ✅ Check for missing production center fields
+        if (!table.productionCenter || !table.cuttingRoom || !table.destination) {
+          invalidWeftRow = `Collaretto Weft ${tableIndex + 1} is missing Production Center, Cutting Room, or Destination`;
+          return true;
+        }
+
         return table.rows.some((row, rowIndex) => {
           if (!row.pieces || !row.usableWidth || !row.grossLength || !row.rewoundWidth || !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam) {
             invalidWeftRow = `Collaretto Weft ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
@@ -122,6 +201,12 @@ const useHandleSave = ({
       const hasInvalidBiasData = biasTables.some((table, tableIndex) => {
         if (!table.fabricType || !table.fabricCode || !table.fabricColor) {
           invalidBiasRow = `Collaretto Bias ${tableIndex + 1} is missing required fields (Fabric Type, Code, or Color)`;
+          return true;
+        }
+
+        // ✅ Check for missing production center fields
+        if (!table.productionCenter || !table.cuttingRoom || !table.destination) {
+          invalidBiasRow = `Collaretto Bias ${tableIndex + 1} is missing Production Center, Cutting Room, or Destination`;
           return true;
         }
 
@@ -159,21 +244,22 @@ const useHandleSave = ({
         }
       }
 
-      // ❗ Require Production Center and Cutting Room Info
-      if (!selectedProductionCenter || !selectedCuttingRoom) {
-        setErrorMessage("Please select the Production Center and Cutting Room.");
-        setOpenError(true);
-        return;
-      }
+
 
 
       // ✅ Proceed with valid mattress processing
       tables.forEach((table) => {
         table.rows.forEach((row) => {
 
-          // ✅ Generate Mattress Name (ORDER-AS-FABRICTYPE-001, 002, ...)
+          // ✅ Generate Mattress Name with combination key (KEY-ORDER-AS-FABRICTYPE-001, 002, ...)
           const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
-          const mattressName = `${selectedOrder.id}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+          const orderSuffix = getOrderSuffix(selectedOrder.id);
+
+          // Build mattress name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
+          const mattressName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
 
           newMattressNames.add(mattressName); // ✅ Track UI rows
 
@@ -230,8 +316,12 @@ const useHandleSave = ({
 
       alongTables.forEach((table) => {
         table.rows.forEach((row) => {
-          // ✅ Build unique collaretto (along) name WITH padded index
-          const collarettoName = `${selectedOrder.id}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          // ✅ Build unique collaretto (along) name WITH combination key and padded index
+          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+          const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const collarettoName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newAlongNames.add(collarettoName);
 
           // ✅ Build the payload for this row
@@ -273,11 +363,17 @@ const useHandleSave = ({
 
       weftTables.forEach((table) => {
         table.rows.forEach((row) => {
-          // ✅ Build unique collaretto (weft) name WITH padded index
-          const collarettoWeftName = `${selectedOrder.id}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          // ✅ Build unique collaretto (weft) name WITH combination key and padded index
+          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+          const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const collarettoWeftName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newWeftNames.add(collarettoWeftName);
 
-          const mattressName = `${selectedOrder.id}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const mattressName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
 
           // ✅ Build the payload for this weft row
           const payload = {
@@ -320,10 +416,17 @@ const useHandleSave = ({
 
       biasTables.forEach((table) => {
         table.rows.forEach((row) => {
-          const collarettoBiasName = `${selectedOrder.id}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          // ✅ Build unique collaretto (bias) name WITH combination key and padded index
+          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+          const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const collarettoBiasName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newBiasNames.add(collarettoBiasName);
 
-          const mattressName = `${selectedOrder.id}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`;
+          const mattressName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
 
           const payload = {
             collaretto: collarettoBiasName,
@@ -476,21 +579,47 @@ const useHandleSave = ({
         }
       }
 
-      try {
-        await axios.post('/orders/production_center/save', {
-          order_commessa: selectedOrder.id, 
-          production_center: selectedProductionCenter,
-          cutting_room: selectedCuttingRoom,
-          destination: selectedDestination || null
-        });
-      } catch (error) {
-        console.error("❌ Failed to save Production Center info:", error);
-        setErrorMessage("⚠️ Failed to save Production Center info. Please try again.");
-        setOpenError(true);
-        return;
-      }
 
-      saveMattresses()
+
+      // ✅ Save production center data for all table types using unified endpoint
+      const saveAllProductionCenters = () => {
+        // Combine all tables with their respective table types
+        const allTables = [
+          ...tables.map(table => ({ ...table, tableType: 'MATTRESS' })),
+          ...alongTables.map(table => ({ ...table, tableType: 'ALONG' })),
+          ...weftTables.map(table => ({ ...table, tableType: 'WEFT' })),
+          ...biasTables.map(table => ({ ...table, tableType: 'BIAS' }))
+        ];
+
+        return Promise.all(allTables.map(table =>
+          axios.post('/mattress/production_center/save', {
+            table_id: table.id,
+            table_type: table.tableType,
+            production_center: table.productionCenter || null,
+            cutting_room: table.cuttingRoom || null,
+            destination: table.destination || null
+          })
+          .then(response => {
+            if (response.data.success) {
+              console.log(`✅ Production center for ${table.tableType} table ${table.id} saved successfully.`);
+              return true;
+            } else {
+              console.warn(`⚠️ Failed to save production center for ${table.tableType} table ${table.id}:`, response.data.msg);
+              return false;
+            }
+          })
+          .catch(error => {
+            console.error(`❌ Error saving production center for ${table.tableType} table ${table.id}:`, error.response?.data || error.message);
+            return false;
+          })
+        )).then(results => {
+          const allSucceeded = results.every(result => result === true);
+          if (!allSucceeded) throw new Error("❌ Some table production centers failed to save.");
+        });
+      };
+
+      saveAllProductionCenters()
+        .then(() => saveMattresses())
         .then(() => saveAlongRows())
         .then(() => saveWeftRows())
         .then(() => saveBiasRows())
