@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
 import { AddCircleOutline, DeleteOutline, Save, Print, Calculate } from '@mui/icons-material';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -107,6 +108,14 @@ const OrderPlanning = () => {
 
     // State for calculator dialog
     const [openCalculatorDialog, setOpenCalculatorDialog] = useState(false);
+
+    // State for card collapse/expand functionality
+    const [collapsedCards, setCollapsedCards] = useState({
+        mattress: {},  // { tableId: boolean }
+        along: {},     // { tableId: boolean }
+        weft: {},      // { tableId: boolean }
+        bias: {}       // { tableId: boolean }
+    });
 
     // Italian Ratio
     const italianRatios = useItalianRatios(selectedOrder);
@@ -282,6 +291,17 @@ const OrderPlanning = () => {
 
     const handleCloseCalculator = () => {
         setOpenCalculatorDialog(false);
+    };
+
+    // Handle card collapse/expand functionality
+    const toggleCardCollapse = (cardType, tableId) => {
+        setCollapsedCards(prev => ({
+            ...prev,
+            [cardType]: {
+                ...prev[cardType],
+                [tableId]: !prev[cardType][tableId]
+            }
+        }));
     };
 
     // Handle confirming navigation when there are unsaved changes
@@ -499,6 +519,20 @@ const OrderPlanning = () => {
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 <Box display="flex" alignItems="center" gap={1}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => toggleCardCollapse('mattress', table.id)}
+                                        sx={{
+                                            color: 'text.secondary',
+                                            '&:hover': { backgroundColor: 'action.hover' }
+                                        }}
+                                        title={collapsedCards.mattress[table.id] ? "Expand" : "Collapse"}
+                                    >
+                                        {collapsedCards.mattress[table.id] ?
+                                            <IconChevronDown stroke={1.5} size="1rem" /> :
+                                            <IconChevronUp stroke={1.5} size="1rem" />
+                                        }
+                                    </IconButton>
                                     {t('orderPlanning.mattresses', 'Mattresses')}
                                     <IconButton
                                         size="small"
@@ -525,56 +559,57 @@ const OrderPlanning = () => {
 
                         }
                     >
-
-                    <MattressGroupCard
-                        table={table}
-                        tableId={table.id}
-                        tables={tables}
-                        fabricTypeOptions={fabricTypeOptions}
-                        spreadingMethods={spreadingMethods}
-                        spreadingOptions={spreadingOptions}
-                        isTableEditable={isTableEditable}
-                        setTables={setTables}
-                        setUnsavedChanges={setUnsavedChanges}
-                        updateExpectedConsumption={updateExpectedConsumption}
-                    />
-
-                        {/* Table Section */}
-                        <Box>
-                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <Table>
-                                    <MattressTableHeader orderSizes={orderSizes} />
-                                    <TableBody>
-                                        {table.rows.map((row) => (
-                                            <MattressRow
-                                            key={row.id}
-                                            row={row}
-                                            rowId={row.id}
-                                            tableId={table.id}
-                                            table={table}
-                                            orderSizes={orderSizes}
-                                            markerOptions={markerOptions}
-                                            setTables={setTables}
-                                            handleInputChange={handleInputChange}
-                                            handleRemoveRow={handleRemoveRow}
-                                            setUnsavedChanges={setUnsavedChanges}
-                                            />
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-
-                            {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
-                            <MattressActionRow
-                                avgConsumption={avgConsumption[table.id]}
-                                tableId={table.id}
-                                isTableEditable={isTableEditable}
+                        <Collapse in={!collapsedCards.mattress[table.id]} timeout="auto" unmountOnExit>
+                            <MattressGroupCard
                                 table={table}
-                                handleAddRow={(tableId) => handleAddRow(tableId)}
-                                handleRemoveTable={handleRemoveTable}
+                                tableId={table.id}
+                                tables={tables}
+                                fabricTypeOptions={fabricTypeOptions}
+                                spreadingMethods={spreadingMethods}
+                                spreadingOptions={spreadingOptions}
+                                isTableEditable={isTableEditable}
+                                setTables={setTables}
+                                setUnsavedChanges={setUnsavedChanges}
+                                updateExpectedConsumption={updateExpectedConsumption}
                             />
 
-                        </Box>
+                            {/* Table Section */}
+                            <Box>
+                                <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                    <Table>
+                                        <MattressTableHeader orderSizes={orderSizes} />
+                                        <TableBody>
+                                            {table.rows.map((row) => (
+                                                <MattressRow
+                                                key={row.id}
+                                                row={row}
+                                                rowId={row.id}
+                                                tableId={table.id}
+                                                table={table}
+                                                orderSizes={orderSizes}
+                                                markerOptions={markerOptions}
+                                                setTables={setTables}
+                                                handleInputChange={handleInputChange}
+                                                handleRemoveRow={handleRemoveRow}
+                                                setUnsavedChanges={setUnsavedChanges}
+                                                />
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+
+                                {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
+                                <MattressActionRow
+                                    avgConsumption={avgConsumption[table.id]}
+                                    tableId={table.id}
+                                    isTableEditable={isTableEditable}
+                                    table={table}
+                                    handleAddRow={(tableId) => handleAddRow(tableId)}
+                                    handleRemoveTable={handleRemoveTable}
+                                />
+
+                            </Box>
+                        </Collapse>
                     </MainCard>
                     </React.Fragment>
             ))}
@@ -585,50 +620,72 @@ const OrderPlanning = () => {
 
                     <Box mt={2} />
                     
-                    <MainCard title={`Collaretto Along the Grain`}>
-                        <AlongGroupCard
-                            table={table}
-                            tables={alongTables}
-                            fabricTypeOptions={fabricTypeOptions}
-                            isTableEditable={isTableEditable}
-                            setTables={setAlongTables}
-                            setUnsavedChanges={setUnsavedChanges}
-                            handleAlongExtraChange={handleAlongExtraChange}
-                        />
-
-                        {/* Table Section */}
-                        <Box>
-                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <Table>
-                                    <AlongTableHeader />
-                                    <TableBody>
-                                        {table.rows.map((row) => (
-                                            <AlongRow
-                                                key={row.id}
-                                                row={row}
-                                                rowId={row.id}
-                                                table={table}
-                                                tableId={table.id}
-                                                handleInputChange={handleAlongRowChange}
-                                                handleRemoveRow={handleRemoveAlongRow}
-                                                setUnsavedChanges={setUnsavedChanges}
-                                            />
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-
-                            {/* Button Container */}
-                           <AlongActionRow
-                                tableId={table.id}
+                    <MainCard
+                        title={
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => toggleCardCollapse('along', table.id)}
+                                    sx={{
+                                        color: 'text.secondary',
+                                        '&:hover': { backgroundColor: 'action.hover' }
+                                    }}
+                                    title={collapsedCards.along[table.id] ? "Expand" : "Collapse"}
+                                >
+                                    {collapsedCards.along[table.id] ?
+                                        <IconChevronDown stroke={1.5} size="1rem" /> :
+                                        <IconChevronUp stroke={1.5} size="1rem" />
+                                    }
+                                </IconButton>
+                                Collaretto Along the Grain
+                            </Box>
+                        }
+                    >
+                        <Collapse in={!collapsedCards.along[table.id]} timeout="auto" unmountOnExit>
+                            <AlongGroupCard
                                 table={table}
+                                tables={alongTables}
+                                fabricTypeOptions={fabricTypeOptions}
                                 isTableEditable={isTableEditable}
-                                handleAddRowAlong={handleAddRowAlong}
-                                handleRemoveAlongTable={handleRemoveAlong}
+                                setTables={setAlongTables}
                                 setUnsavedChanges={setUnsavedChanges}
+                                handleAlongExtraChange={handleAlongExtraChange}
                             />
 
-                        </Box>
+                            {/* Table Section */}
+                            <Box>
+                                <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                    <Table>
+                                        <AlongTableHeader />
+                                        <TableBody>
+                                            {table.rows.map((row) => (
+                                                <AlongRow
+                                                    key={row.id}
+                                                    row={row}
+                                                    rowId={row.id}
+                                                    table={table}
+                                                    tableId={table.id}
+                                                    handleInputChange={handleAlongRowChange}
+                                                    handleRemoveRow={handleRemoveAlongRow}
+                                                    setUnsavedChanges={setUnsavedChanges}
+                                                />
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+
+                                {/* Button Container */}
+                               <AlongActionRow
+                                    tableId={table.id}
+                                    table={table}
+                                    isTableEditable={isTableEditable}
+                                    handleAddRowAlong={handleAddRowAlong}
+                                    handleRemoveAlongTable={handleRemoveAlong}
+                                    setUnsavedChanges={setUnsavedChanges}
+                                />
+
+                            </Box>
+                        </Collapse>
                     </MainCard>
                 </React.Fragment>
             ))}
@@ -639,50 +696,72 @@ const OrderPlanning = () => {
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
 
-                    <MainCard title={`Collaretto in Weft`}>
-                        <WeftGroupCard
-                            table={table}
-                            tables={weftTables}
-                            fabricTypeOptions={fabricTypeOptions}
-                            isTableEditable={isTableEditable}
-                            setTables={setWeftTables}
-                            setUnsavedChanges={setUnsavedChanges}
-                            handleWeftExtraChange={handleWeftExtraChange}
-                            />                      
-
-                        {/* Table Section */}
-                        <Box>
-                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                    <Table>
-                                        <WeftTableHeader />
-                                        <TableBody>
-                                        {table.rows.map((row) => (
-                                            <WeftRow
-                                            key={row.id}
-                                            row={row}
-                                            rowId={row.id}
-                                            table={table}
-                                            tableId={table.id}
-                                            handleInputChange={handleWeftRowChange}
-                                            handleRemoveRow={handleRemoveWeftRow}
-                                            setUnsavedChanges={setUnsavedChanges}
-                                            />
-                                        ))}
-                                        </TableBody>
-                                    </Table>
-                            </TableContainer>
-
-                            {/* Button Container */}
-                            <WeftActionRow
-                                tableId={table.id}
+                    <MainCard
+                        title={
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => toggleCardCollapse('weft', table.id)}
+                                    sx={{
+                                        color: 'text.secondary',
+                                        '&:hover': { backgroundColor: 'action.hover' }
+                                    }}
+                                    title={collapsedCards.weft[table.id] ? "Expand" : "Collapse"}
+                                >
+                                    {collapsedCards.weft[table.id] ?
+                                        <IconChevronDown stroke={1.5} size="1rem" /> :
+                                        <IconChevronUp stroke={1.5} size="1rem" />
+                                    }
+                                </IconButton>
+                                Collaretto in Weft
+                            </Box>
+                        }
+                    >
+                        <Collapse in={!collapsedCards.weft[table.id]} timeout="auto" unmountOnExit>
+                            <WeftGroupCard
                                 table={table}
+                                tables={weftTables}
+                                fabricTypeOptions={fabricTypeOptions}
                                 isTableEditable={isTableEditable}
-                                handleAddRowWeft={handleAddRowWeft}
-                                handleRemoveWeft={handleRemoveWeft}
+                                setTables={setWeftTables}
                                 setUnsavedChanges={setUnsavedChanges}
-                            />
-                            
-                        </Box>
+                                handleWeftExtraChange={handleWeftExtraChange}
+                                />
+
+                            {/* Table Section */}
+                            <Box>
+                                <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                        <Table>
+                                            <WeftTableHeader />
+                                            <TableBody>
+                                            {table.rows.map((row) => (
+                                                <WeftRow
+                                                key={row.id}
+                                                row={row}
+                                                rowId={row.id}
+                                                table={table}
+                                                tableId={table.id}
+                                                handleInputChange={handleWeftRowChange}
+                                                handleRemoveRow={handleRemoveWeftRow}
+                                                setUnsavedChanges={setUnsavedChanges}
+                                                />
+                                            ))}
+                                            </TableBody>
+                                        </Table>
+                                </TableContainer>
+
+                                {/* Button Container */}
+                                <WeftActionRow
+                                    tableId={table.id}
+                                    table={table}
+                                    isTableEditable={isTableEditable}
+                                    handleAddRowWeft={handleAddRowWeft}
+                                    handleRemoveWeft={handleRemoveWeft}
+                                    setUnsavedChanges={setUnsavedChanges}
+                                />
+
+                            </Box>
+                        </Collapse>
                     </MainCard>
                 </React.Fragment>
             ))}
@@ -693,50 +772,72 @@ const OrderPlanning = () => {
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
 
-                    <MainCard title={`Collaretto in Bias`}>
-                        <BiasGroupCard
-                            key={table.id}
-                            table={table}
-                            tables={biasTables}
-                            fabricTypeOptions={fabricTypeOptions}
-                            isTableEditable={isTableEditable}
-                            setTables={setBiasTables}
-                            setUnsavedChanges={setUnsavedChanges}
-                            />                      
-
-                        {/* Table Section */}
-                        <Box>
-                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                    <Table>
-                                        <BiasTableHeader />
-                                        <TableBody>
-                                        {table.rows.map((row) => (
-                                            <BiasRow
-                                            key={row.id}
-                                            row={row}
-                                            rowId={row.id}
-                                            table={table}
-                                            tableId={table.id}
-                                            handleInputChange={handleBiasRowChange}
-                                            handleRemoveRow={handleRemoveBiasRow}
-                                            setUnsavedChanges={setUnsavedChanges}
-                                            />
-                                        ))}
-                                        </TableBody>
-                                    </Table>
-                            </TableContainer>
-
-                            {/* Button Container */}
-                            <BiasActionRow
-                                tableId={table.id}
+                    <MainCard
+                        title={
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => toggleCardCollapse('bias', table.id)}
+                                    sx={{
+                                        color: 'text.secondary',
+                                        '&:hover': { backgroundColor: 'action.hover' }
+                                    }}
+                                    title={collapsedCards.bias[table.id] ? "Expand" : "Collapse"}
+                                >
+                                    {collapsedCards.bias[table.id] ?
+                                        <IconChevronDown stroke={1.5} size="1rem" /> :
+                                        <IconChevronUp stroke={1.5} size="1rem" />
+                                    }
+                                </IconButton>
+                                Collaretto in Bias
+                            </Box>
+                        }
+                    >
+                        <Collapse in={!collapsedCards.bias[table.id]} timeout="auto" unmountOnExit>
+                            <BiasGroupCard
+                                key={table.id}
                                 table={table}
+                                tables={biasTables}
+                                fabricTypeOptions={fabricTypeOptions}
                                 isTableEditable={isTableEditable}
-                                handleAddRowBias={handleAddRowBias}
-                                handleRemoveBias={handleRemoveBias}
+                                setTables={setBiasTables}
                                 setUnsavedChanges={setUnsavedChanges}
-                            />
-                            
-                        </Box>
+                                />
+
+                            {/* Table Section */}
+                            <Box>
+                                <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                        <Table>
+                                            <BiasTableHeader />
+                                            <TableBody>
+                                            {table.rows.map((row) => (
+                                                <BiasRow
+                                                key={row.id}
+                                                row={row}
+                                                rowId={row.id}
+                                                table={table}
+                                                tableId={table.id}
+                                                handleInputChange={handleBiasRowChange}
+                                                handleRemoveRow={handleRemoveBiasRow}
+                                                setUnsavedChanges={setUnsavedChanges}
+                                                />
+                                            ))}
+                                            </TableBody>
+                                        </Table>
+                                </TableContainer>
+
+                                {/* Button Container */}
+                                <BiasActionRow
+                                    tableId={table.id}
+                                    table={table}
+                                    isTableEditable={isTableEditable}
+                                    handleAddRowBias={handleAddRowBias}
+                                    handleRemoveBias={handleRemoveBias}
+                                    setUnsavedChanges={setUnsavedChanges}
+                                />
+
+                            </Box>
+                        </Collapse>
                     </MainCard>
                 </React.Fragment>
             ))}
