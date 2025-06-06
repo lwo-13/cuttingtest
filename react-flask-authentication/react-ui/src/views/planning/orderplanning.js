@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
-import { AddCircleOutline, DeleteOutline, Save, Print, Calculate } from '@mui/icons-material';
+import { AddCircleOutline, DeleteOutline, Save, Print, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
@@ -48,6 +48,9 @@ import BiasActionRow from 'views/planning/OrderPlanning/components/BiasActionRow
 
 // Calculator Component
 import MarkerCalculatorDialog from 'views/planning/OrderPlanning/components/MarkerCalculatorDialog';
+
+// Summary Component
+import MattressSummaryDialog from 'views/planning/OrderPlanning/components/MattressSummaryDialog';
 
 // Comment Component
 import CommentCard from 'views/planning/OrderPlanning/components/CommentCard';
@@ -111,6 +114,10 @@ const OrderPlanning = () => {
 
     // State for calculator dialog
     const [openCalculatorDialog, setOpenCalculatorDialog] = useState(false);
+
+    // State for summary dialog
+    const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
+    const [selectedTableForSummary, setSelectedTableForSummary] = useState(null);
 
     // State for comment card
     const [showCommentCard, setShowCommentCard] = useState(false);
@@ -300,6 +307,17 @@ const OrderPlanning = () => {
 
     const handleCloseCalculator = () => {
         setOpenCalculatorDialog(false);
+    };
+
+    // Handle summary dialog
+    const handleOpenSummary = (table) => {
+        setSelectedTableForSummary(table);
+        setOpenSummaryDialog(true);
+    };
+
+    const handleCloseSummary = () => {
+        setOpenSummaryDialog(false);
+        setSelectedTableForSummary(null);
     };
 
     // Handle comment card
@@ -575,6 +593,17 @@ const OrderPlanning = () => {
                                         title="Marker Calculator"
                                     >
                                         <Calculate fontSize="small" />
+                                    </IconButton>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenSummary(table)}
+                                        sx={{
+                                            color: 'secondary.main',
+                                            '&:hover': { backgroundColor: 'secondary.light', color: 'white' }
+                                        }}
+                                        title="Table Summary"
+                                    >
+                                        <Summarize fontSize="small" />
                                     </IconButton>
                                 </Box>
 
@@ -993,6 +1022,16 @@ const OrderPlanning = () => {
                     tables={tables}
                     getTablePlannedQuantities={getTablePlannedQuantities}
                     selectedOrder={selectedOrder}
+                />
+            )}
+
+            {/* Mattress Summary Dialog */}
+            {selectedTableForSummary && (
+                <MattressSummaryDialog
+                    open={openSummaryDialog}
+                    onClose={handleCloseSummary}
+                    table={selectedTableForSummary}
+                    fabricType={selectedTableForSummary.fabricType}
                 />
             )}
         </>
