@@ -69,8 +69,11 @@ import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumpt
 
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
-import { usePrintStyles, handlePrint } from 'views/planning/OrderPlanning/utils/printUtils';
+import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint, expandAllTables, storeCollapsedState, restoreCollapsedState } from 'views/planning/OrderPlanning/utils/printUtils';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
+
+// Destination Print Dialog
+import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
 
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06", "10", "13"];
@@ -263,6 +266,40 @@ const OrderPlanning = () => {
     // Average Consumption per table
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
 
+    // Destination Print Dialog State
+    const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
+    const [availableDestinations, setAvailableDestinations] = useState([]);
+
+    // Enhanced Print Handler
+    const handleEnhancedPrint = () => {
+        const destinations = getAllDestinations(tables, alongTables, weftTables, biasTables);
+
+        if (destinations.length <= 1) {
+            // Single or no destination - print normally
+            handlePrint(tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+        } else {
+            // Multiple destinations - show selection dialog
+            setAvailableDestinations(destinations);
+            setOpenDestinationPrintDialog(true);
+        }
+    };
+
+    // Handle destination-specific printing
+    const handlePrintDestination = (selectedDestination) => {
+        setOpenDestinationPrintDialog(false);
+        handleDestinationPrint(selectedDestination, tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+    };
+
+    // Handle print all destinations
+    const handlePrintAll = () => {
+        setOpenDestinationPrintDialog(false);
+        handlePrint(tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+    };
+
+    // Close destination print dialog
+    const handleCloseDestinationPrintDialog = () => {
+        setOpenDestinationPrintDialog(false);
+    };
 
     const handleCloseError = (event, reason) => {
         if (reason === 'clickaway') return;
@@ -511,7 +548,7 @@ const OrderPlanning = () => {
                     <OrderActionBar
                         unsavedChanges={unsavedChanges}
                         handleSave={handleSave}
-                        handlePrint={handlePrint}
+                        handlePrint={handleEnhancedPrint}
                         isPinned={isPinned}
                         setIsPinned={setIsPinned}
                         saving={saving}
@@ -565,6 +602,7 @@ const OrderPlanning = () => {
                    {tableIndex > 0 && <Box mt={2} />}
                     <MainCard
                         key={table.id}
+                        data-table-id={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 <Box display="flex" alignItems="center" gap={1}>
@@ -681,6 +719,7 @@ const OrderPlanning = () => {
                     <Box mt={2} />
                     
                     <MainCard
+                        data-table-id={table.id}
                         title={
                             <Box display="flex" alignItems="center" gap={1}>
                                 <IconButton
@@ -757,6 +796,7 @@ const OrderPlanning = () => {
                     <Box mt={2} />
 
                     <MainCard
+                        data-table-id={table.id}
                         title={
                             <Box display="flex" alignItems="center" gap={1}>
                                 <IconButton
@@ -833,6 +873,7 @@ const OrderPlanning = () => {
                     <Box mt={2} />
 
                     <MainCard
+                        data-table-id={table.id}
                         title={
                             <Box display="flex" alignItems="center" gap={1}>
                                 <IconButton
@@ -1034,6 +1075,15 @@ const OrderPlanning = () => {
                     fabricType={selectedTableForSummary.fabricType}
                 />
             )}
+
+            {/* Destination Print Dialog */}
+            <DestinationPrintDialog
+                open={openDestinationPrintDialog}
+                onClose={handleCloseDestinationPrintDialog}
+                destinations={availableDestinations}
+                onPrintDestination={handlePrintDestination}
+                onPrintAll={handlePrintAll}
+            />
         </>
     );
 };

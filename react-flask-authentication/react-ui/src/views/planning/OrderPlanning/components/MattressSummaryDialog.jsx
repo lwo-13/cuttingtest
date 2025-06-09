@@ -52,24 +52,20 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
         return acc;
     }, {});
 
-    const markerSummaryArray = Object.values(markerSummary);
+    const markerSummaryArray = Object.values(markerSummary).sort((a, b) =>
+        a.markerName.localeCompare(b.markerName)
+    );
 
     return (
-        <Dialog 
-            open={open} 
-            onClose={onClose} 
-            maxWidth="md" 
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="md"
             fullWidth
-            PaperProps={{
-                sx: { minHeight: '400px' }
-            }}
         >
             <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-                <Typography variant="h6" component="div">
-                    Mattress Table Summary
-                </Typography>
-                <Typography variant="subtitle2" color="text.secondary">
-                    {fabricType || 'Unknown Fabric Type'}
+                <Typography variant="h4" component="div">
+                    Marker Summary
                 </Typography>
             </DialogTitle>
 
@@ -89,7 +85,7 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
                                     <TableRow>
                                         <TableCell align="center"><strong>Marker Name</strong></TableCell>
                                         <TableCell align="center"><strong>Width (cm)</strong></TableCell>
-                                        <TableCell align="center"><strong>Used In Rows</strong></TableCell>
+                                        <TableCell align="center"><strong>Times Used</strong></TableCell>
                                         <TableCell align="center"><strong>Total Layers</strong></TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -100,7 +96,7 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
                                                 {marker.markerName}
                                             </TableCell>
                                             <TableCell align="center">
-                                                {marker.width ? marker.width.toFixed(1) : '-'}
+                                                {marker.width ? Math.round(marker.width) : '-'}
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Chip
@@ -115,7 +111,7 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
                                                     label={Math.round(marker.totalLayers)}
                                                     size="small"
                                                     color="success"
-                                                    variant="filled"
+                                                    variant="outlined"
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -134,15 +130,72 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
                             backgroundColor: 'grey.50',
                             borderRadius: 1
                         }}>
-                            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                Total Mattresses: <Chip label={validRows.length} color="info" size="small" />
-                            </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                Unique Markers: <Chip label={markerSummaryArray.length} color="warning" size="small" />
-                            </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                Total Layers: <Chip label={Math.round(totalLayers)} color="success" size="small" />
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                                    Total Mattresses:
+                                </Typography>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: '#e3f2fd',
+                                        color: 'info.main',
+                                        px: 2,
+                                        py: 1,
+                                        borderRadius: 2,
+                                        minWidth: 70,
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    {validRows.length}
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                                    Unique Markers:
+                                </Typography>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: '#f3e5f5',
+                                        color: 'secondary.main',
+                                        px: 2,
+                                        py: 1,
+                                        borderRadius: 2,
+                                        minWidth: 70,
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    {markerSummaryArray.length}
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                                    Total Layers:
+                                </Typography>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: '#e8f5e8',
+                                        color: 'success.main',
+                                        px: 2,
+                                        py: 1,
+                                        borderRadius: 2,
+                                        minWidth: 70,
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    {Math.round(totalLayers)}
+                                </Box>
+                            </Box>
                         </Box>
                     </>
                 )}
