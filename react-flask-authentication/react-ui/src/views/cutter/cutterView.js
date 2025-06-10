@@ -422,13 +422,6 @@ const CutterView = () => {
                         alignItems: 'center'
                     }}>
                         <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.order')}:</strong> {mattress.order_commessa}</Typography>
-                        {/* Production Center fields (before fabric info) */}
-                        {mattress.production_center && mattress.production_center !== 'Not Assigned' && (
-                            <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.productionCenter', 'Production Center')}:</strong> {mattress.production_center}</Typography>
-                        )}
-                        {mattress.cutting_room && mattress.cutting_room !== 'Not Assigned' && (
-                            <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.cuttingRoom', 'Cutting Room')}:</strong> {mattress.cutting_room}</Typography>
-                        )}
                         {mattress.destination && mattress.destination !== 'Not Assigned' && (
                             <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.destination', 'Destination')}:</strong> {mattress.destination}</Typography>
                         )}

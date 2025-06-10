@@ -377,7 +377,8 @@ class GetKanbanMattressesResource(Resource):
              .outerjoin(ProductionCenter, Mattresses.order_commessa == ProductionCenter.order_commessa) \
              .filter(MattressPhase.active == True) \
              .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"])) \
-             .filter(MattressDetail.bagno_ready == True)  # Only show mattresses with bagno_ready = True
+             .filter(MattressDetail.bagno_ready == True) \
+             .filter(MattressProductionCenter.cutting_room == 'ZALLI')  # Only show mattresses with cutting room ZALLI
 
             if day_filter:
                 if day_filter in ["today", "tomorrow"]:
