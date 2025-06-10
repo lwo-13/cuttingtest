@@ -244,7 +244,7 @@ class GetMattressesByOrder(Resource):
                 MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
             ).filter(
                 Mattresses.order_commessa == order_commessa,
-                Mattresses.item_type.in_(['AS', 'MS'])
+                Mattresses.item_type.in_(['AS', 'MS', 'ASA', 'MSA'])
             ).order_by(
                 Mattresses.fabric_type, Mattresses.sequence_number
             ).all()
@@ -825,8 +825,8 @@ class SaveMattressProductionCenter(Resource):
                 return {"success": False, "msg": "table_id is required"}, 400
 
             # Validate table_type
-            if table_type not in ['MATTRESS', 'ALONG', 'WEFT', 'BIAS']:
-                return {"success": False, "msg": "table_type must be MATTRESS, ALONG, WEFT, or BIAS"}, 400
+            if table_type not in ['MATTRESS', 'ALONG', 'WEFT', 'BIAS', 'ADHESIVE']:
+                return {"success": False, "msg": "table_type must be MATTRESS, ALONG, WEFT, BIAS, or ADHESIVE"}, 400
 
             # Check if record exists
             existing = db.session.query(MattressProductionCenter).filter_by(table_id=table_id).first()

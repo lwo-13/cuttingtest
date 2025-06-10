@@ -667,7 +667,7 @@ class MattressProductionCenter(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     table_id = db.Column(db.String(36), nullable=False, unique=True)  # Links to all table types
-    table_type = db.Column(db.String(10), nullable=False)  # 'MATTRESS', 'ALONG', 'WEFT', 'BIAS'
+    table_type = db.Column(db.String(10), nullable=False)  # 'MATTRESS', 'ALONG', 'WEFT', 'BIAS', 'ADHESIVE'
     production_center = db.Column(db.String(50), nullable=True)
     cutting_room = db.Column(db.String(50), nullable=True)
     destination = db.Column(db.String(50), nullable=True)

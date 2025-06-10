@@ -12,6 +12,7 @@ const handleOrderChange = async (newValue, context) => {
     fetchPadPrintInfo,
     fetchBrandForStyle,
     setTables,
+    setAdhesiveTables,
     setAlongTables,
     setWeftTables,
     setBiasTables,
@@ -33,6 +34,7 @@ const handleOrderChange = async (newValue, context) => {
     setOrderSizeNames([]);
     setMarkerOptions([]);
     setTables([]);
+    setAdhesiveTables([]);
     setWeftTables([]);
     setAlongTables([]);
     setBiasTables([]);
@@ -118,7 +120,17 @@ const handleOrderChange = async (newValue, context) => {
       });
     }
     Object.values(tablesById).forEach(table => table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber));
-    setTables(Object.values(tablesById));
+
+    // Separate mattress and adhesive tables based on item_type
+    const mattressTables = Object.values(tablesById).filter(table =>
+      table.rows.some(row => row.mattressName && (row.mattressName.includes('-AS-') || row.mattressName.includes('-MS-')))
+    );
+    const adhesiveTables = Object.values(tablesById).filter(table =>
+      table.rows.some(row => row.mattressName && (row.mattressName.includes('-ASA-') || row.mattressName.includes('-MSA-')))
+    );
+
+    setTables(mattressTables);
+    setAdhesiveTables(adhesiveTables);
 
     const alongTablesById = {};
     for (const along of alongRes.data?.data || []) {
@@ -278,6 +290,7 @@ const handleOrderChange = async (newValue, context) => {
   } catch (error) {
     console.error("❌ Error in parallel fetch:", error);
     setTables([]);
+    setAdhesiveTables([]);
     setAlongTables([]);
     setWeftTables([]);
     setBiasTables([]);

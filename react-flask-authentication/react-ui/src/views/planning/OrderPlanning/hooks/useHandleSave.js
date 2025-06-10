@@ -4,6 +4,7 @@ import { getCombinationKey } from 'utils/productionCenterConfig';
 
 const useHandleSave = ({
   tables,
+  adhesiveTables,
   alongTables,
   weftTables,
   biasTables,
@@ -17,10 +18,12 @@ const useHandleSave = ({
   username,
   brand,
   deletedMattresses,
+  deletedAdhesive,
   deletedAlong,
   deletedWeft,
   deletedBias,
   setDeletedMattresses,
+  setDeletedAdhesive,
   setDeletedAlong,
   setDeletedWeft,
   setDeletedBias,
@@ -45,14 +48,17 @@ const useHandleSave = ({
       };
 
       const newMattressNames = new Set();
+      const newAdhesiveNames = new Set();
       const newAlongNames = new Set();
       const newWeftNames = new Set();
       const newBiasNames = new Set();
       const payloads = [];
+      const adhesivePayloads = [];
       const allongPayloads = [];
       const weftPayloads = [];
       const biasPayloads = [];
       let invalidRow = null;
+      let invalidAdhesiveRow = null;
       let invalidAlongRow = null;
       let invalidWeftRow = null;
       let invalidBiasRow = null;
@@ -95,6 +101,21 @@ const useHandleSave = ({
         mattressCombinations.add(combinationKey);
         return false;
       });
+
+      // Check adhesive tables (within adhesive tables only)
+      if (!hasDuplicateCombinations) {
+        const adhesiveCombinations = new Set();
+        hasDuplicateCombinations = adhesiveTables.some((table, tableIndex) => {
+          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+
+          if (adhesiveCombinations.has(combinationKey)) {
+            invalidAdhesiveRow = `Adhesive Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within adhesive tables.`;
+            return true;
+          }
+          adhesiveCombinations.add(combinationKey);
+          return false;
+        });
+      }
 
       // Check along tables (within along tables only)
       if (!hasDuplicateCombinations) {
@@ -143,11 +164,41 @@ const useHandleSave = ({
 
       // 🚨 Show Error Message If Validation Fails
       if (hasInvalidData || hasDuplicateCombinations) {
-        const errorMessage = invalidRow || invalidAlongRow || invalidWeftRow || invalidBiasRow;
+        const errorMessage = invalidRow || invalidAdhesiveRow || invalidAlongRow || invalidWeftRow || invalidBiasRow;
         setErrorMessage(errorMessage);
         setOpenError(true);
         setSaving(false);
         return; // ✅ Prevents saving invalid data
+      }
+
+      // ✅ Check for missing mandatory fields in adhesive tables
+      const hasInvalidAdhesiveData = adhesiveTables.some((table, tableIndex) => {
+        if (!table.fabricType || !table.fabricCode || !table.fabricColor || !table.spreadingMethod) {
+          invalidAdhesiveRow = `Adhesive Group ${tableIndex + 1} is missing required fields (Fabric Type, Code, Color, or Spreading Method)`;
+          return true; // 🚨 Stop processing immediately
+        }
+
+        // ✅ Check for missing production center fields
+        if (!table.productionCenter || !table.cuttingRoom || !table.destination) {
+          invalidAdhesiveRow = `Adhesive Group ${tableIndex + 1} is missing Production Center, Cutting Room, or Destination`;
+          return true; // 🚨 Stop processing immediately
+        }
+
+        return table.rows.some((row, rowIndex) => {
+          if (!row.markerName || !row.layers || parseInt(row.layers) <= 0) {
+            invalidAdhesiveRow = `Adhesive Group ${tableIndex + 1}, Row ${rowIndex + 1} is missing a Marker or Layers`;
+            return true; // 🚨 Stops processing if invalid
+          }
+          return false;
+        });
+      });
+
+      // 🚨 Error Handling for Adhesive
+      if (hasInvalidAdhesiveData) {
+        setErrorMessage(invalidAdhesiveRow);
+        setOpenError(true);
+        setSaving(false);
+        return;
       }
 
       const hasInvalidAlongData = alongTables.some((table, tableIndex) => {
@@ -319,6 +370,72 @@ const useHandleSave = ({
           }
 
           payloads.push(mattressData);
+        });
+      });
+
+      // ✅ Proceed with valid adhesive processing
+      adhesiveTables.forEach((table) => {
+        table.rows.forEach((row) => {
+
+          // ✅ Generate Adhesive Name with combination key (KEY-ORDER-ASA-FABRICTYPE-001, 002, ...)
+          const itemTypeCode = table.spreading === "MANUAL" ? "MSA" : "ASA"; // Use ASA for adhesive instead of AS
+          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+          const orderSuffix = getOrderSuffix(selectedOrder.id);
+
+          // Build adhesive name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
+          const adhesiveName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
+
+          newAdhesiveNames.add(adhesiveName); // ✅ Track UI rows
+
+          // ✅ Ensure numerical values are properly handled (convert empty strings to 0)
+          const layers = parseFloat(row.layers) || 0;
+          const markerLength = parseFloat(row.markerLength) || 0;
+          const lengthMattress = markerLength + (parseFloat(table.allowance) || 0); // ✅ Corrected calculation
+          const consPlanned = (lengthMattress * layers).toFixed(2); // ✅ Auto-calculated
+
+          const adhesiveData = {
+            mattress: adhesiveName, // Use same endpoint but with AD item type
+            order_commessa: selectedOrder.id,
+            fabric_type: table.fabricType,
+            fabric_code: table.fabricCode,
+            fabric_color: table.fabricColor,
+            dye_lot: row.bagno || null,
+            item_type: table.spreading === "MANUAL" ? "MSA" : "ASA", // Use ASA for adhesive
+            spreading_method: table.spreadingMethod,
+
+            // ✅ New fields for structure integrity
+            table_id: table.id,
+            row_id: row.id,
+            sequence_number: row.sequenceNumber,
+
+            layers: layers,
+            length_mattress: lengthMattress,
+            cons_planned: consPlanned,
+            extra: parseFloat(table.allowance) || 0,
+            bagno_ready: row.status === 'ready', // Save status as boolean
+            marker_name: row.markerName,
+            marker_width: parseFloat(row.width) || 0,
+            marker_length: markerLength,
+            operator: username
+          };
+
+          // ✅ Generate mattress_sizes data if you have row.piecesPerSize
+          if (row.piecesPerSize) {
+            Object.entries(row.piecesPerSize).forEach(([size, pcs_layer]) => {
+              adhesiveData.sizes = adhesiveData.sizes || []; // Initialize the sizes array if not already present
+              adhesiveData.sizes.push({
+                style : selectedStyle,
+                size: size,
+                pcs_layer: pcs_layer,
+                pcs_planned: pcs_layer * layers, // Total planned pcs
+                pcs_actual: null                // Will be filled later
+              });
+            });
+          }
+
+          adhesivePayloads.push(adhesiveData);
         });
       });
 
@@ -497,6 +614,30 @@ const useHandleSave = ({
         });
       };
 
+      // ✅ Send Adhesive Update Requests
+      const saveAdhesives = () => {
+        return Promise.all(adhesivePayloads.map(payload =>
+          axios.post('/mattress/add_mattress_row', payload) // Use same endpoint as mattress
+            .then(response => {
+              if (response.data.success) {
+                console.log(`✅ Adhesive ${payload.mattress} saved successfully.`);
+                return true;
+              } else {
+                console.warn(`⚠️ Failed to save adhesive ${payload.mattress}:`, response.data.message);
+                return false;
+              }
+            })
+            .catch(error => {
+              console.error(`❌ Error saving adhesive ${payload.mattress}:`, error.response?.data || error.message);
+              console.log("💥 Full payload that caused failure:", payload);
+              return false;
+            })
+        )).then(results => {
+          const allSucceeded = results.every(result => result === true);
+          if (!allSucceeded) throw new Error("❌ Some adhesives failed to save.");
+        });
+      };
+
       // ✅ Send Along Update Requests
       const saveAlongRows = () => {
         return Promise.all(allongPayloads.map(payload =>
@@ -594,6 +735,7 @@ const useHandleSave = ({
         // Combine all tables with their respective table types
         const allTables = [
           ...tables.map(table => ({ ...table, tableType: 'MATTRESS' })),
+          ...adhesiveTables.map(table => ({ ...table, tableType: 'ADHESIVE' })),
           ...alongTables.map(table => ({ ...table, tableType: 'ALONG' })),
           ...weftTables.map(table => ({ ...table, tableType: 'WEFT' })),
           ...biasTables.map(table => ({ ...table, tableType: 'BIAS' }))
@@ -628,6 +770,7 @@ const useHandleSave = ({
 
       saveAllProductionCenters()
         .then(() => saveMattresses())
+        .then(() => saveAdhesives())
         .then(() => saveAlongRows())
         .then(() => saveWeftRows())
         .then(() => saveBiasRows())
@@ -652,6 +795,31 @@ const useHandleSave = ({
                 .map(r => r.value.mattress);
 
               setDeletedMattresses(prev =>
+                prev.filter(name => !successfulDeletes.includes(name))
+              );
+          });
+        })
+        .then(() => {
+          // ✅ Delete Only Adhesives That Were Removed from UI
+          console.log("🗑️ Adhesives to delete:", deletedAdhesive);
+          const adhesivesToDelete = deletedAdhesive.filter(adhesive => !newAdhesiveNames.has(adhesive));
+
+          return Promise.allSettled(adhesivesToDelete.map(adhesive =>
+              axios.delete(`/mattress/delete/${adhesive}`) // Use same endpoint as mattress
+                .then(() => {
+                  console.log(`🗑️ Deleted adhesive: ${adhesive}`);
+                  return { adhesive, success: true };
+                })
+                .catch(error => {
+                  console.error(`❌ Error deleting adhesive: ${adhesive}`, error);
+                  return { adhesive, success: false };
+                })
+            )).then(results => {
+              const successfulDeletes = results
+                .filter(r => r.status === 'fulfilled' && r.value.success)
+                .map(r => r.value.adhesive);
+
+              setDeletedAdhesive(prev =>
                 prev.filter(name => !successfulDeletes.includes(name))
               );
           });

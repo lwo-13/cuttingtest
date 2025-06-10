@@ -41,11 +41,11 @@ export const usePrintStyles = () => {
 };
 
 // Get all unique destinations from all table types
-export const getAllDestinations = (tables, alongTables, weftTables, biasTables) => {
+export const getAllDestinations = (tables, adhesiveTables, alongTables, weftTables, biasTables) => {
   const destinations = new Set();
 
   // Collect destinations from all table types
-  [...tables, ...alongTables, ...weftTables, ...biasTables].forEach(table => {
+  [...tables, ...adhesiveTables, ...alongTables, ...weftTables, ...biasTables].forEach(table => {
     if (table.destination && table.destination.trim() !== '') {
       destinations.add(table.destination);
     }
@@ -55,8 +55,8 @@ export const getAllDestinations = (tables, alongTables, weftTables, biasTables) 
 };
 
 // Apply destination filter to DOM elements before printing
-export const applyDestinationFilter = (selectedDestination, tables, alongTables, weftTables, biasTables) => {
-  const allTables = [...tables, ...alongTables, ...weftTables, ...biasTables];
+export const applyDestinationFilter = (selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables) => {
+  const allTables = [...tables, ...adhesiveTables, ...alongTables, ...weftTables, ...biasTables];
 
   allTables.forEach(table => {
     // Find table elements by their ID or data attributes
@@ -73,9 +73,10 @@ export const applyDestinationFilter = (selectedDestination, tables, alongTables,
 };
 
 // Expand all collapsed tables before printing
-export const expandAllTables = (tables, alongTables, weftTables, biasTables, setCollapsedCards) => {
+export const expandAllTables = (tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards) => {
   const allTableIds = [
     ...tables.map(t => ({ id: t.id, type: 'mattress' })),
+    ...adhesiveTables.map(t => ({ id: t.id, type: 'adhesive' })),
     ...alongTables.map(t => ({ id: t.id, type: 'along' })),
     ...weftTables.map(t => ({ id: t.id, type: 'weft' })),
     ...biasTables.map(t => ({ id: t.id, type: 'bias' }))
@@ -84,6 +85,7 @@ export const expandAllTables = (tables, alongTables, weftTables, biasTables, set
   // Create new collapsed state with all tables expanded (false)
   const newCollapsedState = {
     mattress: {},
+    adhesive: {},
     along: {},
     weft: {},
     bias: {}
@@ -121,12 +123,12 @@ export const removeDestinationFilter = () => {
   });
 };
 
-export const handlePrint = (tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
+export const handlePrint = (tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
   // Store current collapsed state
   storeCollapsedState(collapsedCards);
 
   // Expand all tables
-  expandAllTables(tables, alongTables, weftTables, biasTables, setCollapsedCards);
+  expandAllTables(tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards);
 
   document.body.classList.add("print-mode");
 
@@ -141,15 +143,15 @@ export const handlePrint = (tables, alongTables, weftTables, biasTables, collaps
   }, 300);
 };
 
-export const handleDestinationPrint = (selectedDestination, tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
+export const handleDestinationPrint = (selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
   // Store current collapsed state
   storeCollapsedState(collapsedCards);
 
   // Expand all tables
-  expandAllTables(tables, alongTables, weftTables, biasTables, setCollapsedCards);
+  expandAllTables(tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards);
 
   document.body.classList.add("print-mode");
-  applyDestinationFilter(selectedDestination, tables, alongTables, weftTables, biasTables);
+  applyDestinationFilter(selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables);
 
   setTimeout(() => {
     window.print();

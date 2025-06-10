@@ -28,6 +28,12 @@ import MattressTableHeader from 'views/planning/OrderPlanning/components/Mattres
 import MattressRow from 'views/planning/OrderPlanning/components/MattressRow';
 import MattressActionRow from 'views/planning/OrderPlanning/components/MattressActionRow';
 
+// Adhesive Components
+import AdhesiveGroupCard from 'views/planning/OrderPlanning/components/AdhesiveGroupCard';
+import AdhesiveTableHeader from 'views/planning/OrderPlanning/components/AdhesiveTableHeader';
+import AdhesiveRow from 'views/planning/OrderPlanning/components/AdhesiveRow';
+import AdhesiveActionRow from 'views/planning/OrderPlanning/components/AdhesiveActionRow';
+
 // Along Components
 import AlongGroupCard from 'views/planning/OrderPlanning/components/AlongGroupCard';
 import AlongRow from 'views/planning/OrderPlanning/components/AlongRow';
@@ -60,6 +66,7 @@ import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatio
 import usePadPrintInfo from 'views/planning/OrderPlanning/hooks/usePadPrintInfo';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 import useMattressTables from 'views/planning/OrderPlanning/hooks/useMattressTables';
+import useAdhesiveTables from 'views/planning/OrderPlanning/hooks/useAdhesiveTables';
 import useAlongTables from 'views/planning/OrderPlanning/hooks/useAlongTables';
 import useWeftTables from 'views/planning/OrderPlanning/hooks/useWeftTables';
 import useBiasTables from 'views/planning/OrderPlanning/hooks/useBiasTables';
@@ -98,6 +105,7 @@ const OrderPlanning = () => {
     const [orderSizeNames, setOrderSizeNames] = useState([]); // ✅ Stores only size names (for table columns)
     const [markerOptions, setMarkerOptions] = useState([]);
     const [deletedMattresses, setDeletedMattresses] = useState([]);
+    const [deletedAdhesive, setDeletedAdhesive] = useState([]);
     const [deletedAlong, setDeletedAlong] = useState([]);
     const [deletedWeft, setDeletedWeft] = useState([]);
     const [deletedBias, setDeletedBias] = useState([]);
@@ -129,6 +137,7 @@ const OrderPlanning = () => {
     // State for card collapse/expand functionality
     const [collapsedCards, setCollapsedCards] = useState({
         mattress: {},  // { tableId: boolean }
+        adhesive: {},  // { tableId: boolean }
         along: {},     // { tableId: boolean }
         weft: {},      // { tableId: boolean }
         bias: {}       // { tableId: boolean }
@@ -166,6 +175,18 @@ const OrderPlanning = () => {
         handleInputChange,
         updateExpectedConsumption
     } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges });
+
+    // Adhesive Tables
+    const {
+        tables: adhesiveTables,
+        setTables: setAdhesiveTables,
+        handleAddTable: handleAddAdhesiveTable,
+        handleRemoveTable: handleRemoveAdhesiveTable,
+        handleAddRow: handleAddAdhesiveRow,
+        handleRemoveRow: handleRemoveAdhesiveRow,
+        handleInputChange: handleAdhesiveInputChange,
+        updateExpectedConsumption: updateAdhesiveExpectedConsumption
+    } = useAdhesiveTables({ orderSizeNames, setDeletedMattresses: setDeletedAdhesive, setUnsavedChanges });
 
     // Along Tables
     const {
@@ -205,6 +226,7 @@ const OrderPlanning = () => {
     // Save
     const { saving, handleSave } = useHandleSave({
         tables,
+        adhesiveTables,
         alongTables,
         weftTables,
         biasTables,
@@ -218,10 +240,12 @@ const OrderPlanning = () => {
         username,
         brand,
         deletedMattresses,
+        deletedAdhesive,
         deletedAlong,
         deletedWeft,
         deletedBias,
         setDeletedMattresses,
+        setDeletedAdhesive,
         setDeletedAlong,
         setDeletedWeft,
         setDeletedBias,
@@ -245,6 +269,7 @@ const OrderPlanning = () => {
         fetchPadPrintInfo,
         fetchBrandForStyle,
         setTables,
+        setAdhesiveTables,
         setAlongTables,
         setWeftTables,
         setBiasTables,
@@ -265,6 +290,7 @@ const OrderPlanning = () => {
 
     // Average Consumption per table
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
+    const avgAdhesiveConsumption = useAvgConsumption(adhesiveTables, getTablePlannedQuantities);
 
     // Destination Print Dialog State
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
@@ -272,11 +298,11 @@ const OrderPlanning = () => {
 
     // Enhanced Print Handler
     const handleEnhancedPrint = () => {
-        const destinations = getAllDestinations(tables, alongTables, weftTables, biasTables);
+        const destinations = getAllDestinations(tables, adhesiveTables, alongTables, weftTables, biasTables);
 
         if (destinations.length <= 1) {
             // Single or no destination - print normally
-            handlePrint(tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+            handlePrint(tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
         } else {
             // Multiple destinations - show selection dialog
             setAvailableDestinations(destinations);
@@ -287,13 +313,13 @@ const OrderPlanning = () => {
     // Handle destination-specific printing
     const handlePrintDestination = (selectedDestination) => {
         setOpenDestinationPrintDialog(false);
-        handleDestinationPrint(selectedDestination, tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+        handleDestinationPrint(selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
     };
 
     // Handle print all destinations
     const handlePrintAll = () => {
         setOpenDestinationPrintDialog(false);
-        handlePrint(tables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+        handlePrint(tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
     };
 
     // Close destination print dialog
@@ -712,6 +738,123 @@ const OrderPlanning = () => {
                     </React.Fragment>
             ))}
 
+            {/* Adhesive Group Section */}
+            {adhesiveTables.length > 0 && adhesiveTables.map((table, tableIndex) => (
+                <React.Fragment key={table.id}>
+                   {/* ✅ Add spacing before the first table and between subsequent tables */}
+                   <Box mt={2} />
+                    <MainCard
+                        key={table.id}
+                        data-table-id={table.id}
+                        title={
+                            <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                                <Box display="flex" alignItems="center" gap={1}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => toggleCardCollapse('adhesive', table.id)}
+                                        sx={{
+                                            color: 'text.secondary',
+                                            '&:hover': { backgroundColor: 'action.hover' }
+                                        }}
+                                        title={collapsedCards.adhesive[table.id] ? "Expand" : "Collapse"}
+                                    >
+                                        {collapsedCards.adhesive[table.id] ?
+                                            <IconChevronDown stroke={1.5} size="1rem" /> :
+                                            <IconChevronUp stroke={1.5} size="1rem" />
+                                        }
+                                    </IconButton>
+                                    {t('orderPlanning.adhesives', 'Adhesives')}
+                                    <IconButton
+                                        size="small"
+                                        onClick={handleOpenCalculator}
+                                        sx={{
+                                            color: 'primary.main',
+                                            '&:hover': { backgroundColor: 'primary.light', color: 'white' }
+                                        }}
+                                        title="Marker Calculator"
+                                    >
+                                        <Calculate fontSize="small" />
+                                    </IconButton>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenSummary(table)}
+                                        sx={{
+                                            color: 'secondary.main',
+                                            '&:hover': { backgroundColor: 'secondary.light', color: 'white' }
+                                        }}
+                                        title="Table Summary"
+                                    >
+                                        <Summarize fontSize="small" />
+                                    </IconButton>
+                                </Box>
+
+                                {/* Table-Specific Planned Quantities - Hide if Empty */}
+                                <PlannedQuantityBar
+                                    table={table}
+                                    orderSizes={orderSizes}
+                                    getTablePlannedQuantities={getTablePlannedQuantities}
+                                    getTablePlannedByBagno={getTablePlannedByBagno}
+                                    getMetersByBagno={getMetersByBagno}
+                                />
+                            </Box>
+
+                        }
+                    >
+                        <Collapse in={!collapsedCards.adhesive[table.id]} timeout="auto" unmountOnExit>
+                            <AdhesiveGroupCard
+                                table={table}
+                                tableId={table.id}
+                                tables={adhesiveTables}
+                                fabricTypeOptions={fabricTypeOptions}
+                                spreadingMethods={spreadingMethods}
+                                spreadingOptions={spreadingOptions}
+                                isTableEditable={isTableEditable}
+                                setTables={setAdhesiveTables}
+                                setUnsavedChanges={setUnsavedChanges}
+                                updateExpectedConsumption={updateAdhesiveExpectedConsumption}
+                            />
+
+                            {/* Table Section */}
+                            <Box>
+                                <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                    <Table>
+                                        <AdhesiveTableHeader orderSizes={orderSizes} />
+                                        <TableBody>
+                                            {table.rows.map((row) => (
+                                                <AdhesiveRow
+                                                key={row.id}
+                                                row={row}
+                                                rowId={row.id}
+                                                tableId={table.id}
+                                                table={table}
+                                                orderSizes={orderSizes}
+                                                markerOptions={markerOptions}
+                                                setTables={setAdhesiveTables}
+                                                handleInputChange={handleAdhesiveInputChange}
+                                                handleRemoveRow={handleRemoveAdhesiveRow}
+                                                setUnsavedChanges={setUnsavedChanges}
+                                                />
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+
+                                {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
+                                <AdhesiveActionRow
+                                    avgConsumption={avgAdhesiveConsumption[table.id]}
+                                    tableId={table.id}
+                                    isTableEditable={isTableEditable}
+                                    table={table}
+                                    handleAddRow={(tableId) => handleAddAdhesiveRow(tableId)}
+                                    handleRemoveTable={handleRemoveAdhesiveTable}
+                                />
+
+                            </Box>
+                        </Collapse>
+                    </MainCard>
+                    </React.Fragment>
+            ))}
+
             {/* Along Tables Section */}
             {alongTables.length > 0 && alongTables.map((table) => (
                 <React.Fragment key={table.id}>
@@ -964,6 +1107,15 @@ const OrderPlanning = () => {
                         onClick={handleAddTable}
                     >
                         {t('orderPlanning.addMattress', 'Add Mattress')}
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<AddCircleOutline />}
+                        onClick={handleAddAdhesiveTable}
+                    >
+                        {t('orderPlanning.addAdhesive', 'Add Adhesive')}
                     </Button>
 
                     <Button
