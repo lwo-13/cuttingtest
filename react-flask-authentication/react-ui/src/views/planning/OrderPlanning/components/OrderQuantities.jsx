@@ -62,13 +62,6 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
   const [openPopup, setOpenPopup] = useState(false);
 
   const theme = useTheme();
-
-  // Debug logging
-  console.log('🇮🇹 DEBUG OrderQuantities: orderSizes =', orderSizes);
-  console.log('🇮🇹 DEBUG OrderQuantities: italianRatios =', italianRatios);
-  console.log('🇮🇹 DEBUG OrderQuantities: italianRatios type =', typeof italianRatios);
-  console.log('🇮🇹 DEBUG OrderQuantities: italianRatios keys =', italianRatios ? Object.keys(italianRatios) : 'null/undefined');
-
   if (!orderSizes.length) return null;
 
   const totalQty = orderSizes.reduce((sum, size) => sum + size.qty, 0);
@@ -236,13 +229,7 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
         })}
 
         {/* 🇮🇹 Button shown inline if ratios exist */}
-        {(() => {
-          const hasRatios = italianRatios && Object.keys(italianRatios).length > 0;
-          console.log('🇮🇹 DEBUG OrderQuantities: Should show Italian button?', hasRatios);
-          console.log('🇮🇹 DEBUG OrderQuantities: italianRatios check:', italianRatios);
-          console.log('🇮🇹 DEBUG OrderQuantities: Object.keys(italianRatios):', italianRatios ? Object.keys(italianRatios) : 'N/A');
-          return hasRatios;
-        })() && (
+        {italianRatios && Object.keys(italianRatios).length > 0 && (
           <Grid item xs="auto" sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
             <Button
               variant="outlined"
