@@ -12,6 +12,7 @@ import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuanti
 
 // Cutting Room Info
 import CuttingRoomInfo from 'views/dashboard/OrderReport/CuttingRoomInfo';
+import ProductionCenterFilter from 'views/dashboard/OrderReport/ProductionCenterFilter';
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
@@ -75,10 +76,18 @@ const OrderReport = () => {
     // Fetch Brand
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
 
-    // Cutting Room Assignemnt
+    // Production Center state
     const [selectedProductionCenter, setSelectedProductionCenter] = useState('');
     const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('');
     const [selectedDestination, setSelectedDestination] = useState('');
+
+    // Production Center Filter state
+    const [productionCenterCombinations, setProductionCenterCombinations] = useState([]);
+    const [showProductionCenterFilter, setShowProductionCenterFilter] = useState(false);
+    const [filteredCuttingRoom, setFilteredCuttingRoom] = useState(null);
+    const [filteredDestination, setFilteredDestination] = useState(null);
+    const [filterLoading, setFilterLoading] = useState(false);
+    const [productionCenterLoading, setProductionCenterLoading] = useState(false);
 
     // Pin Order Planning Card
     const [isPinned, setIsPinned] = useState(false);
@@ -92,7 +101,7 @@ const OrderReport = () => {
     const [weftTables, setWeftTables] = useState([]);
 
     // Order Change
-    const { onOrderChange } = useHandleOrderChange({
+    const { onOrderChange, fetchMattressData } = useHandleOrderChange({
         setSelectedOrder,
         setOrderSizes,
         setOrderSizeNames,
@@ -102,6 +111,12 @@ const OrderReport = () => {
         setSelectedProductionCenter,
         setSelectedCuttingRoom,
         setSelectedDestination,
+        setProductionCenterCombinations,
+        setShowProductionCenterFilter,
+        setFilteredCuttingRoom,
+        setFilteredDestination,
+        setProductionCenterLoading,
+        productionCenterCombinations,
         fetchPadPrintInfo,
         fetchBrandForStyle,
         setTables,
@@ -215,6 +230,50 @@ const OrderReport = () => {
         }
       };
 
+    // Production Center Filter Handlers
+    const handleApplyFilter = async () => {
+        if (!selectedOrder) return;
+
+        // Use filtered values
+        const cuttingRoom = filteredCuttingRoom;
+        const destination = filteredDestination;
+
+        // Validate required fields
+        if (!cuttingRoom) return;
+        if ((cuttingRoom === 'ZALLI' || cuttingRoom === 'DELICIA') && !destination) return;
+
+        setFilterLoading(true);
+        try {
+            const sizesSorted = sortSizes(selectedOrder.sizes || []);
+            await fetchMattressData(selectedOrder, sizesSorted, cuttingRoom, destination);
+            setShowProductionCenterFilter(false);
+        } catch (error) {
+            console.error("❌ Error applying production center filter:", error);
+        } finally {
+            setFilterLoading(false);
+        }
+    };
+
+    // Handle changing production center selection
+    const handleChangeSelection = () => {
+        // Reset production center info
+        setSelectedProductionCenter('');
+        setSelectedCuttingRoom('');
+        setSelectedDestination('');
+
+        // Reset filter values
+        setFilteredCuttingRoom(null);
+        setFilteredDestination(null);
+
+        // Clear tables
+        setTables([]);
+        setAlongTables([]);
+        setWeftTables([]);
+
+        // Show filter again
+        setShowProductionCenterFilter(true);
+    };
+
     return (
         <>
             {/* Order Bar */}
@@ -247,17 +306,35 @@ const OrderReport = () => {
             </Box>
 
             <Box mt={2} />
-            
-            {/* Production Center */}
-            {selectedOrder && (
-                <CuttingRoomInfo
-                    productionCenter={selectedProductionCenter}
-                    cuttingRoom={selectedCuttingRoom}
-                    destination={selectedDestination}
-                />
+
+            {/* Production Center Filter */}
+            {selectedOrder && showProductionCenterFilter && (
+                <>
+                    <ProductionCenterFilter
+                        combinations={productionCenterCombinations}
+                        selectedCuttingRoom={filteredCuttingRoom}
+                        selectedDestination={filteredDestination}
+                        onCuttingRoomChange={setFilteredCuttingRoom}
+                        onDestinationChange={setFilteredDestination}
+                        onApplyFilter={handleApplyFilter}
+                        loading={filterLoading}
+                    />
+                    <Box mt={2} />
+                </>
             )}
 
-            <Box mt={2} />
+            {/* Production Center Info */}
+            {selectedOrder && !showProductionCenterFilter && !productionCenterLoading && (selectedProductionCenter || selectedCuttingRoom) && (
+                <>
+                    <CuttingRoomInfo
+                        productionCenter={selectedProductionCenter}
+                        cuttingRoom={selectedCuttingRoom}
+                        destination={selectedDestination}
+                        onChangeSelection={handleChangeSelection}
+                    />
+                    <Box mt={2} />
+                </>
+            )}
 
             {/* Mattress Group Section */}
             {tables.length > 0 && tables.map((table, tableIndex) => (

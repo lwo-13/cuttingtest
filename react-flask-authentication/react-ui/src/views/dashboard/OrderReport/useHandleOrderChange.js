@@ -11,6 +11,11 @@ const handleOrderChange = async (newValue, context) => {
     setSelectedProductionCenter,
     setSelectedCuttingRoom,
     setSelectedDestination,
+    setProductionCenterCombinations,
+    setShowProductionCenterFilter,
+    setFilteredCuttingRoom,
+    setFilteredDestination,
+    setProductionCenterLoading,
     fetchPadPrintInfo,
     fetchBrandForStyle,
     setTables,
@@ -33,6 +38,10 @@ const handleOrderChange = async (newValue, context) => {
     setSelectedStyle("");
     setSelectedSeason("");
     setSelectedColorCode("");
+    setProductionCenterCombinations([]);
+    setShowProductionCenterFilter(false);
+    setFilteredCuttingRoom(null);
+    setFilteredDestination(null);
     clearBrand();
     clearPadPrintInfo();
     return;
@@ -46,27 +55,94 @@ const handleOrderChange = async (newValue, context) => {
   setSelectedSeason(newValue.season);
   setSelectedColorCode(newValue.colorCode);
 
-  try {
-    const productionRes = await axios.get(`/orders/production_center/get/${newValue.id}`);
-    const prodData = productionRes.data?.data;
-    setSelectedProductionCenter(prodData?.production_center || '');
-    setSelectedCuttingRoom(prodData?.cutting_room || '');
-    setSelectedDestination(prodData?.destination || '');
-  } catch (err) {
-    console.error("❌ Failed to fetch Production Center info:", err);
-  }
+  // Reset production center filter state
+  setFilteredCuttingRoom(null);
+  setFilteredDestination(null);
+  setShowProductionCenterFilter(false);
+  setProductionCenterLoading(true);
 
   fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
   fetchBrandForStyle(newValue.style);
 
+  // First, check if there are production center combinations for this order
   try {
+    const combinationsRes = await axios.get(`/mattress/production_center/combinations/${newValue.id}`);
+    const combinations = combinationsRes.data?.data || [];
+    setProductionCenterCombinations(combinations);
+
+    if (combinations.length === 0) {
+      // No production center data, proceed with normal fetch
+      await fetchMattressData(newValue, sizesSorted, null, null, context);
+      setProductionCenterLoading(false);
+    } else if (combinations.length === 1) {
+      // Only one combination, auto-select it and fetch data
+      const combo = combinations[0];
+      await fetchMattressData(newValue, sizesSorted, combo.cutting_room, combo.destination, context);
+      setProductionCenterLoading(false);
+    } else {
+      // Multiple combinations exist
+      // Check if they differ only by destination for ZALLI/DELICIA
+      const uniqueCuttingRooms = [...new Set(combinations.map(c => c.cutting_room))];
+
+      if (uniqueCuttingRooms.length === 1) {
+        const cuttingRoom = uniqueCuttingRooms[0];
+        // If it's ZALLI or DELICIA with multiple destinations, show filter
+        if ((cuttingRoom === 'ZALLI' || cuttingRoom === 'DELICIA') && combinations.length > 1) {
+          setShowProductionCenterFilter(true);
+          setProductionCenterLoading(false);
+          // Clear tables until user selects destination
+          setTables([]);
+          setAlongTables([]);
+          setWeftTables([]);
+        } else {
+          // Single cutting room, auto-select and fetch data
+          const combo = combinations[0];
+          await fetchMattressData(newValue, sizesSorted, combo.cutting_room, combo.destination, context);
+          setProductionCenterLoading(false);
+        }
+      } else {
+        // Multiple cutting rooms, show filter
+        setShowProductionCenterFilter(true);
+        setProductionCenterLoading(false);
+        // Clear tables until user selects
+        setTables([]);
+        setAlongTables([]);
+        setWeftTables([]);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Failed to fetch production center combinations:", err);
+    // Fallback to normal fetch without filtering
+    await fetchMattressData(newValue, sizesSorted, null, null, context);
+    setProductionCenterLoading(false);
+  }
+};
+
+// Separate function to fetch mattress data with optional filtering
+const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, context) => {
+  const {
+    setTables,
+    setAlongTables,
+    setWeftTables,
+    setSelectedProductionCenter,
+    setSelectedCuttingRoom,
+    setSelectedDestination,
+    productionCenterCombinations
+  } = context;
+
+  try {
+    // Build mattress request with optional filtering
+    const mattressParams = {};
+    if (cuttingRoom) mattressParams.cutting_room = cuttingRoom;
+    if (destination) mattressParams.destination = destination;
+
     const [mattressRes, markerRes, alongRes, weftRes] = await Promise.all([
-      axios.get(`/mattress/get_by_order/${newValue.id}`),
+      axios.get(`/mattress/get_by_order/${order.id}`, { params: mattressParams }),
       axios.get(`/markers/marker_headers_planning`, {
-        params: { style: newValue.style, sizes: sizesSorted.map(s => s.size).join(',') }
+        params: { style: order.style, sizes: sizesSorted.map(s => s.size).join(',') }
       }),
-      axios.get(`/collaretto/get_by_order/${newValue.id}`),
-      axios.get(`/collaretto/get_weft_by_order/${newValue.id}`)
+      axios.get(`/collaretto/get_by_order/${order.id}`),
+      axios.get(`/collaretto/get_weft_by_order/${order.id}`)
     ]);
 
     const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
@@ -110,6 +186,19 @@ const handleOrderChange = async (newValue, context) => {
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
     setTables(Object.values(tablesById));
+
+    // Set the selected production center, cutting room and destination for display
+    if (cuttingRoom && destination) {
+      // Find the production center from combinations
+      const combo = productionCenterCombinations.find(c =>
+        c.cutting_room === cuttingRoom && c.destination === destination
+      );
+      if (combo) {
+        setSelectedProductionCenter(combo.production_center || '');
+      }
+      setSelectedCuttingRoom(cuttingRoom);
+      setSelectedDestination(destination);
+    }
 
     const alongTablesById = {};
     for (const along of alongRes.data?.data || []) {
@@ -189,7 +278,9 @@ const handleOrderChange = async (newValue, context) => {
 
 const useHandleOrderChange = (dependencies) => {
   return {
-    onOrderChange: (value) => handleOrderChange(value, dependencies)
+    onOrderChange: (value) => handleOrderChange(value, dependencies),
+    fetchMattressData: (order, sizesSorted, cuttingRoom, destination) =>
+      fetchMattressData(order, sizesSorted, cuttingRoom, destination, dependencies)
   };
 };
 
