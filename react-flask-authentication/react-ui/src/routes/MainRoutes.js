@@ -3,6 +3,8 @@ import { Route, Switch, useLocation } from 'react-router-dom';
 
 // project imports
 import MainLayout from './../layout/MainLayout';
+import MinimalLayout from './../layout/MinimalLayout';
+import HeaderOnlyLayout from './../layout/HeaderOnlyLayout';
 import Loadable from '../ui-component/Loadable';
 import AuthGuard from './../utils/route-guard/AuthGuard';
 import RoleGuard from './../utils/route-guard/RoleGuard';
@@ -53,90 +55,102 @@ const MainRoutes = () => {
     const location = useLocation();
 
     return (
-        <Route
-            path={[
-                '/dashboard/default',
-                '/dashboard/orderreport',
+        <Switch>
+            <Route
+                path={[
+                    '/dashboard/default',
+                    '/dashboard/orderreport',
 
-                '/planning/kanbanboard',
-                '/planning/orderplanning',
+                    '/planning/kanbanboard',
+                    '/planning/orderplanning',
 
-                '/to-do-lists/italian-ratio',
+                    '/to-do-lists/italian-ratio',
 
-                '/tables/orders',
-                '/tables/markerdb',
+                    '/tables/orders',
+                    '/tables/markerdb',
 
-                '/tables/padprints/:brand',
-                '/import-print-tools/imports',
-                '/import-print-tools/print',
+                    '/tables/padprints/:brand',
+                    '/import-print-tools/imports',
+                    '/import-print-tools/print',
 
-                '/utils/util-typography',
-                '/utils/util-color',
-                '/utils/util-shadow',
-                '/icons/tabler-icons',
-                '/icons/material-icons',
+                    '/utils/util-typography',
+                    '/utils/util-color',
+                    '/utils/util-shadow',
+                    '/icons/tabler-icons',
+                    '/icons/material-icons',
 
-                '/sample-page',
+                    '/sample-page',
 
-                '/spreader/view',
-                '/cutter/view',
-                '/operators/spreader-management',
-                '/operators/cutter-management'
-            ]}
-        >
-            <MainLayout>
-                <Switch location={location} key={location.pathname}>
+                    '/operators/spreader-management',
+                    '/operators/cutter-management'
+                ]}
+            >
+                <MainLayout>
+                    <Switch location={location} key={location.pathname}>
+                        <AuthGuard>
+                            <Route path="/dashboard/default" component={DashboardDefault} />
+                            <Route path="/dashboard/orderreport" component={OrderReport} />
+
+                            <Route path="/planning/kanbanboard" component={KanbanBoard} />
+                            <Route path="/planning/orderplanning" component={OrderPlanning} />
+
+                            <Route path="/to-do-lists/italian-ratio" component={ItalianRatio} />
+
+                            <Route path="/tables/orders" component={Orders} />
+                            <Route path="/tables/markerdb" component={MarkerDB} />
+                            <Route path="/tables/padprints/:brand" component={PadPrints}/>
+
+                            <Route path="/import-print-tools/imports" component={Imports} />
+                            <Route path="/import-print-tools/print" component={Print} />
+
+                            <Route path="/utils/util-typography" component={UtilsTypography} />
+                            <Route path="/utils/util-color" component={UtilsColor} />
+                            <Route path="/utils/util-shadow" component={UtilsShadow} />
+                            <Route path="/icons/tabler-icons" component={UtilsTablerIcons} />
+                            <Route path="/icons/material-icons" component={UtilsMaterialIcons} />
+
+                            <Route path="/sample-page" component={SamplePage} />
+
+
+
+                            <Route path="/operators/spreader-management">
+                                <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
+                                    <SpreaderOperatorManagement />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/operators/cutter-management">
+                                <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
+                                    <CutterOperatorManagement />
+                                </RoleGuard>
+                            </Route>
+                        </AuthGuard>
+                    </Switch>
+                </MainLayout>
+            </Route>
+
+            {/* Spreader route with HeaderOnlyLayout (header but no sidebar) */}
+            <Route path="/spreader/view">
+                <HeaderOnlyLayout>
                     <AuthGuard>
-                        <Route path="/dashboard/default" component={DashboardDefault} />
-                        <Route path="/dashboard/orderreport" component={OrderReport} />
-
-                        <Route path="/planning/kanbanboard" component={KanbanBoard} />
-                        <Route path="/planning/orderplanning" component={OrderPlanning} />
-
-                        <Route path="/to-do-lists/italian-ratio" component={ItalianRatio} />
-
-                        <Route path="/tables/orders" component={Orders} />
-                        <Route path="/tables/markerdb" component={MarkerDB} />
-                        <Route path="/tables/padprints/:brand" component={PadPrints}/>
-
-                        <Route path="/import-print-tools/imports" component={Imports} />
-                        <Route path="/import-print-tools/print" component={Print} />
-
-                        <Route path="/utils/util-typography" component={UtilsTypography} />
-                        <Route path="/utils/util-color" component={UtilsColor} />
-                        <Route path="/utils/util-shadow" component={UtilsShadow} />
-                        <Route path="/icons/tabler-icons" component={UtilsTablerIcons} />
-                        <Route path="/icons/material-icons" component={UtilsMaterialIcons} />
-
-                        <Route path="/sample-page" component={SamplePage} />
-
-                        <Route path="/spreader/view">
-                            <RoleGuard allowedRoles={['Spreader']}>
-                                <SpreaderView />
-                            </RoleGuard>
-                        </Route>
-
-                        <Route path="/cutter/view">
-                            <RoleGuard allowedRoles={['Cutter']}>
-                                <CutterView />
-                            </RoleGuard>
-                        </Route>
-
-                        <Route path="/operators/spreader-management">
-                            <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
-                                <SpreaderOperatorManagement />
-                            </RoleGuard>
-                        </Route>
-
-                        <Route path="/operators/cutter-management">
-                            <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
-                                <CutterOperatorManagement />
-                            </RoleGuard>
-                        </Route>
+                        <RoleGuard allowedRoles={['Spreader']}>
+                            <SpreaderView />
+                        </RoleGuard>
                     </AuthGuard>
-                </Switch>
-            </MainLayout>
-        </Route>
+                </HeaderOnlyLayout>
+            </Route>
+
+            {/* Cutter route with HeaderOnlyLayout (header but no sidebar) */}
+            <Route path="/cutter/view">
+                <HeaderOnlyLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Cutter']}>
+                            <CutterView />
+                        </RoleGuard>
+                    </AuthGuard>
+                </HeaderOnlyLayout>
+            </Route>
+        </Switch>
     );
 };
 
