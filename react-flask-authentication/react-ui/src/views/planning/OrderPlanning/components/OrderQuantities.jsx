@@ -62,6 +62,13 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
   const [openPopup, setOpenPopup] = useState(false);
 
   const theme = useTheme();
+
+  // Debug logging
+  console.log('🇮🇹 DEBUG OrderQuantities: orderSizes =', orderSizes);
+  console.log('🇮🇹 DEBUG OrderQuantities: italianRatios =', italianRatios);
+  console.log('🇮🇹 DEBUG OrderQuantities: italianRatios type =', typeof italianRatios);
+  console.log('🇮🇹 DEBUG OrderQuantities: italianRatios keys =', italianRatios ? Object.keys(italianRatios) : 'null/undefined');
+
   if (!orderSizes.length) return null;
 
   const totalQty = orderSizes.reduce((sum, size) => sum + size.qty, 0);
@@ -85,77 +92,101 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
     );
     const sortedSizes = sortSizes(allSizes.map(size => ({ size }))).map(s => s.size);
 
-    chartSeries = [
-      {
-        name: 'Italy',
-        data: sortedSizes.map(size => parseInt(italianRatios[size] || 0))
-      },
-      {
-        name: 'ZALLI',
-        data: sortedSizes.map(size => {
-          const match = orderSizes.find(s => s.size === size);
-          return match ? Math.round((match.qty / totalQty) * 100) : 0;
-        })
-      }
-    ];
-
-    chartOptions = {
-      chart: {
-        type: 'bar',
-        height: 350,
-        id: 'italian-ratio-bar',
-        toolbar: {
-          show: false
+    // Ensure we have valid data for the chart
+    if (sortedSizes.length > 0) {
+      chartSeries = [
+        {
+          name: 'Italy',
+          data: sortedSizes.map(size => {
+            const value = italianRatios[size];
+            return value ? parseFloat(value) : 0;
+          })
+        },
+        {
+          name: 'ZALLI',
+          data: sortedSizes.map(size => {
+            const match = orderSizes.find(s => s.size === size);
+            return match ? Math.round((match.qty / totalQty) * 100) : 0;
+          })
         }
-      },
-      colors: [theme.palette.primary.main, '#12239e'],
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: '55%',
-          endingShape: 'rounded',
-          dataLabels: {
-            position: 'top'
+      ];
+
+      chartOptions = {
+        chart: {
+          type: 'bar',
+          height: 350,
+          id: 'italian-ratio-bar',
+          toolbar: {
+            show: false
+          },
+          animations: {
+            enabled: true,
+            easing: 'easeinout',
+            speed: 800
           }
-        }
-      },
-      dataLabels: {
-        enabled: true,
-        formatter: function (val) {
-          return val + '%';
         },
-        offsetY: -22,
-        style: {
-          fontSize: '14px',
-          fontWeight: 'normal',
-          colors: ['#000']
-        }
-      },
-      stroke: {
-        show: true,
-        width: 2,
-        colors: ['transparent']
-      },
-      xaxis: {
-        categories: sortedSizes
-      },
-      yaxis: {
-        title: {
-          text: 'Percentage %'
+        colors: [theme?.palette?.primary?.main || '#1976d2', '#12239e'],
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            columnWidth: '55%',
+            endingShape: 'rounded',
+            dataLabels: {
+              position: 'top'
+            }
+          }
         },
-        max: 100
-      },
-      fill: {
-        opacity: 1
-      },
-      tooltip: {
-        y: {
-          formatter: (val) => `${val}%`
+        dataLabels: {
+          enabled: true,
+          formatter: function (val) {
+            return val ? val + '%' : '0%';
+          },
+          offsetY: -22,
+          style: {
+            fontSize: '14px',
+            fontWeight: 'normal',
+            colors: ['#000']
+          }
+        },
+        stroke: {
+          show: true,
+          width: 2,
+          colors: ['transparent']
+        },
+        xaxis: {
+          categories: sortedSizes,
+          title: {
+            text: 'Sizes'
+          }
+        },
+        yaxis: {
+          title: {
+            text: 'Percentage %'
+          },
+          min: 0,
+          max: 100,
+          labels: {
+            formatter: function (val) {
+              return val + '%';
+            }
+          }
+        },
+        fill: {
+          opacity: 1
+        },
+        tooltip: {
+          y: {
+            formatter: (val) => `${val}%`
+          }
+        },
+        legend: {
+          position: 'top',
+          horizontalAlign: 'center'
         }
-      }
-    };
+      };
 
-    evaluation = evaluateRatioShift(italianRatios, zalliRatios, sortedSizes);
+      evaluation = evaluateRatioShift(italianRatios, zalliRatios, sortedSizes);
+    }
   }
 
   return (
@@ -205,7 +236,13 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
         })}
 
         {/* 🇮🇹 Button shown inline if ratios exist */}
-        {italianRatios && Object.keys(italianRatios).length > 0 && (
+        {(() => {
+          const hasRatios = italianRatios && Object.keys(italianRatios).length > 0;
+          console.log('🇮🇹 DEBUG OrderQuantities: Should show Italian button?', hasRatios);
+          console.log('🇮🇹 DEBUG OrderQuantities: italianRatios check:', italianRatios);
+          console.log('🇮🇹 DEBUG OrderQuantities: Object.keys(italianRatios):', italianRatios ? Object.keys(italianRatios) : 'N/A');
+          return hasRatios;
+        })() && (
           <Grid item xs="auto" sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
             <Button
               variant="outlined"
@@ -215,15 +252,15 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
                 minWidth: 48,
                 borderColor:
                   evaluation?.status === 'Disadvantage'
-                    ? theme.palette.error.main
+                    ? theme?.palette?.error?.main || '#f44336'
                     : evaluation?.status === 'Advantage'
-                    ? theme.palette.success.main
+                    ? theme?.palette?.success?.main || '#4caf50'
                     : undefined,
                 color:
                   evaluation?.status === 'Disadvantage'
-                    ? theme.palette.error.main
+                    ? theme?.palette?.error?.main || '#f44336'
                     : evaluation?.status === 'Advantage'
-                    ? theme.palette.success.main
+                    ? theme?.palette?.success?.main || '#4caf50'
                     : undefined
               }}
               title={t('orderPlanning.italianRatio', 'Italian Ratio')}
@@ -245,7 +282,15 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
             </Typography>
 
             {/* 📊 Chart */}
-            <Chart options={chartOptions} series={chartSeries} type="bar" height={350} />
+            {chartSeries.length > 0 && chartOptions.xaxis ? (
+              <Chart options={chartOptions} series={chartSeries} type="bar" height={350} />
+            ) : (
+              <Box textAlign="center" py={4}>
+                <Typography variant="body2" color="text.secondary">
+                  No chart data available
+                </Typography>
+              </Box>
+            )}
 
             {/* ✅ Evaluation Summary */}
             {evaluation && (
@@ -296,7 +341,8 @@ OrderQuantities.propTypes = {
       size: PropTypes.string.isRequired,
       qty: PropTypes.number.isRequired
     })
-  ).isRequired
+  ).isRequired,
+  italianRatios: PropTypes.object
 };
 
 export default OrderQuantities;
