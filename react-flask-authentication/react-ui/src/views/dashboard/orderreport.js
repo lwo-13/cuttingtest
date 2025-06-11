@@ -330,7 +330,7 @@ const OrderReport = () => {
                         productionCenter={selectedProductionCenter}
                         cuttingRoom={selectedCuttingRoom}
                         destination={selectedDestination}
-                        onChangeSelection={handleChangeSelection}
+                        onChangeSelection={productionCenterCombinations.length > 1 ? handleChangeSelection : null}
                     />
                     <Box mt={2} />
                 </>

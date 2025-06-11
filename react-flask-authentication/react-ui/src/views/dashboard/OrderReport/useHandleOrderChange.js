@@ -77,6 +77,10 @@ const handleOrderChange = async (newValue, context) => {
     } else if (combinations.length === 1) {
       // Only one combination, auto-select it and fetch data
       const combo = combinations[0];
+      // Set the production center info immediately
+      setSelectedProductionCenter(combo.production_center || '');
+      setSelectedCuttingRoom(combo.cutting_room);
+      setSelectedDestination(combo.destination);
       await fetchMattressData(newValue, sizesSorted, combo.cutting_room, combo.destination, context);
       setProductionCenterLoading(false);
     } else {
@@ -97,6 +101,10 @@ const handleOrderChange = async (newValue, context) => {
         } else {
           // Single cutting room, auto-select and fetch data
           const combo = combinations[0];
+          // Set the production center info immediately
+          setSelectedProductionCenter(combo.production_center || '');
+          setSelectedCuttingRoom(combo.cutting_room);
+          setSelectedDestination(combo.destination);
           await fetchMattressData(newValue, sizesSorted, combo.cutting_room, combo.destination, context);
           setProductionCenterLoading(false);
         }
