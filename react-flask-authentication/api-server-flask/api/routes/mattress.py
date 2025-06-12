@@ -219,7 +219,11 @@ class MattressResource(Resource):
 class GetMattressesByOrder(Resource):
     def get(self, order_commessa):
         try:
-            mattresses = db.session.query(
+            # Get optional filtering parameters
+            cutting_room = request.args.get('cutting_room')
+            destination = request.args.get('destination')
+
+            query = db.session.query(
                 Mattresses,
                 MattressDetail.layers,
                 MattressDetail.layers_a,
@@ -245,7 +249,15 @@ class GetMattressesByOrder(Resource):
             ).filter(
                 Mattresses.order_commessa == order_commessa,
                 Mattresses.item_type.in_(['AS', 'MS', 'ASA', 'MSA'])
-            ).order_by(
+            )
+
+            # Apply production center filtering if provided
+            if cutting_room:
+                query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+            if destination:
+                query = query.filter(MattressProductionCenter.destination == destination)
+
+            mattresses = query.order_by(
                 Mattresses.fabric_type, Mattresses.sequence_number
             ).all()
 
@@ -875,6 +887,60 @@ class GetMattressProductionCenter(Resource):
             else:
                 return {"success": True, "data": None}, 200  # Still a success, just empty
         except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@mattress_api.route('/production_center/combinations/<string:order_commessa>', methods=['GET'])
+class GetProductionCenterCombinations(Resource):
+    def get(self, order_commessa):
+        """Get unique production center combinations for an order from mattress production center tables"""
+        try:
+            # Query unique combinations of production center, cutting room and destination from mattress tables for this order
+            # Only require destination for ZALLI and DELICIA cutting rooms
+            combinations = db.session.query(
+                MattressProductionCenter.production_center,
+                MattressProductionCenter.cutting_room,
+                MattressProductionCenter.destination
+            ).join(
+                Mattresses, Mattresses.table_id == MattressProductionCenter.table_id
+            ).filter(
+                Mattresses.order_commessa == order_commessa,
+                Mattresses.item_type.in_(['AS', 'MS', 'ASA', 'MSA']),
+                MattressProductionCenter.cutting_room.isnot(None)
+            ).distinct().all()
+
+            # Convert to list of dictionaries and group by cutting room logic
+            result = []
+            cutting_room_groups = {}
+
+            for production_center, cutting_room, destination in combinations:
+                # For ZALLI and DELICIA, we need destination-specific combinations
+                if cutting_room in ['ZALLI', 'DELICIA']:
+                    if destination:  # Only include if destination is set
+                        result.append({
+                            "production_center": production_center,
+                            "cutting_room": cutting_room,
+                            "destination": destination
+                        })
+                else:
+                    # For other cutting rooms, group by cutting room only (ignore destination variations)
+                    key = f"{production_center}_{cutting_room}"
+                    if key not in cutting_room_groups:
+                        cutting_room_groups[key] = {
+                            "production_center": production_center,
+                            "cutting_room": cutting_room,
+                            "destination": destination  # Use the first destination found, or None
+                        }
+
+            # Add the grouped cutting rooms to result
+            result.extend(cutting_room_groups.values())
+
+            return {
+                "success": True,
+                "data": result
+            }, 200
+
+        except Exception as e:
+            print("❌ Error in /production_center/combinations:", e)
             return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/approve')

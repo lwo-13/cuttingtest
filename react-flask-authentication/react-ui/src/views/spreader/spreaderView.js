@@ -468,7 +468,12 @@ const SpreaderView = () => {
                     </Box>
                 }
                 secondary={
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: '56px'
+                    }}>
                         <FormControl sx={{ minWidth: 200 }}>
                             <InputLabel id="operator-select-label">{t('spreader.selectOperator')}</InputLabel>
                             <Select

@@ -45,7 +45,7 @@ const useStyles = makeStyles((theme) => ({
 
 //-----------------------|| MAIN NAVBAR / HEADER ||-----------------------//
 
-const Header = ({ handleLeftDrawerToggle }) => {
+const Header = ({ handleLeftDrawerToggle, hideSidebarButton = false }) => {
     const classes = useStyles();
 
     const [openCustomize, setOpenCustomize] = useState(false);
@@ -61,11 +61,13 @@ const Header = ({ handleLeftDrawerToggle }) => {
                 <Box component="span" sx={{ display: { xs: 'none', md: 'block' }, flexGrow: 1, ml: 1 }}>
                     <LogoSection/>
                 </Box>
-                <ButtonBase sx={{ borderRadius: '12px', overflow: 'hidden' }}>
-                    <Avatar variant="rounded" className={classes.headerAvatar} onClick={handleLeftDrawerToggle} color="inherit">
-                        <IconMenu2 stroke={1.5} size="1.3rem" />
-                    </Avatar>
-                </ButtonBase>
+                {!hideSidebarButton && (
+                    <ButtonBase sx={{ borderRadius: '12px', overflow: 'hidden' }}>
+                        <Avatar variant="rounded" className={classes.headerAvatar} onClick={handleLeftDrawerToggle} color="inherit">
+                            <IconMenu2 stroke={1.5} size="1.3rem" />
+                        </Avatar>
+                    </ButtonBase>
+                )}
             </div>
 
             {/* header search
@@ -98,7 +100,8 @@ const Header = ({ handleLeftDrawerToggle }) => {
 };
 
 Header.propTypes = {
-    handleLeftDrawerToggle: PropTypes.func
+    handleLeftDrawerToggle: PropTypes.func,
+    hideSidebarButton: PropTypes.bool
 };
 
 export default Header;
