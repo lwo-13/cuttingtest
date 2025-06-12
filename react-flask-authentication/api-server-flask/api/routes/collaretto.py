@@ -3,9 +3,31 @@ from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDet
 from flask_restx import Namespace, Resource
 from datetime import datetime
 import math
+import time
+from sqlalchemy.exc import OperationalError
 
 collaretto_bp = Blueprint('collaretto_bp', __name__)
 collaretto_api = Namespace('collaretto', description="Collaretto Management")
+
+def retry_on_deadlock(func, max_retries=3, delay=1):
+    """Retry function on deadlock errors"""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except OperationalError as e:
+            # Check if it's a deadlock error (SQL Server error 1205)
+            if '1205' in str(e) or 'deadlock' in str(e).lower():
+                if attempt < max_retries - 1:
+                    print(f"Deadlock detected, retrying in {delay * (attempt + 1)} seconds... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay * (attempt + 1))  # Exponential backoff
+                    continue
+                else:
+                    raise Exception(f"Operation failed after {max_retries} attempts due to deadlock")
+            else:
+                raise
+        except Exception as e:
+            raise
+    return None
 
 @collaretto_api.route('/add_along_row')
 class CollarettoAlong(Resource):
@@ -359,11 +381,11 @@ class CollarettoWeft(Resource):
 @collaretto_api.route('/delete_weft_bias/<string:collaretto_name>', methods=['DELETE'])
 class DeleteWeft(Resource):
     def delete(self, collaretto_name):
-        try:
+        def delete_operation():
             # ✅ Check if the collaretto exists
             collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
             if not collaretto:
-                return jsonify({"success": False, "message": "Weft not found"})
+                return {"success": False, "message": "Weft not found"}
 
             print(f"🔎 Found weft: {collaretto_name}, deleting attached mattress...")
 
@@ -379,12 +401,23 @@ class DeleteWeft(Resource):
             db.session.delete(collaretto)
 
             db.session.commit()
-            return jsonify({"success": True, "message": f"{collaretto_name} and linked mattress deleted successfully"})
+            return {"success": True, "message": f"{collaretto_name} and linked mattress deleted successfully"}
+
+        try:
+            # Execute delete with deadlock retry
+            result = retry_on_deadlock(delete_operation, max_retries=5, delay=0.5)
+            return jsonify(result)
 
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error deleting weft {collaretto_name}: {e}")
-            return jsonify({"success": False, "message": str(e)})
+            error_msg = str(e)
+            print(f"❌ Error deleting weft {collaretto_name}: {error_msg}")
+
+            # Check if it's a deadlock error and provide user-friendly message
+            if '1205' in error_msg or 'deadlock' in error_msg.lower():
+                return jsonify({"success": False, "message": "Database is busy, please try again in a moment."})
+            else:
+                return jsonify({"success": False, "message": error_msg})
         
 @collaretto_api.route('/get_weft_by_order/<order_id>', methods=['GET'])
 class GetWeftByOrder(Resource):

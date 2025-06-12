@@ -1,11 +1,13 @@
-import React from 'react';
-import { Grid, Autocomplete, TextField, Box, Paper } from '@mui/material';
+import React, { useState } from 'react';
+import { Grid, Autocomplete, TextField, Box, Paper, IconButton } from '@mui/material';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import {
   getProductionCenterOptions,
   getCuttingRoomOptions,
   getDestinationOptions,
   getAutoSelectedDestination
 } from 'utils/productionCenterConfig';
+import WeftAutoPopulateDialog from './WeftAutoPopulateDialog';
 
 const WeftGroupCard = ({
   table,
@@ -14,8 +16,230 @@ const WeftGroupCard = ({
   isTableEditable,
   setTables,
   setUnsavedChanges,
-  handleWeftExtraChange
+  handleWeftExtraChange,
+  mattressTables = [], // Add mattress tables for bagno splitting logic
+  orderSizes = [], // Add order sizes for size splitting checkboxes
+  handleAddRowWeft // Add function to create new rows
 }) => {
+  // Dialog state
+  const [autoPopulateDialogOpen, setAutoPopulateDialogOpen] = useState(false);
+
+  // Check if there's a matching destination, fabric code and color in mattress tables
+  const hasMatchingFabric = mattressTables.some(mattressTable =>
+    mattressTable.destination === table.destination &&
+    mattressTable.fabricCode === table.fabricCode &&
+    mattressTable.fabricColor === table.fabricColor
+  );
+
+  // Calculate automatic fields (rolls, panels, consumption) for a weft row
+  const calculateWeftFields = (row, weftExtra) => {
+    const usableWidth = parseFloat(row.usableWidth) || 0;
+    const grossLength = parseFloat(row.grossLength) || 0;
+    const rewoundWidth = parseFloat(row.rewoundWidth) || 0;
+    const collWidthMM = parseFloat(row.collarettoWidth) || 0;
+    const scrap = parseFloat(row.scrapRoll) || 0;
+    const pieces = parseFloat(row.pieces) || 0;
+    const extra = parseFloat(weftExtra) || 0;
+
+    // Calculate pcs seam to seam if not provided
+    let pcsSeamtoSeam = parseFloat(row.pcsSeamtoSeam) || 0;
+    if (!pcsSeamtoSeam && usableWidth && grossLength) {
+      pcsSeamtoSeam = parseFloat(((usableWidth / 100) / grossLength).toFixed(1));
+    }
+
+    // Calculate rolls
+    const collWidthM = collWidthMM / 1000;
+    const rolls = (!isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap) && collWidthM > 0)
+      ? Math.floor(rewoundWidth / collWidthM) - scrap
+      : 0;
+
+    // Calculate panels
+    const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeamtoSeam);
+    const panels = (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeamtoSeam) && rolls > 0 && pcsSeamtoSeam > 0)
+      ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
+      : 0;
+
+    // Calculate consumption
+    const consumption = (!isNaN(panels) && !isNaN(rewoundWidth) && panels > 0 && rewoundWidth > 0)
+      ? parseFloat((panels * rewoundWidth).toFixed(2))
+      : 0;
+
+    return {
+      pcsSeamtoSeam: pcsSeamtoSeam.toString(),
+      rolls: rolls.toString(),
+      panels: panels.toString(),
+      consumption: consumption.toString(),
+      isPcsSeamCalculated: !parseFloat(row.pcsSeamtoSeam) // Mark as calculated if it was auto-calculated
+    };
+  };
+
+  // Auto populate logic for bagno splitting
+  const handleAutoPopulate = (data) => {
+    const { collarettoTypes, sizeSplitting } = data;
+
+    // First, remove any completely empty rows from the current table
+    setTables(prev => prev.map(t => {
+      if (t.id !== table.id) return t;
+
+      // Check if we have multiple rows or if the single row is empty
+      if (t.rows.length === 1) {
+        const singleRow = t.rows[0];
+        const hasData = singleRow.pieces || singleRow.usableWidth || singleRow.grossLength ||
+                       singleRow.pcsSeamtoSeam || singleRow.rewoundWidth || singleRow.collarettoWidth ||
+                       singleRow.scrapRoll || singleRow.bagno;
+
+        if (!hasData) {
+          // Single empty row - we'll replace it with auto-generated rows
+          console.log('Single empty row detected - will be replaced with auto-generated rows');
+          return { ...t, rows: [] }; // Temporarily empty, will be filled by auto-populate
+        } else {
+          // Single row with data - keep it
+          console.log('Single row with data - keeping it');
+          return t;
+        }
+      } else {
+        // Multiple rows - filter out empty ones
+        const filteredRows = t.rows.filter(row => {
+          const hasData = row.pieces || row.usableWidth || row.grossLength ||
+                         row.pcsSeamtoSeam || row.rewoundWidth || row.collarettoWidth ||
+                         row.scrapRoll || row.bagno;
+          return hasData;
+        });
+
+        // Keep at least one row to maintain table structure
+        const finalRows = filteredRows.length > 0 ? filteredRows : [t.rows[0]];
+
+        console.log(`Removed ${t.rows.length - finalRows.length} empty rows from weft table`);
+
+        return { ...t, rows: finalRows };
+      }
+    }));
+
+    // Find matching mattress tables with same destination, fabric code and color
+    const matchingMattressTables = mattressTables.filter(mattressTable =>
+      mattressTable.destination === table.destination &&
+      mattressTable.fabricCode === table.fabricCode &&
+      mattressTable.fabricColor === table.fabricColor
+    );
+
+    console.log('Matching criteria:', {
+      destination: table.destination,
+      fabricCode: table.fabricCode,
+      fabricColor: table.fabricColor
+    });
+    console.log('Found matching mattress tables:', matchingMattressTables.length);
+
+    // Get selected sizes
+    const selectedSizes = Object.keys(sizeSplitting).filter(size => sizeSplitting[size]);
+
+    // Collect all unique bagnos from matching mattress tables in order of appearance
+    const bagnoData = {};
+    const bagnoOrder = []; // Track the order of bagno appearance
+
+    matchingMattressTables.forEach(mattressTable => {
+      mattressTable.rows.forEach(row => {
+        if (row.bagno && row.bagno.trim() !== '') {
+          if (!bagnoData[row.bagno]) {
+            bagnoData[row.bagno] = {
+              bagno: row.bagno,
+              totalPieces: 0,
+              sizes: {}
+            };
+            // Add to order list when first encountered
+            bagnoOrder.push(row.bagno);
+          }
+
+          // Debug logging
+          console.log('Processing row:', {
+            bagno: row.bagno,
+            piecesPerSize: row.piecesPerSize,
+            layers: row.layers,
+            selectedSizes
+          });
+
+          const layers = parseInt(row.layers) || 0;
+
+          // Calculate pieces: if no sizes selected, use ALL sizes
+          const sizesToProcess = selectedSizes.length > 0 ? selectedSizes : Object.keys(row.piecesPerSize || {});
+
+          console.log(`Processing ${sizesToProcess.length > 0 ? sizesToProcess.join(', ') : 'no'} sizes for bagno ${row.bagno}`);
+
+          sizesToProcess.forEach(size => {
+            const piecesPerLayer = parseInt(row.piecesPerSize?.[size] || 0);
+            const totalPiecesForSize = piecesPerLayer * layers;
+
+            console.log(`Size ${size}: ${piecesPerLayer} pieces/layer × ${layers} layers = ${totalPiecesForSize} total pieces`);
+
+            if (totalPiecesForSize > 0) {
+              bagnoData[row.bagno].totalPieces += totalPiecesForSize;
+              if (!bagnoData[row.bagno].sizes[size]) {
+                bagnoData[row.bagno].sizes[size] = 0;
+              }
+              bagnoData[row.bagno].sizes[size] += totalPiecesForSize;
+            }
+          });
+        }
+      });
+    });
+
+    // Create new weft rows for each bagno in order of appearance
+    bagnoOrder.forEach((bagno, index) => {
+      const bagnoInfo = bagnoData[bagno];
+      if (bagnoInfo.totalPieces > 0) {
+        // Add a new row for this bagno
+        handleAddRowWeft(table.id);
+
+        // Update the newly created row with bagno data and collaretto types
+        setTables(prev => prev.map(t => {
+          if (t.id !== table.id) return t;
+
+          const updatedRows = [...t.rows];
+          const lastRowIndex = updatedRows.length - 1;
+
+          if (lastRowIndex >= 0) {
+            const baseRow = {
+              ...updatedRows[lastRowIndex],
+              pieces: bagnoInfo.totalPieces.toString(),
+              usableWidth: collarettoTypes.usableWidth,
+              grossLength: collarettoTypes.grossLength,
+              pcsSeamtoSeam: collarettoTypes.pcsSeamtoSeam,
+              rewoundWidth: collarettoTypes.rewoundWidth,
+              collarettoWidth: collarettoTypes.collarettoWidth,
+              scrapRoll: collarettoTypes.scrapRolls,
+              bagno: bagnoInfo.bagno
+            };
+
+            // Calculate automatic fields
+            const calculatedFields = calculateWeftFields(baseRow, t.weftExtra);
+
+            updatedRows[lastRowIndex] = {
+              ...baseRow,
+              ...calculatedFields
+            };
+          }
+
+          return { ...t, rows: updatedRows };
+        }));
+      }
+    });
+
+    // If we had no rows after cleanup, make sure we have at least one row
+    setTables(prev => prev.map(t => {
+      if (t.id !== table.id) return t;
+
+      if (t.rows.length === 0) {
+        // Add a basic empty row to maintain table structure
+        handleAddRowWeft(table.id);
+      }
+
+      return t;
+    }));
+
+    setUnsavedChanges(true);
+    console.log('Created weft rows for bagnos in order:', bagnoOrder);
+    console.log('Bagno data summary:', bagnoData);
+  };
+
   // Get dropdown options based on current selections
   const productionCenterOptions = getProductionCenterOptions();
   const cuttingRoomOptions = getCuttingRoomOptions(table.productionCenter);
@@ -183,7 +407,39 @@ const WeftGroupCard = ({
             sx={{ width: '100%', minWidth: '60px', "& input": { fontWeight: "normal" } }}
           />
         </Grid>
+
+        {/* Auto Populate Icon - Only show if fabric code and color match mattress tables */}
+        {hasMatchingFabric && (
+          <Grid item xs="auto">
+            <IconButton
+              size="small"
+              onClick={() => setAutoPopulateDialogOpen(true)}
+              disabled={!isTableEditable(table)}
+              sx={{
+                color: 'primary.main',
+                '&:hover': { backgroundColor: 'primary.light', color: 'white' },
+                mt: 1
+              }}
+            >
+              <AutoFixHighIcon fontSize="small" />
+            </IconButton>
+          </Grid>
+        )}
       </Grid>
+
+      {/* Auto Populate Dialog */}
+      <WeftAutoPopulateDialog
+        open={autoPopulateDialogOpen}
+        onClose={() => setAutoPopulateDialogOpen(false)}
+        table={table}
+        mattressTables={mattressTables}
+        orderSizes={orderSizes}
+        onApply={(data) => {
+          // Handle the auto populate logic here
+          handleAutoPopulate(data);
+          setAutoPopulateDialogOpen(false);
+        }}
+      />
     </Box>
   );
 };

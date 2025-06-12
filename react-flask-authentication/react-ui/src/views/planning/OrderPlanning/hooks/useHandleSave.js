@@ -36,6 +36,24 @@ const useHandleSave = ({
 }) => {
   const [saving, setSaving] = useState(false);
 
+  // Sequential delete function to avoid deadlocks
+  const deleteSequentially = async (items, deleteFunction, itemType) => {
+    const results = [];
+    for (const item of items) {
+      try {
+        await deleteFunction(item);
+        console.log(`🗑️ Deleted ${itemType}: ${item}`);
+        results.push({ item, success: true });
+        // Small delay between deletes to reduce database pressure
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`❌ Error deleting ${itemType}: ${item}`, error);
+        results.push({ item, success: false, error });
+      }
+    }
+    return results;
+  };
+
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
@@ -776,129 +794,109 @@ const useHandleSave = ({
         .then(() => saveAlongRows())
         .then(() => saveWeftRows())
         .then(() => saveBiasRows())
-        .then(() => {
-          // ✅ Delete Only Rows That Were Removed from UI
+        .then(async () => {
+          // ✅ Delete Only Rows That Were Removed from UI (Sequential)
           console.log("🗑️ Mattresses to delete:", deletedMattresses);
           const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
 
-          return Promise.allSettled(mattressesToDelete.map(mattress =>
-              axios.delete(`/mattress/delete/${mattress}`)
-                .then(() => {
-                  console.log(`🗑️ Deleted mattress: ${mattress}`);
-                  return { mattress, success: true };
-                })
-                .catch(error => {
-                  console.error(`❌ Error deleting mattress: ${mattress}`, error);
-                  return { mattress, success: false };
-                })
-            )).then(results => {
-              const successfulDeletes = results
-                .filter(r => r.status === 'fulfilled' && r.value.success)
-                .map(r => r.value.mattress);
+          if (mattressesToDelete.length > 0) {
+            const results = await deleteSequentially(
+              mattressesToDelete,
+              (mattress) => axios.delete(`/mattress/delete/${mattress}`),
+              'mattress'
+            );
 
-              setDeletedMattresses(prev =>
-                prev.filter(name => !successfulDeletes.includes(name))
-              );
-          });
+            const successfulDeletes = results
+              .filter(r => r.success)
+              .map(r => r.item);
+
+            setDeletedMattresses(prev =>
+              prev.filter(name => !successfulDeletes.includes(name))
+            );
+          }
         })
-        .then(() => {
-          // ✅ Delete Only Adhesives That Were Removed from UI
+        .then(async () => {
+          // ✅ Delete Only Adhesives That Were Removed from UI (Sequential)
           console.log("🗑️ Adhesives to delete:", deletedAdhesive);
           const adhesivesToDelete = deletedAdhesive.filter(adhesive => !newAdhesiveNames.has(adhesive));
 
-          return Promise.allSettled(adhesivesToDelete.map(adhesive =>
-              axios.delete(`/mattress/delete/${adhesive}`) // Use same endpoint as mattress
-                .then(() => {
-                  console.log(`🗑️ Deleted adhesive: ${adhesive}`);
-                  return { adhesive, success: true };
-                })
-                .catch(error => {
-                  console.error(`❌ Error deleting adhesive: ${adhesive}`, error);
-                  return { adhesive, success: false };
-                })
-            )).then(results => {
-              const successfulDeletes = results
-                .filter(r => r.status === 'fulfilled' && r.value.success)
-                .map(r => r.value.adhesive);
+          if (adhesivesToDelete.length > 0) {
+            const results = await deleteSequentially(
+              adhesivesToDelete,
+              (adhesive) => axios.delete(`/mattress/delete/${adhesive}`), // Use same endpoint as mattress
+              'adhesive'
+            );
 
-              setDeletedAdhesive(prev =>
-                prev.filter(name => !successfulDeletes.includes(name))
-              );
-          });
+            const successfulDeletes = results
+              .filter(r => r.success)
+              .map(r => r.item);
+
+            setDeletedAdhesive(prev =>
+              prev.filter(name => !successfulDeletes.includes(name))
+            );
+          }
         })
-        .then(() => {
-          // ✅ Delete Only Along Rows Removed from the UI
+        .then(async () => {
+          // ✅ Delete Only Along Rows Removed from the UI (Sequential)
           console.log("🗑️ Along Rows to delete:", deletedAlong);
           const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
 
-          return Promise.allSettled(alongToDelete.map(along =>
-            axios.delete(`/collaretto/delete/${along}`)
-              .then(() => {
-                console.log(`🗑️ Deleted along row: ${along}`);
-                return { along, success: true };
-              })
-              .catch(error => {
-                console.error(`❌ Error deleting along row: ${along}`, error);
-                return { along, success: false };
-              })
-          )).then(results => {
+          if (alongToDelete.length > 0) {
+            const results = await deleteSequentially(
+              alongToDelete,
+              (along) => axios.delete(`/collaretto/delete/${along}`),
+              'along row'
+            );
+
             const successfulDeletes = results
-              .filter(r => r.status === 'fulfilled' && r.value.success)
-              .map(r => r.value.along);
+              .filter(r => r.success)
+              .map(r => r.item);
 
             setDeletedAlong(prev =>
               prev.filter(name => !successfulDeletes.includes(name))
             );
-          });
+          }
         })
-        .then(() => {
-          // ✅ Delete Only Weft Rows Removed from the UI
+        .then(async () => {
+          // ✅ Delete Only Weft Rows Removed from the UI (Sequential)
           console.log("🗑️ Weft Rows to delete:", deletedWeft);
           const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
 
-          return Promise.allSettled(weftToDelete.map(weft =>
-            axios.delete(`/collaretto/delete_weft_bias/${weft}`)
-              .then(() => {
-                console.log(`🗑️ Deleted weft row: ${weft}`);
-                return { weft, success: true };
-              })
-              .catch(error => {
-                console.error(`❌ Error deleting weft row: ${weft}`, error);
-                return { weft, success: false };
-              })
-          )).then(results => {
+          if (weftToDelete.length > 0) {
+            const results = await deleteSequentially(
+              weftToDelete,
+              (weft) => axios.delete(`/collaretto/delete_weft_bias/${weft}`),
+              'weft row'
+            );
+
             const successfulDeletes = results
-              .filter(r => r.status === 'fulfilled' && r.value.success)
-              .map(r => r.value.weft);
+              .filter(r => r.success)
+              .map(r => r.item);
 
             setDeletedWeft(prev =>
               prev.filter(name => !successfulDeletes.includes(name))
             );
-          });
+          }
         })
-        .then(() => {
+        .then(async () => {
           console.log("🗑️ Bias Rows to delete:", deletedBias);
           const biasToDelete = deletedBias.filter(bias => !newBiasNames.has(bias));
 
-          return Promise.allSettled(biasToDelete.map(bias =>
-            axios.delete(`/collaretto/delete_weft_bias/${bias}`)
-              .then(() => {
-                console.log(`🗑️ Deleted bias row: ${bias}`);
-                return { bias, success: true };
-              })
-              .catch(error => {
-                console.error(`❌ Error deleting bias row: ${bias}`, error);
-                return { bias, success: false };
-              })
-          )).then(results => {
+          if (biasToDelete.length > 0) {
+            const results = await deleteSequentially(
+              biasToDelete,
+              (bias) => axios.delete(`/collaretto/delete_weft_bias/${bias}`),
+              'bias row'
+            );
+
             const successfulDeletes = results
-              .filter(r => r.status === 'fulfilled' && r.value.success)
-              .map(r => r.value.bias);
+              .filter(r => r.success)
+              .map(r => r.item);
 
             setDeletedBias(prev =>
               prev.filter(name => !successfulDeletes.includes(name))
             );
-          });
+          }
         })
         .then(() => {
           // ✅ Save comment if there are changes (including deletions)

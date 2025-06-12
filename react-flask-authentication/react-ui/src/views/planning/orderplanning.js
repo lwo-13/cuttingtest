@@ -907,6 +907,9 @@ const OrderPlanning = () => {
                                 setTables={setAlongTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 handleAlongExtraChange={handleAlongExtraChange}
+                                mattressTables={tables}
+                                orderSizes={orderSizes}
+                                handleAddRowAlong={handleAddRowAlong}
                             />
 
                             {/* Table Section */}
@@ -984,6 +987,9 @@ const OrderPlanning = () => {
                                 setTables={setWeftTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 handleWeftExtraChange={handleWeftExtraChange}
+                                mattressTables={tables}
+                                orderSizes={orderSizes}
+                                handleAddRowWeft={handleAddRowWeft}
                                 />
 
                             {/* Table Section */}
