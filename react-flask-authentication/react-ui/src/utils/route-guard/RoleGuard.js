@@ -40,6 +40,8 @@ const RoleGuard = ({ children, allowedRoles }) => {
         return <Redirect to="/spreader/view" />;
     } else if (user.role === 'Cutter') {
         return <Redirect to="/cutter/view" />;
+    } else if (user.role === 'Subcontractor') {
+        return <Redirect to="/subcontractor/view" />;
     } else {
         // Default redirect for other roles
         return <Redirect to="/dashboard/default" />;

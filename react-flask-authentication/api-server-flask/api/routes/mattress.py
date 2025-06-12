@@ -889,6 +889,50 @@ class GetMattressProductionCenter(Resource):
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
 
+@mattress_api.route('/production_center/orders', methods=['GET'])
+class GetOrdersWithProductionCenter(Resource):
+    def get(self):
+        """Get all order IDs that have mattresses with production center data"""
+        try:
+            # Query distinct order IDs that have mattresses with production center data
+            orders = db.session.query(
+                Mattresses.order_commessa
+            ).join(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).distinct().all()
+
+            result = [{"order_commessa": order.order_commessa} for order in orders]
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print("❌ Error in /mattress/production_center/orders:", e)
+            return {"success": False, "msg": str(e)}, 500
+
+@mattress_api.route('/production_center/orders_by_cutting_room/<string:cutting_room>', methods=['GET'])
+class GetOrdersByCuttingRoom(Resource):
+    def get(self, cutting_room):
+        """Get all order IDs assigned to a specific cutting room"""
+        try:
+            # Query distinct order IDs that have mattresses assigned to this cutting room
+            orders = db.session.query(
+                Mattresses.order_commessa
+            ).join(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).filter(
+                MattressProductionCenter.cutting_room == cutting_room
+            ).distinct().all()
+
+            result = [{"order_commessa": order.order_commessa} for order in orders]
+
+            print(f"📊 Found {len(result)} orders for cutting room '{cutting_room}'")
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error in /mattress/production_center/orders_by_cutting_room/{cutting_room}:", e)
+            return {"success": False, "msg": str(e)}, 500
+
 @mattress_api.route('/production_center/combinations/<string:order_commessa>', methods=['GET'])
 class GetProductionCenterCombinations(Resource):
     def get(self, order_commessa):

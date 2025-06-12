@@ -45,6 +45,9 @@ const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView'
 // cutter routing
 const CutterView = Loadable(lazy(() => import('../views/cutter/cutterView')));
 
+// subcontractor routing
+const SubcontractorView = Loadable(lazy(() => import('../views/subcontractor/subcontractorView')));
+
 // operators routing
 const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
 const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
@@ -149,6 +152,17 @@ const MainRoutes = () => {
                         </RoleGuard>
                     </AuthGuard>
                 </HeaderOnlyLayout>
+            </Route>
+
+            {/* Subcontractor route with MainLayout (full layout with sidebar) */}
+            <Route path="/subcontractor/view">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Subcontractor']}>
+                            <SubcontractorView />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
             </Route>
         </Switch>
     );

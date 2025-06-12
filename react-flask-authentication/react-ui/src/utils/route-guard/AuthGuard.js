@@ -33,6 +33,13 @@ const AuthGuard = ({ children }) => {
         }
     }
 
+    if (user && user.role === 'Subcontractor') {
+        // If Subcontractor is trying to access a non-subcontractor page, redirect to subcontractor view
+        if (!location.pathname.startsWith('/subcontractor')) {
+            return <Redirect to="/subcontractor/view" />;
+        }
+    }
+
     return children;
 };
 

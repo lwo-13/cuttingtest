@@ -25,12 +25,15 @@ const MenuList = () => {
             case 'cutter':
                 return userRole === 'Cutter';
 
+            case 'subcontractor':
+                return userRole === 'Subcontractor';
+
             case 'operators':
                 return ['Manager', 'Project Admin'].includes(userRole);
 
             default:
-                // Hide everything for Spreader and Cutter except their own group
-                if (['Spreader', 'Cutter'].includes(userRole)) return false;
+                // Hide everything for Spreader, Cutter, and Subcontractor except their own group
+                if (['Spreader', 'Cutter', 'Subcontractor'].includes(userRole)) return false;
                 return true;
         }
     });

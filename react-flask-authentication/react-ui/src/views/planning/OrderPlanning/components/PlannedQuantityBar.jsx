@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
 
-const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno }) => {
+const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, showHelpers = true }) => {
   const [open, setOpen] = useState(false);
   const [collarettoConsumption, setCollarettoConsumption] = useState('');
   const [adhesiveConsumption, setAdhesiveConsumption] = useState('');
@@ -236,126 +236,128 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
         <DialogContent dividers>
           {renderBagnoTable()}
 
-          {/* Helpers Section - Side by Side */}
-          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            {/* Collaretto Helper - Left */}
-            <Box sx={{ flex: 1, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
-              {/* Header with toggle button */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  p: 2,
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: '#f0f0f0' }
-                }}
-                onClick={() => setCollarettoHelperExpanded(!collarettoHelperExpanded)}
-              >
-                <Typography variant="h6" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
-                  Collaretto Helper
-                </Typography>
-                <IconButton size="small" sx={{ ml: 1, color: '#673ab7' }}>
-                  {collarettoHelperExpanded ? <ExpandLess /> : <ExpandMore />}
-                </IconButton>
+          {/* Helpers Section - Only show in order planning */}
+          {showHelpers && (
+            <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+              {/* Collaretto Helper - Left */}
+              <Box sx={{ flex: 1, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
+                {/* Header with toggle button */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 2,
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: '#f0f0f0' }
+                  }}
+                  onClick={() => setCollarettoHelperExpanded(!collarettoHelperExpanded)}
+                >
+                  <Typography variant="h6" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
+                    Collaretto Helper
+                  </Typography>
+                  <IconButton size="small" sx={{ ml: 1, color: '#673ab7' }}>
+                    {collarettoHelperExpanded ? <ExpandLess /> : <ExpandMore />}
+                  </IconButton>
+                </Box>
+
+                {/* Collapsible content */}
+                <Collapse in={collarettoHelperExpanded}>
+                  <Box sx={{ p: 2, pt: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <TextField
+                      label="Collaretto Consumption"
+                      variant="outlined"
+                      value={collarettoConsumption}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.,]/g, '');
+                        setCollarettoConsumption(value);
+                      }}
+                      sx={{
+                        width: '100%',
+                        maxWidth: '250px',
+                        "& input": {
+                          textAlign: "center",
+                          fontWeight: "normal"
+                        },
+                        "& .MuiInputBase-input": {
+                          '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                            display: 'none',
+                          },
+                          '&[type=number]': {
+                            MozAppearance: 'textfield',
+                          },
+                        },
+                        "& .MuiFormHelperText-root": {
+                          textAlign: "center"
+                        }
+                      }}
+                      placeholder="Enter consumption value"
+                      helperText="Enter the consumption value to calculate collaretto consumption per piece"
+                    />
+                  </Box>
+                </Collapse>
               </Box>
 
-              {/* Collapsible content */}
-              <Collapse in={collarettoHelperExpanded}>
-                <Box sx={{ p: 2, pt: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <TextField
-                    label="Collaretto Consumption"
-                    variant="outlined"
-                    value={collarettoConsumption}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.,]/g, '');
-                      setCollarettoConsumption(value);
-                    }}
-                    sx={{
-                      width: '100%',
-                      maxWidth: '250px',
-                      "& input": {
-                        textAlign: "center",
-                        fontWeight: "normal"
-                      },
-                      "& .MuiInputBase-input": {
-                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                          display: 'none',
-                        },
-                        '&[type=number]': {
-                          MozAppearance: 'textfield',
-                        },
-                      },
-                      "& .MuiFormHelperText-root": {
-                        textAlign: "center"
-                      }
-                    }}
-                    placeholder="Enter consumption value"
-                    helperText="Enter the consumption value to calculate collaretto consumption per piece"
-                  />
+              {/* Adhesive Helper - Right */}
+              <Box sx={{ flex: 1, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
+                {/* Header with toggle button */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 2,
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: '#f0f0f0' }
+                  }}
+                  onClick={() => setAdhesiveHelperExpanded(!adhesiveHelperExpanded)}
+                >
+                  <Typography variant="h6" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                    Adhesive Helper
+                  </Typography>
+                  <IconButton size="small" sx={{ ml: 1, color: '#ff9800' }}>
+                    {adhesiveHelperExpanded ? <ExpandLess /> : <ExpandMore />}
+                  </IconButton>
                 </Box>
-              </Collapse>
-            </Box>
 
-            {/* Adhesive Helper - Right */}
-            <Box sx={{ flex: 1, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
-              {/* Header with toggle button */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  p: 2,
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: '#f0f0f0' }
-                }}
-                onClick={() => setAdhesiveHelperExpanded(!adhesiveHelperExpanded)}
-              >
-                <Typography variant="h6" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
-                  Adhesive Helper
-                </Typography>
-                <IconButton size="small" sx={{ ml: 1, color: '#ff9800' }}>
-                  {adhesiveHelperExpanded ? <ExpandLess /> : <ExpandMore />}
-                </IconButton>
+                {/* Collapsible content */}
+                <Collapse in={adhesiveHelperExpanded}>
+                  <Box sx={{ p: 2, pt: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <TextField
+                      label="Adhesive Consumption"
+                      variant="outlined"
+                      value={adhesiveConsumption}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.,]/g, '');
+                        setAdhesiveConsumption(value);
+                      }}
+                      sx={{
+                        width: '100%',
+                        maxWidth: '250px',
+                        "& input": {
+                          textAlign: "center",
+                          fontWeight: "normal"
+                        },
+                        "& .MuiInputBase-input": {
+                          '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                            display: 'none',
+                          },
+                          '&[type=number]': {
+                            MozAppearance: 'textfield',
+                          },
+                        },
+                        "& .MuiFormHelperText-root": {
+                          textAlign: "center"
+                        }
+                      }}
+                      placeholder="Enter consumption value"
+                      helperText="Enter the consumption value to calculate adhesive consumption per piece"
+                    />
+                  </Box>
+                </Collapse>
               </Box>
-
-              {/* Collapsible content */}
-              <Collapse in={adhesiveHelperExpanded}>
-                <Box sx={{ p: 2, pt: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <TextField
-                    label="Adhesive Consumption"
-                    variant="outlined"
-                    value={adhesiveConsumption}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.,]/g, '');
-                      setAdhesiveConsumption(value);
-                    }}
-                    sx={{
-                      width: '100%',
-                      maxWidth: '250px',
-                      "& input": {
-                        textAlign: "center",
-                        fontWeight: "normal"
-                      },
-                      "& .MuiInputBase-input": {
-                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                          display: 'none',
-                        },
-                        '&[type=number]': {
-                          MozAppearance: 'textfield',
-                        },
-                      },
-                      "& .MuiFormHelperText-root": {
-                        textAlign: "center"
-                      }
-                    }}
-                    placeholder="Enter consumption value"
-                    helperText="Enter the consumption value to calculate adhesive consumption per piece"
-                  />
-                </Box>
-              </Collapse>
             </Box>
-          </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose} variant="text">Close</Button>

@@ -8,6 +8,7 @@ import { Box, Drawer, useMediaQuery } from '@mui/material';
 // third-party
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { BrowserView, MobileView } from 'react-device-detect';
+import { useSelector } from 'react-redux';
 
 // project imports
 import MenuList from './MenuList';
@@ -59,6 +60,10 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
 
     const { t } = useTranslation();
 
+    // Get user role to conditionally show MenuCard
+    const account = useSelector((state) => state.account);
+    const userRole = account?.user?.role || '';
+
     const drawer = (
         <React.Fragment>
             <Box sx={{ display: { xs: 'block', md: 'none' } }}>
@@ -69,13 +74,13 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
             <BrowserView>
                 <PerfectScrollbar component="div" className={classes.ScrollHeight}>
                     <MenuList />
-                    <MenuCard />
+                    {userRole !== 'Subcontractor' && <MenuCard />}
                 </PerfectScrollbar>
             </BrowserView>
             <MobileView>
                 <Box sx={{ px: 2 }}>
                     <MenuList />
-                    <MenuCard />
+                    {userRole !== 'Subcontractor' && <MenuCard />}
                 </Box>
             </MobileView>
         </React.Fragment>
