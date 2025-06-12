@@ -34,6 +34,7 @@ const useWeftTables = ({
             panels: "",
             consumption: "",
             bagno: "",
+            status: "not_ready",
             isEditable: true
           }
         ]
@@ -85,6 +86,7 @@ const useWeftTables = ({
             panels: "",
             consumption: "",
             bagno: "",
+            status: "not_ready",
             isEditable: true
           }
         ]
@@ -155,8 +157,9 @@ const useWeftTables = ({
           const extra = parseFloat(table.weftExtra) || 0;
           const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
 
+          const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
           updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.round((pieces * (1 + extra / 100)) / (rolls * pcsSeam))
+          ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
           : "";
 
           const panels = parseFloat(updatedRow.panels);
@@ -186,8 +189,9 @@ const useWeftTables = ({
         const rewoundWidth = parseFloat(row.rewoundWidth);
         const pcsSeam = parseFloat(row.pcsSeamtoSeam);
 
+        const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
         const panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.round((pieces * (1 + extra)) / (rolls * pcsSeam))
+          ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
           : "";
 
         const consumption = !isNaN(panels) && !isNaN(rewoundWidth)

@@ -33,6 +33,7 @@ const useBiasTables = ({
             panels: "",
             consumption: "",
             bagno: "",
+            status: "not_ready",
             isEditable: true
           }
         ]
@@ -84,6 +85,7 @@ const useBiasTables = ({
             panels: "",
             consumption: "",
             bagno: "",
+            status: "not_ready",
             isEditable: true
           }
         ]
@@ -154,8 +156,9 @@ const useBiasTables = ({
           const rolls = parseFloat(updatedRow.rolls);
           const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
 
+          const panelsCalculation = pieces / (rolls * pcsSeam);
           updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-            ? Math.round(pieces / (rolls * pcsSeam))
+            ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
             : "";
 
           const panels = parseFloat(updatedRow.panels);

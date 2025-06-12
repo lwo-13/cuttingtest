@@ -3,9 +3,31 @@ from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDet
 from flask_restx import Namespace, Resource
 from datetime import datetime
 import math
+import time
+from sqlalchemy.exc import OperationalError
 
 collaretto_bp = Blueprint('collaretto_bp', __name__)
 collaretto_api = Namespace('collaretto', description="Collaretto Management")
+
+def retry_on_deadlock(func, max_retries=3, delay=1):
+    """Retry function on deadlock errors"""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except OperationalError as e:
+            # Check if it's a deadlock error (SQL Server error 1205)
+            if '1205' in str(e) or 'deadlock' in str(e).lower():
+                if attempt < max_retries - 1:
+                    print(f"Deadlock detected, retrying in {delay * (attempt + 1)} seconds... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay * (attempt + 1))  # Exponential backoff
+                    continue
+                else:
+                    raise Exception(f"Operation failed after {max_retries} attempts due to deadlock")
+            else:
+                raise
+        except Exception as e:
+            raise
+    return None
 
 @collaretto_api.route('/add_along_row')
 class CollarettoAlong(Resource):
@@ -317,6 +339,12 @@ class CollarettoWeft(Resource):
                     existing_collaretto_detail.extra = detail.get('extra')
                     existing_collaretto_detail.updated_at = datetime.now()
                     db.session.flush()
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
                 else:
                     print(f"➕ Inserting new collaretto_detail for collaretto_id {existing_collaretto.id}")
                     new_detail = CollarettoDetail(
@@ -336,6 +364,12 @@ class CollarettoWeft(Resource):
                     )
                     db.session.add(new_detail)
 
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
+
             db.session.commit()
             return jsonify({"success": True, "message": "Collaretto Weft Row saved successfully"})
 
@@ -347,11 +381,11 @@ class CollarettoWeft(Resource):
 @collaretto_api.route('/delete_weft_bias/<string:collaretto_name>', methods=['DELETE'])
 class DeleteWeft(Resource):
     def delete(self, collaretto_name):
-        try:
+        def delete_operation():
             # ✅ Check if the collaretto exists
             collaretto = Collaretto.query.filter_by(collaretto=collaretto_name).first()
             if not collaretto:
-                return jsonify({"success": False, "message": "Weft not found"})
+                return {"success": False, "message": "Weft not found"}
 
             print(f"🔎 Found weft: {collaretto_name}, deleting attached mattress...")
 
@@ -367,12 +401,23 @@ class DeleteWeft(Resource):
             db.session.delete(collaretto)
 
             db.session.commit()
-            return jsonify({"success": True, "message": f"{collaretto_name} and linked mattress deleted successfully"})
+            return {"success": True, "message": f"{collaretto_name} and linked mattress deleted successfully"}
+
+        try:
+            # Execute delete with deadlock retry
+            result = retry_on_deadlock(delete_operation, max_retries=5, delay=0.5)
+            return jsonify(result)
 
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error deleting weft {collaretto_name}: {e}")
-            return jsonify({"success": False, "message": str(e)})
+            error_msg = str(e)
+            print(f"❌ Error deleting weft {collaretto_name}: {error_msg}")
+
+            # Check if it's a deadlock error and provide user-friendly message
+            if '1205' in error_msg or 'deadlock' in error_msg.lower():
+                return jsonify({"success": False, "message": "Database is busy, please try again in a moment."})
+            else:
+                return jsonify({"success": False, "message": error_msg})
         
 @collaretto_api.route('/get_weft_by_order/<order_id>', methods=['GET'])
 class GetWeftByOrder(Resource):
@@ -394,7 +439,7 @@ class GetWeftByOrder(Resource):
                 # ✅ Fetch mattress_id from collaretto_detail
                 mattress_id = detail.mattress_id
 
-                # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
+                # ✅ Fetch the corresponding MattressDetail (rewound_width, panels_planned, and bagno_ready are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
                 # ✅ Fetch phase_status from active MattressPhase
@@ -424,6 +469,7 @@ class GetWeftByOrder(Resource):
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
                         "extra": detail.extra,
+                        "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
                         "rewound_width": mattress_detail.length_mattress if mattress_detail else None,
                         "panels_planned": mattress_detail.layers if mattress_detail else None
@@ -586,6 +632,12 @@ class CollarettoBias(Resource):
                     existing_coll_detail.cons_planned = detail.get('cons_planned')
                     existing_coll_detail.updated_at = datetime.now()
                     db.session.flush()
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
                 else:
                     print(f"➕ Inserting new collaretto_detail for collaretto_id {existing_collaretto.id}")
                     new_detail = CollarettoDetail(
@@ -603,6 +655,12 @@ class CollarettoBias(Resource):
                         updated_at=datetime.now()
                     )
                     db.session.add(new_detail)
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
 
             db.session.commit()
             return jsonify({"success": True, "message": "Collaretto Bias Row saved successfully"})
@@ -632,7 +690,7 @@ class GetBiasByOrder(Resource):
                 # ✅ Fetch mattress_id from collaretto_detail
                 mattress_id = detail.mattress_id
 
-                # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
+                # ✅ Fetch the corresponding MattressDetail (rewound_width, panels_planned, and bagno_ready are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
                 length_mattress = mattress_detail.length_mattress if mattress_detail else None
@@ -664,6 +722,7 @@ class GetBiasByOrder(Resource):
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
+                        "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
                         "rewound_width": rewound_width,
                         "panels_planned": mattress_detail.layers if mattress_detail else None

@@ -16,10 +16,11 @@ export const getTablePlannedQuantities = (table) => {
 
 export const getTablePlannedByBagno = (table) => {
   const bagnoMap = {};
+  const bagnoOrder = []; // Track the order of bagno appearance
 
   if (!table || !table.rows) {
     console.warn('Invalid table passed to getTablePlannedByBagno:', table);
-    return bagnoMap;
+    return { bagnoMap, bagnoOrder };
   }
 
   table.rows.forEach(row => {
@@ -30,8 +31,10 @@ export const getTablePlannedByBagno = (table) => {
 
     if (!row.piecesPerSize || typeof row.piecesPerSize !== 'object') return;
 
+    // Initialize bagno entry if it doesn't exist and track order
     if (!bagnoMap[bagno]) {
       bagnoMap[bagno] = {};
+      bagnoOrder.push(bagno); // Add to order list when first encountered
     }
 
     Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
@@ -43,18 +46,24 @@ export const getTablePlannedByBagno = (table) => {
     });
   });
 
-  return bagnoMap;
+  return { bagnoMap, bagnoOrder };
 };
 
 export const getMetersByBagno = (table) => {
   const bagnoMeters = {};
+  const bagnoOrder = []; // Track the order of bagno appearance
 
   table.rows.forEach(row => {
     const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
     const consumption = parseFloat(row.cons_real) || 0;
 
+    // Track order when first encountered
+    if (!bagnoMeters.hasOwnProperty(bagno)) {
+      bagnoOrder.push(bagno);
+    }
+
     bagnoMeters[bagno] = (bagnoMeters[bagno] || 0) + consumption;
   });
 
-  return bagnoMeters;
+  return { bagnoMeters, bagnoOrder };
 };

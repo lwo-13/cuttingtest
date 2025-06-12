@@ -1,6 +1,6 @@
 import React from 'react';
 import { TableRow, TableCell, TextField, Typography, IconButton } from '@mui/material';
-import { DeleteOutline } from '@mui/icons-material';
+import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 
 const WeftRow = ({
   row,
@@ -152,6 +152,31 @@ const WeftRow = ({
             "& input": { textAlign: "center", fontWeight: "normal" }
           }}
         />
+      </TableCell>
+
+      {/* Status Icon */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+        {editable ? (
+          <IconButton
+            onClick={() => {
+              const newStatus = row.status === 'ready' ? 'not_ready' : 'ready';
+              handleInputChange(tableId, rowId, "status", newStatus);
+              setUnsavedChanges(true);
+            }}
+            sx={{
+              color: row.status === 'ready' ? 'success.main' : 'grey.400',
+              '&:hover': {
+                color: row.status === 'ready' ? 'success.dark' : 'grey.600'
+              }
+            }}
+          >
+            {row.status === 'ready' ? <CheckCircle /> : <RadioButtonUnchecked />}
+          </IconButton>
+        ) : (
+          <IconButton disabled>
+            {row.status === 'ready' ? <CheckCircle color="disabled" /> : <RadioButtonUnchecked color="disabled" />}
+          </IconButton>
+        )}
       </TableCell>
 
       {/* Delete */}

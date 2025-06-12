@@ -578,7 +578,7 @@ const OrderPlanning = () => {
                                 <CollarettoConsumptionInfo
                                     style={selectedOrder.style}
                                     fabricCode={tables[0].fabricCode}
-                                    plannedByBagno={getTablePlannedByBagno(tables[0])}
+                                    plannedByBagno={getTablePlannedByBagno(tables[0]).bagnoMap}
                                 />
                             )}
                         </Box>
@@ -907,6 +907,9 @@ const OrderPlanning = () => {
                                 setTables={setAlongTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 handleAlongExtraChange={handleAlongExtraChange}
+                                mattressTables={tables}
+                                orderSizes={orderSizes}
+                                handleAddRowAlong={handleAddRowAlong}
                             />
 
                             {/* Table Section */}
@@ -984,6 +987,9 @@ const OrderPlanning = () => {
                                 setTables={setWeftTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 handleWeftExtraChange={handleWeftExtraChange}
+                                mattressTables={tables}
+                                orderSizes={orderSizes}
+                                handleAddRowWeft={handleAddRowWeft}
                                 />
 
                             {/* Table Section */}
