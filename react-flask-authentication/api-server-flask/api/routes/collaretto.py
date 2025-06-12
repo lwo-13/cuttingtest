@@ -317,6 +317,12 @@ class CollarettoWeft(Resource):
                     existing_collaretto_detail.extra = detail.get('extra')
                     existing_collaretto_detail.updated_at = datetime.now()
                     db.session.flush()
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
                 else:
                     print(f"➕ Inserting new collaretto_detail for collaretto_id {existing_collaretto.id}")
                     new_detail = CollarettoDetail(
@@ -335,6 +341,12 @@ class CollarettoWeft(Resource):
                         updated_at=datetime.now()
                     )
                     db.session.add(new_detail)
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
 
             db.session.commit()
             return jsonify({"success": True, "message": "Collaretto Weft Row saved successfully"})
@@ -394,7 +406,7 @@ class GetWeftByOrder(Resource):
                 # ✅ Fetch mattress_id from collaretto_detail
                 mattress_id = detail.mattress_id
 
-                # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
+                # ✅ Fetch the corresponding MattressDetail (rewound_width, panels_planned, and bagno_ready are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
                 # ✅ Fetch phase_status from active MattressPhase
@@ -424,6 +436,7 @@ class GetWeftByOrder(Resource):
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
                         "extra": detail.extra,
+                        "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
                         "rewound_width": mattress_detail.length_mattress if mattress_detail else None,
                         "panels_planned": mattress_detail.layers if mattress_detail else None
@@ -586,6 +599,12 @@ class CollarettoBias(Resource):
                     existing_coll_detail.cons_planned = detail.get('cons_planned')
                     existing_coll_detail.updated_at = datetime.now()
                     db.session.flush()
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
                 else:
                     print(f"➕ Inserting new collaretto_detail for collaretto_id {existing_collaretto.id}")
                     new_detail = CollarettoDetail(
@@ -603,6 +622,12 @@ class CollarettoBias(Resource):
                         updated_at=datetime.now()
                     )
                     db.session.add(new_detail)
+
+                    # Update bagno_ready in the connected mattress_details
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=existing_mattress.id).first()
+                    if mattress_detail:
+                        mattress_detail.bagno_ready = detail.get('bagno_ready', False)
+                        mattress_detail.updated_at = datetime.now()
 
             db.session.commit()
             return jsonify({"success": True, "message": "Collaretto Bias Row saved successfully"})
@@ -632,7 +657,7 @@ class GetBiasByOrder(Resource):
                 # ✅ Fetch mattress_id from collaretto_detail
                 mattress_id = detail.mattress_id
 
-                # ✅ Fetch the corresponding MattressDetail (rewound_width and panels_planned are here)
+                # ✅ Fetch the corresponding MattressDetail (rewound_width, panels_planned, and bagno_ready are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
                 length_mattress = mattress_detail.length_mattress if mattress_detail else None
@@ -664,6 +689,7 @@ class GetBiasByOrder(Resource):
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
+                        "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
                         "rewound_width": rewound_width,
                         "panels_planned": mattress_detail.layers if mattress_detail else None

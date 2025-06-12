@@ -13,8 +13,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
   const [collarettoHelperExpanded, setCollarettoHelperExpanded] = useState(false);
   const [adhesiveHelperExpanded, setAdhesiveHelperExpanded] = useState(false);
   const planned = getTablePlannedQuantities(table);
-  const plannedByBagno = getTablePlannedByBagno(table);
-  const metersByBagno = getMetersByBagno(table);
+  const { bagnoMap: plannedByBagno, bagnoOrder } = getTablePlannedByBagno(table);
+  const { bagnoMeters: metersByBagno } = getMetersByBagno(table);
 
   const hasRealQty = Object.values(planned).some(qty => qty > 0);
   if (!hasRealQty) return null;
@@ -111,7 +111,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
           </TableRow>
         </TableHead>
         <TableBody>
-          {Object.entries(plannedByBagno).map(([bagno, sizeMap]) => {
+          {bagnoOrder.map((bagno) => {
+            const sizeMap = plannedByBagno[bagno];
             const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
             const mattressConsForBagno = metersByBagno[bagno] || 0;
             const collarettoConsForBagno = total * parseFloat(collarettoConsumption || 0);

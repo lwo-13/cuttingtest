@@ -530,7 +530,8 @@ const useHandleSave = ({
                 panels_planned: parseFloat(row.panels) || null,
                 cons_planned: parseFloat(row.consumption) || null,
                 cons_actual: null,
-                extra: parseFloat(table.weftExtra) || 0
+                extra: parseFloat(table.weftExtra) || 0,
+                bagno_ready: row.status === 'ready'
               }
             ]
           };
@@ -581,7 +582,8 @@ const useHandleSave = ({
                 rolls_actual: null,
                 panels_planned: parseFloat(row.panels) || null,
                 cons_planned: parseFloat(row.consumption) || null,
-                cons_actual: null
+                cons_actual: null,
+                bagno_ready: row.status === 'ready'
               }
             ]
           };

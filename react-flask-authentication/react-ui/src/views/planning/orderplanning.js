@@ -578,7 +578,7 @@ const OrderPlanning = () => {
                                 <CollarettoConsumptionInfo
                                     style={selectedOrder.style}
                                     fabricCode={tables[0].fabricCode}
-                                    plannedByBagno={getTablePlannedByBagno(tables[0])}
+                                    plannedByBagno={getTablePlannedByBagno(tables[0]).bagnoMap}
                                 />
                             )}
                         </Box>

@@ -198,6 +198,7 @@ const handleOrderChange = async (newValue, context) => {
         panels: weft.details.panels_planned,
         consumption: weft.details.cons_planned,
         bagno: weft.dye_lot,
+        status: weft.details.bagno_ready ? "ready" : "not_ready",
         isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(weft.phase_status)
       });
     }
@@ -236,6 +237,7 @@ const handleOrderChange = async (newValue, context) => {
         panels: bias.details.panels_planned,
         consumption: bias.details.cons_planned,
         bagno: bias.dye_lot,
+        status: bias.details.bagno_ready ? "ready" : "not_ready",
         isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(bias.phase_status)
       });
     }
