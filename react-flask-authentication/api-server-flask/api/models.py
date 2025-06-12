@@ -175,6 +175,30 @@ class OrderLinesView(db.Model):
     def to_dict(self):
         return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
 
+class ProdOrderComponentView(db.Model):
+    __tablename__ = 'vw_ProdOrderComponent_COL'  # SQL View
+    __table_args__ = {'info': {'read_only': True}}  # Read-only view
+
+    # Primary key columns
+    prod_order_no = db.Column('Prod_ Order No_', db.String(50), primary_key=True, nullable=False)
+    line_no = db.Column('Line No_', db.Integer, primary_key=True, nullable=False)
+
+    # Other important columns
+    status = db.Column('Status', db.Integer, nullable=True)
+    prod_order_line_no = db.Column('Prod_ Order Line No_', db.Integer, nullable=True)
+    item_no = db.Column('Item No_', db.String(50), nullable=True)
+    description = db.Column('Description', db.String(255), nullable=True)
+    unit_of_measure_code = db.Column('Unit of Measure Code', db.String(10), nullable=True)
+    quantity = db.Column('Quantity', db.Float, nullable=True)
+    quantity_per = db.Column('Quantity per', db.Float, nullable=True)
+    fabric_code = db.Column('Fabric Code', db.String(50), nullable=True)
+    item_category_code = db.Column('Item Category Code', db.String(50), nullable=True)
+    product_group_code = db.Column('Product Group Code', db.String(50), nullable=True)
+
+    # Convert row data to dictionary
+    def to_dict(self):
+        return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+
 class OrderRatio(db.Model):
     __tablename__ = 'order_ratios'
 

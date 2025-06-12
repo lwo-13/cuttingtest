@@ -82,6 +82,9 @@ import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 // Destination Print Dialog
 import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
 
+// Collaretto Consumption Info
+import CollarettoConsumptionInfo from 'views/planning/OrderPlanning/components/CollarettoConsumptionInfo';
+
 // Sample Fabric Types
 const fabricTypeOptions = ["01", "02", "03", "04", "05", "06", "10", "13"];
 
@@ -521,8 +524,6 @@ const OrderPlanning = () => {
     useEffect(() => {
         if (!selectedOrder) return;  // ✅ Do nothing if no order is selected
 
-        console.log("Fetching marker headers...");  // ✅ Debugging
-
         axios.get(`/markers/marker_headers_planning`, {
             params: {
               style: selectedStyle,
@@ -530,7 +531,6 @@ const OrderPlanning = () => {
             }
           })  // ✅ Fetch only when order changes
             .then((response) => {
-                console.log("API Response:", response.data);  // ✅ Debugging
                 if (response.data.success) {
                     setMarkerOptions(response.data.data);  // ✅ Update markers only when order changes
                 } else {
@@ -568,7 +568,22 @@ const OrderPlanning = () => {
                     zIndex: isPinned ? 1000 : 'auto',
                 }}
             >
-                <MainCard title={t('orderPlanning.orderDetails', 'Order Details')}>
+                <MainCard
+                    title={
+                        <Box display="flex" alignItems="center" gap={1} width="100%">
+                            <Typography variant="h4">
+                                {t('orderPlanning.orderDetails', 'Order Details')}
+                            </Typography>
+                            {selectedOrder && tables.length > 0 && tables[0].fabricCode && (
+                                <CollarettoConsumptionInfo
+                                    style={selectedOrder.style}
+                                    fabricCode={tables[0].fabricCode}
+                                    plannedByBagno={getTablePlannedByBagno(tables[0])}
+                                />
+                            )}
+                        </Box>
+                    }
+                >
 
                     {/* Order Actions Bar */}
                     <OrderActionBar

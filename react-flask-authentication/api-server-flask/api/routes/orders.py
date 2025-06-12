@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
-from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments
+from sqlalchemy import text
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, ProdOrderComponentView
 
 # ✅ Create Blueprint and API instance
 orders_bp = Blueprint('orders', __name__)
@@ -267,4 +268,172 @@ class GetOrderComment(Resource):
             else:
                 return {"success": True, "data": None}, 200
         except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/collaretto_consumption/<string:style>/<string:fabric_code>')
+class GetCollarettoConsumption(Resource):
+    def get(self, style, fabric_code):
+        try:
+
+
+            try:
+                from api.models import Collaretto, CollarettoDetail, OrderLinesView, MattressSize, Mattresses, MattressDetail
+
+                # First, find orders that have the specified style
+                orders_with_style = db.session.query(OrderLinesView.order_commessa).filter_by(style=style).distinct().all()
+                order_commessas_with_style = [o[0] for o in orders_with_style if o[0]]
+
+                if not order_commessas_with_style:
+                    return {
+                        "success": True,
+                        "data": {},
+                        "debug_info": f"No orders found with style: {style}"
+                    }, 200
+
+                # Find collaretto records that match both the style (via orders) and fabric
+                # Limit to 5 most recent records based on order_commessa (assuming higher order numbers are newer)
+                matching_collarettos = Collaretto.query.filter(
+                    Collaretto.order_commessa.in_(order_commessas_with_style),
+                    Collaretto.fabric_code == fabric_code
+                ).order_by(Collaretto.order_commessa.desc()).limit(5).all()
+
+                if not matching_collarettos:
+                    return {
+                        "success": True,
+                        "data": {},
+                        "debug_info": f"No collaretto records found for style: {style}, fabric: {fabric_code}"
+                    }, 200
+
+                # Process all matching collaretto records and group by bagno
+                collaretto_records = []
+                bagno_groups = {}  # Group records by bagno
+                total_pieces = 0
+                total_consumption = 0
+                total_length = 0
+
+                for collaretto in matching_collarettos:
+                    detail = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).first()
+
+                    if detail:
+                        pieces = float(detail.pieces) if detail.pieces else 0
+                        cons_planned = float(detail.cons_planned) if detail.cons_planned else 0
+                        gross_length = float(detail.gross_length) if detail.gross_length else 0
+
+                        # Get the bagno from the mattress (bagno is stored in the dye_lot field)
+                        bagno = None
+                        if detail.mattress_id:
+                            mattress = Mattresses.query.get(detail.mattress_id)
+                            if mattress:
+                                bagno = mattress.dye_lot
+
+                        # Group by bagno for summing pieces
+                        if bagno not in bagno_groups:
+                            bagno_groups[bagno] = {
+                                'bagno': bagno,
+                                'total_pieces': 0,
+                                'total_consumption': 0,
+                                'records': []
+                            }
+
+                        bagno_groups[bagno]['total_pieces'] += pieces
+                        bagno_groups[bagno]['total_consumption'] += cons_planned
+
+                        record_data = {
+                            'order_commessa': collaretto.order_commessa,
+                            'collaretto_id': collaretto.id,
+                            'fabric_type': collaretto.fabric_type or 'N/A',
+                            'pieces': pieces,
+                            'usable_width': float(detail.usable_width) if detail.usable_width else 0,
+                            'gross_length': gross_length,
+                            'cons_planned': cons_planned,
+                            'pcs_seam': float(detail.pcs_seam) if detail.pcs_seam else 0,
+                            'consumption_per_piece': round(cons_planned / pieces, 4) if pieces > 0 else 0,
+                            'bagno': bagno,
+                            'mattress_id': detail.mattress_id
+                        }
+                        bagno_groups[bagno]['records'].append(record_data)
+                        collaretto_records.append(record_data)
+
+                        # Add to totals for averages
+                        total_pieces += pieces
+                        total_consumption += cons_planned
+                        total_length += gross_length
+
+                if not collaretto_records:
+                    return {
+                        "success": True,
+                        "data": {},
+                        "debug_info": f"Collaretto records found but no valid details"
+                    }, 200
+
+                # Calculate averages
+                avg_consumption_per_piece = round(total_consumption / total_pieces, 4) if total_pieces > 0 else 0
+                avg_length = round(total_length / len(collaretto_records), 2) if collaretto_records else 0
+                avg_pieces = round(total_pieces / len(collaretto_records), 1) if collaretto_records else 0
+
+                # Get planned quantities for each bagno from mattress sizes
+                bagno_planned_quantities = {}
+                for bagno in bagno_groups.keys():
+                    if bagno:
+                        # Find mattresses with this bagno (dye_lot)
+                        bagno_mattresses = Mattresses.query.filter_by(dye_lot=bagno).all()
+                        bagno_planned = {}
+
+                        for mattress in bagno_mattresses:
+                            # Get sizes for this mattress
+                            mattress_sizes = MattressSize.query.filter_by(mattress_id=mattress.id).all()
+                            for size_record in mattress_sizes:
+                                size = size_record.size
+                                planned_qty = float(size_record.pcs_planned) if size_record.pcs_planned else 0
+                                bagno_planned[size] = bagno_planned.get(size, 0) + planned_qty
+
+                        bagno_planned_quantities[bagno] = bagno_planned
+
+                # Add bagno grouping info to each record for frontend matching
+                for record in collaretto_records:
+                    bagno = record['bagno']
+                    if bagno in bagno_groups:
+                        record['bagno_info'] = {
+                            'bagno': bagno,
+                            'total_pieces_in_bagno': bagno_groups[bagno]['total_pieces'],
+                            'pieces_to_match': bagno_groups[bagno]['total_pieces'],  # Use total for matching
+                            'mattress_id': record['mattress_id'],
+                            'individual_pieces': record['pieces'],  # Keep individual record pieces for reference
+                            'planned_quantities': bagno_planned_quantities.get(bagno, {})  # Add planned quantities for this bagno
+                        }
+
+                # Build the result with all records and statistics
+                result_data = {
+                    'style': style,
+                    'fabric_code': fabric_code,
+                    'fabric_type': collaretto_records[0]['fabric_type'],
+                    'description': f"Collaretto - {collaretto_records[0]['fabric_type']}",
+                    'total_records': len(collaretto_records),
+                    'bagno_groups': bagno_groups,  # Include bagno grouping info
+                    'statistics': {
+                        'total_pieces': total_pieces,
+                        'total_consumption': round(total_consumption, 2),
+                        'avg_consumption_per_piece': avg_consumption_per_piece,
+                        'avg_length': avg_length,
+                        'avg_pieces': avg_pieces
+                    },
+                    'records': collaretto_records
+                }
+
+            except Exception as e:
+                print(f"⚠️ Error fetching collaretto details: {str(e)}")
+                return {
+                    "success": False,
+                    "msg": f"Error fetching collaretto data: {str(e)}"
+                }, 500
+
+            return {
+                "success": True,
+                "data": result_data
+            }, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching collaretto consumption: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "msg": str(e)}, 500

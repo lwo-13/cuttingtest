@@ -19,7 +19,7 @@ const WeftTableHeader = () => {
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.numberOfPanels', 'N° Panels')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.consumption')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.bagno')}</TableCell>
-        <TableCell /> {/* empty cell for actions or buttons */}
+        <TableCell></TableCell>
       </TableRow>
     </TableHead>
   );
