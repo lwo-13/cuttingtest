@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { store } from '../../../../store';
+import { SET_MENU } from '../../../../store/actions';
 
 export const usePrintStyles = () => {
   useEffect(() => {
@@ -115,6 +117,25 @@ export const restoreCollapsedState = (setCollapsedCards) => {
   }
 };
 
+// Store original menu state before printing
+let originalMenuState = null;
+
+export const storeMenuState = () => {
+  const currentState = store.getState();
+  originalMenuState = currentState.customization.opened;
+};
+
+export const collapseMenu = () => {
+  store.dispatch({ type: SET_MENU, opened: false });
+};
+
+export const restoreMenuState = () => {
+  if (originalMenuState !== null) {
+    store.dispatch({ type: SET_MENU, opened: originalMenuState });
+    originalMenuState = null;
+  }
+};
+
 // Remove destination filter after printing
 export const removeDestinationFilter = () => {
   const hiddenElements = document.querySelectorAll('.print-hidden');
@@ -124,10 +145,12 @@ export const removeDestinationFilter = () => {
 };
 
 export const handlePrint = (tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
-  // Store current collapsed state
+  // Store current states
   storeCollapsedState(collapsedCards);
+  storeMenuState();
 
-  // Expand all tables
+  // Collapse menu and expand all tables
+  collapseMenu();
   expandAllTables(tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards);
 
   document.body.classList.add("print-mode");
@@ -136,18 +159,21 @@ export const handlePrint = (tables, adhesiveTables, alongTables, weftTables, bia
     window.print();
     document.body.classList.remove("print-mode");
 
-    // Restore original collapsed state after printing
+    // Restore original states after printing
     setTimeout(() => {
       restoreCollapsedState(setCollapsedCards);
+      restoreMenuState();
     }, 100);
   }, 300);
 };
 
 export const handleDestinationPrint = (selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
-  // Store current collapsed state
+  // Store current states
   storeCollapsedState(collapsedCards);
+  storeMenuState();
 
-  // Expand all tables
+  // Collapse menu and expand all tables
+  collapseMenu();
   expandAllTables(tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards);
 
   document.body.classList.add("print-mode");
@@ -158,9 +184,10 @@ export const handleDestinationPrint = (selectedDestination, tables, adhesiveTabl
     document.body.classList.remove("print-mode");
     removeDestinationFilter();
 
-    // Restore original collapsed state after printing
+    // Restore original states after printing
     setTimeout(() => {
       restoreCollapsedState(setCollapsedCards);
+      restoreMenuState();
     }, 100);
   }, 300);
 };
