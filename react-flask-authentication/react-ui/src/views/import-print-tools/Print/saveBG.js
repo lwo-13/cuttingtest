@@ -14,8 +14,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
     for (const mattress of selectedMattresses) {
         try {
 
-            // ✅ Get mattress ID
-            const mattressId = mattress.id; // ✅ Now we store the mattress_id for updates
+
 
             // ✅ Helper function to ensure string conversion
             const ensureString = (value) => (value !== null && value !== undefined ? value.toString() : "N/A");
@@ -102,7 +101,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                     });
 
                     const img = new Image();
-                    const loaded = await new Promise((resolve) => {
+                    await new Promise((resolve) => {
                         img.onload = resolve;
                         img.src = base64;
                     });

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
-import { AddCircleOutline, DeleteOutline, Save, Print, Calculate, Summarize, Warning, RestoreOutlined } from '@mui/icons-material';
+import { Typography, Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
+import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
-import { v4 as uuidv4 } from 'uuid';
+
 import { useSelector } from "react-redux";
 import { useHistory } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
@@ -77,7 +77,7 @@ import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumpt
 
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
-import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint, expandAllTables, storeCollapsedState, restoreCollapsedState } from 'views/planning/OrderPlanning/utils/printUtils';
+import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 // Destination Print Dialog
@@ -145,7 +145,6 @@ const OrderPlanning = () => {
     // State for unsaved changes dialog
     const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
-    const [navigationAction, setNavigationAction] = useState(null); // 'save', 'discard', or 'cancel'
 
     // State for discard confirmation dialog
     const [openDiscardDialog, setOpenDiscardDialog] = useState(false);
@@ -354,17 +353,17 @@ const OrderPlanning = () => {
         setOpenDestinationPrintDialog(false);
     };
 
-    const handleCloseError = (event, reason) => {
+    const handleCloseError = (_, reason) => {
         if (reason === 'clickaway') return;
         setOpenError(false);
     };
 
-    const handleCloseSuccess = (event, reason) => {
+    const handleCloseSuccess = (_, reason) => {
         if (reason === "clickaway") return;
         setOpenSuccess(false);
     };
 
-    const handleCloseInfo = (event, reason) => {
+    const handleCloseInfo = (_, reason) => {
         if (reason === "clickaway") return;
         setOpenInfo(false);
     };
@@ -373,7 +372,6 @@ const OrderPlanning = () => {
     const handleCloseUnsavedDialog = () => {
         setOpenUnsavedDialog(false);
         setPendingNavigation(null);
-        setNavigationAction(null);
     };
 
     // Handle saving changes and then navigating
@@ -393,7 +391,6 @@ const OrderPlanning = () => {
             }
             setOpenUnsavedDialog(false);
             setPendingNavigation(null);
-            setNavigationAction(null);
         } catch (error) {
             // Save failed, keep dialog open and show error
             console.error('Save failed:', error);
@@ -448,28 +445,9 @@ const OrderPlanning = () => {
 
         setOpenUnsavedDialog(false);
         setPendingNavigation(null);
-        setNavigationAction(null);
     };
 
-    // Calculate effective order quantities for a table (cascading from previous tables)
-    const getEffectiveOrderQuantities = (targetTableId) => {
-        const tableIndex = tables.findIndex(table => table.id === targetTableId);
 
-        // First table uses original order quantities
-        if (tableIndex === 0) {
-            return orderSizes;
-        }
-
-        // Subsequent tables use calculated quantities from previous table
-        const previousTable = tables[tableIndex - 1];
-        const previousTableTotals = getTablePlannedQuantities(previousTable);
-
-        // Convert to the same format as orderSizes
-        return orderSizeNames.map(sizeName => ({
-            size: sizeName,
-            qty: previousTableTotals[sizeName] || 0
-        }));
-    };
 
     // Handle calculator dialog
     const handleOpenCalculator = () => {
@@ -685,7 +663,7 @@ const OrderPlanning = () => {
                 }
             })
             .catch((error) => console.error("Error fetching marker data:", error));
-    }, [selectedOrder]); // ✅ Runs only when order changes
+    }, [selectedOrder, selectedStyle, orderSizeNames]); // ✅ Runs when order, style, or size names change
 
     // Handle Style Change with unsaved changes protection
     const handleStyleChange = (newStyle, touched = false) => {
@@ -932,7 +910,7 @@ const OrderPlanning = () => {
             ))}
 
             {/* Adhesive Group Section */}
-            {adhesiveTables.length > 0 && adhesiveTables.map((table, tableIndex) => (
+            {adhesiveTables.length > 0 && adhesiveTables.map((table) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before the first table and between subsequent tables */}
                    <Box mt={2} />

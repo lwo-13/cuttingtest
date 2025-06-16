@@ -1,8 +1,7 @@
 import jsPDF from "jspdf";
 import JsBarcode from "jsbarcode";
 import axios from 'utils/axiosInstance';
-import RobotoBold from "../../../assets/fonts/Roboto-Bold-bold";
-import RobotoRegular from "../../../assets/fonts/Roboto-Regular-normal";
+
 
 // Export the function so it can be reused
 const printMattressEN = async (selectedMattresses, fetchMattresses) => {
@@ -109,7 +108,7 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                     });
             
                     const img = new Image();
-                    const loaded = await new Promise((resolve) => {
+                    await new Promise((resolve) => {
                         img.onload = resolve;
                         img.src = base64;
                     });

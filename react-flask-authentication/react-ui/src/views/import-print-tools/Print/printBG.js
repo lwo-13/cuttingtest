@@ -98,7 +98,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                     });
             
                     const img = new Image();
-                    const loaded = await new Promise((resolve) => {
+                    await new Promise((resolve) => {
                         img.onload = resolve;
                         img.src = base64;
                     });
