@@ -14,13 +14,10 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
     for (const mattress of selectedMattresses) {
         try {
 
-            // ✅ Get mattress ID
-            const mattressId = mattress.id; // ✅ Now we store the mattress_id for updates
-        
-            // ✅ Helper function to ensure string conversion
+            const mattressId = mattress.id;
+
             const ensureString = (value) => (value !== null && value !== undefined ? value.toString() : "N/A");
-        
-            // ✅ Convert all fields to strings
+
             const mattressName = ensureString(mattress.mattress);
             const orderCommessa = ensureString(mattress.order_commessa);
             const fabricCode = ensureString(mattress.fabric_code);
@@ -28,9 +25,8 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             const dyeLot = ensureString(mattress.dye_lot);
             const spreadingMethod = ensureString(mattress.spreading_method);
         
-            // ✅ Get mattress details safely
-            const mattressDetails = mattress.details?.[0] || {};  
-            const mattressMarkers = mattress.markers?.[0] || {};  
+            const mattressDetails = mattress.details?.[0] || {};
+            const mattressMarkers = mattress.markers?.[0] || {};
         
             const layers = ensureString(mattressDetails.layers);
             const consPlanned = ensureString(mattressDetails.cons_planned);
@@ -39,7 +35,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             const markerWidth = ensureString(mattressMarkers.marker_width);
             const markerLength = ensureString(mattressMarkers.marker_length);
 
-            // ✅ Fetch marker lines from API
+            // Fetch marker lines from API
             let markerLines = [];
             try {
                 const response = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
@@ -59,9 +55,9 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             );
             if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
                 const data = orderLinesResponse.data.data[0];
-                season = data.season;        // Should be "24CC" based on your database
+                season = data.season;
                 style = data.style;
-                color = data.color_code;     // if needed, depending on your field naming
+                color = data.color_code;
             } else {
                 console.error("No order lines found for order_commessa:", orderCommessa);
             }
@@ -123,29 +119,49 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
                 const pattern = padPrintData[0].pattern.toLowerCase();
                 const imageUrl = `http://172.27.57.210:5000/api/padprint/image/${pattern}.jpg`;
-                padPrintImage = await getImageBase64WithDimensions(imageUrl);
-            }
-        
-            // Fetch production center info for destination
-            let destination = "";
-            try {
-                const prodCenterResponse = await axios.get(`/orders/production_center/get/${encodeURIComponent(orderCommessa)}`);
-                if (prodCenterResponse.data.success && prodCenterResponse.data.data) {
-                    destination = prodCenterResponse.data.data.destination || "";
+
+                try {
+                    padPrintImage = await getImageBase64WithDimensions(imageUrl);
+                } catch (imageError) {
+                    console.error("Error loading padprint image:", imageError);
+                    padPrintImage = null;
                 }
-            } catch (err) {
-                console.error("Error fetching production center destination:", err);
             }
 
-            // ✅ Define order table (Left Side)
+            // Check if padprint image is required but missing
+            if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO" && !padPrintImage) {
+                const pattern = padPrintData[0].pattern;
+                const errorMessage = `❌ PADPRINT ERROR: Cannot print mattress "${mattressName}" - Required padprint image "${pattern}" could not be loaded.`;
+                console.error(errorMessage);
+
+                alert(`Padprint Error: Cannot print mattress "${mattressName}"\n\nRequired padprint image "${pattern}" could not be loaded.\n\nPossible causes:\n• Image file missing on server\n• Network connection issues\n• Image file corrupted\n• Server not responding\n\nPlease contact IT support if the problem persists.`);
+
+
+
+                // Skip this mattress and continue with the next one
+                continue;
+            }
+
+            // Fetch destination from mattress production center using table_id
+            let destination = "";
+            try {
+                if (mattress.table_id) {
+                    const prodCenterResponse = await axios.get(`/mattress/production_center/get/${mattress.table_id}`);
+                    if (prodCenterResponse.data.success && prodCenterResponse.data.data) {
+                        destination = prodCenterResponse.data.data.destination || "";
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching mattress production center destination:", err);
+            }
+
             const orderTable = [
                 { label: "Капак №", value: mattressName },
                 { label: "Модел №", value: markerName },
                 { label: "Поръчка №", value: orderCommessa },
-                { label: "Сектор:", value: destination, _horizontal: true } // Only for horizontal table
+                { label: "Сектор:", value: destination, _horizontal: true }
             ];
-        
-            // ✅ Define fabric table (Below Order Table)
+
             const fabricTable = [
                 { label: "Застъпване", value: "YES" },
                 { label: "Шир. настил [cm]", value: markerWidth },
@@ -157,10 +173,9 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 { label: "Баня", value: dyeLot },
                 { label: "Консумация [m]", value: consPlanned }
             ];
-        
-            // ✅ Define Layers Table (Right Side)
+
             const layersTable = [
-                { planned: layers, actual: "" } // ✅ Actual Layer input left blank
+                { planned: layers, actual: "" }
             ];
 
             const fabricTable2 = [
@@ -169,10 +184,9 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 { label: "Баня", value: dyeLot }
             ];
 
-            // Define headers for the padprint table.
             const padPrintHeaders = ["Падпринт", "Цвят"];
-        
-            // ✅ Setup PDF
+
+            // Setup PDF
             const doc = new jsPDF({
                 orientation: "landscape",
                 unit: "mm",
@@ -194,7 +208,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
         
             doc.setFontSize(10);
         
-            // ✅ Draw Order Table (Left)
+            // Draw Order Table (Left)
             orderTable.forEach((field, index) => {
                 const yPos = startY + index * rowHeight;
         
@@ -208,8 +222,8 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
             });
         
-            // ✅ Fabric Table (Below Order Table)
-            const fabricTableStartY = startY + orderTable.length * rowHeight + 8; // ✅ Space after Order Table
+            // Fabric Table (Below Order Table)
+            const fabricTableStartY = startY + orderTable.length * rowHeight + 8;
         
             fabricTable.forEach((field, index) => {
                 const yPos = fabricTableStartY + index * rowHeight;
@@ -224,13 +238,13 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 doc.text(field.value, startX + firstColumnWidth + 2, yPos + 5);
             });
         
-            // ✅ Layers Table (Right Side)
-            const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10; // ✅ Position it further right
+            // Layers Table (Right Side)
+            const layersStartX = startX + firstColumnWidth + secondColumnWidth + 10;
             const layersStartY = startY + 24; 
         
             doc.setFont('Roboto-Bold', 'bold');
             
-            const columnWidth = 35; // ✅ Reduce width
+            const columnWidth = 35;
             const headerHeight = rowHeight; // Keep header height
 
             doc.rect(layersStartX, layersStartY, columnWidth, headerHeight);
@@ -239,7 +253,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             doc.text("Планирани катове", layersStartX + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
             doc.text("Реални катове", layersStartX + columnWidth + columnWidth / 2, layersStartY + headerHeight / 2 + 2, { align: "center" });
         
-            // ✅ Draw rows with centered text
+            // Draw rows with centered text
             layersTable.forEach((field, index) => {
                 const yPos = layersStartY + (index + 1) * rowHeight;
 
@@ -251,7 +265,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 doc.text(field.actual, layersStartX + columnWidth + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
             });
 
-            // ✅ Position the Spreading & Cutting tables below the Layers Table
+            // Position the Spreading & Cutting tables below the Layers Table
             const manualTableStartY = layersStartY + 2 * rowHeight + 8; // Position after Layers Table
 
             const manualEntryTables = [
@@ -262,22 +276,22 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             manualEntryTables.forEach((section) => {
                 const sectionY = manualTableStartY + section.yOffset;
 
-                // ✅ Title row
+                // Title row
                 doc.setFont('Roboto-Bold', 'bold');
                 doc.rect(layersStartX, sectionY, columnWidth * 2, rowHeight); // Same width as Layers Table
                 doc.text(section.title, layersStartX + columnWidth, sectionY + rowHeight / 2 + 2, { align: "center" });
 
-                // ✅ Labels
+                // Labels
                 const labels = ["Дата", "Час", "Оператор"];
                 labels.forEach((label, index) => {
                     const yPos = sectionY + (index + 1) * rowHeight;
 
-                    // ✅ Label column
+                    // Label column
                     doc.setFont('Roboto-Regular', 'normal');
                     doc.rect(layersStartX, yPos, columnWidth, rowHeight);
                     doc.text(label, layersStartX + columnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
 
-                    // ✅ Empty input space for operator
+                    // Empty input space for operator
                     doc.rect(layersStartX + columnWidth, yPos, columnWidth, rowHeight);
                 });
             });
@@ -338,22 +352,17 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             }            
 
             if (!padPrintImage) {
+                const commentBoxStartY = padPrintTableStartY + 24;
+                const commentBoxHeight = 37;
+                const commentBoxWidth = columnWidth * 2;
 
-                // ✅ Positioning for the comment box
-                const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
-                const commentBoxHeight = 37;  // ✅ Enough height for writing
-                const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
-
-                // ✅ Draw the comment box
                 doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
 
-                // ✅ Add "Comments" title
                 doc.setFont('Roboto-Bold', 'bold');
                 doc.text("Коментар", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
-
             }
 
-            // ✅ Marker Details Table (Bottom)
+            // Marker Details Table (Bottom)
             const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
             const markerColumnWidth = 40;
 
@@ -382,29 +391,29 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 doc.text(row.pcs_on_layer.toString(), startX + markerColumnWidth * 2 + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
             });
 
-            // ✅ Position for the vertical line further right
-            const separatorX = layersStartX + 80; // Move it further to the right
+            // Position for the vertical line further right
+            const separatorX = layersStartX + 80;
             const separatorStartY = startY;
-            const separatorEndY = 200 // Extends to the bottom
+            const separatorEndY = 200
 
-            // ✅ Set line style (dotted or dashed)
-            doc.setLineDash([1, 1]); // ✅ Dashed line pattern (adjust values for spacing)
-            doc.line(separatorX, separatorStartY, separatorX, separatorEndY); // ✅ Draw vertical line
+            // Set line style (dotted or dashed)
+            doc.setLineDash([1, 1]);
+            doc.line(separatorX, separatorStartY, separatorX, separatorEndY);
 
-            // ✅ Reset line dash after drawing to avoid affecting other elements
+            // Reset line dash after drawing to avoid affecting other elements
             doc.setLineDash([]);
 
-            // ✅ Define the rotated table position (Bottom-Right)
-            const rotatedStartX = separatorX + 10; // Adjust right position
-            const rotatedStartY = startY + 70; // Move it to the bottom
-            const rotatedRowHeight = 8;  // Simulated "column" height
+            // Define the rotated table position (Bottom-Right)
+            const rotatedStartX = separatorX + 10;
+            const rotatedStartY = startY + 70;
+            const rotatedRowHeight = 8;
 
             // Define rotatedOrderTable before using it
             const rotatedOrderTable = [
                 { label: "Капак №", value: mattressName },
                 { label: "Модел №", value: markerName },
                 { label: "Поръчка №", value: orderCommessa },
-                { label: "Наст. маш.", value: "" } // Keep as before, do not use destination
+                { label: "Наст. маш.", value: "" }
             ];
 
             // Only keep the rotatedOrderTable loop:
@@ -421,16 +430,14 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             const ColumnWidth = 29.5;
 
-            // ✅ Loop through orderTable in a rotated manner
+            // Loop through fabricTable2 in a rotated manner
             fabricTable2.forEach((field, index) => {
-                const xPos = rotatedStartX + 24 + index * rotatedRowHeight; // Move **right** (acts like rows)
-                const yPos = startY; // Fixed Y position (acts like left margin)
+                const xPos = rotatedStartX + 24 + index * rotatedRowHeight;
+                const yPos = startY;
 
-                // ✅ Swap width & height to create a rotated effect
                 doc.rect(xPos, yPos, rotatedRowHeight, ColumnWidth);
                 doc.rect(xPos, yPos + ColumnWidth, rotatedRowHeight, ColumnWidth);
 
-                // ✅ Draw text in rotated orientation (simulated)
                 doc.setFont('Roboto-Bold', 'bold');
                 doc.text(field.label, xPos + 5, yPos + 57, { angle: 90 });
 
@@ -438,7 +445,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 doc.text(field.value, xPos + 5, yPos + ColumnWidth - 3, { angle: 90 });
             });
 
-            // ✅ Generate barcode for mattressName
+            // Generate barcode for mattressName
             const barcodeCanvas = document.createElement('canvas');
             document.body.appendChild(barcodeCanvas);
 
@@ -450,33 +457,33 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 width: 2
             });
 
-            // ✅ Convert canvas to image
+            // Convert canvas to image
             const barcodeImg = barcodeCanvas.toDataURL('image/png');
 
-            // ✅ Add the barcode to the PDF (adjust coordinates)
+            // Add the barcode to the PDF
             doc.addImage(barcodeImg, 'PNG', layersStartX, startY, 70, 20);
 
             doc.addImage(barcodeImg, 'PNG', rotatedStartX + 20, startY + 40, 60, 20, undefined, 'FAST', 90);
 
-            // ✅ Remove the canvas if you want
+            // Remove the canvas
             document.body.removeChild(barcodeCanvas);
         
             doc.save(`Капак_${mattressName}.pdf`);
 
-            
-            // ✅ API Call to Update Print Status
+
+            // API Call to Update Print Status
             await axios.put(`/mattress/update_print_travel`, {
                 mattress_id: mattressId,
-                print_travel: true // ✅ Set as printed
+                print_travel: true
             });
-        
-            
+
+
         } catch (error) {
             console.error("Error processing mattress", error);
         }
     }
     
-    // ✅ Refresh the table to reflect the new status
+    // Refresh the table to reflect the new status
     fetchMattresses();
 };
 
