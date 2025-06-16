@@ -1,11 +1,11 @@
 import React from 'react';
-import { Box, Typography, Button, Chip} from '@mui/material';
+import { Box, Button, Chip} from '@mui/material';
 import PushPin from '@mui/icons-material/PushPin';
 import PushPinOutlined from '@mui/icons-material/PushPinOutlined';
 import IconButton from '@mui/material/IconButton';
 import { LoadingButton } from '@mui/lab';
 import SaveIcon from '@mui/icons-material/Save';
-import { Print, Warning, Refresh, RestoreOutlined } from '@mui/icons-material';
+import { Print, RestoreOutlined } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 
 const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, setIsPinned, saving, handleDiscard }) => {
