@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
-import { AddCircleOutline, DeleteOutline, Save, Print, Calculate, Summarize } from '@mui/icons-material';
+import { AddCircleOutline, DeleteOutline, Save, Print, Calculate, Summarize, Warning, RestoreOutlined } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
@@ -73,6 +73,7 @@ import useBiasTables from 'views/planning/OrderPlanning/hooks/useBiasTables';
 import useHandleSave from 'views/planning/OrderPlanning/hooks/useHandleSave';
 import useHandleOrderChange from 'views/planning/OrderPlanning/hooks/useHandleOrderChange';
 import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
+// import useUnsavedChanges from 'views/planning/OrderPlanning/hooks/useUnsavedChanges';
 
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
@@ -112,7 +113,23 @@ const OrderPlanning = () => {
     const [deletedAlong, setDeletedAlong] = useState([]);
     const [deletedWeft, setDeletedWeft] = useState([]);
     const [deletedBias, setDeletedBias] = useState([]);
+
+    // Basic unsaved changes tracking (temporary fallback)
     const [unsavedChanges, setUnsavedChanges] = useState(false);
+
+    // Temporary fallback functions
+    const clearAllChanges = () => setUnsavedChanges(false);
+    const getChangeSummary = () => '';
+
+    // Enhanced unsaved changes tracking (commented out temporarily)
+    // const {
+    //     unsavedChanges,
+    //     changeDetails,
+    //     markChange,
+    //     clearAllChanges,
+    //     getChangeSummary,
+    //     setUnsavedChanges // Legacy compatibility
+    // } = useUnsavedChanges();
 
     const [styleTouched, setStyleTouched] = useState(false);
 
@@ -122,9 +139,16 @@ const OrderPlanning = () => {
     const [successMessage, setSuccessMessage] = useState("");
     const [openSuccess, setOpenSuccess] = useState(false);
 
+    const [infoMessage, setInfoMessage] = useState("");
+    const [openInfo, setOpenInfo] = useState(false);
+
     // State for unsaved changes dialog
     const [openUnsavedDialog, setOpenUnsavedDialog] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
+    const [navigationAction, setNavigationAction] = useState(null); // 'save', 'discard', or 'cancel'
+
+    // State for discard confirmation dialog
+    const [openDiscardDialog, setOpenDiscardDialog] = useState(false);
 
     // State for calculator dialog
     const [openCalculatorDialog, setOpenCalculatorDialog] = useState(false);
@@ -340,10 +364,91 @@ const OrderPlanning = () => {
         setOpenSuccess(false);
     };
 
+    const handleCloseInfo = (event, reason) => {
+        if (reason === "clickaway") return;
+        setOpenInfo(false);
+    };
+
     // Handle closing the unsaved changes dialog
     const handleCloseUnsavedDialog = () => {
         setOpenUnsavedDialog(false);
         setPendingNavigation(null);
+        setNavigationAction(null);
+    };
+
+    // Handle saving changes and then navigating
+    const handleSaveAndNavigate = async () => {
+        try {
+            await handleSave();
+            // Clear all change tracking after successful save
+            clearAllChanges();
+
+            // Show success message
+            setSuccessMessage('Changes saved successfully! Continuing...');
+            setOpenSuccess(true);
+
+            // After successful save, proceed with navigation
+            if (pendingNavigation && typeof pendingNavigation === 'function') {
+                pendingNavigation();
+            }
+            setOpenUnsavedDialog(false);
+            setPendingNavigation(null);
+            setNavigationAction(null);
+        } catch (error) {
+            // Save failed, keep dialog open and show error
+            console.error('Save failed:', error);
+            setErrorMessage('Failed to save changes. Please try again.');
+            setOpenError(true);
+        }
+    };
+
+    // Handle discarding changes without navigation
+    const handleDiscard = () => {
+        setOpenDiscardDialog(true);
+    };
+
+    // Confirm discard action
+    const handleConfirmDiscard = () => {
+        // Clear all change tracking
+        clearAllChanges();
+
+        // Reload the original data from the server to discard all changes
+        if (selectedOrder) {
+            console.log('Discarding changes and reloading original data...');
+            onOrderChange(selectedOrder);
+        }
+
+        // Show success message
+        setInfoMessage('Changes discarded successfully. Data has been reverted to the last saved state.');
+        setOpenInfo(true);
+
+        setOpenDiscardDialog(false);
+    };
+
+    // Cancel discard action
+    const handleCancelDiscard = () => {
+        setOpenDiscardDialog(false);
+    };
+
+    // Handle discarding changes and navigating
+    const handleDiscardAndNavigate = () => {
+        // Clear all change tracking
+        clearAllChanges();
+
+        // Reload the original data from the server to discard all changes
+        if (selectedOrder) {
+            console.log('Discarding changes and reloading original data...');
+            onOrderChange(selectedOrder);
+        }
+
+        // Proceed with navigation if there was a pending navigation
+        if (pendingNavigation && typeof pendingNavigation === 'function') {
+            pendingNavigation();
+        }
+
+        setOpenUnsavedDialog(false);
+        setPendingNavigation(null);
+        setNavigationAction(null);
     };
 
     // Calculate effective order quantities for a table (cascading from previous tables)
@@ -419,17 +524,7 @@ const OrderPlanning = () => {
         }));
     };
 
-    // Handle confirming navigation when there are unsaved changes
-    const handleConfirmNavigation = () => {
-        setOpenUnsavedDialog(false);
 
-        // If we have a pending navigation function, execute it
-        if (pendingNavigation && typeof pendingNavigation === 'function') {
-            pendingNavigation();
-        }
-
-        setPendingNavigation(null);
-    };
 
     // Override history.block to show our custom dialog
     useEffect(() => {
@@ -456,7 +551,7 @@ const OrderPlanning = () => {
         const handleBeforeUnload = (event) => {
             if (unsavedChanges) {
                 // Standard way to show a confirmation dialog before leaving the page
-                const message = "You have unsaved changes, either save or delete them.";
+                const message = "You have unsaved changes. Save your work before leaving.";
                 event.preventDefault();
                 event.returnValue = message; // For older browsers
                 return message; // For modern browsers
@@ -471,6 +566,58 @@ const OrderPlanning = () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
     }, [unsavedChanges]);
+
+    // Auto-refresh functionality with unsaved changes protection
+    useEffect(() => {
+        let refreshInterval;
+
+        const handleAutoRefresh = () => {
+            if (unsavedChanges) {
+                // Don't auto-refresh if there are unsaved changes
+                console.log('Auto-refresh skipped due to unsaved changes');
+                setInfoMessage('Auto-refresh skipped - you have unsaved changes. Save your work to enable auto-refresh.');
+                setOpenInfo(true);
+                return;
+            }
+
+            // Only refresh if we have a selected order
+            if (selectedOrder) {
+                console.log('Auto-refreshing order data...');
+                onOrderChange(selectedOrder);
+            }
+        };
+
+        // Set up auto-refresh every 5 minutes (300000 ms)
+        refreshInterval = setInterval(handleAutoRefresh, 300000);
+
+        // Clean up interval on unmount
+        return () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        };
+    }, [unsavedChanges, selectedOrder, onOrderChange]);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            // Ctrl+S or Cmd+S to save
+            if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                event.preventDefault();
+                if (unsavedChanges && !saving) {
+                    handleSave();
+                }
+            }
+        };
+
+        // Add event listener
+        document.addEventListener('keydown', handleKeyDown);
+
+        // Clean up event listener
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [unsavedChanges, saving, handleSave]);
 
     // Fetch order data from Flask API
     useEffect(() => {
@@ -540,8 +687,20 @@ const OrderPlanning = () => {
             .catch((error) => console.error("Error fetching marker data:", error));
     }, [selectedOrder]); // ✅ Runs only when order changes
 
-    // Handle Style Change
+    // Handle Style Change with unsaved changes protection
     const handleStyleChange = (newStyle, touched = false) => {
+        if (touched && unsavedChanges) {
+            // Store the pending style change
+            setPendingNavigation(() => () => {
+                onOrderChange(null); // Reset everything
+                setTimeout(() => {
+                    setSelectedStyle(newStyle);
+                }, 0);
+            });
+            setOpenUnsavedDialog(true);
+            return;
+        }
+
         setStyleTouched(touched);
 
         if (touched) {
@@ -552,6 +711,18 @@ const OrderPlanning = () => {
         } else {
           setSelectedStyle(newStyle);
         }
+    };
+
+    // Enhanced order change handler with unsaved changes protection
+    const handleOrderChangeWithProtection = (newOrder) => {
+        if (unsavedChanges && newOrder !== selectedOrder) {
+            // Store the pending order change
+            setPendingNavigation(() => () => onOrderChange(newOrder));
+            setOpenUnsavedDialog(true);
+            return;
+        }
+
+        onOrderChange(newOrder);
     };
 
     const isTableEditable = (table) => {
@@ -570,30 +741,37 @@ const OrderPlanning = () => {
             >
                 <MainCard
                     title={
-                        <Box display="flex" alignItems="center" gap={1} width="100%">
-                            <Typography variant="h4">
-                                {t('orderPlanning.orderDetails', 'Order Details')}
-                            </Typography>
-                            {selectedOrder && tables.length > 0 && tables[0].fabricCode && (
-                                <CollarettoConsumptionInfo
-                                    style={selectedOrder.style}
-                                    fabricCode={tables[0].fabricCode}
-                                    plannedByBagno={getTablePlannedByBagno(tables[0]).bagnoMap}
+                        <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h4">
+                                    {t('orderPlanning.orderDetails', 'Order Details')}
+                                </Typography>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                {/* Collaretto Info */}
+                                {selectedOrder && tables.length > 0 && tables[0].fabricCode && (
+                                    <CollarettoConsumptionInfo
+                                        style={selectedOrder.style}
+                                        fabricCode={tables[0].fabricCode}
+                                        plannedByBagno={getTablePlannedByBagno(tables[0]).bagnoMap}
+                                    />
+                                )}
+
+                                {/* Order Actions Bar in Header */}
+                                <OrderActionBar
+                                    unsavedChanges={unsavedChanges}
+                                    handleSave={handleSave}
+                                    handlePrint={handleEnhancedPrint}
+                                    isPinned={isPinned}
+                                    setIsPinned={setIsPinned}
+                                    saving={saving}
+                                    handleDiscard={handleDiscard}
                                 />
-                            )}
+                            </Box>
                         </Box>
                     }
                 >
-
-                    {/* Order Actions Bar */}
-                    <OrderActionBar
-                        unsavedChanges={unsavedChanges}
-                        handleSave={handleSave}
-                        handlePrint={handleEnhancedPrint}
-                        isPinned={isPinned}
-                        setIsPinned={setIsPinned}
-                        saving={saving}
-                    />
 
                     {/* Order Toolbar */}
                     <OrderToolbar
@@ -603,7 +781,7 @@ const OrderPlanning = () => {
                         orderOptions={orderOptions}
                         filteredOrders={filteredOrders}
                         selectedOrder={selectedOrder}
-                        onOrderChange={onOrderChange}
+                        onOrderChange={handleOrderChangeWithProtection}
                         selectedSeason={selectedSeason}
                         selectedBrand={brand}
                         selectedColorCode={selectedColorCode}
@@ -1203,24 +1381,110 @@ const OrderPlanning = () => {
                 </Alert>
             </Snackbar>
 
+            {/* Info Message Snackbar */}
+            <Snackbar
+                open={openInfo}
+                autoHideDuration={8000}
+                onClose={handleCloseInfo}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert onClose={handleCloseInfo} severity="info" sx={{ width: '100%', padding: "12px 16px", fontSize: "1.0rem", lineHeight: "1.5", borderRadius: "8px" }}>
+                    {infoMessage}
+                </Alert>
+            </Snackbar>
+
             {/* Unsaved Changes Dialog */}
             <Dialog
                 open={openUnsavedDialog}
                 onClose={handleCloseUnsavedDialog}
                 aria-labelledby="unsaved-changes-dialog-title"
                 aria-describedby="unsaved-changes-dialog-description"
+                maxWidth="sm"
+                fullWidth
             >
-                <DialogTitle id="unsaved-changes-dialog-title">
-                    {t('orderPlanning.unsavedChanges', 'Unsaved Changes')}
+                <DialogTitle id="unsaved-changes-dialog-title" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+                    ⚠️ {t('orderPlanning.unsavedChanges', 'Unsaved Changes')}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="unsaved-changes-dialog-description">
-                        {t('orderPlanning.unsavedChangesMessage', 'You have unsaved changes, either save or delete them.')}
+                    <DialogContentText id="unsaved-changes-dialog-description" sx={{ fontSize: '1.1rem', mb: 2 }}>
+                        {t('orderPlanning.unsavedChangesMessage', 'You have unsaved changes that will be lost if you continue.')}
+                    </DialogContentText>
+                    {getChangeSummary() && (
+                        <DialogContentText sx={{ fontSize: '0.95rem', mb: 2, color: 'text.secondary', fontStyle: 'italic' }}>
+                            {t('orderPlanning.changesInclude', 'Changes include:')} {getChangeSummary()}
+                        </DialogContentText>
+                    )}
+                    <DialogContentText sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                        {t('orderPlanning.unsavedChangesQuestion', 'What would you like to do?')}
                     </DialogContentText>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseUnsavedDialog} color="primary" variant="contained">
-                        {t('common.ok', 'OK')}
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button
+                        onClick={handleCloseUnsavedDialog}
+                        color="inherit"
+                        variant="outlined"
+                        sx={{ minWidth: 100 }}
+                    >
+                        {t('common.cancel', 'Cancel')}
+                    </Button>
+                    <Button
+                        onClick={handleDiscardAndNavigate}
+                        color="error"
+                        variant="outlined"
+                        sx={{ minWidth: 100 }}
+                    >
+                        {t('common.discard', 'Discard Changes')}
+                    </Button>
+                    <Button
+                        onClick={handleSaveAndNavigate}
+                        color="primary"
+                        variant="contained"
+                        disabled={saving}
+                        sx={{ minWidth: 100 }}
+                    >
+                        {saving ? t('common.saving', 'Saving...') : t('common.saveAndContinue', 'Save & Continue')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Discard Changes Confirmation Dialog */}
+            <Dialog
+                open={openDiscardDialog}
+                onClose={handleCancelDiscard}
+                aria-labelledby="discard-dialog-title"
+                aria-describedby="discard-dialog-description"
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle id="discard-dialog-title" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+                    ⚠️ {t('orderPlanning.confirmDiscard', 'Confirm Discard Changes')}
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="discard-dialog-description" sx={{ fontSize: '1.1rem', mb: 2 }}>
+                        {t('orderPlanning.discardWarning', 'Are you sure you want to discard all your changes? This action cannot be undone.')}
+                    </DialogContentText>
+                    {getChangeSummary() && (
+                        <DialogContentText sx={{ fontSize: '0.95rem', mb: 2, color: 'text.secondary', fontStyle: 'italic' }}>
+                            {t('orderPlanning.changesWillBeLost', 'The following changes will be lost:')} {getChangeSummary()}
+                        </DialogContentText>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button
+                        onClick={handleCancelDiscard}
+                        color="primary"
+                        variant="contained"
+                        sx={{ minWidth: 100 }}
+                    >
+                        {t('common.cancel', 'Cancel')}
+                    </Button>
+                    <Button
+                        onClick={handleConfirmDiscard}
+                        color="error"
+                        variant="outlined"
+                        sx={{ minWidth: 100 }}
+                    >
+                        {t('common.discardChanges', 'Discard Changes')}
                     </Button>
                 </DialogActions>
             </Dialog>
