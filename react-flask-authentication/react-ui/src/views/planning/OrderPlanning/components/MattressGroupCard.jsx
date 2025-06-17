@@ -1,5 +1,6 @@
 import React from 'react';
-import { Grid, Autocomplete, TextField, Box, Paper, Typography } from '@mui/material';
+import { Grid, Autocomplete, TextField, Box, Paper, Typography, IconButton, CircularProgress } from '@mui/material';
+import { Refresh } from '@mui/icons-material';
 import {
   getProductionCenterOptions,
   getCuttingRoomOptions,
@@ -16,7 +17,9 @@ const MattressGroupCard = ({
   isTableEditable,
   setTables,
   setUnsavedChanges,
-  updateExpectedConsumption
+  updateExpectedConsumption,
+  onRefreshMarkers,
+  refreshingMarkers
 }) => {
   // Get dropdown options based on current selections
   const productionCenterOptions = getProductionCenterOptions();
@@ -274,6 +277,27 @@ const MattressGroupCard = ({
               "& .MuiAutocomplete-input": { fontWeight: 'normal' }
             }}
           />
+        </Grid>
+
+        {/* Refresh Markers Icon */}
+        <Grid item xs="auto">
+          <IconButton
+            size="small"
+            onClick={onRefreshMarkers}
+            disabled={refreshingMarkers}
+            sx={{
+              color: 'primary.main',
+              '&:hover': { backgroundColor: 'primary.light', color: 'white' },
+              mt: 1
+            }}
+            title="Refresh markers"
+          >
+            {refreshingMarkers ? (
+              <CircularProgress size={20} />
+            ) : (
+              <Refresh fontSize="small" />
+            )}
+          </IconButton>
         </Grid>
       </Grid>
     </Box>

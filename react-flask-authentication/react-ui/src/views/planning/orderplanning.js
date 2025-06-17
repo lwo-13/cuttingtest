@@ -645,24 +645,37 @@ const OrderPlanning = () => {
         ? orderOptions.filter(order => order.style === selectedStyle)
         : orderOptions;
 
+    // Manual marker refresh function
+    const [refreshingMarkers, setRefreshingMarkers] = useState(false);
+
+    const fetchMarkerData = async () => {
+        if (!selectedOrder) return;
+
+        setRefreshingMarkers(true);
+        try {
+            const response = await axios.get(`/markers/marker_headers_planning`, {
+                params: {
+                    style: selectedStyle,
+                    sizes: orderSizeNames.join(',')
+                }
+            });
+
+            if (response.data.success) {
+                setMarkerOptions(response.data.data);
+                console.log("Markers refreshed manually");
+            } else {
+                console.error("Failed to fetch markers");
+            }
+        } catch (error) {
+            console.error("Error fetching marker data:", error);
+        } finally {
+            setRefreshingMarkers(false);
+        }
+    };
+
     // Fetch marker data from Flask API
     useEffect(() => {
-        if (!selectedOrder) return;  // ✅ Do nothing if no order is selected
-
-        axios.get(`/markers/marker_headers_planning`, {
-            params: {
-              style: selectedStyle,
-              sizes: orderSizeNames.join(',')
-            }
-          })  // ✅ Fetch only when order changes
-            .then((response) => {
-                if (response.data.success) {
-                    setMarkerOptions(response.data.data);  // ✅ Update markers only when order changes
-                } else {
-                    console.error("Failed to fetch markers");
-                }
-            })
-            .catch((error) => console.error("Error fetching marker data:", error));
+        fetchMarkerData();
     }, [selectedOrder, selectedStyle, orderSizeNames]); // ✅ Runs when order, style, or size names change
 
     // Handle Style Change with unsaved changes protection
@@ -866,6 +879,8 @@ const OrderPlanning = () => {
                                 setTables={setTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 updateExpectedConsumption={updateExpectedConsumption}
+                                onRefreshMarkers={fetchMarkerData}
+                                refreshingMarkers={refreshingMarkers}
                             />
 
                             {/* Table Section */}
