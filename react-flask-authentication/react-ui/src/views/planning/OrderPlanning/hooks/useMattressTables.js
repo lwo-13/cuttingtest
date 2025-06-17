@@ -127,6 +127,60 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     setUnsavedChanges(true);
   };
 
+  const handleBulkAddRows = (tableId, layerPackageNr, width, selectedMarker) => {
+    const newRowIds = [];
+
+    setTables(prevTables => {
+      return prevTables.map(table => {
+        if (table.id !== tableId) return table;
+
+        const newRows = [];
+        let currentSequence = getNextSequenceNumber(table.rows);
+
+        // Create the specified number of rows
+        for (let i = 0; i < layerPackageNr; i++) {
+          const newRowId = uuidv4();
+          newRowIds.push(newRowId);
+
+          newRows.push({
+            id: newRowId,
+            width: width.toString(),
+            markerName: selectedMarker.marker_name,
+            piecesPerSize: selectedMarker.size_quantities || orderSizeNames.reduce((acc, size) => {
+              acc[size] = "";
+              return acc;
+            }, {}),
+            markerLength: selectedMarker.marker_length.toString(),
+            efficiency: selectedMarker.efficiency.toString(),
+            layers: "",
+            expectedConsumption: "",
+            bagno: "",
+            status: "not_ready",
+            isEditable: true,
+            sequenceNumber: currentSequence + i
+          });
+        }
+
+        return {
+          ...table,
+          rows: [...table.rows, ...newRows]
+        };
+      });
+    });
+
+    // Trigger events for each added row
+    newRowIds.forEach(rowId => {
+      window.dispatchEvent(new CustomEvent('mattressRowAdded', {
+        detail: {
+          tableId: tableId,
+          rowId: rowId
+        }
+      }));
+    });
+
+    setUnsavedChanges(true);
+  };
+
   const handleRemoveRow = (tableId, rowId) => {
     setTables(prevTables => {
       return prevTables.map(table => {
@@ -349,6 +403,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     handleAddTable,
     handleRemoveTable,
     handleAddRow,
+    handleBulkAddRows,
     handleRemoveRow,
     handleInputChange,
     updateExpectedConsumption

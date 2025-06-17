@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Grid, Autocomplete, TextField, Box, Paper, Typography, IconButton, CircularProgress } from '@mui/material';
-import { Refresh } from '@mui/icons-material';
+import { Refresh, AutoFixHigh } from '@mui/icons-material';
+import MattressBulkAddDialog from './MattressBulkAddDialog';
 import {
   getProductionCenterOptions,
   getCuttingRoomOptions,
@@ -19,8 +20,13 @@ const MattressGroupCard = ({
   setUnsavedChanges,
   updateExpectedConsumption,
   onRefreshMarkers,
-  refreshingMarkers
+  refreshingMarkers,
+  markerOptions,
+  onBulkAddRows
 }) => {
+  // Dialog state for bulk add
+  const [bulkAddDialogOpen, setBulkAddDialogOpen] = useState(false);
+
   // Get dropdown options based on current selections
   const productionCenterOptions = getProductionCenterOptions();
   const cuttingRoomOptions = getCuttingRoomOptions(table.productionCenter);
@@ -279,6 +285,22 @@ const MattressGroupCard = ({
           />
         </Grid>
 
+        {/* Magic Wand Icon */}
+        <Grid item xs="auto">
+          <IconButton
+            size="small"
+            onClick={() => setBulkAddDialogOpen(true)}
+            sx={{
+              color: 'secondary.main',
+              '&:hover': { backgroundColor: 'secondary.light', color: 'white' },
+              mt: 1
+            }}
+            title="Bulk add mattress rows"
+          >
+            <AutoFixHigh fontSize="small" />
+          </IconButton>
+        </Grid>
+
         {/* Refresh Markers Icon */}
         <Grid item xs="auto">
           <IconButton
@@ -300,6 +322,17 @@ const MattressGroupCard = ({
           </IconButton>
         </Grid>
       </Grid>
+
+      {/* Bulk Add Dialog */}
+      <MattressBulkAddDialog
+        open={bulkAddDialogOpen}
+        onClose={() => setBulkAddDialogOpen(false)}
+        markerOptions={markerOptions}
+        onBulkAdd={(layerPackageNr, width, selectedMarker) => {
+          onBulkAddRows(table.id, layerPackageNr, width, selectedMarker);
+          setBulkAddDialogOpen(false);
+        }}
+      />
     </Box>
   );
 };

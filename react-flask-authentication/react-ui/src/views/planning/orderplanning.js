@@ -197,6 +197,7 @@ const OrderPlanning = () => {
         handleAddTable,
         handleRemoveTable,
         handleAddRow,
+        handleBulkAddRows,
         handleRemoveRow,
         handleInputChange,
         updateExpectedConsumption
@@ -881,6 +882,8 @@ const OrderPlanning = () => {
                                 updateExpectedConsumption={updateExpectedConsumption}
                                 onRefreshMarkers={fetchMarkerData}
                                 refreshingMarkers={refreshingMarkers}
+                                markerOptions={markerOptions}
+                                onBulkAddRows={handleBulkAddRows}
                             />
 
                             {/* Table Section */}
