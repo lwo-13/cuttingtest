@@ -30,7 +30,7 @@ const PadPrintInfo = ({ padPrintInfo }) => {
                 </Grid>
 
                 {padPrintInfo.image_url && (
-                    <Grid item xs={12} sm={4} md={3}>
+                    <Grid item xs={12} sm={6} md={4}>
                         <Box
                             component="img"
                             // Using the working API endpoint format
@@ -38,7 +38,7 @@ const PadPrintInfo = ({ padPrintInfo }) => {
                             alt="Pad Print"
                             sx={{
                                 width: '100%',
-                                maxHeight: '75px',
+                                maxHeight: '160px',
                                 objectFit: 'contain',
                                 border: '1px solid #ddd',
                                 borderRadius: '4px'
