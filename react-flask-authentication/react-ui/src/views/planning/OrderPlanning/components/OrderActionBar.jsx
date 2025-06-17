@@ -45,15 +45,14 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, set
                 <Button
                     variant="outlined"
                     color="error"
-                    size="small"
                     startIcon={<RestoreOutlined />}
                     onClick={handleDiscard}
                     disabled={saving}
                     sx={{
-                        fontSize: '0.75rem',
-                        py: 0.25,
-                        px: 1,
-                        minHeight: '28px'
+                        fontSize: '0.875rem',
+                        py: 0.75,
+                        px: 2,
+                        minHeight: '36px'
                     }}
                 >
                     {t('common.discard', 'Discard')}
@@ -68,14 +67,13 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, set
                 startIcon={<SaveIcon />}
                 onClick={handleSave}
                 disabled={!unsavedChanges && !saving}
-                size="small"
                 sx={{
                     backgroundColor: unsavedChanges ? 'primary.main' : 'grey.400',
                     color: 'white',
-                    fontSize: '0.75rem',
-                    py: 0.25,
-                    px: 1,
-                    minHeight: '28px',
+                    fontSize: '0.875rem',
+                    py: 0.75,
+                    px: 2,
+                    minHeight: '36px',
                     '&:hover': {
                         backgroundColor: unsavedChanges ? 'primary.dark' : 'grey.500'
                     },
@@ -94,12 +92,11 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, set
                 color="primary"
                 onClick={handlePrint}
                 startIcon={<Print />}
-                size="small"
                 sx={{
-                    fontSize: '0.75rem',
-                    py: 0.25,
-                    px: 1,
-                    minHeight: '28px'
+                    fontSize: '0.875rem',
+                    py: 0.75,
+                    px: 2,
+                    minHeight: '36px'
                 }}
             >
                 {t('common.print', 'Print')}
