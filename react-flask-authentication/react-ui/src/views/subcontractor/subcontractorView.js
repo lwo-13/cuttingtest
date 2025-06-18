@@ -88,30 +88,51 @@ const SubcontractorView = () => {
     };
 
     const getTablePlannedByBagno = (table) => {
-        const result = {};
+        const bagnoMap = {};
+        const bagnoOrder = []; // Track the order of bagno appearance
+
+        // Safety check for invalid table
+        if (!table || !table.rows) {
+            console.warn('Invalid table passed to getTablePlannedByBagno:', table);
+            return { bagnoMap, bagnoOrder };
+        }
+
         table.rows.forEach(row => {
             const bagno = row.bagno || 'no bagno';
-            if (!result[bagno]) result[bagno] = {};
-            
+
+            // Initialize bagno entry if it doesn't exist and track order
+            if (!bagnoMap[bagno]) {
+                bagnoMap[bagno] = {};
+                bagnoOrder.push(bagno); // Add to order list when first encountered
+            }
+
             orderSizes.forEach(size => {
-                if (!result[bagno][size.size]) result[bagno][size.size] = 0;
+                if (!bagnoMap[bagno][size.size]) bagnoMap[bagno][size.size] = 0;
                 const pcsPerSize = parseFloat(row.piecesPerSize?.[size.size]) || 0;
                 const layers = parseFloat(row.layers_a || row.layers) || 0;
-                result[bagno][size.size] += pcsPerSize * layers;
+                bagnoMap[bagno][size.size] += pcsPerSize * layers;
             });
         });
-        return result;
+        return { bagnoMap, bagnoOrder };
     };
 
     const getMetersByBagno = (table) => {
-        const result = {};
+        const bagnoMeters = {};
+        const bagnoOrder = []; // Track the order of bagno appearance
+
         table.rows.forEach(row => {
             const bagno = row.bagno || 'no bagno';
-            if (!result[bagno]) result[bagno] = 0;
             const consumption = parseFloat(row.cons_actual || row.expectedConsumption) || 0;
-            result[bagno] += consumption;
+
+            // Track order when first encountered
+            if (!bagnoMeters.hasOwnProperty(bagno)) {
+                bagnoOrder.push(bagno);
+            }
+
+            bagnoMeters[bagno] = (bagnoMeters[bagno] || 0) + consumption;
         });
-        return result;
+
+        return { bagnoMeters, bagnoOrder };
     };
 
     // Consumption calculations not needed for read-only subcontractor view
@@ -119,10 +140,16 @@ const SubcontractorView = () => {
     // Print styles
     usePrintStyles();
 
+    // Get current user info
+    const account = useSelector((state) => state.account);
+    const currentUser = account?.user;
+    const cuttingRoom = currentUser?.username; // Username = cutting room name
+
     // Order Change Handler
     const { onOrderChange } = useSubcontractorOrderChange({
         setSelectedOrder,
         setOrderSizes,
+        setOrderSizeNames: () => {}, // Not needed for subcontractor
         setSelectedStyle,
         setSelectedSeason,
         setSelectedColorCode,
@@ -141,9 +168,11 @@ const SubcontractorView = () => {
         setAdhesiveTables,
         setAlongTables: () => {}, // Not needed for subcontractor
         setWeftTables: () => {}, // Not needed for subcontractor
+        setMarkerOptions: () => {}, // Not needed for subcontractor
         sortSizes,
         clearBrand,
-        clearPadPrintInfo
+        clearPadPrintInfo,
+        cuttingRoom // Pass the cutting room to filter mattresses
     });
 
     // Print handlers
@@ -173,11 +202,6 @@ const SubcontractorView = () => {
     const handleCloseDestinationPrintDialog = () => {
         setOpenDestinationPrintDialog(false);
     };
-
-    // Get current user info
-    const account = useSelector((state) => state.account);
-    const currentUser = account?.user;
-    const cuttingRoom = currentUser?.username; // Username = cutting room name
 
     // Fetch orders assigned to this subcontractor's cutting room
     useEffect(() => {

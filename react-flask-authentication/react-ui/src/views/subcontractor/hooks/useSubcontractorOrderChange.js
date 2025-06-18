@@ -25,7 +25,8 @@ const handleOrderChange = async (newValue, {
   setMarkerOptions,
   sortSizes,
   clearBrand,
-  clearPadPrintInfo
+  clearPadPrintInfo,
+  cuttingRoom
 }) => {
   if (!newValue) {
     setSelectedOrder(null);
@@ -96,11 +97,15 @@ const handleOrderChange = async (newValue, {
     const sizeNames = sizesSorted.map(s => s.size);
 
     const [allMattressRes, markerRes] = await Promise.all([
-      axios.get(`/mattress/get_by_order/${newValue.id}`),
+      axios.get(`/mattress/get_by_order/${newValue.id}`, {
+        params: cuttingRoom ? { cutting_room: cuttingRoom } : {}
+      }),
       axios.get(`/markers/marker_headers_planning`, {
         params: { style: style, sizes: sizeNames.join(',') }
       })
     ]);
+
+    console.log(`📊 Fetching mattresses for order ${newValue.id} with cutting room filter: ${cuttingRoom}`);
 
     const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
       acc[m.marker_name] = m;
@@ -109,6 +114,7 @@ const handleOrderChange = async (newValue, {
 
     // Separate mattress and adhesive data from the single API response
     const allData = allMattressRes.data?.data || [];
+    console.log(`📊 Received ${allData.length} mattress/adhesive records for cutting room ${cuttingRoom}`);
     const mattressData = allData.filter(item => ['AS', 'MS'].includes(item.item_type));
     const adhesiveData = allData.filter(item => ['ASA', 'MSA'].includes(item.item_type));
 

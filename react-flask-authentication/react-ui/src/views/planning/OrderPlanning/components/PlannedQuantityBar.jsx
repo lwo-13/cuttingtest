@@ -57,13 +57,18 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
   const renderBagnoTable = () => {
     const totalPerSize = {};
-  
+
     // Calculate total per size across all bagni
-    Object.values(plannedByBagno).forEach(sizeMap => {
-      Object.entries(sizeMap).forEach(([size, qty]) => {
-        totalPerSize[size] = (totalPerSize[size] || 0) + qty;
+    // Add safety check for plannedByBagno
+    if (plannedByBagno && typeof plannedByBagno === 'object') {
+      Object.values(plannedByBagno).forEach(sizeMap => {
+        if (sizeMap && typeof sizeMap === 'object') {
+          Object.entries(sizeMap).forEach(([size, qty]) => {
+            totalPerSize[size] = (totalPerSize[size] || 0) + qty;
+          });
+        }
       });
-    });
+    }
   
     // To calculate percentage from `orderSizes`
     const getOrderedQty = (size) => {
@@ -71,7 +76,9 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
       return found ? found.qty : 0;
     };
 
-    const totalMeters = Object.values(metersByBagno).reduce((sum, val) => sum + val, 0);
+    const totalMeters = (metersByBagno && typeof metersByBagno === 'object')
+      ? Object.values(metersByBagno).reduce((sum, val) => sum + val, 0)
+      : 0;
   
     return (
       <Table size="small" sx={{ mt: 2 }}>
@@ -111,8 +118,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
           </TableRow>
         </TableHead>
         <TableBody>
-          {bagnoOrder.map((bagno) => {
-            const sizeMap = plannedByBagno[bagno];
+          {(bagnoOrder || []).map((bagno) => {
+            const sizeMap = plannedByBagno[bagno] || {};
             const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
             const mattressConsForBagno = metersByBagno[bagno] || 0;
             const collarettoConsForBagno = total * parseFloat(collarettoConsumption || 0);
