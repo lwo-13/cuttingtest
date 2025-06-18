@@ -735,9 +735,7 @@ const OrderPlanning = () => {
                     title={
                         <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="h4">
-                                    {t('orderPlanning.orderDetails', 'Order Details')}
-                                </Typography>
+                                {t('orderPlanning.orderDetails', 'Order Details')}
                             </Box>
 
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

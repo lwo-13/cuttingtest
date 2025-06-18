@@ -159,7 +159,7 @@ const useWeftTables = ({
 
           const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
           updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
+          ? Math.ceil(panelsCalculation)
           : "";
 
           const panels = parseFloat(updatedRow.panels);
@@ -191,7 +191,7 @@ const useWeftTables = ({
 
         const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
         const panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
+          ? Math.ceil(panelsCalculation)
           : "";
 
         const consumption = !isNaN(panels) && !isNaN(rewoundWidth)

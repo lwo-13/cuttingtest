@@ -56,7 +56,7 @@ const WeftGroupCard = ({
     // Calculate panels
     const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeamtoSeam);
     const panels = (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeamtoSeam) && rolls > 0 && pcsSeamtoSeam > 0)
-      ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
+      ? Math.ceil(panelsCalculation)
       : 0;
 
     // Calculate consumption

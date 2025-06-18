@@ -158,7 +158,7 @@ const useBiasTables = ({
 
           const panelsCalculation = pieces / (rolls * pcsSeam);
           updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-            ? (panelsCalculation > 0 && panelsCalculation < 0.5 ? 1 : Math.round(panelsCalculation))
+            ? Math.ceil(panelsCalculation)
             : "";
 
           const panels = parseFloat(updatedRow.panels);
