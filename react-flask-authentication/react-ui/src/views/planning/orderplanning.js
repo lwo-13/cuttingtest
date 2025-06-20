@@ -508,7 +508,6 @@ const OrderPlanning = () => {
             setPendingNavigation(null);
         } catch (error) {
             // Save failed, keep dialog open and show error
-            console.error('Save failed:', error);
             setErrorMessage('Failed to save changes. Please try again.');
             setOpenError(true);
         }
@@ -526,7 +525,6 @@ const OrderPlanning = () => {
 
         // Reload the original data from the server to discard all changes
         if (selectedOrder) {
-            console.log('Discarding changes and reloading original data...');
             onOrderChange(selectedOrder);
         }
 
@@ -549,7 +547,6 @@ const OrderPlanning = () => {
 
         // Reload the original data from the server to discard all changes
         if (selectedOrder) {
-            console.log('Discarding changes and reloading original data...');
             onOrderChange(selectedOrder);
         }
 
@@ -669,7 +666,6 @@ const OrderPlanning = () => {
         const handleAutoRefresh = () => {
             if (unsavedChanges) {
                 // Don't auto-refresh if there are unsaved changes
-                console.log('Auto-refresh skipped due to unsaved changes');
                 setInfoMessage('Auto-refresh skipped - you have unsaved changes. Save your work to enable auto-refresh.');
                 setOpenInfo(true);
                 return;
@@ -677,7 +673,6 @@ const OrderPlanning = () => {
 
             // Only refresh if we have a selected order
             if (selectedOrder) {
-                console.log('Auto-refreshing order data...');
                 onOrderChange(selectedOrder);
             }
         };
@@ -752,10 +747,12 @@ const OrderPlanning = () => {
                       ];
                       setStyleOptions(uniqueStyles);
                 } else {
-                    console.error("Failed to fetch orders");
+                    // Failed to fetch orders
                 }
             })
-            .catch(error => console.error("Error fetching order data:", error));
+            .catch(() => {
+                // Error fetching order data
+            });
     }, []);
 
     const filteredOrders = selectedStyle
@@ -779,12 +776,11 @@ const OrderPlanning = () => {
 
             if (response.data.success) {
                 setMarkerOptions(response.data.data);
-                console.log("Markers refreshed manually");
             } else {
-                console.error("Failed to fetch markers");
+                // Failed to fetch markers
             }
         } catch (error) {
-            console.error("Error fetching marker data:", error);
+            // Error fetching marker data
         } finally {
             setRefreshingMarkers(false);
         }
