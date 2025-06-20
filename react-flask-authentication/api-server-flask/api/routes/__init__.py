@@ -16,6 +16,7 @@ from .collaretto import collaretto_bp, collaretto_api
 from .operators import operators_bp, operators_api  # Spreader operators module
 from .cutter_operators import cutter_operators_bp, cutter_operators_api  # Cutter operators module
 from .marker_calculator import marker_calculator_bp, marker_calculator_api  # Marker calculator module
+from .navision import navision_bp, navision_api  # Navision integration module
 
 # Define the main RESTx API with Swagger documentation settings
 rest_api = Api(
@@ -40,6 +41,8 @@ def register_blueprints(app):
     app.register_blueprint(cutter_operators_bp, url_prefix="/api/cutter_operators")
     app.register_blueprint(marker_calculator_bp, url_prefix="/api/marker_calculator")
 
+    app.register_blueprint(navision_bp, url_prefix="/api/navision")
+
     # Attach Namespaces so they appear in the Swagger docs
     rest_api.add_namespace(auth_api, path="/api/users")
     rest_api.add_namespace(markers_api, path="/api/markers")
@@ -51,3 +54,5 @@ def register_blueprints(app):
     rest_api.add_namespace(operators_api, path="/api/operators")
     rest_api.add_namespace(cutter_operators_api, path="/api/cutter_operators")
     rest_api.add_namespace(marker_calculator_api, path="/api/marker_calculator")
+
+    rest_api.add_namespace(navision_api, path="/api/navision")

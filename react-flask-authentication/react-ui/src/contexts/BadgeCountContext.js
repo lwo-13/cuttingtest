@@ -5,6 +5,7 @@ const BadgeCountContext = createContext();
 
 export const BadgeCountProvider = ({ children }) => {
   const [orderRatioPendingCount, setOrderRatioPendingCount] = useState(0);
+  const [widthValidationCount, setWidthValidationCount] = useState(0);
 
   const refreshOrderRatioCount = async () => {
     try {
@@ -15,8 +16,18 @@ export const BadgeCountProvider = ({ children }) => {
     }
   };
 
+  const refreshWidthValidationCount = async () => {
+    try {
+      const res = await axios.get('/navision/width_validation/count');
+      setWidthValidationCount(res.data.count);
+    } catch (err) {
+      console.error("❌ Failed to fetch width validation count:", err);
+    }
+  };
+
   const refreshAllBadges = () => {
     refreshOrderRatioCount();
+    refreshWidthValidationCount();
   };
 
   useEffect(() => {
@@ -27,7 +38,9 @@ export const BadgeCountProvider = ({ children }) => {
     <BadgeCountContext.Provider
       value={{
         orderRatioPendingCount,
+        widthValidationCount,
         refreshOrderRatioCount,
+        refreshWidthValidationCount,
         refreshAllBadges
       }}
     >

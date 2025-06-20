@@ -12,7 +12,7 @@ import { useBadgeCount } from '../../../../contexts/BadgeCountContext';
 //-----------------------|| SIDEBAR MENU LIST ||-----------------------//
 
 const MenuList = () => {
-    const { mattressPendingCount, orderRatioPendingCount} = useBadgeCount();
+    const { mattressPendingCount, orderRatioPendingCount, widthValidationCount} = useBadgeCount();
     const account = useSelector((state) => state.account);
     const userRole = account?.user?.role || '';
 
@@ -46,6 +46,9 @@ const MenuList = () => {
             }
             if (item.id === 'italian_ratio') {
                 return { ...item, badgeContent: orderRatioPendingCount };
+            }
+            if (item.id === 'width_validation') {
+                return { ...item, badgeContent: widthValidationCount };
             }
             return item;
         })
