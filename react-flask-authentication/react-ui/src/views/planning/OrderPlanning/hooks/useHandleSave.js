@@ -27,6 +27,10 @@ const useHandleSave = ({
   setDeletedAlong,
   setDeletedWeft,
   setDeletedBias,
+  deletedTableIds,
+  setDeletedTableIds,
+  deletedCombinations,
+  setDeletedCombinations,
   setErrorMessage,
   setOpenError,
   setSuccessMessage,
@@ -896,6 +900,41 @@ const useHandleSave = ({
             setDeletedBias(prev =>
               prev.filter(name => !successfulDeletes.includes(name))
             );
+          }
+        })
+        .then(async () => {
+          // ✅ Clean up production center entries for deleted tables
+          if (deletedTableIds && deletedTableIds.length > 0) {
+            console.log(`🧹 Cleaning up production center entries for ${deletedTableIds.length} deleted tables...`);
+
+            const cleanupResults = await deleteSequentially(
+              deletedTableIds,
+              (tableId) => axios.delete(`/mattress/production_center/delete/${tableId}`),
+              'production center entry'
+            );
+
+            const successfulCleanups = cleanupResults.filter(r => r.success).length;
+            console.log(`✅ Cleaned up ${successfulCleanups}/${deletedTableIds.length} production center entries`);
+
+            // Clear the deleted table IDs after cleanup
+            if (setDeletedTableIds) {
+              setDeletedTableIds([]);
+            }
+          } else {
+            console.log("✅ No production center entries to clean up");
+          }
+        })
+        .then(async () => {
+          // ✅ Clear deleted combinations tracking (combinations are deleted immediately in UI)
+          if (deletedCombinations && deletedCombinations.length > 0) {
+            console.log(`🧹 Clearing ${deletedCombinations.length} deleted combination tracking entries (already deleted from database)`);
+
+            // Clear the deleted combinations tracking
+            if (setDeletedCombinations) {
+              setDeletedCombinations([]);
+            }
+          } else {
+            console.log("✅ No deleted combinations to clear");
           }
         })
         .then(() => {

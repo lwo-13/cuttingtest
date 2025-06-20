@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import axios from 'utils/axiosInstance';
 
 const useWeftTables = ({
   setUnsavedChanges,
-  setDeletedWeft
+  setDeletedWeft,
+  setDeletedTableIds
 }) => {
   const [weftTables, setWeftTables] = useState([]);
 
@@ -11,35 +13,36 @@ const useWeftTables = ({
     const tableId = uuidv4();
     const rowId = uuidv4();
 
-    setWeftTables(prev => [
-      ...prev,
-      {
-        id: tableId,
-        fabricType: "",
-        fabricCode: "",
-        fabricColor: "",
-        weftExtra: "10",
-        rows: [
-          {
-            id: rowId,
-            sequenceNumber: 1,
-            pieces: "",
-            usableWidth: "",
-            grossLength: "",
-            pcsSeamtoSeam: "",
-            rewoundWidth: "",
-            collarettoWidth: "",
-            scrapRoll: "",
-            rolls: "",
-            panels: "",
-            consumption: "",
-            bagno: "",
-            status: "not_ready",
-            isEditable: true
-          }
-        ]
-      }
-    ]);
+    let newTable = {
+      id: tableId,
+      fabricType: "",
+      fabricCode: "",
+      fabricColor: "",
+      weftExtra: "10",
+      rows: [
+        {
+          id: rowId,
+          sequenceNumber: 1,
+          pieces: "",
+          usableWidth: "",
+          grossLength: "",
+          pcsSeamtoSeam: "",
+          rewoundWidth: "",
+          collarettoWidth: "",
+          scrapRoll: "",
+          rolls: "",
+          panels: "",
+          consumption: "",
+          bagno: "",
+          status: "not_ready",
+          isEditable: true
+        }
+      ]
+    };
+
+
+
+    setWeftTables(prev => [...prev, newTable]);
     setUnsavedChanges(true);
   };
 
@@ -52,6 +55,11 @@ const useWeftTables = ({
             setDeletedWeft(prevDeleted => [...prevDeleted, row.collarettoName]);
           }
         });
+
+        // Track deleted table ID for production center cleanup
+        if (setDeletedTableIds) {
+          setDeletedTableIds(prev => prev.includes(tableId) ? prev : [...prev, tableId]);
+        }
       }
       setUnsavedChanges(true);
       return prev.filter(t => t.id !== tableId);

@@ -889,6 +889,27 @@ class GetMattressProductionCenter(Resource):
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
 
+@mattress_api.route('/production_center/delete/<string:table_id>', methods=['DELETE'])
+class DeleteMattressProductionCenter(Resource):
+    def delete(self, table_id):
+        """Delete production center entry for a specific table_id"""
+        try:
+            record = db.session.query(MattressProductionCenter).filter_by(table_id=table_id).first()
+
+            if record:
+                db.session.delete(record)
+                db.session.commit()
+                print(f"🗑️ Deleted production center entry for table_id: {table_id}")
+                return {"success": True, "msg": f"Production center entry for table {table_id} deleted successfully"}, 200
+            else:
+                # Not an error if the record doesn't exist - table might not have had production center data
+                return {"success": True, "msg": f"No production center entry found for table {table_id}"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error deleting production center entry for table {table_id}: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
 @mattress_api.route('/production_center/orders', methods=['GET'])
 class GetOrdersWithProductionCenter(Resource):
     def get(self):
@@ -1262,6 +1283,63 @@ class MattressOrderIdsResource(Resource):
             return {"success": True, "data": data}, 200
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/production_center/options', methods=['GET'])
+class GetProductionCenterOptions(Resource):
+    def get(self):
+        """Get all available production center options"""
+        try:
+            # Real production center combinations based on your system configuration
+            options = [
+                # PXE1 - ZALLI combinations
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 1 - SECTOR 1"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 1 - SECTOR 2"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 1 - SECTOR 3"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 2"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 3"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "INTERTOP"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "SANIA"},
+
+                # PXE1 - VERONA combinations
+                {"production_center": "PXE1", "cutting_room": "VERONA", "destination": "VERONA"},
+
+                # PXE1 - TEXTILE CONSTRUCTION combinations
+                {"production_center": "PXE1", "cutting_room": "TEXTILE CONSTRUCTION", "destination": "TEXTILE CONSTRUCTION"},
+
+                # PXE3 - VEGATEX combinations
+                {"production_center": "PXE3", "cutting_room": "VEGATEX", "destination": "VEGATEX"},
+
+                # PXE3 - SINA STYLE combinations
+                {"production_center": "PXE3", "cutting_room": "SINA STYLE L", "destination": "SINA STYLE L"},
+                {"production_center": "PXE3", "cutting_room": "SINA STYLE D", "destination": "SINA STYLE D"},
+
+                # PXE3 - ZEYNTEX combinations
+                {"production_center": "PXE3", "cutting_room": "ZEYNTEX", "destination": "ZEYNTEX"},
+
+                # PXE3 - DELICIA combinations
+                {"production_center": "PXE3", "cutting_room": "DELICIA", "destination": "DELICIA"},
+                {"production_center": "PXE3", "cutting_room": "DELICIA", "destination": "SUNAI"},
+                {"production_center": "PXE3", "cutting_room": "DELICIA", "destination": "NADJI"},
+                {"production_center": "PXE3", "cutting_room": "DELICIA", "destination": "SABRI89"},
+
+                # PXE3 - VAIDE MOLA combinations
+                {"production_center": "PXE3", "cutting_room": "VAIDE MOLA", "destination": "VAIDE MOLA"},
+
+                # PXE3 - HADJIOLI combinations
+                {"production_center": "PXE3", "cutting_room": "HADJIOLI", "destination": "HADJIOLI"},
+
+                # PXE3 - YUMER combinations
+                {"production_center": "PXE3", "cutting_room": "YUMER", "destination": "YUMER"},
+
+                # PXE3 - RILA TEXTILE combinations
+                {"production_center": "PXE3", "cutting_room": "RILA TEXTILE", "destination": "RILA TEXTILE"},
+            ]
+
+            return {"success": True, "data": options}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching production center options: {str(e)}")
+            return {"success": False, "msg": str(e)}, 500
 
 
 

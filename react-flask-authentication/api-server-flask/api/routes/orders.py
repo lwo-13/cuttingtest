@@ -1,7 +1,8 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
 from sqlalchemy import text
-from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, ProdOrderComponentView
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, ProdOrderComponentView, OrderProductionCenter
+import uuid
 
 # ✅ Create Blueprint and API instance
 orders_bp = Blueprint('orders', __name__)
@@ -436,4 +437,121 @@ class GetCollarettoConsumption(Resource):
             print(f"❌ Error fetching collaretto consumption: {str(e)}")
             import traceback
             traceback.print_exc()
+            return {"success": False, "msg": str(e)}, 500
+
+# New Order-Level Production Center Management Endpoints
+
+@orders_api.route('/production_center_combinations/get/<string:order_commessa>', methods=['GET'])
+class GetOrderProductionCenterCombinations(Resource):
+    def get(self, order_commessa):
+        """Get all production center combinations for an order"""
+        try:
+            combinations = db.session.query(OrderProductionCenter).filter_by(
+                order_commessa=order_commessa,
+                is_active=True
+            ).order_by(OrderProductionCenter.created_at).all()
+
+            result = []
+            for combo in combinations:
+                result.append({
+                    "combination_id": combo.combination_id,
+                    "production_center": combo.production_center,
+                    "cutting_room": combo.cutting_room,
+                    "destination": combo.destination
+                })
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching production center combinations: {str(e)}")
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/production_center_combinations/save', methods=['POST'])
+class SaveOrderProductionCenterCombinations(Resource):
+    def post(self):
+        """Save production center combinations for an order"""
+        try:
+            data = request.get_json()
+            order_commessa = data.get('order_commessa')
+            combinations = data.get('combinations', [])
+
+            if not order_commessa:
+                return {"success": False, "msg": "order_commessa is required"}, 400
+
+            if not combinations:
+                return {"success": False, "msg": "At least one combination is required"}, 400
+
+            # First, delete old inactive combinations to keep database clean
+            deleted_inactive = db.session.query(OrderProductionCenter).filter_by(
+                order_commessa=order_commessa,
+                is_active=False
+            ).delete()
+
+            if deleted_inactive > 0:
+                print(f"🧹 Cleaned up {deleted_inactive} inactive combinations for order {order_commessa}")
+
+            # Deactivate existing active combinations
+            db.session.query(OrderProductionCenter).filter_by(
+                order_commessa=order_commessa,
+                is_active=True
+            ).update({"is_active": False})
+
+            # Add new combinations
+            for combo in combinations:
+                combination_id = combo.get('combination_id') or str(uuid.uuid4())
+
+                # Check if combination already exists
+                existing = db.session.query(OrderProductionCenter).filter_by(
+                    order_commessa=order_commessa,
+                    combination_id=combination_id
+                ).first()
+
+                if existing:
+                    # Reactivate and update existing combination
+                    existing.production_center = combo.get('production_center')
+                    existing.cutting_room = combo.get('cutting_room')
+                    existing.destination = combo.get('destination')
+                    existing.is_active = True
+                else:
+                    # Create new combination
+                    new_combo = OrderProductionCenter(
+                        order_commessa=order_commessa,
+                        combination_id=combination_id,
+                        production_center=combo.get('production_center'),
+                        cutting_room=combo.get('cutting_room'),
+                        destination=combo.get('destination'),
+                        is_active=True
+                    )
+                    db.session.add(new_combo)
+
+            db.session.commit()
+            return {"success": True, "msg": "Production center combinations saved successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error saving production center combinations: {str(e)}")
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/production_center_combinations/delete/<string:order_commessa>/<string:combination_id>', methods=['DELETE'])
+class DeleteOrderProductionCenterCombination(Resource):
+    def delete(self, order_commessa, combination_id):
+        """Delete a specific production center combination"""
+        try:
+            combination = db.session.query(OrderProductionCenter).filter_by(
+                order_commessa=order_commessa,
+                combination_id=combination_id
+            ).first()
+
+            if not combination:
+                return {"success": False, "msg": "Combination not found"}, 404
+
+            # Always hard delete the combination - frontend handles table cleanup
+            db.session.delete(combination)
+
+            db.session.commit()
+            return {"success": True, "msg": "Combination deleted successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error deleting production center combination: {str(e)}")
             return {"success": False, "msg": str(e)}, 500

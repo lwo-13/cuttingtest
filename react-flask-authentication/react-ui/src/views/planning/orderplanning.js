@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Typography, Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
@@ -20,6 +20,9 @@ import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuanti
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
 import PadPrintInfoManual from 'views/planning/OrderPlanning/components/PadPrintInfoManual';
+
+// Production Center Components
+import ProductionCenterTabs from 'views/planning/OrderPlanning/components/ProductionCenterTabs';
 
 // Mattress Components
 import MattressGroupCard from 'views/planning/OrderPlanning/components/MattressGroupCard';
@@ -73,11 +76,12 @@ import useBiasTables from 'views/planning/OrderPlanning/hooks/useBiasTables';
 import useHandleSave from 'views/planning/OrderPlanning/hooks/useHandleSave';
 import useHandleOrderChange from 'views/planning/OrderPlanning/hooks/useHandleOrderChange';
 import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
+import useProductionCenterTabs from 'views/planning/OrderPlanning/hooks/useProductionCenterTabs';
 // import useUnsavedChanges from 'views/planning/OrderPlanning/hooks/useUnsavedChanges';
 
 // Utils
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
-import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
+import { usePrintStyles, handlePrint, getAllDestinations, getDestinationsInTabOrder, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 // Destination Print Dialog
@@ -113,6 +117,8 @@ const OrderPlanning = () => {
     const [deletedAlong, setDeletedAlong] = useState([]);
     const [deletedWeft, setDeletedWeft] = useState([]);
     const [deletedBias, setDeletedBias] = useState([]);
+    const [deletedTableIds, setDeletedTableIds] = useState([]); // Track deleted table IDs for production center cleanup
+    const [deletedCombinations, setDeletedCombinations] = useState([]); // Track deleted production center combinations
 
     // Basic unsaved changes tracking (temporary fallback)
     const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -201,7 +207,7 @@ const OrderPlanning = () => {
         handleRemoveRow,
         handleInputChange,
         updateExpectedConsumption
-    } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges });
+    } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges, setDeletedTableIds });
 
     // Adhesive Tables
     const {
@@ -213,7 +219,7 @@ const OrderPlanning = () => {
         handleRemoveRow: handleRemoveAdhesiveRow,
         handleInputChange: handleAdhesiveInputChange,
         updateExpectedConsumption: updateAdhesiveExpectedConsumption
-    } = useAdhesiveTables({ orderSizeNames, setDeletedMattresses: setDeletedAdhesive, setUnsavedChanges });
+    } = useAdhesiveTables({ orderSizeNames, setDeletedMattresses: setDeletedAdhesive, setUnsavedChanges, setDeletedTableIds });
 
     // Along Tables
     const {
@@ -225,7 +231,7 @@ const OrderPlanning = () => {
         handleRemoveRow: handleRemoveAlongRow,
         handleInputChange: handleAlongRowChange,
         handleExtraChange: handleAlongExtraChange
-    } = useAlongTables({ setUnsavedChanges, setDeletedAlong });
+    } = useAlongTables({ setUnsavedChanges, setDeletedAlong, setDeletedTableIds });
 
     // Weft Tables
     const {
@@ -237,7 +243,7 @@ const OrderPlanning = () => {
         handleRemoveRow: handleRemoveWeftRow,
         handleInputChange: handleWeftRowChange,
         handleExtraChange: handleWeftExtraChange
-    } = useWeftTables({ setUnsavedChanges, setDeletedWeft });
+    } = useWeftTables({ setUnsavedChanges, setDeletedWeft, setDeletedTableIds });
 
     // Bias Tables
     const {
@@ -248,7 +254,7 @@ const OrderPlanning = () => {
         handleAddRow: handleAddRowBias,
         handleRemoveRow: handleRemoveBiasRow,
         handleInputChange: handleBiasRowChange,
-    } = useBiasTables({ setUnsavedChanges, setDeletedBias });
+    } = useBiasTables({ setUnsavedChanges, setDeletedBias, setDeletedTableIds });
 
     // Save
     const { saving, handleSave } = useHandleSave({
@@ -276,6 +282,10 @@ const OrderPlanning = () => {
         setDeletedAlong,
         setDeletedWeft,
         setDeletedBias,
+        deletedTableIds,
+        setDeletedTableIds,
+        deletedCombinations,
+        setDeletedCombinations,
         setErrorMessage,
         setOpenError,
         setSuccessMessage,
@@ -309,7 +319,15 @@ const OrderPlanning = () => {
         clearBrand,
         clearPadPrintInfo,
         styleTouched,
-        setShowCommentCard
+        setShowCommentCard,
+        // Deletion tracking setters
+        setDeletedMattresses,
+        setDeletedAdhesive,
+        setDeletedAlong,
+        setDeletedWeft,
+        setDeletedBias,
+        setDeletedTableIds,
+        setDeletedCombinations
     });
 
     // Print Styles
@@ -319,13 +337,94 @@ const OrderPlanning = () => {
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
     const avgAdhesiveConsumption = useAvgConsumption(adhesiveTables, getTablePlannedQuantities);
 
+    // Production Center Tabs Management
+    const {
+        selectedCombination,
+        selectedCombinationId,
+        productionCenterOptions,
+        handleCombinationChange,
+        filteredTables,
+        filteredAdhesiveTables,
+        filteredAlongTables,
+        filteredWeftTables,
+        filteredBiasTables,
+        assignCombinationToNewTable,
+        updateTablesWithCombination,
+        getCombinationSummary
+    } = useProductionCenterTabs({
+        selectedOrder,
+        tables: tables || [],
+        adhesiveTables: adhesiveTables || [],
+        alongTables: alongTables || [],
+        weftTables: weftTables || [],
+        biasTables: biasTables || [],
+        setUnsavedChanges
+    });
+
+    // Auto-assign production center combination to tables
+    useEffect(() => {
+        if (!selectedCombination || !assignCombinationToNewTable) return;
+
+        // Check for tables and assign/update the selected combination
+        const updateTablesWithCombination = (currentTables, setTablesFunction) => {
+            if (!currentTables || currentTables.length === 0) return;
+
+            const updatedTables = currentTables.map(table => {
+                // Case 1: Table doesn't have production center data - assign the selected combination
+                if (!table.productionCenter && !table.cuttingRoom && !table.destination) {
+                    return assignCombinationToNewTable(table);
+                }
+
+                // Case 2: Table has production center data that matches the selected combination ID
+                // This handles the case where a combination was edited and we need to update existing tables
+                if (selectedCombination.combination_id &&
+                    table.combinationId === selectedCombination.combination_id) {
+                    return assignCombinationToNewTable(table);
+                }
+
+                return table;
+            });
+
+            // Only update if there are actual changes
+            const hasChanges = updatedTables.some((table, index) =>
+                table.productionCenter !== currentTables[index].productionCenter ||
+                table.cuttingRoom !== currentTables[index].cuttingRoom ||
+                table.destination !== currentTables[index].destination
+            );
+
+            if (hasChanges) {
+                setTablesFunction(updatedTables);
+                setUnsavedChanges(true);
+            }
+        };
+
+        updateTablesWithCombination(tables, setTables);
+        updateTablesWithCombination(adhesiveTables, setAdhesiveTables);
+        updateTablesWithCombination(alongTables, setAlongTables);
+        updateTablesWithCombination(weftTables, setWeftTables);
+        updateTablesWithCombination(biasTables, setBiasTables);
+    }, [selectedCombination, assignCombinationToNewTable, tables, adhesiveTables, alongTables, weftTables, biasTables]);
+
     // Destination Print Dialog State
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState([]);
 
+    // Ref for ProductionCenterTabs to access switchToDestinationTab function
+    const productionCenterTabsRef = useRef();
+
     // Enhanced Print Handler
     const handleEnhancedPrint = () => {
-        const destinations = getAllDestinations(tables, adhesiveTables, alongTables, weftTables, biasTables);
+        // Try to get destinations in tab order first
+        const combinations = productionCenterTabsRef.current?.getCombinations?.();
+        let destinations;
+
+        if (combinations && combinations.length > 0) {
+            // Use tab order if combinations are available
+            destinations = getDestinationsInTabOrder(combinations);
+        } else {
+            // Fallback to alphabetical order
+            destinations = getAllDestinations(tables, adhesiveTables, alongTables, weftTables, biasTables);
+        }
 
         if (destinations.length <= 1) {
             // Single or no destination - print normally
@@ -340,7 +439,21 @@ const OrderPlanning = () => {
     // Handle destination-specific printing
     const handlePrintDestination = (selectedDestination) => {
         setOpenDestinationPrintDialog(false);
-        handleDestinationPrint(selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+
+        // Get the switchToDestinationTab function from ProductionCenterTabs
+        const switchToDestinationTab = productionCenterTabsRef.current?.switchToDestinationTab;
+
+        handleDestinationPrint(
+            selectedDestination,
+            tables,
+            adhesiveTables,
+            alongTables,
+            weftTables,
+            biasTables,
+            collapsedCards,
+            setCollapsedCards,
+            switchToDestinationTab
+        );
     };
 
     // Handle print all destinations
@@ -804,8 +917,43 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
+            {/* Production Center Configuration Section */}
+            {selectedOrder && (
+                <ProductionCenterTabs
+                    ref={productionCenterTabsRef}
+                    selectedOrder={selectedOrder}
+                    onCombinationChange={handleCombinationChange}
+                    selectedCombinationId={selectedCombinationId}
+                    setUnsavedChanges={setUnsavedChanges}
+                    productionCenterOptions={productionCenterOptions}
+                    orderSizes={orderSizes}
+                    italianRatios={italianRatios}
+                    updateTablesWithCombination={updateTablesWithCombination}
+                    tables={tables}
+                    setTables={setTables}
+                    adhesiveTables={adhesiveTables}
+                    setAdhesiveTables={setAdhesiveTables}
+                    alongTables={alongTables}
+                    setAlongTables={setAlongTables}
+                    weftTables={weftTables}
+                    setWeftTables={setWeftTables}
+                    biasTables={biasTables}
+                    setBiasTables={setBiasTables}
+                    // Deletion tracking functions
+                    setDeletedMattresses={setDeletedMattresses}
+                    setDeletedAdhesive={setDeletedAdhesive}
+                    setDeletedAlong={setDeletedAlong}
+                    setDeletedWeft={setDeletedWeft}
+                    setDeletedBias={setDeletedBias}
+                    setDeletedTableIds={setDeletedTableIds}
+                    setDeletedCombinations={setDeletedCombinations}
+                />
+            )}
+
+            <Box mt={2} />
+
             {/* Mattress Group Section */}
-            {tables.length > 0 && tables.map((table, tableIndex) => (
+            {filteredTables.length > 0 && filteredTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before every table except the first one */}
                    {tableIndex > 0 && <Box mt={2} />}
@@ -926,7 +1074,7 @@ const OrderPlanning = () => {
             ))}
 
             {/* Adhesive Group Section */}
-            {adhesiveTables.length > 0 && adhesiveTables.map((table) => (
+            {filteredAdhesiveTables.length > 0 && filteredAdhesiveTables.map((table) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before the first table and between subsequent tables */}
                    <Box mt={2} />
@@ -1043,7 +1191,7 @@ const OrderPlanning = () => {
             ))}
 
             {/* Along Tables Section */}
-            {alongTables.length > 0 && alongTables.map((table) => (
+            {filteredAlongTables.length > 0 && filteredAlongTables.map((table) => (
                 <React.Fragment key={table.id}>
 
                     <Box mt={2} />
@@ -1123,7 +1271,7 @@ const OrderPlanning = () => {
             ))}
 
             {/* Weft Tables Section */}
-            {weftTables.length > 0 && weftTables.map((table) => (
+            {filteredWeftTables.length > 0 && filteredWeftTables.map((table) => (
 
                 <React.Fragment key={table.id}>
                     <Box mt={2} />
@@ -1203,7 +1351,7 @@ const OrderPlanning = () => {
             ))}
 
             {/* BiasTables Section */}
-            {biasTables.length > 0 && biasTables.map((table) => (
+            {filteredBiasTables.length > 0 && filteredBiasTables.map((table) => (
 
                 <React.Fragment key={table.id}>
                     <Box mt={2} />

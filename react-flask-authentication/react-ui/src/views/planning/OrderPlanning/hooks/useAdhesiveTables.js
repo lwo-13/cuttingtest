@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'utils/axiosInstance';
 
 const addToDeletedIfNotExists = (name, setter) => {
   setter(prev => (prev.includes(name) ? prev : [...prev, name]));
 };
 
-const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedChanges }) => {
+const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedChanges, setDeletedTableIds }) => {
     const [tables, setTables] = useState([]);
 
     const getNextSequenceNumber = (rows) => {
@@ -18,7 +19,7 @@ const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedCha
       const newTableId = uuidv4();
       const newRowId = uuidv4();
 
-      const newTable = {
+      let newTable = {
         id: newTableId,
         // Production center fields (before fabric info)
         productionCenter: "",
@@ -51,6 +52,8 @@ const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedCha
         ]
       };
 
+
+
       setTables(prev => [...prev, newTable]);
       setUnsavedChanges(true);
   };
@@ -66,6 +69,11 @@ const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedCha
                         addToDeletedIfNotExists(row.mattressName, setDeletedMattresses);
                     }
                 });
+
+                // Track deleted table ID for production center cleanup
+                if (setDeletedTableIds) {
+                    setDeletedTableIds(prev => prev.includes(tableId) ? prev : [...prev, tableId]);
+                }
             }
             return prevTables.filter(table => table.id !== tableId);
         });

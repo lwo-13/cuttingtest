@@ -686,6 +686,30 @@ class ProductionCenter(db.Model):
         onupdate=db.func.current_timestamp()
     )
 
+class OrderProductionCenter(db.Model):
+    __tablename__ = 'order_production_center'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    order_commessa = db.Column(db.String(50), nullable=False)
+    combination_id = db.Column(db.String(36), nullable=False)  # UUID for each combination
+    production_center = db.Column(db.String(50), nullable=True)
+    cutting_room = db.Column(db.String(50), nullable=True)
+    destination = db.Column(db.String(50), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)  # For soft delete/deactivation
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=db.func.current_timestamp(),
+        onupdate=db.func.current_timestamp()
+    )
+
+    # Unique constraint to prevent duplicate combinations per order
+    __table_args__ = (
+        db.UniqueConstraint('order_commessa', 'production_center', 'cutting_room', 'destination',
+                          name='uq_order_production_combination'),
+    )
+
 class MattressProductionCenter(db.Model):
     __tablename__ = 'mattress_production_center'
 

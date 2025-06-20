@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'utils/axiosInstance';
 
 const addToDeletedIfNotExists = (name, setter) => {
   setter(prev => (prev.includes(name) ? prev : [...prev, name]));
 };
 
-const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattresses }) => {
+const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattresses, setDeletedTableIds }) => {
     const [tables, setTables] = useState([]);
 
     // Add Mattress Table
@@ -13,7 +14,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
       const newTableId = uuidv4();
       const newRowId = uuidv4();
 
-      const newTable = {
+      let newTable = {
         id: newTableId,
         // Production center fields (before fabric info)
         productionCenter: "",
@@ -46,6 +47,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         ]
       };
 
+
+
       setTables(prev => [...prev, newTable]);
       setUnsavedChanges(true);
   };
@@ -62,11 +65,17 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         return prevTables;
       }
 
+      // Delete mattress records
       tableToRemove.rows.forEach((row) => {
         if (row.mattressName) {
           addToDeletedIfNotExists(row.mattressName, setDeletedMattresses);
         }
       });
+
+      // Track deleted table ID for production center cleanup
+      if (setDeletedTableIds) {
+        setDeletedTableIds(prev => prev.includes(id) ? prev : [...prev, id]);
+      }
 
       setUnsavedChanges(true);
       return prevTables.filter(table => table.id !== id);

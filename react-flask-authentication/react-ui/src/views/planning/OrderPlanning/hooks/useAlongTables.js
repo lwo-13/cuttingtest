@@ -1,39 +1,41 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'utils/axiosInstance';
 
-const useAlongTables = ({ setUnsavedChanges, setDeletedAlong }) => {
+const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, setDeletedTableIds }) => {
   const [alongTables, setAlongTables] = useState([]);
 
   const handleAddTable = () => {
     const tableId = uuidv4();
     const rowId = uuidv4();
 
-    setAlongTables(prev => [
-      ...prev,
-      {
-        id: tableId,
-        fabricType: "",
-        fabricCode: "",
-        fabricColor: "",
-        alongExtra: "3",
-        rows: [
-          {
-            id: rowId,
-            sequenceNumber: 1,
-            pieces: "",
-            usableWidth: "",
-            theoreticalConsumption: "",
-            collarettoWidth: "",
-            scrapRoll: "",
-            rolls: "",
-            metersCollaretto: "",
-            consumption: "",
-            bagno: "",
-            isEditable: true
-          }
-        ]
-      }
-    ]);
+    let newTable = {
+      id: tableId,
+      fabricType: "",
+      fabricCode: "",
+      fabricColor: "",
+      alongExtra: "3",
+      rows: [
+        {
+          id: rowId,
+          sequenceNumber: 1,
+          pieces: "",
+          usableWidth: "",
+          theoreticalConsumption: "",
+          collarettoWidth: "",
+          scrapRoll: "",
+          rolls: "",
+          metersCollaretto: "",
+          consumption: "",
+          bagno: "",
+          isEditable: true
+        }
+      ]
+    };
+
+
+
+    setAlongTables(prev => [...prev, newTable]);
     setUnsavedChanges(true);
   };
 
@@ -47,6 +49,11 @@ const useAlongTables = ({ setUnsavedChanges, setDeletedAlong }) => {
           setDeletedAlong(prevDeleted => [...prevDeleted, row.collarettoName]);
         }
       });
+
+      // Track deleted table ID for production center cleanup
+      if (setDeletedTableIds) {
+        setDeletedTableIds(prev => prev.includes(tableId) ? prev : [...prev, tableId]);
+      }
 
       setUnsavedChanges(true);
       return prev.filter(t => t.id !== tableId);

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import axios from 'utils/axiosInstance';
 
 const useBiasTables = ({
   setUnsavedChanges,
-  setDeletedBias
+  setDeletedBias,
+  setDeletedTableIds
 }) => {
   const [biasTables, setBiasTables] = useState([]);
 
@@ -11,34 +13,35 @@ const useBiasTables = ({
     const tableId = uuidv4();
     const rowId = uuidv4();
 
-    setBiasTables(prev => [
-      ...prev,
-      {
-        id: tableId,
-        fabricType: "",
-        fabricCode: "",
-        fabricColor: "",
-        rows: [
-          {
-            id: rowId,
-            sequenceNumber: 1,
-            pieces: "",
-            totalWidth: "",
-            grossLength: "",
-            pcsSeamtoSeam: "",
-            rewoundWidth: "",
-            collarettoWidth: "",
-            scrapRoll: "",
-            rolls: "",
-            panels: "",
-            consumption: "",
-            bagno: "",
-            status: "not_ready",
-            isEditable: true
-          }
-        ]
-      }
-    ]);
+    let newTable = {
+      id: tableId,
+      fabricType: "",
+      fabricCode: "",
+      fabricColor: "",
+      rows: [
+        {
+          id: rowId,
+          sequenceNumber: 1,
+          pieces: "",
+          totalWidth: "",
+          grossLength: "",
+          pcsSeamtoSeam: "",
+          rewoundWidth: "",
+          collarettoWidth: "",
+          scrapRoll: "",
+          rolls: "",
+          panels: "",
+          consumption: "",
+          bagno: "",
+          status: "not_ready",
+          isEditable: true
+        }
+      ]
+    };
+
+
+
+    setBiasTables(prev => [...prev, newTable]);
     setUnsavedChanges(true);
   };
 
@@ -51,6 +54,11 @@ const useBiasTables = ({
             setDeletedBias(prevDeleted => [...prevDeleted, row.collarettoName]);
           }
         });
+
+        // Track deleted table ID for production center cleanup
+        if (setDeletedTableIds) {
+          setDeletedTableIds(prev => prev.includes(tableId) ? prev : [...prev, tableId]);
+        }
       }
       setUnsavedChanges(true);
       return prev.filter(t => t.id !== tableId);

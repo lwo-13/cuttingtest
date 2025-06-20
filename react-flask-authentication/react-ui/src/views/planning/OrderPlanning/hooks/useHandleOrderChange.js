@@ -48,6 +48,16 @@ const handleOrderChange = async (newValue, context) => {
     setUnsavedChanges(false);
     setStyleTouched(false);
     if (setShowCommentCard) setShowCommentCard(false);
+
+    // Reset deletion tracking arrays
+    if (context.setDeletedMattresses) context.setDeletedMattresses([]);
+    if (context.setDeletedAdhesive) context.setDeletedAdhesive([]);
+    if (context.setDeletedAlong) context.setDeletedAlong([]);
+    if (context.setDeletedWeft) context.setDeletedWeft([]);
+    if (context.setDeletedBias) context.setDeletedBias([]);
+    if (context.setDeletedTableIds) context.setDeletedTableIds([]);
+    if (context.setDeletedCombinations) context.setDeletedCombinations([]);
+
     return;
   }
 

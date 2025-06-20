@@ -21,11 +21,38 @@ export const usePrintStyles = () => {
         .scrollbar-container, .navbar, .buttons, .floating-action-button, .MuiButtonBase-root {
           display: none !important;
         }
+        .print-hidden, .cumulative-quantities-section {
+          display: none !important;
+        }
         .main-content, .MuiContainer-root, .MuiGrid-root {
           width: 100% !important;
           max-width: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
+        }
+        .MuiBox-root {
+          margin: 0 !important;
+          padding: 2px !important;
+        }
+        .MuiTypography-root {
+          margin: 0 !important;
+          padding: 2px !important;
+        }
+        .MuiCard-root, .MuiPaper-root {
+          margin: 2px !important;
+          padding: 4px !important;
+          box-shadow: none !important;
+        }
+        .production-center-print-header {
+          margin: 0 !important;
+          padding: 4px !important;
+          margin-bottom: 4px !important;
+          margin-top: 0 !important;
+        }
+        .production-center-print-header .MuiTypography-root {
+          margin: 0 !important;
+          padding: 2px !important;
+          line-height: 1.2 !important;
         }
         .MuiTableContainer-root {
           overflow: visible !important;
@@ -54,6 +81,21 @@ export const getAllDestinations = (tables, adhesiveTables, alongTables, weftTabl
   });
 
   return Array.from(destinations).sort();
+};
+
+// Get destinations in the same order as production center tabs
+export const getDestinationsInTabOrder = (combinations) => {
+  if (!combinations || !Array.isArray(combinations)) {
+    return [];
+  }
+
+  // Extract destinations from combinations in their tab order
+  const destinations = combinations
+    .map(combination => combination.destination)
+    .filter(destination => destination && destination.trim() !== '');
+
+  // Remove duplicates while preserving order
+  return [...new Set(destinations)];
 };
 
 // Apply destination filter to DOM elements before printing
@@ -167,21 +209,30 @@ export const handlePrint = (tables, adhesiveTables, alongTables, weftTables, bia
   }, 300);
 };
 
-export const handleDestinationPrint = (selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards) => {
+export const handleDestinationPrint = (selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards, switchToDestinationTab) => {
   // Store current states
   storeCollapsedState(collapsedCards);
   storeMenuState();
+
+  // Switch to the correct tab for the selected destination BEFORE printing
+  if (switchToDestinationTab && selectedDestination) {
+    console.log(`🔄 Switching to tab for destination: ${selectedDestination}`);
+    switchToDestinationTab(selectedDestination);
+  }
 
   // Collapse menu and expand all tables
   collapseMenu();
   expandAllTables(tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards);
 
+  // Store selected destination for production center tabs to use
+  document.body.setAttribute('data-print-destination', selectedDestination);
   document.body.classList.add("print-mode");
   applyDestinationFilter(selectedDestination, tables, adhesiveTables, alongTables, weftTables, biasTables);
 
   setTimeout(() => {
     window.print();
     document.body.classList.remove("print-mode");
+    document.body.removeAttribute('data-print-destination');
     removeDestinationFilter();
 
     // Restore original states after printing
