@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
-  Typography,
   Snackbar,
   Alert,
   CircularProgress,
@@ -11,10 +10,12 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
+import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
 const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChange }) => {
+  const { t } = useTranslation();
   const [comment, setComment] = useState('');
   const [originalComment, setOriginalComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,10 +27,10 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
     severity: 'success'
   });
 
-  // Load existing comment when order changes
+  // Load existing order comment when order changes
   useEffect(() => {
     if (selectedOrder?.id) {
-      loadComment();
+      loadOrderComment();
     } else {
       setComment('');
       setOriginalComment('');
@@ -57,7 +58,7 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
     }
   }, [comment, hasUnsavedChanges]); // Removed onCommentChange from dependencies to prevent infinite loops
 
-  const loadComment = async () => {
+  const loadOrderComment = async () => {
     setLoading(true);
     try {
       const response = await axios.get(`/orders/comments/get/${selectedOrder.id}`);
@@ -126,7 +127,7 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
                   <IconChevronUp stroke={1.5} size="1rem" />
                 }
               </IconButton>
-              Order Comment
+              {t('orderPlanning.orderComment', 'Order Comment')}
             </Box>
             <IconButton
               onClick={handleRemove}
@@ -150,7 +151,7 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
               multiline
               rows={6}
               variant="outlined"
-              placeholder="Add a comment for this order..."
+              placeholder={t('orderPlanning.addComment', 'Add a comment for this order...')}
               value={comment || ''}
               onChange={(e) => setComment(e.target.value)}
               disabled={loading}

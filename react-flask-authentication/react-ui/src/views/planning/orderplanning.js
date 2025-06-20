@@ -61,8 +61,9 @@ import MarkerCalculatorDialog from 'views/planning/OrderPlanning/components/Mark
 // Summary Component
 import MattressSummaryDialog from 'views/planning/OrderPlanning/components/MattressSummaryDialog';
 
-// Comment Component
+// Comment Components
 import CommentCard from 'views/planning/OrderPlanning/components/CommentCard';
+import StyleCommentCard from 'views/planning/OrderPlanning/components/StyleCommentCard';
 
 // Hooks
 import useItalianRatios from 'views/planning/OrderPlanning/hooks/useItalianRatios';
@@ -162,7 +163,7 @@ const OrderPlanning = () => {
     const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
     const [selectedTableForSummary, setSelectedTableForSummary] = useState(null);
 
-    // State for comment card
+    // State for comment cards
     const [showCommentCard, setShowCommentCard] = useState(false);
     const [commentData, setCommentData] = useState({ comment_text: '', hasChanges: false, resetState: null });
 
@@ -604,6 +605,8 @@ const OrderPlanning = () => {
     const handleCommentChange = (data) => {
         setCommentData(data);
     };
+
+
 
     // Handle card collapse/expand functionality
     const toggleCardCollapse = (cardType, tableId) => {
@@ -1440,6 +1443,17 @@ const OrderPlanning = () => {
                 </Box>
             )}
 
+            {/* Style Comment Card Section - Always visible when style is selected */}
+            {selectedStyle && (
+                <Box mt={3}>
+                    <StyleCommentCard
+                        selectedStyle={selectedStyle}
+                    />
+                </Box>
+            )}
+
+
+
             {selectedOrder && (
                 <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
                     <Button
@@ -1497,6 +1511,8 @@ const OrderPlanning = () => {
                             {t('orderPlanning.addComment', 'Add Comment')}
                         </Button>
                     )}
+
+
                 </Box>
             )}
 

@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
 from sqlalchemy import text
-from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, ProdOrderComponentView, OrderProductionCenter
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, StyleComments, StyleSettings, ProdOrderComponentView, OrderProductionCenter
 import uuid
 
 # ✅ Create Blueprint and API instance
@@ -143,7 +143,7 @@ class OrderLineStyles(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-        
+
 @orders_api.route('/ratios/<string:order_commessa>', methods=['GET'])
 class GetOrderRatios(Resource):
     def get(self, order_commessa):
@@ -163,7 +163,7 @@ class GetOrderRatios(Resource):
 
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-        
+
 @orders_api.route('/production_center/save', methods=['POST'])
 class SaveProductionCenter(Resource):
     def post(self):
@@ -200,7 +200,7 @@ class SaveProductionCenter(Resource):
             print("❌ Error in /production_center/save:", e)
             return {"success": False, "msg": str(e)}, 500
 
-        
+
 @orders_api.route('/production_center/get/<string:order_commessa>', methods=['GET'])
 class GetProductionCenter(Resource):
     def get(self, order_commessa):
@@ -268,6 +268,128 @@ class GetOrderComment(Resource):
                 }, 200
             else:
                 return {"success": True, "data": None}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/style_comments/save', methods=['POST'])
+class SaveStyleComment(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            style = data.get('style')
+            comment_text = data.get('comment_text', '').strip()
+
+            if not style:
+                return {"success": False, "msg": "style is required"}, 400
+
+            # Find existing comment or create new one
+            existing_comment = db.session.query(StyleComments).filter_by(style=style).first()
+
+            if comment_text:  # If there's actual comment text
+                if existing_comment:
+                    existing_comment.comment_text = comment_text
+                else:
+                    new_comment = StyleComments(
+                        style=style,
+                        comment_text=comment_text
+                    )
+                    db.session.add(new_comment)
+            else:  # If comment is empty, delete the record
+                if existing_comment:
+                    db.session.delete(existing_comment)
+                # If no existing comment and empty text, do nothing
+
+            db.session.commit()
+            return {"success": True, "msg": "Style comment saved successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error in /style_comments/save:", e)
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/style_comments/get/<string:style>', methods=['GET'])
+class GetStyleComment(Resource):
+    def get(self, style):
+        try:
+            comment = db.session.query(StyleComments).filter_by(style=style).first()
+            if comment:
+                return {
+                    "success": True,
+                    "data": comment.to_dict()
+                }, 200
+            else:
+                return {"success": True, "data": None}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/style_settings/save', methods=['POST'])
+class SaveStyleSettings(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            style = data.get('style')
+            max_pieces_in_package = data.get('max_pieces_in_package')
+
+            if not style:
+                return {"success": False, "msg": "style is required"}, 400
+
+            # Find existing settings or create new one
+            existing_settings = db.session.query(StyleSettings).filter_by(style=style).first()
+
+            if existing_settings:
+                existing_settings.max_pieces_in_package = max_pieces_in_package
+            else:
+                new_settings = StyleSettings(
+                    style=style,
+                    max_pieces_in_package=max_pieces_in_package
+                )
+                db.session.add(new_settings)
+
+            db.session.commit()
+            return {"success": True, "msg": "Style settings saved successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print("❌ Error in /style_settings/save:", e)
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/style_settings/get/<string:style>', methods=['GET'])
+class GetStyleSettings(Resource):
+    def get(self, style):
+        try:
+            settings = db.session.query(StyleSettings).filter_by(style=style).first()
+            if settings:
+                return {
+                    "success": True,
+                    "data": settings.to_dict()
+                }, 200
+            else:
+                return {"success": True, "data": None}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/comments/get_combined/<string:order_commessa>', methods=['GET'])
+class GetCombinedComments(Resource):
+    def get(self, order_commessa):
+        try:
+            # Get order comment
+            order_comment = db.session.query(OrderComments).filter_by(order_commessa=order_commessa).first()
+
+            # Get style for this order
+            order_line = db.session.query(OrderLinesView).filter_by(order_commessa=order_commessa).first()
+            style_comment = None
+
+            if order_line and order_line.style:
+                style_comment = db.session.query(StyleComments).filter_by(style=order_line.style).first()
+
+            return {
+                "success": True,
+                "data": {
+                    "order_comment": order_comment.to_dict() if order_comment else None,
+                    "style_comment": style_comment.to_dict() if style_comment else None,
+                    "style": order_line.style if order_line else None
+                }
+            }, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
 

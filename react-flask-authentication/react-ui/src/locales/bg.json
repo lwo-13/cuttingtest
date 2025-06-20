@@ -204,6 +204,13 @@
     "total": "Общо",
     "size": "Размер",
     "italianRatio": "Италианско съотношение",
-    "orderRatioAnalysis": "Анализ на съотношението на поръчката"
+    "orderRatioAnalysis": "Анализ на съотношението на поръчката",
+    "addComment": "Добави коментар",
+    "orderComment": "Коментар за поръчката",
+    "styleComment": "Коментар за стила",
+    "addStyleComment": "Добави коментар за стила",
+    "maxPiecesInPackage": "Максимални бройки в пакет",
+    "styleSettings": "Настройки за стила",
+    "manageStyleSettings": "Управление на настройките за стила"
   }
 }

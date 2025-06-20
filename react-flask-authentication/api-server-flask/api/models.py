@@ -455,6 +455,42 @@ class OrderComments(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+class StyleComments(db.Model):
+    __tablename__ = 'style_comments'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    style = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
+    comment_text = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "style": self.style,
+            "comment_text": self.comment_text,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+class StyleSettings(db.Model):
+    __tablename__ = 'style_settings'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    style = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
+    max_pieces_in_package = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "style": self.style,
+            "max_pieces_in_package": self.max_pieces_in_package,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
 class MarkerCalculatorMarker(db.Model):
     __tablename__ = 'marker_calculator_markers'
 

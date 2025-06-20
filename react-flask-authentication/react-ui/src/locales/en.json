@@ -204,6 +204,13 @@
     "total": "Total",
     "size": "Size",
     "italianRatio": "Italian Ratio",
-    "orderRatioAnalysis": "Order Ratio Analysis"
+    "orderRatioAnalysis": "Order Ratio Analysis",
+    "addComment": "Add Comment",
+    "orderComment": "Order Comment",
+    "styleComment": "Style Comment",
+    "addStyleComment": "Add Style Comment",
+    "maxPiecesInPackage": "Max Pieces in Package",
+    "styleSettings": "Style Settings",
+    "manageStyleSettings": "Manage Style Settings"
   }
 }
