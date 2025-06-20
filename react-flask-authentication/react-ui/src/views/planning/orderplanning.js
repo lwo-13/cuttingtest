@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Typography, Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 
@@ -174,7 +174,7 @@ const OrderPlanning = () => {
 
     // Fetch Pad Print
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
-    
+
     // Manual Pad Print
     const [manualPattern, setManualPattern] = useState('');
     const [manualColor, setManualColor] = useState('');
@@ -677,6 +677,7 @@ const OrderPlanning = () => {
     // Fetch marker data from Flask API
     useEffect(() => {
         fetchMarkerData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrder, selectedStyle, orderSizeNames]); // ✅ Runs when order, style, or size names change
 
     // Handle Style Change with unsaved changes protection
@@ -1047,7 +1048,7 @@ const OrderPlanning = () => {
                 <React.Fragment key={table.id}>
 
                     <Box mt={2} />
-                    
+
                     <MainCard
                         data-table-id={table.id}
                         title={
