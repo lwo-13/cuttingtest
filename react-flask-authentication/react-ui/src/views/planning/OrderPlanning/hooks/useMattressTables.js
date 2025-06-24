@@ -138,8 +138,33 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     setUnsavedChanges(true);
   };
 
-  const handleBulkAddRows = (tableId, layerPackageNr, width, selectedMarker) => {
+  const handleBulkAddRows = (tableId, bulkAddData) => {
+    const {
+      layerPackageNr,
+      width,
+      selectedMarker,
+      planLayersDirectly,
+      totalLayers,
+      layersPerRow,
+      batch
+    } = bulkAddData;
+
     const newRowIds = [];
+
+    // Calculate layer distribution if planning layers directly
+    let layerDistribution = [];
+    if (planLayersDirectly && totalLayers && layersPerRow) {
+      const fullRows = Math.floor(totalLayers / layersPerRow);
+      const remainder = totalLayers % layersPerRow;
+
+      // Create array with layers for each row
+      for (let i = 0; i < fullRows; i++) {
+        layerDistribution.push(layersPerRow);
+      }
+      if (remainder > 0) {
+        layerDistribution.push(remainder);
+      }
+    }
 
     setTables(prevTables => {
       return prevTables.map(table => {
@@ -153,7 +178,13 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           const newRowId = uuidv4();
           newRowIds.push(newRowId);
 
-          newRows.push({
+          // Determine layers for this row
+          let rowLayers = "";
+          if (planLayersDirectly && layerDistribution.length > i) {
+            rowLayers = layerDistribution[i].toString();
+          }
+
+          const newRow = {
             id: newRowId,
             width: width.toString(),
             markerName: selectedMarker.marker_name,
@@ -163,13 +194,27 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
             }, {}),
             markerLength: selectedMarker.marker_length.toString(),
             efficiency: selectedMarker.efficiency.toString(),
-            layers: "",
+            layers: rowLayers,
             expectedConsumption: "",
-            bagno: "",
+            bagno: batch || "", // Use provided batch or empty string
             status: "not_ready",
             isEditable: true,
             sequenceNumber: currentSequence + i
-          });
+          };
+
+          // Calculate expected consumption if layers are provided
+          if (rowLayers && selectedMarker.marker_length) {
+            const tableAllowance = parseFloat(table.allowance) || 0;
+            const markerLength = parseFloat(selectedMarker.marker_length);
+            const layers = parseInt(rowLayers);
+
+            if (!isNaN(markerLength) && !isNaN(layers) && markerLength > 0 && layers > 0) {
+              const lengthWithAllowance = markerLength + tableAllowance;
+              newRow.expectedConsumption = (lengthWithAllowance * layers).toFixed(2);
+            }
+          }
+
+          newRows.push(newRow);
         }
 
         return {
@@ -180,13 +225,28 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     });
 
     // Trigger events for each added row
-    newRowIds.forEach(rowId => {
+    newRowIds.forEach((rowId, index) => {
       window.dispatchEvent(new CustomEvent('mattressRowAdded', {
         detail: {
           tableId: tableId,
           rowId: rowId
         }
       }));
+
+      // If layers were pre-populated, trigger layer change event after a short delay
+      if (planLayersDirectly && layerDistribution && layerDistribution.length > index && batch) {
+        setTimeout(() => {
+          // Use the provided batch for the event since we know it was set
+          window.dispatchEvent(new CustomEvent('mattressLayersChanged', {
+            detail: {
+              bagno: batch,
+              tableId: tableId,
+              rowId: rowId,
+              newLayers: layerDistribution[index]
+            }
+          }));
+        }, 100); // Small delay to ensure the row is fully added to the DOM
+      }
     });
 
     setUnsavedChanges(true);

@@ -11,27 +11,56 @@ import {
 } from '@mui/material';
 
 const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
-  const [layerPackageNr, setLayerPackageNr] = useState('');
   const [width, setWidth] = useState('');
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [errors, setErrors] = useState({});
 
+  // Layer planning is now the default mode
+  const [totalLayers, setTotalLayers] = useState('');
+  const [layersPerRow, setLayersPerRow] = useState('60');
+  const [batch, setBatch] = useState('');
+
+  // Calculate number of rows needed
+  const calculateRowsNeeded = () => {
+    if (!totalLayers || !layersPerRow) return 0;
+    const total = parseInt(totalLayers);
+    const perRow = parseInt(layersPerRow);
+    if (isNaN(total) || isNaN(perRow) || perRow <= 0) return 0;
+    return Math.ceil(total / perRow);
+  };
+
+  // Calculate layer package number automatically
+  const layerPackageNr = calculateRowsNeeded();
+
   const handleClose = () => {
     // Reset form when closing
-    setLayerPackageNr('');
     setWidth('');
     setSelectedMarker(null);
     setErrors({});
+    setTotalLayers('');
+    setLayersPerRow('60');
+    setBatch('');
     onClose();
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Validate Layer Package Nr
-    const layerNum = parseInt(layerPackageNr);
-    if (!layerPackageNr || isNaN(layerNum) || layerNum <= 0) {
-      newErrors.layerPackageNr = 'Layer Package Nr must be a positive number';
+    // Validate layer planning fields
+    const totalLayersNum = parseInt(totalLayers);
+    if (!totalLayers || isNaN(totalLayersNum) || totalLayersNum <= 0) {
+      newErrors.totalLayers = 'Total Layers must be a positive number';
+    }
+
+    const layersPerRowNum = parseInt(layersPerRow);
+    if (!layersPerRow || isNaN(layersPerRowNum) || layersPerRowNum <= 0) {
+      newErrors.layersPerRow = 'Layers per Row must be a positive number';
+    }
+
+    // Validate that we have at least one row
+    const rowsNeeded = calculateRowsNeeded();
+    if (rowsNeeded <= 0) {
+      newErrors.totalLayers = 'Invalid layer configuration';
     }
 
     // Validate Width
@@ -51,14 +80,23 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
 
   const handleApply = () => {
     if (validateForm()) {
-      onBulkAdd(parseInt(layerPackageNr), parseFloat(width), selectedMarker);
+      const bulkAddData = {
+        layerPackageNr: layerPackageNr,
+        width: parseFloat(width),
+        selectedMarker,
+        planLayersDirectly: true, // Always true now
+        totalLayers: parseInt(totalLayers),
+        layersPerRow: parseInt(layersPerRow),
+        batch: batch.trim() || null // Optional batch field
+      };
+      onBulkAdd(bulkAddData);
       handleClose();
     }
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
@@ -69,22 +107,57 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
       <DialogContent sx={{ p: 3 }}>
         <Box display="flex" flexDirection="column" gap={3}>
           <Grid container spacing={2}>
-            {/* Layer Package Nr */}
+            {/* Total Layers */}
             <Grid item xs={6}>
               <TextField
-                label="Layer Package Nr"
+                label="Total Layers"
                 variant="outlined"
                 fullWidth
-                value={layerPackageNr}
+                value={totalLayers}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
-                  setLayerPackageNr(value);
-                  if (errors.layerPackageNr) {
-                    setErrors(prev => ({ ...prev, layerPackageNr: null }));
+                  const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                  setTotalLayers(value);
+                  if (errors.totalLayers) {
+                    setErrors(prev => ({ ...prev, totalLayers: null }));
                   }
                 }}
-                error={!!errors.layerPackageNr}
-                helperText={errors.layerPackageNr}
+                error={!!errors.totalLayers}
+                helperText={errors.totalLayers}
+                sx={{
+                  "& input": { fontWeight: "normal" },
+                  "& .MuiInputBase-root": {
+                    "& input[type=number]": {
+                      MozAppearance: "textfield",
+                      "&::-webkit-outer-spin-button": {
+                        WebkitAppearance: "none",
+                        margin: 0,
+                      },
+                      "&::-webkit-inner-spin-button": {
+                        WebkitAppearance: "none",
+                        margin: 0,
+                      },
+                    },
+                  },
+                }}
+              />
+            </Grid>
+
+            {/* Layers per Row */}
+            <Grid item xs={6}>
+              <TextField
+                label="Layers per Row"
+                variant="outlined"
+                fullWidth
+                value={layersPerRow}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+                  setLayersPerRow(value);
+                  if (errors.layersPerRow) {
+                    setErrors(prev => ({ ...prev, layersPerRow: null }));
+                  }
+                }}
+                error={!!errors.layersPerRow}
+                helperText={errors.layersPerRow}
                 sx={{
                   "& input": { fontWeight: "normal" },
                   "& .MuiInputBase-root": {
@@ -144,6 +217,51 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
                 }}
               />
             </Grid>
+
+            {/* Batch (Optional) */}
+            <Grid item xs={6}>
+              <TextField
+                label="Batch (Optional)"
+                variant="outlined"
+                fullWidth
+                value={batch}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 20); // Limit to 20 characters
+                  setBatch(value);
+                }}
+                placeholder="Enter batch number"
+                sx={{
+                  "& input": { fontWeight: "normal" }
+                }}
+              />
+            </Grid>
+
+            {/* Layer Planning Preview */}
+            {totalLayers && layersPerRow && (
+              <Grid item xs={12}>
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: 'primary.light',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'primary.main'
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.dark' }}>
+                    Preview: {calculateRowsNeeded()} rows will be created
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'primary.dark', mt: 0.5 }}>
+                    {totalLayers} total layers ÷ {layersPerRow} layers per row = {calculateRowsNeeded()} rows
+                  </Typography>
+                  {parseInt(totalLayers) % parseInt(layersPerRow) !== 0 && (
+                    <Typography variant="body2" sx={{ color: 'warning.dark', mt: 0.5 }}>
+                      Last row will have {parseInt(totalLayers) % parseInt(layersPerRow)} layers
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
+            )}
 
             {/* Marker */}
             <Grid item xs={12}>

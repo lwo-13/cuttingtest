@@ -234,8 +234,8 @@ const MattressGroupCard = ({
         open={bulkAddDialogOpen}
         onClose={() => setBulkAddDialogOpen(false)}
         markerOptions={markerOptions}
-        onBulkAdd={(layerPackageNr, width, selectedMarker) => {
-          onBulkAddRows(table.id, layerPackageNr, width, selectedMarker);
+        onBulkAdd={(bulkAddData) => {
+          onBulkAddRows(table.id, bulkAddData);
           setBulkAddDialogOpen(false);
         }}
       />
