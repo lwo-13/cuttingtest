@@ -180,7 +180,7 @@ const StyleCommentCard = ({ selectedStyle }) => {
                     rows={4}
                     variant="outlined"
                     label={t('orderPlanning.styleComment', 'Style Comment')}
-                    placeholder={`Add a comment for style ${selectedStyle}...`}
+                    placeholder={t('orderPlanning.styleCommentPlaceholder', 'Add a comment for style {{style}}...', { style: selectedStyle })}
                     value={comment || ''}
                     onChange={(e) => setComment(e.target.value)}
                     disabled={loading || saving}

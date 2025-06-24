@@ -209,6 +209,7 @@
     "orderComment": "Коментар за поръчката",
     "styleComment": "Коментар за стила",
     "addStyleComment": "Добави коментар за стила",
+    "styleCommentPlaceholder": "Добавете коментар за стил {{style}}...",
     "maxPiecesInPackage": "Максимални бройки в пакет",
     "styleSettings": "Настройки за стила",
     "manageStyleSettings": "Управление на настройките за стила"

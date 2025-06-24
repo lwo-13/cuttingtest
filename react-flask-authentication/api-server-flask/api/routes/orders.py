@@ -275,7 +275,7 @@ class GetOrderComment(Resource):
 class SaveStyleComment(Resource):
     def post(self):
         try:
-            data = request.get_json()
+            data = request.get_json(force=True)
             style = data.get('style')
             comment_text = data.get('comment_text', '').strip()
 

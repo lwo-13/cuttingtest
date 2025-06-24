@@ -17,6 +17,9 @@ def create_app():
     # Load configuration
     app.config.from_object('api.config.BaseConfig')
 
+    # Ensure proper UTF-8 encoding
+    app.config['JSON_AS_ASCII'] = False
+
     # Initialize database
     db.init_app(app)
 

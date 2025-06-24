@@ -442,7 +442,7 @@ class OrderComments(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
-    comment_text = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    comment_text = db.Column(db.UnicodeText(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
@@ -460,7 +460,7 @@ class StyleComments(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     style = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
-    comment_text = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    comment_text = db.Column(db.UnicodeText(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
