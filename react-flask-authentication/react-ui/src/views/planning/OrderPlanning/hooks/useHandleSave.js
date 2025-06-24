@@ -328,8 +328,37 @@ const useHandleSave = ({
 
 
 
+      // ✅ Sort tables by bagno before processing for save
+      const sortRowsByBagno = (rows) => {
+        return [...rows].sort((a, b) => {
+          // Handle empty or null bagno values - put them at the end
+          if (!a.bagno && !b.bagno) return 0;
+          if (!a.bagno) return 1;
+          if (!b.bagno) return -1;
+
+          // Compare bagno values as strings for proper sorting
+          return a.bagno.localeCompare(b.bagno, undefined, { numeric: true, sensitivity: 'base' });
+        });
+      };
+
+      // ✅ Apply bagno sorting to all tables before saving and reassign sequence numbers
+      const sortedTables = tables.map(table => {
+        const sortedRows = sortRowsByBagno(table.rows);
+
+        // Reassign sequence numbers based on the new sorted order
+        const rowsWithUpdatedSequence = sortedRows.map((row, index) => ({
+          ...row,
+          sequenceNumber: index + 1
+        }));
+
+        return {
+          ...table,
+          rows: rowsWithUpdatedSequence
+        };
+      });
+
       // ✅ Proceed with valid mattress processing
-      tables.forEach((table) => {
+      sortedTables.forEach((table) => {
         table.rows.forEach((row) => {
 
           // ✅ Generate Mattress Name with combination key (KEY-ORDER-AS-FABRICTYPE-001, 002, ...)

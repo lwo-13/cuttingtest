@@ -129,7 +129,18 @@ const handleOrderChange = async (newValue, context) => {
         sequenceNumber: mattress.sequence_number || 0
       });
     }
-    Object.values(tablesById).forEach(table => table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber));
+    // Sort mattress rows by bagno (dye_lot) in ascending order
+    Object.values(tablesById).forEach(table => {
+      table.rows.sort((a, b) => {
+        // Handle empty or null bagno values - put them at the end
+        if (!a.bagno && !b.bagno) return 0;
+        if (!a.bagno) return 1;
+        if (!b.bagno) return -1;
+
+        // Compare bagno values as strings for proper sorting
+        return a.bagno.localeCompare(b.bagno, undefined, { numeric: true, sensitivity: 'base' });
+      });
+    });
 
     // Separate mattress and adhesive tables based on item_type
     const mattressTables = Object.values(tablesById).filter(table =>

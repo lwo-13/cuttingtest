@@ -6,6 +6,8 @@ const addToDeletedIfNotExists = (name, setter) => {
   setter(prev => (prev.includes(name) ? prev : [...prev, name]));
 };
 
+
+
 const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattresses, setDeletedTableIds }) => {
     const [tables, setTables] = useState([]);
 
