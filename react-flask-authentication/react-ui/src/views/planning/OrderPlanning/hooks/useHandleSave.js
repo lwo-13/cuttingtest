@@ -341,8 +341,68 @@ const useHandleSave = ({
         });
       };
 
-      // ✅ Apply bagno sorting to all tables before saving and reassign sequence numbers
+      // ✅ Apply bagno sorting to ALL table types before saving and reassign sequence numbers
       const sortedTables = tables.map(table => {
+        const sortedRows = sortRowsByBagno(table.rows);
+
+        // Reassign sequence numbers based on the new sorted order
+        const rowsWithUpdatedSequence = sortedRows.map((row, index) => ({
+          ...row,
+          sequenceNumber: index + 1
+        }));
+
+        return {
+          ...table,
+          rows: rowsWithUpdatedSequence
+        };
+      });
+
+      const sortedAdhesiveTables = adhesiveTables.map(table => {
+        const sortedRows = sortRowsByBagno(table.rows);
+
+        // Reassign sequence numbers based on the new sorted order
+        const rowsWithUpdatedSequence = sortedRows.map((row, index) => ({
+          ...row,
+          sequenceNumber: index + 1
+        }));
+
+        return {
+          ...table,
+          rows: rowsWithUpdatedSequence
+        };
+      });
+
+      const sortedAlongTables = alongTables.map(table => {
+        const sortedRows = sortRowsByBagno(table.rows);
+
+        // Reassign sequence numbers based on the new sorted order
+        const rowsWithUpdatedSequence = sortedRows.map((row, index) => ({
+          ...row,
+          sequenceNumber: index + 1
+        }));
+
+        return {
+          ...table,
+          rows: rowsWithUpdatedSequence
+        };
+      });
+
+      const sortedWeftTables = weftTables.map(table => {
+        const sortedRows = sortRowsByBagno(table.rows);
+
+        // Reassign sequence numbers based on the new sorted order
+        const rowsWithUpdatedSequence = sortedRows.map((row, index) => ({
+          ...row,
+          sequenceNumber: index + 1
+        }));
+
+        return {
+          ...table,
+          rows: rowsWithUpdatedSequence
+        };
+      });
+
+      const sortedBiasTables = biasTables.map(table => {
         const sortedRows = sortRowsByBagno(table.rows);
 
         // Reassign sequence numbers based on the new sorted order
@@ -425,7 +485,7 @@ const useHandleSave = ({
       });
 
       // ✅ Proceed with valid adhesive processing
-      adhesiveTables.forEach((table) => {
+      sortedAdhesiveTables.forEach((table) => {
         table.rows.forEach((row) => {
 
           // ✅ Generate Adhesive Name with combination key (KEY-ORDER-ASA-FABRICTYPE-001, 002, ...)
@@ -490,7 +550,7 @@ const useHandleSave = ({
         });
       });
 
-      alongTables.forEach((table) => {
+      sortedAlongTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (along) name WITH combination key and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
@@ -537,7 +597,7 @@ const useHandleSave = ({
         });
       });
 
-      weftTables.forEach((table) => {
+      sortedWeftTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (weft) name WITH combination key and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
@@ -591,7 +651,7 @@ const useHandleSave = ({
         });
       });
 
-      biasTables.forEach((table) => {
+      sortedBiasTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (bias) name WITH combination key and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
@@ -785,13 +845,13 @@ const useHandleSave = ({
 
       // ✅ Save production center data for all table types using unified endpoint
       const saveAllProductionCenters = () => {
-        // Combine all tables with their respective table types
+        // Combine all sorted tables with their respective table types
         const allTables = [
-          ...tables.map(table => ({ ...table, tableType: 'MATTRESS' })),
-          ...adhesiveTables.map(table => ({ ...table, tableType: 'ADHESIVE' })),
-          ...alongTables.map(table => ({ ...table, tableType: 'ALONG' })),
-          ...weftTables.map(table => ({ ...table, tableType: 'WEFT' })),
-          ...biasTables.map(table => ({ ...table, tableType: 'BIAS' }))
+          ...sortedTables.map(table => ({ ...table, tableType: 'MATTRESS' })),
+          ...sortedAdhesiveTables.map(table => ({ ...table, tableType: 'ADHESIVE' })),
+          ...sortedAlongTables.map(table => ({ ...table, tableType: 'ALONG' })),
+          ...sortedWeftTables.map(table => ({ ...table, tableType: 'WEFT' })),
+          ...sortedBiasTables.map(table => ({ ...table, tableType: 'BIAS' }))
         ];
 
         return Promise.all(allTables.map(table =>
