@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
 from sqlalchemy import text
-from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, StyleComments, StyleSettings, ProdOrderComponentView, OrderProductionCenter
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, StyleComments, StyleSettings, ProdOrderComponentView, OrderProductionCenter, OrderAudit
 import uuid
 
 # ✅ Create Blueprint and API instance
@@ -676,4 +676,45 @@ class DeleteOrderProductionCenterCombination(Resource):
         except Exception as e:
             db.session.rollback()
             print(f"❌ Error deleting production center combination: {str(e)}")
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/audit/<string:order_commessa>')
+class OrderAuditInfo(Resource):
+    def get(self, order_commessa):
+        """Get audit information for an order"""
+        try:
+            audit_record = OrderAudit.get_by_order(order_commessa)
+
+            if not audit_record:
+                return {"success": False, "msg": "No audit record found for this order"}, 404
+
+            return {"success": True, "data": audit_record.to_dict()}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching audit info for order {order_commessa}: {str(e)}")
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/audit/update')
+class UpdateOrderAudit(Resource):
+    def post(self):
+        """Create or update audit record for an order"""
+        try:
+            data = request.get_json()
+            order_commessa = data.get('order_commessa')
+            username = data.get('username')
+
+            if not order_commessa:
+                return {"success": False, "msg": "order_commessa is required"}, 400
+
+            if not username:
+                return {"success": False, "msg": "username is required"}, 400
+
+            # Create or update audit record
+            audit_record = OrderAudit.create_or_update(order_commessa, username)
+
+            return {"success": True, "data": audit_record.to_dict()}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error updating audit record: {str(e)}")
             return {"success": False, "msg": str(e)}, 500

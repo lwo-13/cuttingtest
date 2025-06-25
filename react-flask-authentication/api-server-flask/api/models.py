@@ -746,6 +746,60 @@ class OrderProductionCenter(db.Model):
                           name='uq_order_production_combination'),
     )
 
+class OrderAudit(db.Model):
+    __tablename__ = 'order_audit'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    order_commessa = db.Column(db.String(50), nullable=False, unique=True)
+    created_by = db.Column(db.String(32, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    last_modified_by = db.Column(db.String(32, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    last_modified_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=db.func.current_timestamp(),
+        onupdate=db.func.current_timestamp()
+    )
+
+    def __repr__(self):
+        return f"<OrderAudit {self.order_commessa}, Created by {self.created_by}>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order_commessa': self.order_commessa,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'last_modified_by': self.last_modified_by,
+            'last_modified_at': self.last_modified_at.strftime('%Y-%m-%d %H:%M:%S') if self.last_modified_at else None
+        }
+
+    @classmethod
+    def get_by_order(cls, order_commessa):
+        """Fetch audit record by order_commessa."""
+        return cls.query.filter_by(order_commessa=order_commessa).first()
+
+    @classmethod
+    def create_or_update(cls, order_commessa, username):
+        """Create new audit record or update existing one."""
+        existing = cls.get_by_order(order_commessa)
+
+        if existing:
+            # Update existing record
+            existing.last_modified_by = username
+            existing.last_modified_at = db.func.current_timestamp()
+        else:
+            # Create new record
+            new_audit = cls(
+                order_commessa=order_commessa,
+                created_by=username,
+                last_modified_by=username
+            )
+            db.session.add(new_audit)
+
+        db.session.commit()
+        return existing or new_audit
+
 class MattressProductionCenter(db.Model):
     __tablename__ = 'mattress_production_center'
 

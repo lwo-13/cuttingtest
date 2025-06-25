@@ -141,6 +141,16 @@
     "extra": "extra",
     "sector": "Sector"
   },
+  "audit": {
+    "createdBy": "Created by",
+    "lastModifiedBy": "Last modified by",
+    "orderAuditTrail": "Order Audit Trail",
+    "noAuditData": "No audit data",
+    "loadingAuditInfo": "Loading audit info...",
+    "orderModifiedByDifferentUser": "Order has been modified by a different user",
+    "createdOn": "Created on",
+    "lastModifiedOn": "Last modified on"
+  },
   "operators": {
     "title": "Operators",
     "spreaderOperators": "Spreader Operators",

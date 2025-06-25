@@ -9,11 +9,11 @@ import {
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 
-const CombinationQuantities = ({ 
-  orderSizes, 
-  combinationQuantity, 
+const CombinationQuantities = ({
+  orderSizes,
+  combinationQuantity,
   onCombinationQuantityChange,
-  selectedCombination 
+  selectedCombination
 }) => {
   const { t } = useTranslation();
   const [totalQuantity, setTotalQuantity] = useState(combinationQuantity || 0);
@@ -74,13 +74,27 @@ const CombinationQuantities = ({
   return (
     <Box mt={3} p={2} sx={{ background: '#f5f5f5', borderRadius: '8px' }}>
       <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-        {selectedCombination ? 
+        {selectedCombination ?
           `Quantities for ${selectedCombination.production_center} - ${selectedCombination.cutting_room}${selectedCombination.destination && selectedCombination.destination !== selectedCombination.cutting_room ? ` - ${selectedCombination.destination}` : ''}` :
           'Combination Quantities'
         }
       </Typography>
-      
-      <Grid container spacing={2} alignItems="stretch">
+
+      <Box sx={{
+        '@media print': {
+          width: '100%',
+          '& .MuiGrid-container': {
+            flexWrap: 'nowrap !important',
+            width: '100%'
+          }
+        }
+      }}>
+        <Grid container spacing={2} alignItems="stretch" sx={{
+          '@media print': {
+            flexWrap: 'nowrap !important',
+            width: '100%'
+          }
+        }}>
         {/* Total Quantity Input */}
         <Grid item xs={4} sm={3} md={1.4}>
           <TextField
@@ -103,9 +117,9 @@ const CombinationQuantities = ({
             variant="outlined"
             value={originalTotal}
             slotProps={{ input: { readOnly: true } }}
-            sx={{ 
+            sx={{
               width: '100%',
-              '& .MuiInputBase-input': { 
+              '& .MuiInputBase-input': {
                 color: 'text.secondary',
                 fontStyle: 'italic'
               }
@@ -123,9 +137,9 @@ const CombinationQuantities = ({
             InputProps={{
               endAdornment: <InputAdornment position="end">%</InputAdornment>
             }}
-            sx={{ 
+            sx={{
               width: '100%',
-              '& .MuiInputBase-input': { 
+              '& .MuiInputBase-input': {
                 color: 'primary.main',
                 fontWeight: 'bold'
               }
@@ -142,9 +156,9 @@ const CombinationQuantities = ({
                 variant="outlined"
                 value={size.qty}
                 slotProps={{ input: { readOnly: true } }}
-                sx={{ 
+                sx={{
                   width: '100%',
-                  '& .MuiInputBase-input': { 
+                  '& .MuiInputBase-input': {
                     color: 'text.primary',
                     fontWeight: 'normal'
                   }
@@ -167,12 +181,13 @@ const CombinationQuantities = ({
           </Grid>
         ))}
       </Grid>
+      </Box>
 
       {/* Summary Information */}
       {totalQuantity > 0 && (
         <Box mt={2} p={1} sx={{ background: '#e3f2fd', borderRadius: '4px' }}>
           <Typography variant="body2" color="text.secondary">
-            <strong>Summary:</strong> {totalQuantity} pieces assigned ({originalTotal ? ((totalQuantity / originalTotal) * 100).toFixed(1) : '0'}% of original order) 
+            <strong>Summary:</strong> {totalQuantity} pieces assigned ({originalTotal ? ((totalQuantity / originalTotal) * 100).toFixed(1) : '0'}% of original order)
             distributed across {calculatedSizes.length} sizes based on original order proportions.
           </Typography>
         </Box>

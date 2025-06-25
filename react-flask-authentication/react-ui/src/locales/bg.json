@@ -141,6 +141,16 @@
     "extra": "допълнително",
     "sector": "Сектор"
   },
+  "audit": {
+    "createdBy": "Създадено от",
+    "lastModifiedBy": "Последно променено от",
+    "orderAuditTrail": "Одитна следа на поръчката",
+    "noAuditData": "Няма одитни данни",
+    "loadingAuditInfo": "Зареждане на одитна информация...",
+    "orderModifiedByDifferentUser": "Поръчката е променена от друг потребител",
+    "createdOn": "Създадено на",
+    "lastModifiedOn": "Последно променено на"
+  },
   "operators": {
     "title": "Оператори",
     "spreaderOperators": "Оператори настилачи",

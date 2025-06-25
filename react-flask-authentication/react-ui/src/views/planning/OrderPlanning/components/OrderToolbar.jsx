@@ -1,6 +1,7 @@
 import React from 'react';
-import { Grid, TextField, Autocomplete } from '@mui/material';
+import { Grid, TextField, Autocomplete, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import useOrderAuditInfo from './OrderAuditInfo';
 
 const OrderToolbar = ({
   styleOptions = [],
@@ -16,22 +17,39 @@ const OrderToolbar = ({
 }) => {
   const { t } = useTranslation();
 
+  // Get audit information using the hook
+  const auditInfo = useOrderAuditInfo(selectedOrder?.id);
+
   return (
-    <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
-      {/* Order Selection */}
-      <Grid item xs={6} sm={4} md={2.5}>
-        <Autocomplete
-          options={filteredOrders.length > 0 ? filteredOrders : orderOptions}
-          getOptionLabel={(option) => option?.id || ''}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-          value={selectedOrder || null}
-          onChange={(event, newValue) => onOrderChange(newValue || null)}
-          renderInput={(params) => (
-            <TextField {...params} label={t('orderPlanning.orderCommessa', 'Order/Commessa')} variant="outlined" />
-          )}
-          sx={{ width: '100%', "& .MuiAutocomplete-input": { fontWeight: 'normal' } }}
-        />
-      </Grid>
+    <Box sx={{
+      '@media print': {
+        width: '100%',
+        '& .MuiGrid-container': {
+          flexWrap: 'nowrap !important',
+          width: '100%'
+        }
+      }
+    }}>
+      <Grid container spacing={1} justifyContent="flex-start" alignItems="center" sx={{
+        '@media print': {
+          flexWrap: 'nowrap !important',
+          width: '100%'
+        }
+      }}>
+        {/* Order Selection */}
+        <Grid item xs={6} sm={4} md={2.5}>
+          <Autocomplete
+            options={filteredOrders.length > 0 ? filteredOrders : orderOptions}
+            getOptionLabel={(option) => option?.id || ''}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            value={selectedOrder || null}
+            onChange={(event, newValue) => onOrderChange(newValue || null)}
+            renderInput={(params) => (
+              <TextField {...params} label={t('orderPlanning.orderCommessa', 'Order/Commessa')} variant="outlined" />
+            )}
+            sx={{ width: '100%', "& .MuiAutocomplete-input": { fontWeight: 'normal' } }}
+          />
+        </Grid>
 
       {/* Style Dropdown*/}
       <Grid item xs={3} sm={2} md={1.5}>
@@ -45,7 +63,24 @@ const OrderToolbar = ({
             }
           }}
           renderInput={(params) => <TextField {...params} label={t('orderPlanning.style', 'Style')} variant="outlined" fullWidth />}
-          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+          sx={{
+            width: '100%',
+            minWidth: '60px',
+            "& .MuiInputBase-input": { fontWeight: 'normal' },
+            '@media print': {
+              width: 'fit-content !important',
+              minWidth: 'fit-content !important',
+              maxWidth: 'fit-content !important',
+              '& .MuiInputBase-root': {
+                width: 'fit-content !important',
+                minWidth: 'fit-content !important'
+              },
+              '& .MuiOutlinedInput-root': {
+                width: 'fit-content !important',
+                minWidth: 'fit-content !important'
+              }
+            }
+          }}
         />
       </Grid>
 
@@ -55,7 +90,7 @@ const OrderToolbar = ({
           label={t('orderPlanning.color', 'Color')}
           variant="outlined"
           value={selectedColorCode || ""}
-          inputProps={{ readOnly: true }}
+          slotProps={{ input: { readOnly: true } }}
           sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Grid>
@@ -66,7 +101,7 @@ const OrderToolbar = ({
           label={t('orderPlanning.season', 'Season')}
           variant="outlined"
           value={selectedSeason || ""}
-          inputProps={{ readOnly: true }}
+          slotProps={{ input: { readOnly: true } }}
           sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Grid>
@@ -77,12 +112,25 @@ const OrderToolbar = ({
           label={t('orderPlanning.brand', 'Brand')}
           variant="outlined"
           value={selectedBrand || ""}
-          inputProps={{ readOnly: true }}
+          slotProps={{ input: { readOnly: true } }}
           sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Grid>
 
-    </Grid>
+      {/* Order Audit Information */}
+      {selectedOrder && (
+        <>
+          <Grid item xs={3} sm={2} md={1.5}>
+            {auditInfo.createdBy}
+          </Grid>
+          <Grid item xs={3} sm={2} md={1.5}>
+            {auditInfo.lastModifiedBy}
+          </Grid>
+        </>
+      )}
+
+      </Grid>
+    </Box>
   );
 };
 

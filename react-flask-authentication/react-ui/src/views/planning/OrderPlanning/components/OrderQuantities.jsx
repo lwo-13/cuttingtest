@@ -183,8 +183,50 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
   }
 
   return (
-    <Box mt={3} p={2} sx={{ background: '#f5f5f5', borderRadius: '8px' }}>
-      <Grid container spacing={2} alignItems="stretch">
+    <>
+      {/* Print spacer */}
+      <Box sx={{
+        '@media print': {
+          height: '2mm',
+          display: 'block'
+        },
+        '@media screen': {
+          display: 'none'
+        }
+      }} />
+
+      <Box mt={3} p={2} sx={{
+        background: '#f5f5f5',
+        borderRadius: '8px'
+      }}>
+      <Box sx={{
+        '@media print': {
+          width: '100% !important',
+          maxWidth: '100% !important',
+          overflow: 'visible !important',
+          '& .MuiGrid-container': {
+            flexWrap: 'nowrap !important',
+            width: '100% !important',
+            maxWidth: '100% !important'
+          },
+          '& .MuiGrid-item': {
+            flexShrink: 1,
+            minWidth: 0
+          }
+        }
+      }}>
+        <Grid container spacing={1} alignItems="stretch" sx={{
+          '@media print': {
+            flexWrap: 'nowrap !important',
+            width: '100% !important',
+            maxWidth: '100% !important',
+            '& .MuiGrid-item': {
+              flexShrink: 1,
+              minWidth: 0,
+              maxWidth: 'none !important'
+            }
+          }
+        }}>
 
         {/* Total Field */}
         <Grid item xs={4} sm={3} md={1.4}>
@@ -318,7 +360,9 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
         </Dialog>
 
       </Grid>
+      </Box>
     </Box>
+    </>
   );
 };
 

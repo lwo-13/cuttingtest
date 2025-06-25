@@ -1051,6 +1051,22 @@ const useHandleSave = ({
             });
           }
         })
+        .then(async () => {
+          // ✅ Update audit tracking for the order
+          if (selectedOrder?.id && username) {
+            try {
+              console.log("📝 Updating order audit tracking...");
+              await axios.post('/orders/audit/update', {
+                order_commessa: selectedOrder.id,
+                username: username
+              });
+              console.log("✅ Order audit tracking updated successfully");
+            } catch (error) {
+              console.warn("⚠️ Failed to update audit tracking:", error.response?.data || error.message);
+              // Don't fail the entire save operation for audit tracking issues
+            }
+          }
+        })
         .then(() => {
           setDeletedAlong([]);
           setDeletedWeft([]);

@@ -8,11 +8,11 @@ import {
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 
-const CumulativeQuantities = ({ 
-  orderSizes, 
-  combinations, 
-  currentTabIndex, 
-  tables 
+const CumulativeQuantities = ({
+  orderSizes,
+  combinations,
+  currentTabIndex,
+  tables
 }) => {
   const { t } = useTranslation();
   const [cumulativeQuantities, setCumulativeQuantities] = useState([]);
@@ -26,7 +26,7 @@ const CumulativeQuantities = ({
 
     // Get all combinations before the current one
     const previousCombinations = combinations.slice(0, currentTabIndex);
-    
+
     // Initialize size totals
     const sizeTotals = {};
     orderSizes.forEach(size => {
@@ -146,18 +146,29 @@ const CumulativeQuantities = ({
       p={2}
       sx={{
         background: '#f5f5f5',
-        borderRadius: '8px',
-        '@media print': {
-          display: 'none !important'
-        }
+        borderRadius: '8px'
       }}
-      className="print-hidden cumulative-quantities-section"
+
     >
       <Typography variant="h5" gutterBottom sx={{ mb: 2, fontWeight: 'bold' }}>
         Remaining Quantities (Original - Already Planned)
       </Typography>
-      
-      <Grid container spacing={2} alignItems="stretch">
+
+      <Box sx={{
+        '@media print': {
+          width: '100%',
+          '& .MuiGrid-container': {
+            flexWrap: 'nowrap !important',
+            width: '100%'
+          }
+        }
+      }}>
+        <Grid container spacing={2} alignItems="stretch" sx={{
+          '@media print': {
+            flexWrap: 'nowrap !important',
+            width: '100%'
+          }
+        }}>
         {/* Total Remaining (Read-only) */}
         <Grid item xs={4} sm={3} md={1.4}>
           <TextField
@@ -209,6 +220,7 @@ const CumulativeQuantities = ({
           </Grid>
         ))}
       </Grid>
+      </Box>
 
       {/* Summary Information */}
       {totalPlanned > 0 && (
