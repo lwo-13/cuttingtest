@@ -175,15 +175,24 @@ const StyleCommentCard = ({ selectedStyle }) => {
                 {/* Style Comment */}
                 <Grid item xs={12} md={8}>
                   <TextField
-                    fullWidth
                     multiline
-                    rows={4}
+                    minRows={1}
+                    maxRows={10}
                     variant="outlined"
                     label={t('orderPlanning.styleComment', 'Style Comment')}
                     placeholder={t('orderPlanning.styleCommentPlaceholder', 'Add a comment for style {{style}}...', { style: selectedStyle })}
                     value={comment || ''}
                     onChange={(e) => setComment(e.target.value)}
                     disabled={loading || saving}
+                    sx={{
+                      width: 'fit-content',
+                      minWidth: '300px',
+                      maxWidth: '100%',
+                      '& .MuiInputBase-root': {
+                        width: 'auto',
+                        minWidth: '300px'
+                      }
+                    }}
                   />
                 </Grid>
 
@@ -199,7 +208,7 @@ const StyleCommentCard = ({ selectedStyle }) => {
                       disabled={loading || saving}
                       type="number"
                       inputProps={{ min: 1 }}
-                      sx={{ width: 200 }}
+                      sx={{ width: 200, marginTop: '2mm' }}
                     />
 
                     {/* Save Button */}

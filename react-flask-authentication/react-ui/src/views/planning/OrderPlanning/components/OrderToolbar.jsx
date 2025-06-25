@@ -63,24 +63,7 @@ const OrderToolbar = ({
             }
           }}
           renderInput={(params) => <TextField {...params} label={t('orderPlanning.style', 'Style')} variant="outlined" fullWidth />}
-          sx={{
-            width: '100%',
-            minWidth: '60px',
-            "& .MuiInputBase-input": { fontWeight: 'normal' },
-            '@media print': {
-              width: 'fit-content !important',
-              minWidth: 'fit-content !important',
-              maxWidth: 'fit-content !important',
-              '& .MuiInputBase-root': {
-                width: 'fit-content !important',
-                minWidth: 'fit-content !important'
-              },
-              '& .MuiOutlinedInput-root': {
-                width: 'fit-content !important',
-                minWidth: 'fit-content !important'
-              }
-            }
-          }}
+          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Grid>
 
