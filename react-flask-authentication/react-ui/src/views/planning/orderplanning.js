@@ -88,6 +88,9 @@ import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 // Destination Print Dialog
 import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
 
+// Collaretto Helper Shortcut
+import CollarettoHelperShortcut from 'views/planning/OrderPlanning/components/CollarettoHelperButton';
+
 // Collaretto Consumption Info
 import CollarettoConsumptionInfo from 'views/planning/OrderPlanning/components/CollarettoConsumptionInfo';
 
@@ -852,7 +855,10 @@ const OrderPlanning = () => {
                             </Box>
 
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                {/* Collaretto Info */}
+                                {/* Collaretto Helper Shortcut */}
+                                <CollarettoHelperShortcut tables={tables} />
+
+                                {/* Original Collaretto Consumption Info */}
                                 {selectedOrder && tables.length > 0 && tables[0].fabricCode && (
                                     <CollarettoConsumptionInfo
                                         style={selectedOrder.style}

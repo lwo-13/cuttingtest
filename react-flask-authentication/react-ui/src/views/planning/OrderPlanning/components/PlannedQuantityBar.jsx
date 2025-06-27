@@ -379,6 +379,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
         onClick={handleOpen}
         display="flex"
         gap={2}
+        className="planned-quantity-bar"
         sx={{
           backgroundColor: "#EFEFEF",
           padding: "4px 8px",
