@@ -4,30 +4,50 @@ import { Calculate as CalculateIcon } from '@mui/icons-material';
 
 const CollarettoHelperShortcut = ({ tables }) => {
     const [lastActiveIndex, setLastActiveIndex] = useState(0);
+    const [dialogJustOpened, setDialogJustOpened] = useState(false);
 
     // Listen for any activity within mattress tables to track the last active one
     useEffect(() => {
         const handleMattressActivity = (event) => {
-            // Find the closest mattress table container
+            // Skip if the event is from a dialog or modal (to avoid confusion when dialogs open)
+            if (event.target.closest('.MuiDialog-root') || event.target.closest('.MuiModal-root')) {
+                return;
+            }
+
+            // Skip focus events for a short time after a dialog opens to avoid confusion
+            if (dialogJustOpened && event.type === 'focus') {
+                return;
+            }
+
+            // Find the closest mattress table container - be more specific about what we're looking for
             const mattressTable = event.target.closest('[data-table-id]');
 
             if (mattressTable) {
                 const tableId = mattressTable.getAttribute('data-table-id');
 
-                // Find all mattress tables and get the index of the active one
-                const allMattressTables = document.querySelectorAll('[data-table-id]');
-                const index = Array.from(allMattressTables).findIndex(table =>
+                // Check if this table actually has a planned-quantity-bar (i.e., it's a real mattress table)
+                const hasPlannedQuantityBar = mattressTable.querySelector('.planned-quantity-bar');
+
+                if (!hasPlannedQuantityBar) {
+                    // This is probably a collaretto table or other table, not a mattress table - ignore it
+                    return;
+                }
+
+                // Find all REAL mattress tables (ones with planned-quantity-bar) and get the index of the active one
+                const allMattressTables = Array.from(document.querySelectorAll('[data-table-id]')).filter(table =>
+                    table.querySelector('.planned-quantity-bar')
+                );
+                const index = allMattressTables.findIndex(table =>
                     table.getAttribute('data-table-id') === tableId
                 );
 
                 if (index !== -1 && index !== lastActiveIndex) {
                     setLastActiveIndex(index);
-                    console.log(`Tracked last active mattress: ${index + 1} (table ID: ${tableId})`);
                 }
             }
         };
 
-        // Listen for various events that indicate user activity
+        // Listen for various events that indicate user activity, but be more selective
         const events = ['click', 'focus', 'input', 'change'];
 
         events.forEach(eventType => {
@@ -39,20 +59,28 @@ const CollarettoHelperShortcut = ({ tables }) => {
                 document.removeEventListener(eventType, handleMattressActivity, true);
             });
         };
-    }, [lastActiveIndex]);
+    }, [lastActiveIndex, dialogJustOpened]);
 
     // Click handler that opens the last active planned quantity bar
     const handleClick = () => {
-        const plannedQuantityElements = document.querySelectorAll('.planned-quantity-bar');
+        // Find all REAL mattress tables (ones with planned-quantity-bar)
+        const realMattressTables = Array.from(document.querySelectorAll('[data-table-id]')).filter(table =>
+            table.querySelector('.planned-quantity-bar')
+        );
 
-        if (plannedQuantityElements.length > 0) {
+        if (realMattressTables.length > 0) {
+            // Set flag to ignore focus events for a short time after opening dialog
+            setDialogJustOpened(true);
+            setTimeout(() => setDialogJustOpened(false), 1000); // Clear flag after 1 second
+
             // Use last active index, but make sure it's within bounds
-            const index = Math.min(lastActiveIndex, plannedQuantityElements.length - 1);
-            plannedQuantityElements[index].click();
+            const index = Math.min(lastActiveIndex, realMattressTables.length - 1);
+            const targetTable = realMattressTables[index];
+            const plannedQuantityBar = targetTable.querySelector('.planned-quantity-bar');
 
-            console.log(`Opened collaretto helper for mattress ${index + 1} (last active)`);
-        } else {
-            console.log('Could not find planned quantity bar elements');
+            if (plannedQuantityBar) {
+                plannedQuantityBar.click();
+            }
         }
     };
 

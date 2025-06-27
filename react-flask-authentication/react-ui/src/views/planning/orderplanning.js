@@ -691,6 +691,282 @@ const OrderPlanning = () => {
         };
     }, [unsavedChanges, selectedOrder, onOrderChange]);
 
+    // Automatic collaretto synchronization with mattress table changes
+    useEffect(() => {
+        const handleMattressLayersChanged = (event) => {
+            const { bagno, newLayers } = event.detail;
+
+            if (!bagno || bagno === 'Unknown' || !newLayers || newLayers <= 0) {
+                return;
+            }
+
+            console.log(`🔄 Mattress layers changed for bagno ${bagno}: ${newLayers} layers`);
+
+            // Show brief notification about automatic update
+            setInfoMessage(`🔄 Automatically updating collaretto pieces for bagno ${bagno}`);
+            setOpenInfo(true);
+
+            // Auto-close the notification after 2 seconds
+            setTimeout(() => {
+                setOpenInfo(false);
+            }, 2000);
+
+            // Calculate total pieces for this bagno from all mattress tables
+            let totalPiecesForBagno = 0;
+            let piecesPerSizeForBagno = {};
+
+            tables.forEach(table => {
+                table.rows.forEach(row => {
+                    if (row.bagno === bagno && row.layers && row.piecesPerSize) {
+                        const layers = parseInt(row.layers) || 0;
+                        Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
+                            const pcs = parseInt(pieces) || 0;
+                            const totalForSize = pcs * layers;
+                            piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
+                            totalPiecesForBagno += totalForSize;
+                        });
+                    }
+                });
+            });
+
+            if (totalPiecesForBagno === 0) {
+                return;
+            }
+
+            console.log(`📊 Total pieces for bagno ${bagno}: ${totalPiecesForBagno}`, piecesPerSizeForBagno);
+
+            // Update weft tables that match this bagno
+            setWeftTables(prevTables => {
+                return prevTables.map(table => {
+                    const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                    if (!hasMatchingBagno) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.bagno === bagno) {
+                                console.log(`🔄 Updating weft row pieces for bagno ${bagno}: ${totalPiecesForBagno}`);
+                                return {
+                                    ...row,
+                                    pieces: totalPiecesForBagno.toString()
+                                };
+                            }
+                            return row;
+                        })
+                    };
+                });
+            });
+
+            // Update bias tables that match this bagno
+            setBiasTables(prevTables => {
+                return prevTables.map(table => {
+                    const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                    if (!hasMatchingBagno) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.bagno === bagno) {
+                                console.log(`🔄 Updating bias row pieces for bagno ${bagno}: ${totalPiecesForBagno}`);
+                                return {
+                                    ...row,
+                                    pieces: totalPiecesForBagno.toString()
+                                };
+                            }
+                            return row;
+                        })
+                    };
+                });
+            });
+
+            // Update along tables that match this bagno
+            setAlongTables(prevTables => {
+                return prevTables.map(table => {
+                    const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                    if (!hasMatchingBagno) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.bagno === bagno) {
+                                console.log(`🔄 Updating along row pieces for bagno ${bagno}: ${totalPiecesForBagno}`);
+                                return {
+                                    ...row,
+                                    pieces: totalPiecesForBagno.toString()
+                                };
+                            }
+                            return row;
+                        })
+                    };
+                });
+            });
+
+            // Mark as unsaved changes
+            setUnsavedChanges(true);
+        };
+
+        const handleMattressPiecesChanged = (event) => {
+            const { bagno, piecesPerSize } = event.detail;
+
+            if (!bagno || bagno === 'Unknown' || !piecesPerSize) {
+                return;
+            }
+
+            console.log(`🔄 Mattress pieces changed for bagno ${bagno}:`, piecesPerSize);
+
+            // Show brief notification about automatic update
+            setInfoMessage(`🔄 Automatically updating collaretto pieces for bagno ${bagno}`);
+            setOpenInfo(true);
+
+            // Auto-close the notification after 2 seconds
+            setTimeout(() => {
+                setOpenInfo(false);
+            }, 2000);
+
+            // Calculate total pieces for this bagno from all mattress tables
+            let totalPiecesForBagno = 0;
+            let piecesPerSizeForBagno = {};
+
+            tables.forEach(table => {
+                table.rows.forEach(row => {
+                    if (row.bagno === bagno && row.layers && row.piecesPerSize) {
+                        const layers = parseInt(row.layers) || 0;
+                        Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
+                            const pcs = parseInt(pieces) || 0;
+                            const totalForSize = pcs * layers;
+                            piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
+                            totalPiecesForBagno += totalForSize;
+                        });
+                    }
+                });
+            });
+
+            if (totalPiecesForBagno === 0) {
+                return;
+            }
+
+            console.log(`📊 Total pieces for bagno ${bagno}: ${totalPiecesForBagno}`, piecesPerSizeForBagno);
+
+            // Update collaretto tables with the new piece quantities
+            const updateCollarettoTables = (prevTables) => {
+                return prevTables.map(table => {
+                    const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                    if (!hasMatchingBagno) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.bagno === bagno) {
+                                console.log(`🔄 Updating collaretto row pieces for bagno ${bagno}: ${totalPiecesForBagno}`);
+                                return {
+                                    ...row,
+                                    pieces: totalPiecesForBagno.toString()
+                                };
+                            }
+                            return row;
+                        })
+                    };
+                });
+            };
+
+            setWeftTables(updateCollarettoTables);
+            setBiasTables(updateCollarettoTables);
+            setAlongTables(updateCollarettoTables);
+
+            // Mark as unsaved changes
+            setUnsavedChanges(true);
+        };
+
+        const handleCollarettoBagnoChanged = (event) => {
+            const { bagno, tableId, rowId, tableType } = event.detail;
+
+            if (!bagno || bagno === 'Unknown') {
+                return;
+            }
+
+            console.log(`🔍 Collaretto bagno changed to ${bagno} in ${tableType} table - auto-fetching pieces from mattress tables`);
+
+            // Calculate total pieces for this bagno from all mattress tables
+            let totalPiecesForBagno = 0;
+            let piecesPerSizeForBagno = {};
+
+            tables.forEach(table => {
+                table.rows.forEach(row => {
+                    if (row.bagno === bagno && row.layers && row.piecesPerSize) {
+                        const layers = parseInt(row.layers) || 0;
+                        Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
+                            const pcs = parseInt(pieces) || 0;
+                            const totalForSize = pcs * layers;
+                            piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
+                            totalPiecesForBagno += totalForSize;
+                        });
+                    }
+                });
+            });
+
+            if (totalPiecesForBagno === 0) {
+                console.log(`⚠️ No pieces found for bagno ${bagno} in mattress tables`);
+                // Show notification that no pieces were found
+                setInfoMessage(`⚠️ No pieces found for bagno ${bagno} in mattress tables`);
+                setOpenInfo(true);
+                setTimeout(() => setOpenInfo(false), 3000);
+                return;
+            }
+
+            console.log(`✅ Found ${totalPiecesForBagno} total pieces for bagno ${bagno}`, piecesPerSizeForBagno);
+
+            // Show success notification
+            setInfoMessage(`✅ Auto-fetched ${totalPiecesForBagno} pieces for bagno ${bagno} from mattress tables`);
+            setOpenInfo(true);
+            setTimeout(() => setOpenInfo(false), 3000);
+
+            // Update the specific collaretto table and row
+            const updateSpecificCollarettoRow = (prevTables) => {
+                return prevTables.map(table => {
+                    if (table.id !== tableId) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.id === rowId) {
+                                console.log(`🔄 Updating ${tableType} row pieces for bagno ${bagno}: ${totalPiecesForBagno}`);
+                                return {
+                                    ...row,
+                                    pieces: totalPiecesForBagno.toString()
+                                };
+                            }
+                            return row;
+                        })
+                    };
+                });
+            };
+
+            // Update the appropriate table type
+            if (tableType === 'weft') {
+                setWeftTables(updateSpecificCollarettoRow);
+            } else if (tableType === 'bias') {
+                setBiasTables(updateSpecificCollarettoRow);
+            } else if (tableType === 'along') {
+                setAlongTables(updateSpecificCollarettoRow);
+            }
+
+            // Mark as unsaved changes
+            setUnsavedChanges(true);
+        };
+
+        // Add event listeners
+        window.addEventListener('mattressLayersChanged', handleMattressLayersChanged);
+        window.addEventListener('mattressPiecesChanged', handleMattressPiecesChanged);
+        window.addEventListener('collarettoBagnoChanged', handleCollarettoBagnoChanged);
+
+        // Clean up event listeners on unmount
+        return () => {
+            window.removeEventListener('mattressLayersChanged', handleMattressLayersChanged);
+            window.removeEventListener('mattressPiecesChanged', handleMattressPiecesChanged);
+            window.removeEventListener('collarettoBagnoChanged', handleCollarettoBagnoChanged);
+        };
+    }, [tables, setWeftTables, setBiasTables, setAlongTables, setUnsavedChanges, setInfoMessage, setOpenInfo]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (event) => {

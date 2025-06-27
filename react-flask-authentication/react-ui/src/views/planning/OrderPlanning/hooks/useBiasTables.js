@@ -182,6 +182,36 @@ const useBiasTables = ({
         return { ...table, rows: updatedRows };
       })
     );
+
+    // Dispatch event when bagno is changed to auto-fetch pieces from mattress tables
+    if (field === "bagno" && value && value !== 'Unknown') {
+      // Clear any existing timeout for this row's bagno
+      if (window.collarettoBagnoChangeTimeouts && window.collarettoBagnoChangeTimeouts[rowId]) {
+        clearTimeout(window.collarettoBagnoChangeTimeouts[rowId]);
+      }
+
+      // Initialize the timeouts object if it doesn't exist
+      if (!window.collarettoBagnoChangeTimeouts) {
+        window.collarettoBagnoChangeTimeouts = {};
+      }
+
+      // Set a timeout to dispatch the event after a short delay (300ms)
+      // This waits until you stop typing before auto-fetching
+      window.collarettoBagnoChangeTimeouts[rowId] = setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('collarettoBagnoChanged', {
+          detail: {
+            bagno: value,
+            tableId: tableId,
+            rowId: rowId,
+            tableType: 'bias'
+          }
+        }));
+
+        // Remove the timeout reference
+        delete window.collarettoBagnoChangeTimeouts[rowId];
+      }, 500);
+    }
+
     setUnsavedChanges(true);
   };
 
