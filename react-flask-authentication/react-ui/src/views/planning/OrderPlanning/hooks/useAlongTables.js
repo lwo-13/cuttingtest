@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'utils/axiosInstance';
 
 const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, setDeletedTableIds }) => {
   const [alongTables, setAlongTables] = useState([]);

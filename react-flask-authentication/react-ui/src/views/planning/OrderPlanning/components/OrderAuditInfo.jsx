@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TextField, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import axios from 'utils/axiosInstance';
@@ -9,7 +9,7 @@ const useOrderAuditInfo = (orderCommessa) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchAuditData = async () => {
+  const fetchAuditData = useCallback(async () => {
     if (!orderCommessa) return;
 
     console.log(`🔍 Fetching audit data for order: ${orderCommessa}`);
@@ -33,7 +33,7 @@ const useOrderAuditInfo = (orderCommessa) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderCommessa]);
 
   useEffect(() => {
     if (orderCommessa) {
@@ -42,7 +42,7 @@ const useOrderAuditInfo = (orderCommessa) => {
       setAuditData(null);
       setError(null);
     }
-  }, [orderCommessa]);
+  }, [orderCommessa, fetchAuditData]);
 
   // Expose refetch function for external use
   const refetchAuditData = () => {

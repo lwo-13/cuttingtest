@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Tooltip, IconButton } from '@mui/material';
 import { Calculate as CalculateIcon } from '@mui/icons-material';
+import { safeClosest, isValidDOMTarget } from 'utils/domUtils';
 
 const CollarettoHelperShortcut = ({ tables }) => {
     const [lastActiveIndex, setLastActiveIndex] = useState(0);
@@ -9,8 +10,13 @@ const CollarettoHelperShortcut = ({ tables }) => {
     // Listen for any activity within mattress tables to track the last active one
     useEffect(() => {
         const handleMattressActivity = (event) => {
+            // Check if event.target exists and has the closest method (is a DOM element)
+            if (!isValidDOMTarget(event)) {
+                return;
+            }
+
             // Skip if the event is from a dialog or modal (to avoid confusion when dialogs open)
-            if (event.target.closest('.MuiDialog-root') || event.target.closest('.MuiModal-root')) {
+            if (safeClosest(event, '.MuiDialog-root') || safeClosest(event, '.MuiModal-root')) {
                 return;
             }
 
@@ -20,7 +26,7 @@ const CollarettoHelperShortcut = ({ tables }) => {
             }
 
             // Find the closest mattress table container - be more specific about what we're looking for
-            const mattressTable = event.target.closest('[data-table-id]');
+            const mattressTable = safeClosest(event, '[data-table-id]');
 
             if (mattressTable) {
                 const tableId = mattressTable.getAttribute('data-table-id');

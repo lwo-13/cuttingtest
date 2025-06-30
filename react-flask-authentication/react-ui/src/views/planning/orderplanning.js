@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Typography, Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 
@@ -358,8 +358,7 @@ const OrderPlanning = () => {
         filteredWeftTables,
         filteredBiasTables,
         assignCombinationToNewTable,
-        updateTablesWithCombination,
-        getCombinationSummary
+        updateTablesWithCombination
     } = useProductionCenterTabs({
         selectedOrder,
         tables: tables || [],
@@ -485,7 +484,7 @@ const OrderPlanning = () => {
         updateTablesWithCombination(alongTables, setAlongTables);
         updateTablesWithCombination(weftTables, setWeftTables);
         updateTablesWithCombination(biasTables, setBiasTables);
-    }, [selectedCombination, assignCombinationToNewTable, tables, adhesiveTables, alongTables, weftTables, biasTables]);
+    }, [selectedCombination, assignCombinationToNewTable, tables, adhesiveTables, alongTables, weftTables, biasTables, setTables, setAdhesiveTables, setAlongTables, setWeftTables, setBiasTables]);
 
     // Destination Print Dialog State
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
@@ -770,6 +769,7 @@ const OrderPlanning = () => {
     }, [unsavedChanges, selectedOrder, onOrderChange]);
 
     // Automatic collaretto synchronization with mattress table changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         const handleMattressLayersChanged = (event) => {
             const { bagno, newLayers } = event.detail;
@@ -1133,7 +1133,7 @@ const OrderPlanning = () => {
             window.removeEventListener('mattressPiecesChanged', handleMattressPiecesChanged);
             window.removeEventListener('collarettoBagnoChanged', handleCollarettoBagnoChanged);
         };
-    }, [tables, setWeftTables, setBiasTables, setAlongTables, setUnsavedChanges, setInfoMessage, setOpenInfo]);
+    }, [tables, alongTables, weftTables, biasTables, setWeftTables, setBiasTables, setAlongTables, setUnsavedChanges, setInfoMessage, setOpenInfo]);
 
     // Keyboard shortcuts
     useEffect(() => {

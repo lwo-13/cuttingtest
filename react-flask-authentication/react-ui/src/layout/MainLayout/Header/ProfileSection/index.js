@@ -1,6 +1,5 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import configData from '../../../../config';
 import { useTranslation } from 'react-i18next';
 
 // material-ui
@@ -22,8 +21,6 @@ import {
     Popper,
     Switch,
     Typography,
-    Select,
-    MenuItem,
     Button,
     ButtonGroup
 
@@ -32,7 +29,6 @@ import ListItemButton from '@mui/material/ListItemButton';
 
 // third-party
 import PerfectScrollbar from 'react-perfect-scrollbar';
-import axios from 'utils/axiosInstance';
 
 // project imports
 import MainCard from '../../../../ui-component/cards/MainCard';
@@ -132,7 +128,6 @@ const ProfileSection = () => {
     const [sdm, setSdm] = React.useState(true);
     const [value, setValue] = React.useState('');
     const [notification, setNotification] = React.useState(false);
-    const [selectedIndex, setSelectedIndex] = React.useState(1);
 
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
@@ -163,6 +158,12 @@ const ProfileSection = () => {
     };
     const handleClose = (event) => {
         if (anchorRef.current && anchorRef.current.contains(event.target)) {
+            return;
+        }
+
+        // Check if event.target exists and has the closest method (is a DOM element)
+        if (!event.target || typeof event.target.closest !== 'function') {
+            setOpen(false);
             return;
         }
 
@@ -336,7 +337,7 @@ const ProfileSection = () => {
                                                 <ListItemButton
                                                     className={classes.listItem}
                                                     sx={{ borderRadius: customization.borderRadius + 'px' }}
-                                                    selected={selectedIndex === 4}
+                                                    selected={false}
                                                     onClick={handleLogout}
                                                 >
                                                     <ListItemIcon>
