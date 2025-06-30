@@ -421,15 +421,22 @@ const useHandleSave = ({
       sortedTables.forEach((table) => {
         table.rows.forEach((row) => {
 
-          // ✅ Generate Mattress Name with combination key (KEY-ORDER-AS-FABRICTYPE-001, 002, ...)
-          const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
-          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
-          const orderSuffix = getOrderSuffix(selectedOrder.id);
+          // ✅ Use pre-generated mattress name if available, otherwise generate it
+          let mattressName;
+          if (row.mattressName && row.mattressName.trim() !== "") {
+            // Use the pre-generated mattress name from bulk add
+            mattressName = row.mattressName;
+          } else {
+            // Generate Mattress Name with combination key (KEY-ORDER-AS-FABRICTYPE-001, 002, ...)
+            const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
+            const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+            const orderSuffix = getOrderSuffix(selectedOrder.id);
 
-          // Build mattress name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
-          const mattressName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
+            // Build mattress name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
+            mattressName = combinationKey
+              ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+              : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
+          }
 
           newMattressNames.add(mattressName); // ✅ Track UI rows
 

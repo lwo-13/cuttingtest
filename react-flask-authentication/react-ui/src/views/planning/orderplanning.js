@@ -84,6 +84,7 @@ import useProductionCenterTabs from 'views/planning/OrderPlanning/hooks/useProdu
 import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
 import { usePrintStyles, handlePrint, getAllDestinations, getDestinationsInTabOrder, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
+import { getCombinationKey } from 'utils/productionCenterConfig';
 
 // Destination Print Dialog
 import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
@@ -364,6 +365,79 @@ const OrderPlanning = () => {
         biasTables: biasTables || [],
         setUnsavedChanges
     });
+
+    // Helper function to get last 6 digits of order ID (same as in useHandleSave)
+    const getOrderSuffix = (orderId) => {
+        const orderStr = String(orderId);
+        return orderStr.length > 6 ? orderStr.slice(-6) : orderStr;
+    };
+
+    // Wrapper function for handleBulkAddRows that generates mattress names
+    const handleBulkAddRowsWithNames = (tableId, bulkAddData) => {
+        // Find the table to get production center information
+        const table = tables.find(t => t.id === tableId);
+
+        if (!table || !selectedOrder) {
+            // Fallback to original function if we can't generate names
+            return handleBulkAddRows(tableId, bulkAddData);
+        }
+
+        // Generate mattress names using the same logic as useHandleSave
+        const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
+        const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+        const orderSuffix = getOrderSuffix(selectedOrder.id);
+
+        // Calculate how many rows will be created
+        const { layerPackageNr } = bulkAddData;
+
+        // Enhanced sequence number calculation that considers existing mattress names
+        const getNextSequenceNumber = (rows, itemTypeCode, fabricType, combinationKey, orderSuffix) => {
+            // Build the expected name pattern for this table
+            const namePattern = combinationKey
+                ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${fabricType}-`
+                : `${orderSuffix}-${itemTypeCode}-${fabricType}-`;
+
+            // Extract sequence numbers from both sequenceNumber field and existing mattress names
+            const sequencesFromField = rows
+                .map(row => parseInt(row.sequenceNumber))
+                .filter(n => !isNaN(n));
+
+            const sequencesFromNames = rows
+                .filter(row => row.mattressName && row.mattressName.startsWith(namePattern))
+                .map(row => {
+                    // Extract the sequence number from the end of the mattress name
+                    const match = row.mattressName.match(/-(\d{3})$/);
+                    return match ? parseInt(match[1]) : null;
+                })
+                .filter(n => n !== null);
+
+            // Combine both sources and find the maximum
+            const allSequences = [...sequencesFromField, ...sequencesFromNames];
+            return allSequences.length > 0 ? Math.max(...allSequences) + 1 : 1;
+        };
+
+        const startingSequence = getNextSequenceNumber(table.rows, itemTypeCode, table.fabricType, combinationKey, orderSuffix);
+
+        // Generate mattress names for each row that will be created
+        const mattressNames = [];
+
+        for (let i = 0; i < layerPackageNr; i++) {
+            const sequenceNumber = startingSequence + i;
+            const mattressName = combinationKey
+                ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(sequenceNumber).padStart(3, '0')}`
+                : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(sequenceNumber).padStart(3, '0')}`;
+            mattressNames.push(mattressName);
+        }
+
+        // Add the mattress names to the bulk add data
+        const enhancedBulkAddData = {
+            ...bulkAddData,
+            mattressNames
+        };
+
+        // Call the original function with enhanced data
+        return handleBulkAddRows(tableId, enhancedBulkAddData);
+    };
 
     // Auto-assign production center combination to tables
     useEffect(() => {
@@ -1311,7 +1385,7 @@ const OrderPlanning = () => {
                                 onRefreshMarkers={fetchMarkerData}
                                 refreshingMarkers={refreshingMarkers}
                                 markerOptions={markerOptions}
-                                onBulkAddRows={handleBulkAddRows}
+                                onBulkAddRows={handleBulkAddRowsWithNames}
                             />
 
                             {/* Table Section */}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'utils/axiosInstance';
 
 const addToDeletedIfNotExists = (name, setter) => {
   setter(prev => (prev.includes(name) ? prev : [...prev, name]));
@@ -85,10 +84,23 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
   };
 
   const getNextSequenceNumber = (rows) => {
-    const existing = rows
+    // Extract sequence numbers from both sequenceNumber field and existing mattress names
+    const sequencesFromField = rows
       .map(row => parseInt(row.sequenceNumber))
       .filter(n => !isNaN(n));
-    return existing.length > 0 ? Math.max(...existing) + 1 : 1;
+
+    const sequencesFromNames = rows
+      .filter(row => row.mattressName)
+      .map(row => {
+        // Extract the sequence number from the end of the mattress name (last 3 digits)
+        const match = row.mattressName.match(/-(\d{3})$/);
+        return match ? parseInt(match[1]) : null;
+      })
+      .filter(n => n !== null);
+
+    // Combine both sources and find the maximum
+    const allSequences = [...sequencesFromField, ...sequencesFromNames];
+    return allSequences.length > 0 ? Math.max(...allSequences) + 1 : 1;
   };
 
   const handleAddRow = (tableId) => {
@@ -146,7 +158,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
       planLayersDirectly,
       totalLayers,
       layersPerRow,
-      batch
+      batch,
+      mattressNames = [] // New: array of pre-generated mattress names
     } = bulkAddData;
 
     const newRowIds = [];
@@ -199,7 +212,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
             bagno: batch || "", // Use provided batch or empty string
             status: "not_ready",
             isEditable: true,
-            sequenceNumber: currentSequence + i
+            sequenceNumber: currentSequence + i,
+            mattressName: mattressNames[i] || "" // Add the pre-generated mattress name
           };
 
           // Calculate expected consumption if layers are provided
