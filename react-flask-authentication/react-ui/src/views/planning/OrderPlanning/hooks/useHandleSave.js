@@ -36,7 +36,8 @@ const useHandleSave = ({
   setSuccessMessage,
   setOpenSuccess,
   setUnsavedChanges,
-  commentData
+  commentData,
+  auditRefetchFunctionRef
 }) => {
   const [saving, setSaving] = useState(false);
 
@@ -1068,6 +1069,12 @@ const useHandleSave = ({
                 username: username
               });
               console.log("✅ Order audit tracking updated successfully");
+
+              // ✅ Refresh audit info in the UI immediately
+              if (auditRefetchFunctionRef?.current) {
+                console.log("🔄 Refreshing audit info in UI...");
+                auditRefetchFunctionRef.current();
+              }
             } catch (error) {
               console.warn("⚠️ Failed to update audit tracking:", error.response?.data || error.message);
               // Don't fail the entire save operation for audit tracking issues

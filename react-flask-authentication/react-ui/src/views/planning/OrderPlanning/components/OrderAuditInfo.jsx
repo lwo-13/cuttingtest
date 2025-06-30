@@ -9,6 +9,32 @@ const useOrderAuditInfo = (orderCommessa) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const fetchAuditData = async () => {
+    if (!orderCommessa) return;
+
+    console.log(`🔍 Fetching audit data for order: ${orderCommessa}`);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.get(`/orders/audit/${orderCommessa}`);
+      if (response.data.success) {
+        console.log(`✅ Audit data fetched successfully for order: ${orderCommessa}`, response.data.data);
+        setAuditData(response.data.data);
+      } else {
+        console.log(`⚠️ No audit data found for order: ${orderCommessa}`);
+        setError('No audit data found');
+        setAuditData(null);
+      }
+    } catch (error) {
+      console.warn(`❌ Failed to fetch audit data for order: ${orderCommessa}`, error);
+      setError('Failed to load audit data');
+      setAuditData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (orderCommessa) {
       fetchAuditData();
@@ -18,26 +44,11 @@ const useOrderAuditInfo = (orderCommessa) => {
     }
   }, [orderCommessa]);
 
-  const fetchAuditData = async () => {
-    if (!orderCommessa) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await axios.get(`/orders/audit/${orderCommessa}`);
-      if (response.data.success) {
-        setAuditData(response.data.data);
-      } else {
-        setError('No audit data found');
-        setAuditData(null);
-      }
-    } catch (error) {
-      console.warn('Failed to fetch audit data:', error);
-      setError('Failed to load audit data');
-      setAuditData(null);
-    } finally {
-      setLoading(false);
+  // Expose refetch function for external use
+  const refetchAuditData = () => {
+    console.log(`🔄 Refetch audit data called for order: ${orderCommessa}`);
+    if (orderCommessa) {
+      fetchAuditData();
     }
   };
 
@@ -60,7 +71,7 @@ const useOrderAuditInfo = (orderCommessa) => {
   };
 
   if (!orderCommessa) {
-    return null;
+    return { createdBy: null, lastModifiedBy: null, refetchAuditData };
   }
 
   if (loading) {
@@ -86,7 +97,8 @@ const useOrderAuditInfo = (orderCommessa) => {
             sx={{ width: '100%', minWidth: '120px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
           />
         </Tooltip>
-      )
+      ),
+      refetchAuditData
     };
   }
 
@@ -113,7 +125,8 @@ const useOrderAuditInfo = (orderCommessa) => {
             sx={{ width: '100%', minWidth: '120px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
           />
         </Tooltip>
-      )
+      ),
+      refetchAuditData
     };
   }
 
@@ -139,7 +152,8 @@ const useOrderAuditInfo = (orderCommessa) => {
           sx={{ width: '100%', minWidth: '120px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
         />
       </Tooltip>
-    )
+    ),
+    refetchAuditData
   };
 };
 

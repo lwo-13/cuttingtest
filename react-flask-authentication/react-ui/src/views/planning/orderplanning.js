@@ -128,6 +128,9 @@ const OrderPlanning = () => {
     // Basic unsaved changes tracking (temporary fallback)
     const [unsavedChanges, setUnsavedChanges] = useState(false);
 
+    // Audit refetch function state - use useRef to avoid re-renders
+    const auditRefetchFunctionRef = useRef(null);
+
     // Temporary fallback functions
     const clearAllChanges = () => setUnsavedChanges(false);
     const getChangeSummary = () => '';
@@ -296,7 +299,8 @@ const OrderPlanning = () => {
         setSuccessMessage,
         setOpenSuccess,
         setUnsavedChanges,
-        commentData
+        commentData,
+        auditRefetchFunctionRef
     });
 
     // Order Change
@@ -1334,6 +1338,7 @@ const OrderPlanning = () => {
                         selectedSeason={selectedSeason}
                         selectedBrand={brand}
                         selectedColorCode={selectedColorCode}
+                        onAuditRefetchReady={(refetchFn) => { auditRefetchFunctionRef.current = refetchFn; }}
                     />
 
                     {/* Order Quantities Section */}

@@ -13,12 +13,20 @@ const OrderToolbar = ({
   selectedSeason,
   selectedBrand,
   selectedColorCode,
-  onOrderChange
+  onOrderChange,
+  onAuditRefetchReady
 }) => {
   const { t } = useTranslation();
 
   // Get audit information using the hook
   const auditInfo = useOrderAuditInfo(selectedOrder?.id);
+
+  // Pass the refetch function to parent component when it's available
+  React.useEffect(() => {
+    if (onAuditRefetchReady && auditInfo.refetchAuditData) {
+      onAuditRefetchReady(auditInfo.refetchAuditData);
+    }
+  }, [auditInfo.refetchAuditData, onAuditRefetchReady]);
 
   return (
     <Box sx={{
