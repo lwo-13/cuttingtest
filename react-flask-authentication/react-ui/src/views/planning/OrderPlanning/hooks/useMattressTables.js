@@ -83,20 +83,45 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
     });
   };
 
-  const getNextSequenceNumber = (rows) => {
-    // Extract sequence numbers from both sequenceNumber field and existing mattress names
+  const getNextSequenceNumber = (rows, table = null) => {
+    // Extract sequence numbers from sequenceNumber field
     const sequencesFromField = rows
       .map(row => parseInt(row.sequenceNumber))
       .filter(n => !isNaN(n));
 
-    const sequencesFromNames = rows
-      .filter(row => row.mattressName)
-      .map(row => {
-        // Extract the sequence number from the end of the mattress name (last 3 digits)
-        const match = row.mattressName.match(/-(\d{3})$/);
-        return match ? parseInt(match[1]) : null;
-      })
-      .filter(n => n !== null);
+    // Extract sequence numbers from existing mattress names
+    let sequencesFromNames = [];
+    if (table) {
+      // If we have table context, filter mattress names that match this table's pattern
+      // This is more accurate for mixed scenarios
+      const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
+      const fabricType = table.fabricType || "";
+
+      sequencesFromNames = rows
+        .filter(row => row.mattressName)
+        .map(row => {
+          // Check if this mattress name belongs to the same table configuration
+          const nameContainsItemType = row.mattressName.includes(`-${itemTypeCode}-`);
+          const nameContainsFabricType = fabricType ? row.mattressName.includes(`-${fabricType}-`) : true;
+
+          if (nameContainsItemType && nameContainsFabricType) {
+            // Extract the sequence number from the end of the mattress name (last 3 digits)
+            const match = row.mattressName.match(/-(\d{3})$/);
+            return match ? parseInt(match[1]) : null;
+          }
+          return null;
+        })
+        .filter(n => n !== null);
+    } else {
+      // Fallback: extract from all mattress names without filtering
+      sequencesFromNames = rows
+        .filter(row => row.mattressName)
+        .map(row => {
+          const match = row.mattressName.match(/-(\d{3})$/);
+          return match ? parseInt(match[1]) : null;
+        })
+        .filter(n => n !== null);
+    }
 
     // Combine both sources and find the maximum
     const allSequences = [...sequencesFromField, ...sequencesFromNames];
@@ -110,7 +135,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
       return prevTables.map(table => {
         if (table.id !== tableId) return table;
 
-        const nextSequence = getNextSequenceNumber(table.rows);
+        // Pass table context to getNextSequenceNumber for more accurate sequence detection
+        const nextSequence = getNextSequenceNumber(table.rows, table);
 
         return {
           ...table,
@@ -184,7 +210,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         if (table.id !== tableId) return table;
 
         const newRows = [];
-        let currentSequence = getNextSequenceNumber(table.rows);
+        // Pass table context to getNextSequenceNumber for more accurate sequence detection
+        let currentSequence = getNextSequenceNumber(table.rows, table);
 
         // Create the specified number of rows
         for (let i = 0; i < layerPackageNr; i++) {
