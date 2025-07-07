@@ -125,6 +125,15 @@ const BiasRow = ({
         <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
       </TableCell>
 
+      {/* Panel Length */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>
+          {row.panelLength && parseFloat(row.panelLength) !== 0
+            ? parseFloat(row.panelLength).toFixed(2)
+            : ""}
+        </Typography>
+      </TableCell>
+
       {/* Consumption */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>

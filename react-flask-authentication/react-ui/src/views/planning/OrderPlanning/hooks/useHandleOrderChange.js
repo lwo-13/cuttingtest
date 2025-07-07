@@ -232,6 +232,12 @@ const handleOrderChange = async (newValue, context) => {
         };
       }
 
+      // Calculate panel length for loaded data
+      const rewoundWidth = parseFloat(bias.details.rewound_width);
+      const panelLength = !isNaN(rewoundWidth) && rewoundWidth > 0
+        ? (rewoundWidth * Math.SQRT2).toFixed(2)
+        : "";
+
       biasTablesById[tableId].rows.push({
         id: bias.row_id,
         sequenceNumber: bias.sequence_number || 0,
@@ -245,6 +251,7 @@ const handleOrderChange = async (newValue, context) => {
         scrapRoll: bias.details.scrap_rolls,
         rolls: bias.details.rolls_planned,
         panels: bias.details.panels_planned,
+        panelLength: panelLength,
         consumption: bias.details.cons_planned,
         bagno: bias.dye_lot,
         status: bias.details.bagno_ready ? "ready" : "not_ready",

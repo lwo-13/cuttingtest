@@ -30,6 +30,7 @@ const useBiasTables = ({
           scrapRoll: "",
           rolls: "",
           panels: "",
+          panelLength: "",
           consumption: "",
           bagno: "",
           status: "not_ready",
@@ -90,6 +91,7 @@ const useBiasTables = ({
             scrapRoll: "",
             rolls: "",
             panels: "",
+            panelLength: "",
             consumption: "",
             bagno: "",
             status: "not_ready",
@@ -170,6 +172,11 @@ const useBiasTables = ({
 
           const panels = parseFloat(updatedRow.panels);
           const panelLength = !isNaN(rewoundWidth) ? rewoundWidth * Math.SQRT2 : null;
+
+          // Store panel length for display
+          updatedRow.panelLength = !isNaN(panelLength) && panelLength > 0
+            ? panelLength.toFixed(2)
+            : "";
 
           updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
             ? (panels * panelLength).toFixed(2)
