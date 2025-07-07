@@ -401,7 +401,7 @@ const useHandleSave = ({
       });
 
       // ✅ Proceed with valid adhesive processing
-      sortedAdhesiveTables.forEach((table) => {
+      adhesiveTables.forEach((table) => {
         table.rows.forEach((row) => {
 
           // ✅ Generate Adhesive Name with combination key (KEY-ORDER-ASA-FABRICTYPE-001, 002, ...)
@@ -466,7 +466,7 @@ const useHandleSave = ({
         });
       });
 
-      sortedAlongTables.forEach((table) => {
+      alongTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (along) name WITH combination key and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
@@ -513,7 +513,7 @@ const useHandleSave = ({
         });
       });
 
-      sortedWeftTables.forEach((table) => {
+      weftTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (weft) name WITH combination key and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
@@ -567,7 +567,7 @@ const useHandleSave = ({
         });
       });
 
-      sortedBiasTables.forEach((table) => {
+      biasTables.forEach((table) => {
         table.rows.forEach((row) => {
           // ✅ Build unique collaretto (bias) name WITH combination key and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
@@ -761,13 +761,13 @@ const useHandleSave = ({
 
       // ✅ Save production center data for all table types using unified endpoint
       const saveAllProductionCenters = () => {
-        // Combine all sorted tables with their respective table types
+        // Combine all tables with their respective table types
         const allTables = [
-          ...sortedTables.map(table => ({ ...table, tableType: 'MATTRESS' })),
-          ...sortedAdhesiveTables.map(table => ({ ...table, tableType: 'ADHESIVE' })),
-          ...sortedAlongTables.map(table => ({ ...table, tableType: 'ALONG' })),
-          ...sortedWeftTables.map(table => ({ ...table, tableType: 'WEFT' })),
-          ...sortedBiasTables.map(table => ({ ...table, tableType: 'BIAS' }))
+          ...tables.map(table => ({ ...table, tableType: 'MATTRESS' })),
+          ...adhesiveTables.map(table => ({ ...table, tableType: 'ADHESIVE' })),
+          ...alongTables.map(table => ({ ...table, tableType: 'ALONG' })),
+          ...weftTables.map(table => ({ ...table, tableType: 'WEFT' })),
+          ...biasTables.map(table => ({ ...table, tableType: 'BIAS' }))
         ];
 
         return Promise.all(allTables.map(table =>
