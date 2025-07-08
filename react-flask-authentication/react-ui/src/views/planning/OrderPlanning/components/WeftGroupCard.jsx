@@ -7,6 +7,7 @@ const WeftGroupCard = ({
   table,
   tables,
   fabricTypeOptions,
+  spreadingOptions,
   isTableEditable,
   setTables,
   setUnsavedChanges,
@@ -313,6 +314,32 @@ const WeftGroupCard = ({
               setUnsavedChanges(true);
             }}
             sx={{ width: '100%', minWidth: '60px', "& input": { fontWeight: "normal" } }}
+          />
+        </Grid>
+
+        {/* Spreading */}
+        <Grid item xs={3} sm={2} md={1.5}>
+          <Autocomplete
+            options={spreadingOptions}
+            getOptionLabel={(option) => option}
+            value={table.spreading || null}
+            disabled={!isTableEditable(table)}
+            onChange={(event, newValue) => {
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, spreading: newValue } : t
+                )
+              );
+              setUnsavedChanges(true);
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Spreading" variant="outlined" />
+            )}
+            sx={{
+              width: '100%',
+              minWidth: '60px',
+              "& .MuiAutocomplete-input": { fontWeight: 'normal' }
+            }}
           />
         </Grid>
 

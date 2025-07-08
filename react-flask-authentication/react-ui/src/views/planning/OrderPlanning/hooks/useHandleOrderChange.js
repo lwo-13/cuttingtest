@@ -190,6 +190,7 @@ const handleOrderChange = async (newValue, context) => {
           fabricCode: weft.fabric_code,
           fabricColor: weft.fabric_color,
           weftExtra: weft.details.extra,
+          spreading: weft.spreading || "AUTOMATIC",  // ✅ Load spreading information
           rows: []
         };
       }
@@ -232,11 +233,8 @@ const handleOrderChange = async (newValue, context) => {
         };
       }
 
-      // Calculate panel length for loaded data
-      const rewoundWidth = parseFloat(bias.details.rewound_width);
-      const panelLength = !isNaN(rewoundWidth) && rewoundWidth > 0
-        ? (rewoundWidth * Math.SQRT2).toFixed(2)
-        : "";
+      // Use panel length directly from backend
+      const panelLength = bias.details.panel_length || "";
 
       biasTablesById[tableId].rows.push({
         id: bias.row_id,
@@ -246,7 +244,7 @@ const handleOrderChange = async (newValue, context) => {
         totalWidth: bias.details.total_width,
         grossLength: bias.details.gross_length,
         pcsSeamtoSeam: bias.details.pcs_seam,
-        rewoundWidth: bias.details.rewound_width,
+        rewoundWidth: "", // No longer used
         collarettoWidth: bias.details.roll_width,
         scrapRoll: bias.details.scrap_rolls,
         rolls: bias.details.rolls_planned,

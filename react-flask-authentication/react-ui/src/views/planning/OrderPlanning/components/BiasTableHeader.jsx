@@ -7,9 +7,8 @@ const BiasTableHeader = () => (
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Pieces</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Total Width [cm]</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Gross Length [m]</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Pcs Seam to Seam</TableCell>
-      <TableCell align="center" sx={{ padding: "2px 6px" }}>Rewound Width [m]</TableCell>
+      <TableCell align="center" sx={{ padding: "2px 6px" }}>Collaretto Width [mm]</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Scrap Rolls</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Rolls</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>N° Panels</TableCell>

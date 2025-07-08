@@ -23,9 +23,6 @@ const BiasRow = ({
 
   const handleChange = (field, pattern, maxLength) => (e) => {
     let value = e.target.value.replace(pattern, '').slice(0, maxLength);
-    if (field === "rewoundWidth") {
-      value = value.replace(',', '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 4);
-    }
     handleInputChange(tableId, rowId, field, value);
     setUnsavedChanges(true);
   };
@@ -44,14 +41,39 @@ const BiasRow = ({
       </TableCell>
 
       {/* Usable Width */}
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+      <TableCell sx={{ padding: '4px', textAlign: 'center', position: 'relative' }}>
         <TextField
           variant="outlined"
           value={row.totalWidth || ""}
           disabled={!editable}
           onChange={handleChange("totalWidth", /\D/g, 3)}
-          sx={inputSx}
+          sx={{
+            ...inputSx,
+            '& .MuiOutlinedInput-input': {
+              textAlign: 'center',
+              paddingRight: '20px' // Make room for indicator
+            }
+          }}
         />
+        {/* Visual indicator positioned as watermark inside the input */}
+        {row.totalWidth && parseFloat(row.totalWidth) > 0 && (
+          <span
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: '22px',
+              transform: 'translateY(-50%)',
+              fontSize: '12px',
+              fontWeight: 'normal',
+              color: parseFloat(row.totalWidth) > 87.5 ? 'rgba(0, 128, 0, 0.6)' : 'rgba(255, 0, 0, 0.6)',
+              pointerEvents: 'none',
+              zIndex: 1,
+              opacity: 0.7
+            }}
+          >
+            {parseFloat(row.totalWidth) > 87.5 ? 'Single' : 'Double'}
+          </span>
+        )}
       </TableCell>
 
       {/* Gross Length */}
@@ -61,17 +83,6 @@ const BiasRow = ({
           value={row.grossLength || ""}
           disabled={!editable}
           onChange={handleChange("grossLength", /[^0-9.,]/g, 6)}
-          sx={inputSx}
-        />
-      </TableCell>
-
-      {/* Collaretto Width */}
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
-        <TextField
-          variant="outlined"
-          value={row.collarettoWidth || ""}
-          disabled={!editable}
-          onChange={handleChange("collarettoWidth", /\D/g, 4)}
           sx={inputSx}
         />
       </TableCell>
@@ -93,13 +104,13 @@ const BiasRow = ({
         />
       </TableCell>
 
-      {/* Rewound Width */}
+      {/* Collaretto Width */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
-          value={row.rewoundWidth || ""}
+          value={row.collarettoWidth || ""}
           disabled={!editable}
-          onChange={handleChange("rewoundWidth")}
+          onChange={handleChange("collarettoWidth", /\D/g, 4)}
           sx={inputSx}
         />
       </TableCell>

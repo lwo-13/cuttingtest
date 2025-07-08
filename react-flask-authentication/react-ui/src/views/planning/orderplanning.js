@@ -262,6 +262,7 @@ const OrderPlanning = () => {
         handleAddRow: handleAddRowBias,
         handleRemoveRow: handleRemoveBiasRow,
         handleInputChange: handleBiasRowChange,
+        handleExtraChange: handleBiasExtraChange
     } = useBiasTables({ setUnsavedChanges, setDeletedBias, setDeletedTableIds });
 
     // Save
@@ -1754,6 +1755,7 @@ const OrderPlanning = () => {
                                 table={table}
                                 tables={weftTables}
                                 fabricTypeOptions={fabricTypeOptions}
+                                spreadingOptions={spreadingOptions}
                                 isTableEditable={isTableEditable}
                                 setTables={setWeftTables}
                                 setUnsavedChanges={setUnsavedChanges}
@@ -1838,6 +1840,7 @@ const OrderPlanning = () => {
                                 isTableEditable={isTableEditable}
                                 setTables={setBiasTables}
                                 setUnsavedChanges={setUnsavedChanges}
+                                handleBiasExtraChange={handleBiasExtraChange}
                                 />
 
                             {/* Table Section */}

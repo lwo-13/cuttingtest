@@ -17,6 +17,7 @@ const useBiasTables = ({
       fabricType: "",
       fabricCode: "",
       fabricColor: "",
+      biasExtra: "10",
       rows: [
         {
           id: rowId,
@@ -146,9 +147,8 @@ const useBiasTables = ({
           } else {
             if (!row.pcsSeamtoSeam || row.isPcsSeamCalculated) {
               const seamTotal = (totalWidth / 100) * Math.SQRT2;
-              const seamUsable = seamTotal - (collWidthMM / 1000);
-              updatedRow.pcsSeamtoSeam = seamUsable > 0 && grossLength > 0
-                ? (seamUsable / grossLength).toFixed(1)
+              updatedRow.pcsSeamtoSeam = seamTotal > 0 && grossLength > 0
+                ? (seamTotal / grossLength).toFixed(1)
                 : "";
               updatedRow.isPcsSeamCalculated = true;
             }
@@ -157,21 +157,30 @@ const useBiasTables = ({
           const rewoundWidth = parseFloat(field === "rewoundWidth" ? value : row.rewoundWidth);
           const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll);
 
-          updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
-            ? Math.floor(rewoundWidth / collWidthM) - scrap
+          // N° Rolls = totalWidth (cm) / collarettoWidth (mm) - scrap
+          // If totalWidth ≤ 87.5, multiply by 2 before division
+          const adjustedTotalWidth = totalWidth <= 87.5 ? totalWidth * 2 : totalWidth;
+          const totalWidthMM = adjustedTotalWidth * 10; // Convert cm to mm
+          updatedRow.rolls = !isNaN(totalWidth) && !isNaN(collWidthMM) && !isNaN(scrap)
+            ? Math.floor(totalWidthMM / collWidthMM) - scrap
             : "";
 
           const pieces = parseFloat(field === "pieces" ? value : row.pieces);
           const rolls = parseFloat(updatedRow.rolls);
           const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
 
-          const panelsCalculation = pieces / (rolls * pcsSeam);
+          // Get the table to access biasExtra
+          const currentTable = prevTables.find(t => t.id === tableId);
+          const extra = parseFloat(currentTable?.biasExtra) / 100 || 0;
+          const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
           updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
             ? Math.ceil(panelsCalculation)
             : "";
 
           const panels = parseFloat(updatedRow.panels);
-          const panelLength = !isNaN(rewoundWidth) ? rewoundWidth * Math.SQRT2 : null;
+          // Panel length calculation based on total width value (convert cm to meters)
+          const panelLength = !isNaN(totalWidth) ?
+            (totalWidth <= 87.5 ? (totalWidth * 2) / 100 : totalWidth / 100) : null;
 
           // Store panel length for display
           updatedRow.panelLength = !isNaN(panelLength) && panelLength > 0
@@ -179,7 +188,7 @@ const useBiasTables = ({
             : "";
 
           updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
-            ? (panels * panelLength).toFixed(2)
+            ? ((panels + 1) * panelLength).toFixed(2)
             : "";
 
           return updatedRow;
@@ -221,6 +230,46 @@ const useBiasTables = ({
     setUnsavedChanges(true);
   };
 
+  const handleExtraChange = (tableId, value) => {
+    const extra = parseFloat(value) / 100 || 0;
+
+    setBiasTables(prev => prev.map(table => {
+      if (table.id !== tableId) return table;
+
+      const updatedRows = table.rows.map(row => {
+        const pieces = parseFloat(row.pieces);
+        const rolls = parseFloat(row.rolls);
+        const pcsSeam = parseFloat(row.pcsSeamtoSeam);
+
+        // Calculate panels with extra percentage
+        const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
+        const panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
+          ? Math.ceil(panelsCalculation)
+          : "";
+
+        const totalWidth = parseFloat(row.totalWidth);
+        const panelLength = !isNaN(totalWidth) ?
+          (totalWidth <= 87.5 ? (totalWidth * 2) / 100 : totalWidth / 100) : null;
+
+        // Calculate consumption with updated panels
+        const consumption = !isNaN(panels) && !isNaN(panelLength) && panels > 0 && panelLength > 0
+          ? ((panels + 1) * panelLength).toFixed(2)
+          : "";
+
+        return {
+          ...row,
+          panels: panels,
+          panelLength: !isNaN(panelLength) && panelLength > 0 ? panelLength.toFixed(2) : "",
+          consumption: consumption
+        };
+      });
+
+      return { ...table, biasExtra: value, rows: updatedRows };
+    }));
+
+    setUnsavedChanges(true);
+  };
+
   return {
     biasTables,
     setBiasTables,
@@ -228,7 +277,8 @@ const useBiasTables = ({
     handleRemoveBias,
     handleAddRow,
     handleRemoveRow,
-    handleInputChange
+    handleInputChange,
+    handleExtraChange
   };
 };
 

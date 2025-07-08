@@ -32,7 +32,8 @@ class MattressResource(Resource):
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {data['mattress']}")
 
-                # ✅ Update mattress details
+                # ✅ Update mattress details including the mattress name
+                existing_mattress.mattress = data["mattress"]  # ✅ Update mattress name
                 existing_mattress.order_commessa = data["order_commessa"]
                 existing_mattress.fabric_type = data["fabric_type"]
                 existing_mattress.fabric_code = data["fabric_code"]

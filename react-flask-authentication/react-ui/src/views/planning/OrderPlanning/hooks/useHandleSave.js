@@ -295,7 +295,7 @@ const useHandleSave = ({
         return table.rows.some((row, rowIndex) => {
           if (
             !row.pieces || !row.totalWidth || !row.grossLength ||
-            !row.rewoundWidth || !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam
+            !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam
           ) {
             invalidBiasRow = `Collaretto Bias ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
             return true;
@@ -330,22 +330,15 @@ const useHandleSave = ({
       tables.forEach((table) => {
         table.rows.forEach((row) => {
 
-          // ✅ Use pre-generated mattress name if available, otherwise generate it
-          let mattressName;
-          if (row.mattressName && row.mattressName.trim() !== "") {
-            // Use the pre-generated mattress name from bulk add
-            mattressName = row.mattressName;
-          } else {
-            // Generate Mattress Name with combination key (KEY-ORDER-AS-FABRICTYPE-001, 002, ...)
-            const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
-            const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
-            const orderSuffix = getOrderSuffix(selectedOrder.id);
+          // ✅ Always generate mattress name based on current spreading to handle spreading changes
+          const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
+          const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
+          const orderSuffix = getOrderSuffix(selectedOrder.id);
 
-            // Build mattress name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
-            mattressName = combinationKey
-              ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-              : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
-          }
+          // Build mattress name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
+          const mattressName = combinationKey
+            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
 
           newMattressNames.add(mattressName); // ✅ Track UI rows
 
@@ -523,9 +516,11 @@ const useHandleSave = ({
             : `${orderSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newWeftNames.add(collarettoWeftName);
 
+          // ✅ Use spreading value to determine item type code: ASW for automatic, MSW for manual
+          const itemTypeCode = table.spreading === "MANUAL" ? "MSW" : "ASW";
           const mattressName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-ASW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
 
           // ✅ Build the payload for this weft row
           const payload = {
@@ -537,6 +532,7 @@ const useHandleSave = ({
             fabric_color: table.fabricColor,
             dye_lot: row.bagno || null,
             item_type: "CW",
+            spreading: table.spreading, // ✅ Send spreading info to backend
 
             table_id: table.id,
             row_id: row.id,
@@ -578,8 +574,8 @@ const useHandleSave = ({
           newBiasNames.add(collarettoBiasName);
 
           const mattressName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-ASB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}-MSB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}-MSB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
 
           const payload = {
             collaretto: collarettoBiasName,
@@ -602,7 +598,7 @@ const useHandleSave = ({
                 total_width: parseFloat(row.totalWidth) || 0,
                 gross_length: parseFloat(row.grossLength) || 0,
                 pcs_seam: parseFloat(row.pcsSeamtoSeam) || 0,
-                rewound_width: parseFloat(row.rewoundWidth) || 0,
+                panel_length: parseFloat(row.panelLength) || 0,
                 roll_width: parseFloat(row.collarettoWidth) || 0,
                 scrap_rolls: parseFloat(row.scrapRoll) || 0,
                 rolls_planned: parseFloat(row.rolls) || null,
@@ -610,6 +606,7 @@ const useHandleSave = ({
                 panels_planned: parseFloat(row.panels) || null,
                 cons_planned: parseFloat(row.consumption) || null,
                 cons_actual: null,
+                extra: parseFloat(table.biasExtra) || 0,
                 bagno_ready: row.status === 'ready'
               }
             ]

@@ -18,6 +18,7 @@ const useWeftTables = ({
       fabricCode: "",
       fabricColor: "",
       weftExtra: "10",
+      spreading: "AUTOMATIC",
       rows: [
         {
           id: rowId,

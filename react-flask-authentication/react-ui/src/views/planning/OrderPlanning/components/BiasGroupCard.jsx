@@ -76,7 +76,7 @@ const BiasGroupCard = ({
           />
         </Grid>
 
-        {/* Extra %
+        {/* Extra % */}
         <Grid item xs={2} sm={1} md={1}>
           <TextField
             label="Extra %"
@@ -90,7 +90,7 @@ const BiasGroupCard = ({
             }}
             sx={{ width: '100%', minWidth: '60px', "& input": { fontWeight: "normal" } }}
           />
-        </Grid>*/}
+        </Grid>
       </Grid>
     </Box>
   );

@@ -185,6 +185,9 @@ const StyleCommentCard = ({ selectedStyle }) => {
                     value={comment || ''}
                     onChange={(e) => setComment(e.target.value)}
                     disabled={loading || saving}
+                    InputLabelProps={{
+                      style: { fontWeight: 'normal' }
+                    }}
                     sx={{
                       '& .MuiInputBase-root': {
                         minHeight: '120px'
@@ -205,7 +208,13 @@ const StyleCommentCard = ({ selectedStyle }) => {
                       disabled={loading || saving}
                       type="number"
                       inputProps={{ min: 1 }}
-                      sx={{ width: 200, marginTop: '2mm' }}
+                      InputLabelProps={{
+                        style: { fontWeight: 'normal' }
+                      }}
+                      sx={{
+                        width: 200,
+                        marginTop: '2mm'
+                      }}
                     />
 
                     {/* Save Button */}

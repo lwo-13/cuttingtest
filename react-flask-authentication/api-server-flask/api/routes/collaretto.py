@@ -204,6 +204,7 @@ class CollarettoWeft(Resource):
         fabric_color = data.get('fabric_color')
         dye_lot = data.get('dye_lot')
         item_type = data.get('item_type')
+        spreading = data.get('spreading', 'AUTOMATIC')  # Get spreading info from frontend
 
         table_id = data.get('table_id')
         row_id = data.get('row_id')
@@ -213,16 +214,20 @@ class CollarettoWeft(Resource):
             
         try:
             new_mattress_created = False
+            # ✅ Determine item_type based on spreading
+            mattress_item_type = 'MSW' if spreading == 'MANUAL' else 'ASW'
+
             # ✅ Check if mattress already exists
             existing_mattress = Mattresses.query.filter_by(row_id=row_id).first()
             if existing_mattress:
                 print(f"🔄 Updating existing mattress: {mattress_name}")
+                existing_mattress.mattress = mattress_name  # ✅ Update mattress name
                 existing_mattress.order_commessa = order_commessa
                 existing_mattress.fabric_type = fabric_type
                 existing_mattress.fabric_code = fabric_code
                 existing_mattress.fabric_color = fabric_color
                 existing_mattress.dye_lot = dye_lot
-                existing_mattress.item_type = 'ASW'
+                existing_mattress.item_type = mattress_item_type  # ✅ Use dynamic item_type
                 existing_mattress.spreading_method='FACE UP'
                 existing_mattress.table_id=table_id
                 existing_mattress.row_id=row_id
@@ -238,7 +243,7 @@ class CollarettoWeft(Resource):
                     fabric_code=fabric_code,
                     fabric_color=fabric_color,
                     dye_lot=dye_lot,
-                    item_type='ASW',
+                    item_type=mattress_item_type,  # ✅ Use dynamic item_type
                     spreading_method='FACE UP',
                     table_id=table_id,
                     row_id=row_id,
@@ -442,12 +447,18 @@ class GetWeftByOrder(Resource):
                 # ✅ Fetch the corresponding MattressDetail (rewound_width, panels_planned, and bagno_ready are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
+                # ✅ Fetch the corresponding Mattress to get item_type for spreading determination
+                mattress = Mattresses.query.filter_by(id=mattress_id).first()
+
                 # ✅ Fetch phase_status from active MattressPhase
                 phase_status = None
                 if mattress_id:
                     active_phase = MattressPhase.query.filter_by(mattress_id=mattress_id, active=True).first()
                     if active_phase:
                         phase_status = active_phase.status
+
+                # ✅ Determine spreading from mattress item_type
+                spreading = "MANUAL" if mattress and mattress.item_type == "MSW" else "AUTOMATIC"
 
                 result.append({
                     "collaretto": weft.collaretto,
@@ -459,6 +470,7 @@ class GetWeftByOrder(Resource):
                     "row_id": weft.row_id,
                     "sequence_number": weft.sequence_number,
                     "phase_status": phase_status,
+                    "spreading": spreading,  # ✅ Add spreading information
                     "details": {
                         "pieces": detail.pieces,
                         "usable_width": detail.usable_width,
@@ -513,7 +525,7 @@ class CollarettoBias(Resource):
                 existing_mattress.fabric_code = fabric_code
                 existing_mattress.fabric_color = fabric_color
                 existing_mattress.dye_lot = dye_lot
-                existing_mattress.item_type = 'ASB'
+                existing_mattress.item_type = 'MSB'
                 existing_mattress.spreading_method = 'FACE UP'
                 existing_mattress.table_id = table_id
                 existing_mattress.row_id = row_id
@@ -529,7 +541,7 @@ class CollarettoBias(Resource):
                     fabric_code=fabric_code,
                     fabric_color=fabric_color,
                     dye_lot=dye_lot,
-                    item_type='ASB',
+                    item_type='MSB',
                     spreading_method='FACE UP',
                     table_id=table_id,
                     row_id=row_id,
@@ -558,21 +570,17 @@ class CollarettoBias(Resource):
                 if existing_detail:
                     print(f"🔄 Updating existing mattress_detail for mattress_id {existing_mattress.id}")
                     existing_detail.layers = detail.get('panels_planned') or 0
-                    rewound_width = detail.get('rewound_width') or 0
-                    length_mattress = round(rewound_width * math.sqrt(2), 3)
-                    existing_detail.length_mattress = length_mattress
+                    existing_detail.length_mattress = detail.get('panel_length') or 0
                     existing_detail.cons_planned = detail.get('cons_planned') or 0
                     existing_detail.extra = 0
                     existing_detail.updated_at = datetime.now()
                     db.session.flush()
                 else:
                     print(f"➕ Creating new mattress_detail for mattress_id {existing_mattress.id}")
-                    rewound_width = detail.get('rewound_width') or 0
-                    length_mattress = round(rewound_width * math.sqrt(2), 3)
                     new_detail = MattressDetail(
                         mattress_id=existing_mattress.id,
                         layers=detail.get('panels_planned') or 0,
-                        length_mattress=length_mattress,
+                        length_mattress=detail.get('panel_length') or 0,
                         cons_planned=detail.get('cons_planned') or 0,
                         extra=0,
                         created_at=datetime.now(),
@@ -630,6 +638,7 @@ class CollarettoBias(Resource):
                     existing_coll_detail.scrap_rolls = detail.get('scrap_rolls')
                     existing_coll_detail.rolls_planned = detail.get('rolls_planned')
                     existing_coll_detail.cons_planned = detail.get('cons_planned')
+                    existing_coll_detail.extra = detail.get('extra')
                     existing_coll_detail.updated_at = datetime.now()
                     db.session.flush()
 
@@ -651,6 +660,7 @@ class CollarettoBias(Resource):
                         scrap_rolls=detail.get('scrap_rolls'),
                         rolls_planned=detail.get('rolls_planned'),
                         cons_planned=detail.get('cons_planned'),
+                        extra=detail.get('extra'),
                         created_at=datetime.now(),
                         updated_at=datetime.now()
                     )
@@ -693,8 +703,8 @@ class GetBiasByOrder(Resource):
                 # ✅ Fetch the corresponding MattressDetail (rewound_width, panels_planned, and bagno_ready are here)
                 mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
 
-                length_mattress = mattress_detail.length_mattress if mattress_detail else None
-                rewound_width = round(length_mattress / math.sqrt(2), 3) if length_mattress else None
+                # Now length_mattress directly stores the panel length
+                panel_length = mattress_detail.length_mattress if mattress_detail else None
 
                 # ✅ Fetch phase_status from active MattressPhase
                 phase_status = None
@@ -722,9 +732,10 @@ class GetBiasByOrder(Resource):
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
+                        "extra": detail.extra,  # ✅ Add extra field
                         "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
-                        "rewound_width": rewound_width,
+                        "panel_length": panel_length,
                         "panels_planned": mattress_detail.layers if mattress_detail else None
                     }
                 })
