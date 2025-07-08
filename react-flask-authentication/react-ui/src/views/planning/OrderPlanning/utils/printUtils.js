@@ -395,6 +395,47 @@ export const usePrintStyles = () => {
           color: black !important;
         }
 
+        /* Style Comment card styling - green outline and light green background */
+        .MuiCard-root.style-comment-card {
+          border: 2px solid #4caf50 !important;
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .MuiCard-root.style-comment-card .MuiCardHeader-root {
+          background-color: #e8f5e8 !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        /* Make form elements in style comment header transparent so header background shows through */
+        .MuiCard-root.style-comment-card .MuiCardHeader-root input,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root select,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root textarea,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiInputBase-root,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiOutlinedInput-root,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiTextField-root,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiFormControl-root,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiSelect-root,
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiInputBase-input {
+          background-color: transparent !important;
+          background: transparent !important;
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiTypography-root {
+          color: black !important;
+        }
+        .MuiCard-root.style-comment-card .MuiCardHeader-root .MuiIconButton-root {
+          color: black !important;
+        }
+        .MuiCard-root.style-comment-card .MuiCardHeader-root * {
+          color: black !important;
+        }
+
         /* AGGRESSIVE: Remove ALL grey backgrounds from ALL form elements */
         input, select, textarea,
         .MuiInputBase-root, .MuiOutlinedInput-root, .MuiTextField-root,
@@ -662,6 +703,31 @@ export const removeCollarettoTableClasses = (alongTables, weftTables, biasTables
   removeManualPageBreaks();
 };
 
+// Add style comment card class for print styling
+export const addStyleCommentCardClass = () => {
+  // Find the Style Comment card by looking for cards with "Style Comment" in the title
+  const allCards = document.querySelectorAll('.MuiCard-root');
+
+  allCards.forEach(card => {
+    const cardHeader = card.querySelector('.MuiCardHeader-root');
+    if (cardHeader) {
+      const titleElement = cardHeader.querySelector('.MuiCardHeader-title, .MuiTypography-root');
+      if (titleElement && titleElement.textContent.includes('Style Comment')) {
+        card.classList.add('style-comment-card');
+        console.log('✅ Added style-comment-card class for print styling');
+      }
+    }
+  });
+};
+
+// Remove style comment card class after printing
+export const removeStyleCommentCardClass = () => {
+  const styleCommentCards = document.querySelectorAll('.style-comment-card');
+  styleCommentCards.forEach(card => {
+    card.classList.remove('style-comment-card');
+  });
+};
+
 // Expand all collapsed tables before printing
 export const expandAllTables = (tables, adhesiveTables, alongTables, weftTables, biasTables, setCollapsedCards) => {
   const allTableIds = [
@@ -745,6 +811,7 @@ export const handlePrint = (tables, adhesiveTables, alongTables, weftTables, bia
   addMattressTableClasses(tables);
   addCollarettoTableClasses(alongTables, weftTables, biasTables);
   addProductionCenterCardClass();
+  addStyleCommentCardClass();
 
   document.body.classList.add("print-mode");
 
@@ -756,6 +823,7 @@ export const handlePrint = (tables, adhesiveTables, alongTables, weftTables, bia
     removeMattressTableClasses(tables);
     removeCollarettoTableClasses(alongTables, weftTables, biasTables);
     removeProductionCenterCardClass();
+    removeStyleCommentCardClass();
 
     // Restore original states after printing
     setTimeout(() => {
@@ -789,6 +857,7 @@ export const handleDestinationPrint = (selectedDestination, tables, adhesiveTabl
   addMattressTableClasses(tables);
   addCollarettoTableClasses(alongTables, weftTables, biasTables);
   addProductionCenterCardClass();
+  addStyleCommentCardClass();
 
   setTimeout(() => {
     window.print();
@@ -800,6 +869,7 @@ export const handleDestinationPrint = (selectedDestination, tables, adhesiveTabl
     removeMattressTableClasses(tables);
     removeCollarettoTableClasses(alongTables, weftTables, biasTables);
     removeProductionCenterCardClass();
+    removeStyleCommentCardClass();
 
     // Restore original states after printing
     setTimeout(() => {
