@@ -1,6 +1,6 @@
 // src/views/orderPlanning/PadPrintInfoManual.jsx
 import React, { useState, useMemo } from 'react';
-import { Grid, MenuItem, Select, InputLabel, FormControl } from '@mui/material';
+import { Grid, MenuItem, Select, InputLabel, FormControl, Box } from '@mui/material';
 import MainCard from 'ui-component/cards/MainCard';
 
 const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => {
@@ -38,40 +38,48 @@ const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => 
     }, [brand]);
 
     return (
-        <MainCard title="Pad Print">
-            <Grid container spacing={2} alignItems="center">
-                <Grid item xs={3} sm={2} md={1.5}>
-                    <FormControl fullWidth>
-                        <InputLabel>Pattern</InputLabel>
-                        <Select
-                            value={pattern}
-                            label="Pattern"
-                            onChange={(e) => setPattern(e.target.value)}
-                        >
-                            {patternOptions.map((opt) => (
-                                <MenuItem key={opt} value={opt}>
-                                    {opt}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+        <MainCard title="Pad Print" sx={{ width: '100%', height: '100%' }}>
+            <Grid container spacing={2}>
+                {/* Fields Column - 1/3 width */}
+                <Grid item xs={12} md={4}>
+                    <Box display="flex" flexDirection="column" gap={2}>
+                        {/* Pattern Field */}
+                        <FormControl fullWidth>
+                            <InputLabel>Pattern</InputLabel>
+                            <Select
+                                value={pattern}
+                                label="Pattern"
+                                onChange={(e) => setPattern(e.target.value)}
+                            >
+                                {patternOptions.map((opt) => (
+                                    <MenuItem key={opt} value={opt}>
+                                        {opt}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        {/* Pad Print Color Field - Below Pattern */}
+                        <FormControl fullWidth>
+                            <InputLabel>Pad Print Color</InputLabel>
+                            <Select
+                                value={color}
+                                label="Pad Print Color"
+                                onChange={(e) => setColor(e.target.value)}
+                            >
+                                {colorOptions.map((opt) => (
+                                    <MenuItem key={opt} value={opt}>
+                                        {opt}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Box>
                 </Grid>
 
-                <Grid item xs={3} sm={2} md={1.5}>
-                    <FormControl fullWidth>
-                        <InputLabel>Pad Print Color</InputLabel>
-                        <Select
-                            value={color}
-                            label="Pad Print Color"
-                            onChange={(e) => setColor(e.target.value)}
-                        >
-                            {colorOptions.map((opt) => (
-                                <MenuItem key={opt} value={opt}>
-                                    {opt}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                {/* Empty space for image - 2/3 width (no image in manual mode) */}
+                <Grid item xs={12} md={8}>
+                    {/* This space could be used for future features or left empty */}
                 </Grid>
             </Grid>
         </MainCard>

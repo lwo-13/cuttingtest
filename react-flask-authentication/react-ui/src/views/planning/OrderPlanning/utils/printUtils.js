@@ -72,36 +72,91 @@ export const usePrintStyles = () => {
           color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        /* Production Center card - keep header normal, minimize content spacing */
+        /* Production Center card - no top spacing, minimal bottom spacing */
         .production-center-card {
-          margin: 2px !important;
-          padding: 4px !important;
-          margin-bottom: 4px !important;
+          margin: 0 !important;
+          margin-bottom: 2px !important;
+          padding: 0 !important;
+          padding-bottom: 8px !important;
+          padding-left: 8px !important;
+          padding-right: 8px !important;
         }
 
-        /* Production Center card content - minimal spacing (header stays normal) */
+        /* Reduce spacing after production center section */
+        .production-center-card + .MuiBox-root {
+          margin-top: 2px !important;
+        }
+
+        /* Override default Box spacing that comes after production center */
+        body.print-mode .MuiBox-root[style*="margin-top"] {
+          margin-top: 2px !important;
+        }
+
+        /* Specific targeting for spacing between production center and pad print/style comment */
+        body.print-mode .production-center-card ~ .MuiBox-root {
+          margin-top: 2px !important;
+        }
+
+        /* Hide Production Center card title and header divider when printing */
+        .production-center-card .MuiCardHeader-root {
+          display: none !important;
+        }
+
+        /* Hide the divider line between header and content */
+        .production-center-card .MuiCardHeader-root + .MuiDivider-root,
+        .production-center-card .MuiCardContent-root::before {
+          display: none !important;
+        }
+
+        /* Production Center card content - no top spacing */
         .production-center-card .MuiCardContent-root {
           margin: 0 !important;
-          padding: 2px !important;
+          padding: 6px !important;
           padding-top: 0 !important;
         }
 
-        /* Production Center tabs - minimal spacing */
+        /* Production Center tabs - increased spacing */
         .production-center-card .MuiTabs-root {
           margin: 0 !important;
-          padding: 0 !important;
-          min-height: 24px !important;
+          padding: 2px !important;
+          min-height: 32px !important;
         }
 
-        /* Production Center tab panels - minimal spacing */
+        /* Production Center tab panels - increased spacing */
         .production-center-card .MuiTabPanel-root {
           margin: 0 !important;
-          padding: 2px !important;
+          padding: 6px !important;
         }
 
-        /* Production Center divider - minimal spacing */
+        /* Production Center divider - increased spacing */
         .production-center-card .MuiDivider-root {
-          margin: 0 !important;
+          margin: 2px 0 !important;
+        }
+
+        /* Production Center text and labels - much bigger font size */
+        .production-center-card .MuiTypography-root {
+          font-size: 18px !important;
+          line-height: 1.4 !important;
+          font-weight: 600 !important;
+        }
+
+        /* Production Center input fields - much bigger text */
+        .production-center-card .MuiInputBase-input {
+          font-size: 18px !important;
+          padding: 10px 14px !important;
+          font-weight: 600 !important;
+        }
+
+        /* Production Center labels - much bigger text */
+        .production-center-card .MuiInputLabel-root {
+          font-size: 18px !important;
+          font-weight: 600 !important;
+        }
+
+        /* Production Center tab labels - bigger text */
+        .production-center-card .MuiTab-root {
+          font-size: 16px !important;
+          font-weight: 600 !important;
         }
 
         /* Production Center form fields - make outlines/borders transparent */
@@ -131,16 +186,38 @@ export const usePrintStyles = () => {
           border-color: transparent !important;
         }
 
+        /* Remove underlines and bottom borders from text fields */
+        .production-center-card .MuiInput-underline:before,
+        .production-center-card .MuiInput-underline:after,
+        .production-center-card .MuiInput-underline:hover:not(.Mui-disabled):before {
+          border-bottom-color: transparent !important;
+          border-bottom: none !important;
+        }
+
+        /* Remove any remaining field borders and lines */
+        .production-center-card .MuiInputBase-root::before,
+        .production-center-card .MuiInputBase-root::after {
+          border-bottom: none !important;
+          border-bottom-color: transparent !important;
+        }
+
+        /* Make sure fieldset borders are transparent */
+        .production-center-card fieldset {
+          border-color: transparent !important;
+        }
+
         .production-center-print-header {
           margin: 0 !important;
-          padding: 4px !important;
-          margin-bottom: 4px !important;
-          margin-top: 0 !important;
+          padding: 8px !important;
+          margin-bottom: 8px !important;
+          margin-top: 4px !important;
         }
         .production-center-print-header .MuiTypography-root {
           margin: 0 !important;
-          padding: 2px !important;
-          line-height: 1.2 !important;
+          padding: 4px !important;
+          line-height: 1.4 !important;
+          font-size: 24px !important;
+          font-weight: bold !important;
         }
         .MuiTableContainer-root {
           overflow: visible !important;

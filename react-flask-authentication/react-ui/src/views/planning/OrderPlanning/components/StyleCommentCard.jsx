@@ -6,13 +6,10 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
-  IconButton,
-  Collapse,
   Button,
   Grid
 } from '@mui/material';
 import { Save as SaveIcon } from '@mui/icons-material';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -26,7 +23,6 @@ const StyleCommentCard = ({ selectedStyle }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -122,12 +118,6 @@ const StyleCommentCard = ({ selectedStyle }) => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
-
-
   const handleMaxPiecesChange = (e) => {
     const value = e.target.value;
     // Allow only positive integers
@@ -139,22 +129,9 @@ const StyleCommentCard = ({ selectedStyle }) => {
   return (
     <>
       <MainCard
+        sx={{ width: '100%', height: '100%' }}
         title={
           <Box display="flex" alignItems="center" gap={1}>
-            <IconButton
-              size="small"
-              onClick={toggleCollapse}
-              sx={{
-                color: 'text.secondary',
-                '&:hover': { backgroundColor: 'action.hover' }
-              }}
-              title={isCollapsed ? "Expand" : "Collapse"}
-            >
-              {isCollapsed ?
-                <IconChevronDown stroke={1.5} size="1rem" /> :
-                <IconChevronUp stroke={1.5} size="1rem" />
-              }
-            </IconButton>
             {t('orderPlanning.styleComment', 'Style Comment')}
             {selectedStyle && (
               <Typography variant="caption" color="text.secondary">
@@ -164,76 +141,74 @@ const StyleCommentCard = ({ selectedStyle }) => {
           </Box>
         }
       >
-        <Collapse in={!isCollapsed} timeout="auto" unmountOnExit>
-          {loading ? (
-            <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : (
-            <Box>
-              <Grid container spacing={2}>
-                {/* Style Comment */}
-                <Grid item xs={12} md={6}>
+        {loading ? (
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : (
+          <Box>
+            <Grid container spacing={2}>
+              {/* Style Comment - 3/4 width */}
+              <Grid item xs={12} md={9}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  maxRows={15}
+                  variant="outlined"
+                  label={t('orderPlanning.styleComment', 'Style Comment')}
+                  placeholder={t('orderPlanning.styleCommentPlaceholder', 'Add a comment for style {{style}}...', { style: selectedStyle })}
+                  value={comment || ''}
+                  onChange={(e) => setComment(e.target.value)}
+                  disabled={loading || saving}
+                  InputLabelProps={{
+                    style: { fontWeight: 'normal' }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      minHeight: '120px'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* Settings Column - 1/4 width */}
+              <Grid item xs={12} md={3}>
+                <Box display="flex" flexDirection="column" gap={2} height="100%">
+                  {/* Max Pieces in Package */}
                   <TextField
                     fullWidth
-                    multiline
-                    minRows={3}
-                    maxRows={15}
+                    label={t('orderPlanning.maxPiecesInPackage', 'Max Pieces in Package')}
                     variant="outlined"
-                    label={t('orderPlanning.styleComment', 'Style Comment')}
-                    placeholder={t('orderPlanning.styleCommentPlaceholder', 'Add a comment for style {{style}}...', { style: selectedStyle })}
-                    value={comment || ''}
-                    onChange={(e) => setComment(e.target.value)}
+                    value={maxPiecesInPackage}
+                    onChange={handleMaxPiecesChange}
                     disabled={loading || saving}
+                    type="number"
+                    inputProps={{ min: 1 }}
                     InputLabelProps={{
                       style: { fontWeight: 'normal' }
                     }}
                     sx={{
-                      '& .MuiInputBase-root': {
-                        minHeight: '120px'
-                      }
+                      marginTop: '2mm'
                     }}
                   />
-                </Grid>
 
-                {/* Settings Column */}
-                <Grid item xs={12} md={6}>
-                  <Box display="flex" flexDirection="column" gap={2} height="100%">
-                    {/* Max Pieces in Package */}
-                    <TextField
-                      label={t('orderPlanning.maxPiecesInPackage', 'Max Pieces in Package')}
-                      variant="outlined"
-                      value={maxPiecesInPackage}
-                      onChange={handleMaxPiecesChange}
-                      disabled={loading || saving}
-                      type="number"
-                      inputProps={{ min: 1 }}
-                      InputLabelProps={{
-                        style: { fontWeight: 'normal' }
-                      }}
-                      sx={{
-                        width: 200,
-                        marginTop: '2mm'
-                      }}
-                    />
-
-                    {/* Save Button */}
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={<SaveIcon />}
-                      onClick={handleSave}
-                      disabled={!hasUnsavedChanges || saving || !selectedStyle}
-                      sx={{ mt: 'auto', alignSelf: 'flex-start' }}
-                    >
-                      {saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
-                    </Button>
-                  </Box>
-                </Grid>
+                  {/* Save Button */}
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSave}
+                    disabled={!hasUnsavedChanges || saving || !selectedStyle}
+                    sx={{ mt: 'auto', alignSelf: 'flex-start' }}
+                  >
+                    {saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
+                  </Button>
+                </Box>
               </Grid>
-            </Box>
-          )}
-        </Collapse>
+            </Grid>
+          </Box>
+        )}
       </MainCard>
 
       {/* Success/Error Snackbar */}

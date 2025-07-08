@@ -1350,21 +1350,37 @@ const OrderPlanning = () => {
 
             <Box mt={2} />
 
-            {/* Pad Print Section */}
-            {selectedOrder && (
-                <>
-                    {padPrintInfo ? (
-                        <PadPrintInfo padPrintInfo={padPrintInfo} />
-                    ) : (
-                        <PadPrintInfoManual
-                            brand={brand?.toLowerCase()}
-                            pattern={manualPattern}
-                            setPattern={setManualPattern}
-                            color={manualColor}
-                            setColor={setManualColor}
-                        />
-                    )}
-                </>
+            {/* Pad Print and Style Comment Section - Side by Side */}
+            {(selectedOrder || selectedStyle) && (
+                <Box display="flex" gap={2} mt={2} alignItems="stretch">
+                    {/* Pad Print Section - Left Half */}
+                    <Box flex={1} display="flex">
+                        {selectedOrder && (
+                            <>
+                                {padPrintInfo ? (
+                                    <PadPrintInfo padPrintInfo={padPrintInfo} />
+                                ) : (
+                                    <PadPrintInfoManual
+                                        brand={brand?.toLowerCase()}
+                                        pattern={manualPattern}
+                                        setPattern={setManualPattern}
+                                        color={manualColor}
+                                        setColor={setManualColor}
+                                    />
+                                )}
+                            </>
+                        )}
+                    </Box>
+
+                    {/* Style Comment Section - Right Half */}
+                    <Box flex={1} display="flex">
+                        {selectedStyle && (
+                            <StyleCommentCard
+                                selectedStyle={selectedStyle}
+                            />
+                        )}
+                    </Box>
+                </Box>
             )}
 
             <Box mt={2} />
@@ -1892,16 +1908,6 @@ const OrderPlanning = () => {
                     />
                 </Box>
             )}
-
-            {/* Style Comment Card Section - Always visible when style is selected */}
-            {selectedStyle && (
-                <Box mt={3}>
-                    <StyleCommentCard
-                        selectedStyle={selectedStyle}
-                    />
-                </Box>
-            )}
-
 
 
             {selectedOrder && (

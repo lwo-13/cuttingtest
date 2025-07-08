@@ -187,8 +187,10 @@ const useBiasTables = ({
             ? panelLength.toFixed(2)
             : "";
 
+          // Consumption calculation: add 0.5 for ≤87.5, add 1 for >87.5
+          const consumptionAdjustment = totalWidth <= 87.5 ? 0.5 : 1;
           updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
-            ? ((panels + 1) * panelLength).toFixed(2)
+            ? ((panels + consumptionAdjustment) * panelLength).toFixed(2)
             : "";
 
           return updatedRow;
@@ -251,9 +253,11 @@ const useBiasTables = ({
         const panelLength = !isNaN(totalWidth) ?
           (totalWidth <= 87.5 ? (totalWidth * 2) / 100 : totalWidth / 100) : null;
 
-        // Calculate consumption with updated panels
+        // Calculate consumption with updated panels: add 0.5 for ≤87.5, add 1 for >87.5
+        const rowTotalWidth = parseFloat(row.totalWidth);
+        const consumptionAdjustment = rowTotalWidth <= 87.5 ? 0.5 : 1;
         const consumption = !isNaN(panels) && !isNaN(panelLength) && panels > 0 && panelLength > 0
-          ? ((panels + 1) * panelLength).toFixed(2)
+          ? ((panels + consumptionAdjustment) * panelLength).toFixed(2)
           : "";
 
         return {

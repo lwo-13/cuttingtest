@@ -7,30 +7,34 @@ const PadPrintInfo = ({ padPrintInfo }) => {
     if (!padPrintInfo) return null;
 
     return (
-        <MainCard title="Pad Print">
-            <Grid container spacing={2} alignItems="center">
-                <Grid item xs={3} sm={2} md={1.5}>
-                    <TextField
-                        label="Pattern"
-                        variant="outlined"
-                        value={padPrintInfo.pattern || ""}
-                        InputProps={{ readOnly: true }}
-                        sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-                    />
+        <MainCard title="Pad Print" sx={{ width: '100%', height: '100%' }}>
+            <Grid container spacing={2}>
+                {/* Fields Column - 1/3 width */}
+                <Grid item xs={12} md={4}>
+                    <Box display="flex" flexDirection="column" gap={2}>
+                        {/* Pattern Field */}
+                        <TextField
+                            label="Pattern"
+                            variant="outlined"
+                            value={padPrintInfo.pattern || ""}
+                            InputProps={{ readOnly: true }}
+                            sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+                        />
+
+                        {/* Pad Print Color Field - Below Pattern */}
+                        <TextField
+                            label="Pad Print Color"
+                            variant="outlined"
+                            value={padPrintInfo.padprint_color || ""}
+                            InputProps={{ readOnly: true }}
+                            sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+                        />
+                    </Box>
                 </Grid>
 
-                <Grid item xs={3} sm={2} md={1.5}>
-                    <TextField
-                        label="Pad Print Color"
-                        variant="outlined"
-                        value={padPrintInfo.padprint_color || ""}
-                        InputProps={{ readOnly: true }}
-                        sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-                    />
-                </Grid>
-
+                {/* Image Column - 2/3 width */}
                 {padPrintInfo.image_url && (
-                    <Grid item xs={12} sm={6} md={4}>
+                    <Grid item xs={12} md={8}>
                         <Box
                             component="img"
                             // Using the working API endpoint format
