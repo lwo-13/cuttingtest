@@ -16,9 +16,11 @@ import {
     TableCell,
     TableBody,
     Typography,
-    Button
+    Button,
+    Snackbar,
+    Alert
   } from '@mui/material';
-import { Block } from '@mui/icons-material';
+import { Block, Delete } from '@mui/icons-material';
 import MainCard from '../../ui-component/cards/MainCard';
 import TablePagination from '@mui/material/TablePagination';
 
@@ -69,6 +71,16 @@ const MarkerDB = () => {
     const [pcsDialogOpen, setPcsDialogOpen] = useState(false);
     const [markerLines, setMarkerLines] = useState([]);
     const [selectedMarkerName, setSelectedMarkerName] = useState('');
+
+    // Snackbar state
+    const [openSuccess, setOpenSuccess] = useState(false);
+    const [openError, setOpenError] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+
+    // Snackbar close handlers
+    const handleCloseSuccess = () => setOpenSuccess(false);
+    const handleCloseError = () => setOpenError(false);
 
     // ✅ Adjust table height dynamically when the window resizes
     useEffect(() => {
@@ -140,7 +152,8 @@ const MarkerDB = () => {
             });
 
             if (response.data.success) {
-                console.log("Markers updated successfully");
+                setSuccessMessage("Markers set to NOT ACTIVE successfully");
+                setOpenSuccess(true);
 
                 // ✅ Re-fetch markers after update
                 fetchMarkers();
@@ -148,10 +161,48 @@ const MarkerDB = () => {
                 // ✅ Clear selection
                 setSelectedMarkers([]);
             } else {
-                console.error("Failed to update markers:", response.data.message);
+                setErrorMessage(response.data.message || "Failed to update markers");
+                setOpenError(true);
             }
         } catch (error) {
             console.error("Error updating markers:", error);
+            setErrorMessage("An error occurred while updating markers");
+            setOpenError(true);
+        }
+    };
+
+    const handleDeleteMarkers = async () => {
+        if (!selectedMarkers.length) return;
+
+        // Show confirmation dialog
+        if (!window.confirm("Are you sure you want to delete the selected markers? This action cannot be undone.")) {
+            return;
+        }
+
+        console.log("Deleting marker IDs:", selectedMarkers);
+
+        try {
+            const response = await axios.post('/markers/delete', {
+                marker_ids: selectedMarkers
+            });
+
+            if (response.data.success) {
+                setSuccessMessage(response.data.message);
+                setOpenSuccess(true);
+
+                // ✅ Re-fetch markers after deletion
+                fetchMarkers();
+
+                // ✅ Clear selection
+                setSelectedMarkers([]);
+            } else {
+                setErrorMessage(response.data.message);
+                setOpenError(true);
+            }
+        } catch (error) {
+            console.error("Error deleting markers:", error);
+            setErrorMessage("Marker cannot be deleted");
+            setOpenError(true);
         }
     };
 
@@ -187,15 +238,26 @@ const MarkerDB = () => {
     return (
         <>
             <MainCard title="Marker Database" secondary={
-                <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleSetNotActive} // ✅ Calls the function to set as NOT ACTIVE
-                    startIcon={<Block />} // ✅ Uses a Print icon
-                    disabled={!selectedMarkers.length} // ✅ Disable if no selection
-                >
-                    Set NOT ACTIVE
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={handleSetNotActive}
+                        startIcon={<Block />}
+                        disabled={!selectedMarkers.length}
+                    >
+                        Set NOT ACTIVE
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleDeleteMarkers}
+                        startIcon={<Delete />}
+                        disabled={!selectedMarkers.length}
+                    >
+                        DELETE
+                    </Button>
+                </Box>
             }>
                 {loading ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="300px">
@@ -267,6 +329,30 @@ const MarkerDB = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Success Snackbar */}
+            <Snackbar
+                open={openSuccess}
+                autoHideDuration={5000}
+                onClose={handleCloseSuccess}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert onClose={handleCloseSuccess} severity="success" sx={{ width: '100%' }}>
+                    {successMessage}
+                </Alert>
+            </Snackbar>
+
+            {/* Error Snackbar */}
+            <Snackbar
+                open={openError}
+                autoHideDuration={5000}
+                onClose={handleCloseError}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
+                    {errorMessage}
+                </Alert>
+            </Snackbar>
         </>
     );
 };

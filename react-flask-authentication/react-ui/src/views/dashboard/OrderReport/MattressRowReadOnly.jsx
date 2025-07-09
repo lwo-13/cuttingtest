@@ -1,5 +1,6 @@
 import React from 'react';
 import { TableRow, TableCell, TextField, Typography } from '@mui/material';
+import MattressProgressBar from './MattressProgressBar';
 
 const MattressRowReadOnly = ({ row, orderSizes }) => {
   return (
@@ -118,6 +119,11 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.bagno || '-'}
         </Typography>
+      </TableCell>
+
+      {/* Progress Bar */}
+      <TableCell sx={{ minWidth: '150px', textAlign: 'center', padding: '4px' }}>
+        <MattressProgressBar currentPhase={row.phase_status} />
       </TableCell>
 
       {/* Empty Cell (icon placeholder) */}

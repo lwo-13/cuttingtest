@@ -115,7 +115,7 @@ const handleOrderChange = async (newValue, {
     // Separate mattress and adhesive data from the single API response
     const allData = allMattressRes.data?.data || [];
     console.log(`📊 Received ${allData.length} mattress/adhesive records for cutting room ${cuttingRoom}`);
-    const mattressData = allData.filter(item => ['AS', 'MS'].includes(item.item_type));
+    const mattressData = allData.filter(item => ['AS', 'MS', 'CWAS', 'CWMS'].includes(item.item_type));
     const adhesiveData = allData.filter(item => ['ASA', 'MSA'].includes(item.item_type));
 
     // Process mattress tables
@@ -130,7 +130,7 @@ const handleOrderChange = async (newValue, {
           fabricColor: mattress.fabric_color,
           spreadingMethod: mattress.spreading_method,
           allowance: parseFloat(mattress.allowance) || 0,
-          spreading: mattress.item_type === "MS" ? "MANUAL" : "AUTOMATIC",
+          spreading: (mattress.item_type === "MS" || mattress.item_type === "CWMS") ? "MANUAL" : "AUTOMATIC",
           rows: []
         };
       }

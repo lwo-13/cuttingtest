@@ -745,3 +745,57 @@ class NotActive(Resource):
         db.session.commit()
 
         return {"success": True, "message": "Markers updated successfully"}
+
+# ===================== Delete Markers ==========================
+@markers_api.route('/delete', methods=['POST'])
+class DeleteMarkers(Resource):
+    def post(self):
+        from api.models import MattressMarker
+
+        data = request.json
+        marker_ids = data.get("marker_ids", [])
+
+        if not marker_ids:
+            return {"success": False, "message": "No marker IDs provided"}, 400
+
+        try:
+            # Check if any of the markers are used in mattress_markers table
+            used_markers = db.session.query(MattressMarker.marker_id).filter(
+                MattressMarker.marker_id.in_(marker_ids)
+            ).distinct().all()
+
+            used_marker_ids = [marker.marker_id for marker in used_markers]
+
+            if used_marker_ids:
+                # Get marker names for the error message
+                used_marker_names = db.session.query(MarkerHeader.marker_name).filter(
+                    MarkerHeader.id.in_(used_marker_ids)
+                ).all()
+                marker_names_str = ", ".join([name.marker_name for name in used_marker_names])
+
+                return {
+                    "success": False,
+                    "message": f"Cannot delete markers that have been used: {marker_names_str}"
+                }, 400
+
+            # If no markers are used, proceed with deletion
+            markers_to_delete = MarkerHeader.query.filter(MarkerHeader.id.in_(marker_ids)).all()
+
+            if not markers_to_delete:
+                return {"success": False, "message": "No markers found to delete"}, 404
+
+            deleted_count = 0
+            for marker in markers_to_delete:
+                db.session.delete(marker)
+                deleted_count += 1
+
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Successfully deleted {deleted_count} marker(s)"
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Error deleting markers: {str(e)}"}, 500
