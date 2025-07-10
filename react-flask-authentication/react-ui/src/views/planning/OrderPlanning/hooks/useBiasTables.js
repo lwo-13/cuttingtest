@@ -157,7 +157,7 @@ const useBiasTables = ({
           }
 
           const rewoundWidth = parseFloat(field === "rewoundWidth" ? value : row.rewoundWidth);
-          const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll);
+          const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll) || 0;
 
           // N° Rolls = totalWidth (cm) / collarettoWidth (mm) - scrap
           // If totalWidth ≤ 87.5, multiply by 2 before division
@@ -175,9 +175,12 @@ const useBiasTables = ({
           const currentTable = prevTables.find(t => t.id === tableId);
           const extra = parseFloat(currentTable?.biasExtra) / 100 || 0;
           const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
-          updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-            ? Math.ceil(panelsCalculation)
-            : "";
+          if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+            const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+            updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+          } else {
+            updatedRow.panels = "";
+          }
 
           const panels = parseFloat(updatedRow.panels);
           // Panel length calculation based on total width value (convert cm to meters)
@@ -270,9 +273,11 @@ const useBiasTables = ({
 
         // Calculate panels with extra percentage
         const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
-        const panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.ceil(panelsCalculation)
-          : "";
+        let panels = "";
+        if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+          const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+          panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+        }
 
         const totalWidth = parseFloat(row.totalWidth);
         const panelLength = !isNaN(totalWidth) ?

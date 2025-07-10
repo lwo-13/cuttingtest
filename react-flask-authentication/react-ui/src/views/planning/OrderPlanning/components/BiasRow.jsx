@@ -122,7 +122,7 @@ const BiasRow = ({
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
-          value={row.scrapRoll || ""}
+          value={row.scrapRoll ?? ""}
           disabled={!editable}
           onChange={handleChange("scrapRoll", /\D/g, 1)}
           sx={inputSx}

@@ -155,7 +155,7 @@ const useWeftTables = ({
 
           const rewoundWidth = parseFloat(field === "rewoundWidth" ? value : row.rewoundWidth);
           const collWidthMM = parseFloat(field === "collarettoWidth" ? value : row.collarettoWidth);
-          const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll);
+          const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll) || 0;
           const collWidthM = collWidthMM / 1000;
 
           updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
@@ -168,9 +168,12 @@ const useWeftTables = ({
           const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
 
           const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
-          updatedRow.panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.ceil(panelsCalculation)
-          : "";
+          if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+            const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+            updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+          } else {
+            updatedRow.panels = "";
+          }
 
           const panels = parseFloat(updatedRow.panels);
           updatedRow.consumption = !isNaN(panels) && !isNaN(rewoundWidth)
@@ -253,9 +256,11 @@ const useWeftTables = ({
         const pcsSeam = parseFloat(row.pcsSeamtoSeam);
 
         const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
-        const panels = !isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0
-          ? Math.ceil(panelsCalculation)
-          : "";
+        let panels = "";
+        if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+          const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+          panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+        }
 
         const consumption = !isNaN(panels) && !isNaN(rewoundWidth)
           ? (panels * rewoundWidth).toFixed(2)
