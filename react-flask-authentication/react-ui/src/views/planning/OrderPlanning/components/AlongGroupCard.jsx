@@ -101,6 +101,9 @@ const AlongGroupCard = ({
     // Get selected sizes
     const selectedSizes = Object.keys(sizeSplitting).filter(size => sizeSplitting[size]);
 
+    // Convert selected sizes to the format expected by the sizes field
+    const applicableSizes = selectedSizes.length > 0 ? selectedSizes.join('-') : 'ALL';
+
     // Collect all unique bagnos from matching mattress tables in order of appearance
     const bagnoData = {};
     const bagnoOrder = []; // Track the order of bagno appearance
@@ -173,7 +176,8 @@ const AlongGroupCard = ({
               theoreticalConsumption: collarettoTypes.grossLength, // Note: grossLength maps to theoreticalConsumption
               collarettoWidth: collarettoTypes.collarettoWidth,
               scrapRoll: collarettoTypes.scrapRolls,
-              bagno: bagnoInfo.bagno
+              bagno: bagnoInfo.bagno,
+              sizes: applicableSizes // ✅ Apply selected sizes from size splitting
             };
 
             // Calculate automatic fields

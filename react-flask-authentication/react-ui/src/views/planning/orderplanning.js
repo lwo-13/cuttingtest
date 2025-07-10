@@ -814,10 +814,12 @@ const OrderPlanning = () => {
 
             console.log(`📊 Total pieces for bagno ${bagno}: ${totalPiecesForBagno}`, piecesPerSizeForBagno);
 
-            // Get the destination from the mattress table that has this bagno
+            // Get the destination and fabric info from the mattress table that has this bagno
             let mattressDestination = null;
             let mattressProductionCenter = null;
             let mattressCuttingRoom = null;
+            let mattressFabricCode = null;
+            let mattressFabricColor = null;
 
             tables.forEach(table => {
                 table.rows.forEach(row => {
@@ -825,6 +827,8 @@ const OrderPlanning = () => {
                         mattressDestination = table.destination;
                         mattressProductionCenter = table.productionCenter;
                         mattressCuttingRoom = table.cuttingRoom;
+                        mattressFabricCode = table.fabricCode;
+                        mattressFabricColor = table.fabricColor;
                     }
                 });
             });
@@ -832,16 +836,20 @@ const OrderPlanning = () => {
             console.log(`🎯 Mattress configuration for bagno ${bagno}:`, {
                 destination: mattressDestination,
                 productionCenter: mattressProductionCenter,
-                cuttingRoom: mattressCuttingRoom
+                cuttingRoom: mattressCuttingRoom,
+                fabricCode: mattressFabricCode,
+                fabricColor: mattressFabricColor
             });
 
-            // Update weft tables that match both bagno AND configuration
+            // Update weft tables that match both bagno AND configuration AND fabric
             setWeftTables(prevTables => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
                     const hasMatchingConfig = table.destination === mattressDestination &&
                                            table.productionCenter === mattressProductionCenter &&
-                                           table.cuttingRoom === mattressCuttingRoom;
+                                           table.cuttingRoom === mattressCuttingRoom &&
+                                           table.fabricCode === mattressFabricCode &&
+                                           table.fabricColor === mattressFabricColor;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -851,9 +859,26 @@ const OrderPlanning = () => {
                         ...table,
                         rows: table.rows.map(row => {
                             if (row.bagno === bagno) {
+                                // ✅ Calculate size-aware pieces for this specific collaretto row
+                                let rowSpecificPieces = 0;
+                                const rowSizes = row.sizes || 'ALL';
+
+                                if (rowSizes === 'ALL') {
+                                    // Use all pieces if row is for all sizes
+                                    rowSpecificPieces = totalPiecesForBagno;
+                                } else {
+                                    // Calculate pieces only for the sizes this row is configured for
+                                    const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
+                                    rowSpecificPieces = targetSizes.reduce((sum, size) => {
+                                        return sum + (piecesPerSizeForBagno[size] || 0);
+                                    }, 0);
+
+                                    console.log(`🎯 Weft row-specific pieces for sizes ${targetSizes.join(', ')}: ${rowSpecificPieces}`);
+                                }
+
                                 return {
                                     ...row,
-                                    pieces: totalPiecesForBagno.toString()
+                                    pieces: rowSpecificPieces.toString()
                                 };
                             }
                             return row;
@@ -862,13 +887,15 @@ const OrderPlanning = () => {
                 });
             });
 
-            // Update bias tables that match both bagno AND configuration
+            // Update bias tables that match both bagno AND configuration AND fabric
             setBiasTables(prevTables => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
                     const hasMatchingConfig = table.destination === mattressDestination &&
                                            table.productionCenter === mattressProductionCenter &&
-                                           table.cuttingRoom === mattressCuttingRoom;
+                                           table.cuttingRoom === mattressCuttingRoom &&
+                                           table.fabricCode === mattressFabricCode &&
+                                           table.fabricColor === mattressFabricColor;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -878,9 +905,26 @@ const OrderPlanning = () => {
                         ...table,
                         rows: table.rows.map(row => {
                             if (row.bagno === bagno) {
+                                // ✅ Calculate size-aware pieces for this specific collaretto row
+                                let rowSpecificPieces = 0;
+                                const rowSizes = row.sizes || 'ALL';
+
+                                if (rowSizes === 'ALL') {
+                                    // Use all pieces if row is for all sizes
+                                    rowSpecificPieces = totalPiecesForBagno;
+                                } else {
+                                    // Calculate pieces only for the sizes this row is configured for
+                                    const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
+                                    rowSpecificPieces = targetSizes.reduce((sum, size) => {
+                                        return sum + (piecesPerSizeForBagno[size] || 0);
+                                    }, 0);
+
+                                    console.log(`🎯 Bias row-specific pieces for sizes ${targetSizes.join(', ')}: ${rowSpecificPieces}`);
+                                }
+
                                 return {
                                     ...row,
-                                    pieces: totalPiecesForBagno.toString()
+                                    pieces: rowSpecificPieces.toString()
                                 };
                             }
                             return row;
@@ -889,13 +933,15 @@ const OrderPlanning = () => {
                 });
             });
 
-            // Update along tables that match both bagno AND configuration
+            // Update along tables that match both bagno AND configuration AND fabric
             setAlongTables(prevTables => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
                     const hasMatchingConfig = table.destination === mattressDestination &&
                                            table.productionCenter === mattressProductionCenter &&
-                                           table.cuttingRoom === mattressCuttingRoom;
+                                           table.cuttingRoom === mattressCuttingRoom &&
+                                           table.fabricCode === mattressFabricCode &&
+                                           table.fabricColor === mattressFabricColor;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -905,9 +951,26 @@ const OrderPlanning = () => {
                         ...table,
                         rows: table.rows.map(row => {
                             if (row.bagno === bagno) {
+                                // ✅ Calculate size-aware pieces for this specific collaretto row
+                                let rowSpecificPieces = 0;
+                                const rowSizes = row.sizes || 'ALL';
+
+                                if (rowSizes === 'ALL') {
+                                    // Use all pieces if row is for all sizes
+                                    rowSpecificPieces = totalPiecesForBagno;
+                                } else {
+                                    // Calculate pieces only for the sizes this row is configured for
+                                    const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
+                                    rowSpecificPieces = targetSizes.reduce((sum, size) => {
+                                        return sum + (piecesPerSizeForBagno[size] || 0);
+                                    }, 0);
+
+                                    console.log(`🎯 Along row-specific pieces for sizes ${targetSizes.join(', ')}: ${rowSpecificPieces}`);
+                                }
+
                                 return {
                                     ...row,
-                                    pieces: totalPiecesForBagno.toString()
+                                    pieces: rowSpecificPieces.toString()
                                 };
                             }
                             return row;
@@ -921,13 +984,13 @@ const OrderPlanning = () => {
         };
 
         const handleMattressPiecesChanged = (event) => {
-            const { bagno, piecesPerSize } = event.detail;
+            const { bagno } = event.detail;
 
-            if (!bagno || bagno === 'Unknown' || !piecesPerSize) {
+            if (!bagno || bagno === 'Unknown') {
                 return;
             }
 
-            console.log(`🔄 Mattress pieces changed for bagno ${bagno}:`, piecesPerSize);
+            console.log(`🔄 Mattress pieces changed for bagno ${bagno} - recalculating from all mattress tables`);
 
             // Show brief notification about automatic update
             setInfoMessage(`🔄 Automatically updating collaretto pieces for bagno ${bagno}`);
@@ -938,7 +1001,7 @@ const OrderPlanning = () => {
                 setOpenInfo(false);
             }, 2000);
 
-            // Calculate total pieces for this bagno from all mattress tables
+            // ✅ Calculate total pieces for this bagno from ALL mattress tables (not just the event data)
             let totalPiecesForBagno = 0;
             let piecesPerSizeForBagno = {};
 
@@ -946,26 +1009,31 @@ const OrderPlanning = () => {
                 table.rows.forEach(row => {
                     if (row.bagno === bagno && row.layers && row.piecesPerSize) {
                         const layers = parseInt(row.layers) || 0;
+                        console.log(`🔍 Processing mattress row with bagno ${bagno}, layers: ${layers}, piecesPerSize:`, row.piecesPerSize);
                         Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
                             const pcs = parseInt(pieces) || 0;
                             const totalForSize = pcs * layers;
                             piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
                             totalPiecesForBagno += totalForSize;
+                            console.log(`📊 Size ${size}: ${pcs} pcs/layer × ${layers} layers = ${totalForSize} total pieces`);
                         });
                     }
                 });
             });
 
             if (totalPiecesForBagno === 0) {
-                return;
+                console.log(`⚠️ No pieces found for bagno ${bagno} - collaretto pieces will be set to 0`);
+                // Don't return here - we still want to update collaretto to show 0 pieces
             }
 
-            console.log(`📊 Total pieces for bagno ${bagno}: ${totalPiecesForBagno}`, piecesPerSizeForBagno);
+            console.log(`📊 Final calculation for bagno ${bagno}: ${totalPiecesForBagno} total pieces`, piecesPerSizeForBagno);
 
-            // Get the destination from the mattress table that has this bagno
+            // Get the destination and fabric info from the mattress table that has this bagno
             let mattressDestination = null;
             let mattressProductionCenter = null;
             let mattressCuttingRoom = null;
+            let mattressFabricCode = null;
+            let mattressFabricColor = null;
 
             tables.forEach(table => {
                 table.rows.forEach(row => {
@@ -973,17 +1041,21 @@ const OrderPlanning = () => {
                         mattressDestination = table.destination;
                         mattressProductionCenter = table.productionCenter;
                         mattressCuttingRoom = table.cuttingRoom;
+                        mattressFabricCode = table.fabricCode;
+                        mattressFabricColor = table.fabricColor;
                     }
                 });
             });
 
-            // Update collaretto tables with the new piece quantities (only matching configuration)
+            // Update collaretto tables with the new piece quantities (only matching configuration AND fabric)
             const updateCollarettoTables = (prevTables) => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
                     const hasMatchingConfig = table.destination === mattressDestination &&
                                            table.productionCenter === mattressProductionCenter &&
-                                           table.cuttingRoom === mattressCuttingRoom;
+                                           table.cuttingRoom === mattressCuttingRoom &&
+                                           table.fabricCode === mattressFabricCode &&
+                                           table.fabricColor === mattressFabricColor;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -991,10 +1063,35 @@ const OrderPlanning = () => {
                         ...table,
                         rows: table.rows.map(row => {
                             if (row.bagno === bagno) {
-                                console.log(`🔄 Updating collaretto table ${table.id} for bagno ${bagno} in ${mattressDestination}: ${totalPiecesForBagno}`);
+                                // ✅ Calculate size-aware pieces for this specific collaretto row
+                                let rowSpecificPieces = 0;
+                                const rowSizes = row.sizes || 'ALL';
+
+                                console.log(`🎯 Processing collaretto row with bagno ${bagno}, sizes: "${rowSizes}"`);
+                                console.log(`🎯 Available pieces per size:`, piecesPerSizeForBagno);
+
+                                if (rowSizes === 'ALL') {
+                                    // Use all pieces if row is for all sizes
+                                    rowSpecificPieces = totalPiecesForBagno;
+                                    console.log(`🎯 Row configured for ALL sizes, using total: ${rowSpecificPieces}`);
+                                } else {
+                                    // Calculate pieces only for the sizes this row is configured for
+                                    const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
+                                    console.log(`🎯 Row configured for specific sizes: ${targetSizes.join(', ')}`);
+
+                                    rowSpecificPieces = targetSizes.reduce((sum, size) => {
+                                        const piecesForSize = piecesPerSizeForBagno[size] || 0;
+                                        console.log(`🎯 Size ${size}: ${piecesForSize} pieces`);
+                                        return sum + piecesForSize;
+                                    }, 0);
+
+                                    console.log(`🎯 Row-specific pieces for sizes ${targetSizes.join(', ')}: ${rowSpecificPieces}`);
+                                }
+
+                                console.log(`🔄 Updating collaretto table ${table.id} for bagno ${bagno} in ${mattressDestination}: ${rowSpecificPieces} pieces (sizes: ${rowSizes})`);
                                 return {
                                     ...row,
-                                    pieces: totalPiecesForBagno.toString()
+                                    pieces: rowSpecificPieces.toString()
                                 };
                             }
                             return row;
@@ -1024,59 +1121,130 @@ const OrderPlanning = () => {
             let collarettoDestination = null;
             let collarettoProductionCenter = null;
             let collarettoCuttingRoom = null;
+            let collarettoFabricCode = null;
+            let collarettoFabricColor = null;
 
             if (tableType === 'weft') {
                 const weftTable = weftTables.find(t => t.id === tableId);
                 collarettoDestination = weftTable?.destination;
                 collarettoProductionCenter = weftTable?.productionCenter;
                 collarettoCuttingRoom = weftTable?.cuttingRoom;
+                collarettoFabricCode = weftTable?.fabricCode;
+                collarettoFabricColor = weftTable?.fabricColor;
             } else if (tableType === 'bias') {
                 const biasTable = biasTables.find(t => t.id === tableId);
                 collarettoDestination = biasTable?.destination;
                 collarettoProductionCenter = biasTable?.productionCenter;
                 collarettoCuttingRoom = biasTable?.cuttingRoom;
+                collarettoFabricCode = biasTable?.fabricCode;
+                collarettoFabricColor = biasTable?.fabricColor;
             } else if (tableType === 'along') {
                 const alongTable = alongTables.find(t => t.id === tableId);
                 collarettoDestination = alongTable?.destination;
                 collarettoProductionCenter = alongTable?.productionCenter;
                 collarettoCuttingRoom = alongTable?.cuttingRoom;
+                collarettoFabricCode = alongTable?.fabricCode;
+                collarettoFabricColor = alongTable?.fabricColor;
             }
 
             console.log(`🎯 Collaretto configuration for bagno ${bagno}:`, {
                 destination: collarettoDestination,
                 productionCenter: collarettoProductionCenter,
-                cuttingRoom: collarettoCuttingRoom
+                cuttingRoom: collarettoCuttingRoom,
+                fabricCode: collarettoFabricCode,
+                fabricColor: collarettoFabricColor
             });
+
+            // Get the sizes information from the collaretto row to determine which sizes to include
+            let collarettoRowSizes = 'ALL';
+            let targetSizes = [];
+
+            // Find the specific collaretto row to get its sizes configuration
+            const collarettoTables = tableType === 'weft' ? weftTables :
+                                   tableType === 'bias' ? biasTables : alongTables;
+
+            const targetTable = collarettoTables.find(t => t.id === tableId);
+            const targetRow = targetTable?.rows.find(r => r.id === rowId);
+
+            if (targetRow && targetRow.sizes) {
+                collarettoRowSizes = targetRow.sizes;
+                if (collarettoRowSizes !== 'ALL') {
+                    targetSizes = collarettoRowSizes.split('-').map(s => s.trim()).filter(s => s);
+                }
+            }
+
+            console.log(`🎯 Collaretto row sizes configuration: ${collarettoRowSizes}`, targetSizes.length > 0 ? targetSizes : 'ALL sizes');
+            console.log(`🎯 Target row details:`, targetRow);
 
             // Calculate total pieces for this bagno from mattress tables with matching configuration
             let totalPiecesForBagno = 0;
             let piecesPerSizeForBagno = {};
 
             tables.forEach(table => {
-                // Only consider mattress tables with matching configuration
+                // Only consider mattress tables with matching configuration AND fabric code/color
                 const hasMatchingConfig = table.destination === collarettoDestination &&
                                         table.productionCenter === collarettoProductionCenter &&
-                                        table.cuttingRoom === collarettoCuttingRoom;
+                                        table.cuttingRoom === collarettoCuttingRoom &&
+                                        table.fabricCode === collarettoFabricCode &&
+                                        table.fabricColor === collarettoFabricColor;
+
+                // Debug logging to see what's being compared
+                console.log(`🔍 Checking mattress table ${table.id}:`, {
+                    mattress: {
+                        destination: table.destination,
+                        productionCenter: table.productionCenter,
+                        cuttingRoom: table.cuttingRoom,
+                        fabricCode: table.fabricCode,
+                        fabricColor: table.fabricColor
+                    },
+                    collaretto: {
+                        destination: collarettoDestination,
+                        productionCenter: collarettoProductionCenter,
+                        cuttingRoom: collarettoCuttingRoom,
+                        fabricCode: collarettoFabricCode,
+                        fabricColor: collarettoFabricColor
+                    },
+                    hasMatchingConfig
+                });
 
                 if (hasMatchingConfig) {
+                    console.log(`✅ Found matching mattress table ${table.id} for bagno ${bagno}`);
                     table.rows.forEach(row => {
                         if (row.bagno === bagno && row.layers && row.piecesPerSize) {
                             const layers = parseInt(row.layers) || 0;
+                            console.log(`📋 Processing mattress row with bagno ${bagno}, layers: ${layers}, piecesPerSize:`, row.piecesPerSize);
+
                             Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
-                                const pcs = parseInt(pieces) || 0;
-                                const totalForSize = pcs * layers;
-                                piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
-                                totalPiecesForBagno += totalForSize;
+                                // ✅ Size-aware filtering: only include pieces for target sizes
+                                const shouldIncludeSize = collarettoRowSizes === 'ALL' || targetSizes.includes(size);
+
+                                if (shouldIncludeSize) {
+                                    const pcs = parseInt(pieces) || 0;
+                                    const totalForSize = pcs * layers;
+                                    piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
+                                    totalPiecesForBagno += totalForSize;
+
+                                    console.log(`📊 Including size ${size}: ${pcs} pcs/layer × ${layers} layers = ${totalForSize} pieces`);
+                                } else {
+                                    console.log(`⏭️ Skipping size ${size} (not in target sizes: ${targetSizes.join(', ')})`);
+                                }
+                            });
+                        } else if (row.bagno === bagno) {
+                            console.log(`⚠️ Found row with matching bagno ${bagno} but missing layers or piecesPerSize:`, {
+                                layers: row.layers,
+                                piecesPerSize: row.piecesPerSize
                             });
                         }
                     });
+                } else {
+                    console.log(`❌ Mattress table ${table.id} doesn't match configuration`);
                 }
             });
 
             if (totalPiecesForBagno === 0) {
-                console.log(`⚠️ No pieces found for bagno ${bagno} in ${collarettoDestination} configuration`);
+                console.log(`⚠️ No pieces found for bagno ${bagno} in MATTRESS section for fabric ${collarettoFabricCode} ${collarettoFabricColor}`);
                 // Show notification that no pieces were found
-                setInfoMessage(`⚠️ No pieces found for bagno ${bagno} in ${collarettoDestination} configuration`);
+                setInfoMessage(`⚠️ No pieces found for bagno ${bagno} in MATTRESS section for fabric ${collarettoFabricCode} ${collarettoFabricColor}`);
                 setOpenInfo(true);
                 setTimeout(() => setOpenInfo(false), 3000);
                 return;
@@ -1084,8 +1252,9 @@ const OrderPlanning = () => {
 
             console.log(`✅ Found ${totalPiecesForBagno} total pieces for bagno ${bagno} in ${collarettoDestination}`, piecesPerSizeForBagno);
 
-            // Show success notification
-            setInfoMessage(`✅ Auto-fetched ${totalPiecesForBagno} pieces for bagno ${bagno} from ${collarettoDestination}`);
+            // Show success notification with size information
+            const sizeInfo = collarettoRowSizes === 'ALL' ? 'all sizes' : `sizes: ${targetSizes.join(', ')}`;
+            setInfoMessage(`✅ Auto-fetched ${totalPiecesForBagno} pieces for bagno ${bagno} (${sizeInfo}) from ${collarettoDestination}`);
             setOpenInfo(true);
             setTimeout(() => setOpenInfo(false), 3000);
 

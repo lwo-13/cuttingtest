@@ -175,6 +175,29 @@ const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, setDeletedTableIds
       }, 500);
     }
 
+    // ✅ Dispatch event when sizes field is changed to auto-update pieces based on new size selection
+    if (field === "sizes" && value) {
+      // Get the current bagno for this row to trigger auto-fetch with new sizes
+      const currentRow = alongTables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
+      const currentBagno = currentRow?.bagno;
+
+      if (currentBagno && currentBagno !== 'Unknown') {
+        console.log(`🎯 Sizes changed to "${value}" for row with bagno "${currentBagno}" - triggering auto-fetch`);
+
+        // Add a small delay to ensure state has been updated before dispatching the event
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('collarettoBagnoChanged', {
+            detail: {
+              bagno: currentBagno,
+              tableId: tableId,
+              rowId: rowId,
+              tableType: 'along'
+            }
+          }));
+        }, 100); // 100ms delay to allow state update
+      }
+    }
+
     setUnsavedChanges(true);
   };
 
