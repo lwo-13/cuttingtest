@@ -171,6 +171,7 @@ const handleOrderChange = async (newValue, context) => {
         metersCollaretto: along.details.total_collaretto,
         consumption: along.details.cons_planned,
         bagno: along.dye_lot,
+        sizes: along.details.applicable_sizes || "ALL",  // ✅ Load applicable_sizes
         sequenceNumber: along.sequence_number || 0
       });
     }
@@ -209,6 +210,7 @@ const handleOrderChange = async (newValue, context) => {
         panels: weft.details.panels_planned,
         consumption: weft.details.cons_planned,
         bagno: weft.dye_lot,
+        sizes: weft.details.applicable_sizes || "ALL",  // ✅ Load applicable_sizes
         status: weft.details.bagno_ready ? "ready" : "not_ready",
         isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(weft.phase_status)
       });
@@ -252,6 +254,7 @@ const handleOrderChange = async (newValue, context) => {
         panelLength: panelLength,
         consumption: bias.details.cons_planned,
         bagno: bias.dye_lot,
+        sizes: bias.details.applicable_sizes || "ALL",  // ✅ Load applicable_sizes
         status: bias.details.bagno_ready ? "ready" : "not_ready",
         isEditable: ["0 - NOT SET", "1 - TO LOAD"].includes(bias.phase_status)
       });

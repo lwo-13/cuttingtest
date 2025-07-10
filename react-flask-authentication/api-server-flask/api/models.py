@@ -610,6 +610,8 @@ class CollarettoDetail(db.Model):
     extra = db.Column(db.Float, nullable=True)
     total_collaretto = db.Column(db.Float, nullable=True)
 
+    applicable_sizes = db.Column(db.String(100, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 

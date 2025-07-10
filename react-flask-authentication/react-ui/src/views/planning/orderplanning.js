@@ -1716,6 +1716,7 @@ const OrderPlanning = () => {
                                                     handleInputChange={handleAlongRowChange}
                                                     handleRemoveRow={handleRemoveAlongRow}
                                                     setUnsavedChanges={setUnsavedChanges}
+                                                    orderSizes={orderSizes}
                                                 />
                                             ))}
                                         </TableBody>
@@ -1797,6 +1798,7 @@ const OrderPlanning = () => {
                                                 handleInputChange={handleWeftRowChange}
                                                 handleRemoveRow={handleRemoveWeftRow}
                                                 setUnsavedChanges={setUnsavedChanges}
+                                                orderSizes={orderSizes}
                                                 />
                                             ))}
                                             </TableBody>
@@ -1875,6 +1877,7 @@ const OrderPlanning = () => {
                                                 handleInputChange={handleBiasRowChange}
                                                 handleRemoveRow={handleRemoveBiasRow}
                                                 setUnsavedChanges={setUnsavedChanges}
+                                                orderSizes={orderSizes}
                                                 />
                                             ))}
                                             </TableBody>

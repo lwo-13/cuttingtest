@@ -269,7 +269,8 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
         rolls: weft.details.rolls_planned,
         panels: weft.details.panels_planned,
         consumption: weft.details.cons_planned,
-        bagno: weft.dye_lot
+        bagno: weft.dye_lot,
+        sizes: weft.details.applicable_sizes || "ALL"  // ✅ Load applicable_sizes
       });
     }
     Object.values(weftTablesById).forEach(table =>

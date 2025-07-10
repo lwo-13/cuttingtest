@@ -27,6 +27,7 @@ const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, setDeletedTableIds
           metersCollaretto: "",
           consumption: "",
           bagno: "",
+          sizes: "ALL",
           isEditable: true
         }
       ]
@@ -90,6 +91,7 @@ const useAlongTables = ({ setUnsavedChanges, setDeletedAlong, setDeletedTableIds
             metersCollaretto: "",
             consumption: "",
             bagno: "",
+            sizes: "ALL",
             isEditable: true
           }
         ]

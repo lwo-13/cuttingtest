@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TableRow, TableCell, TextField, Typography, IconButton } from '@mui/material';
 import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
+import SizeSelectionDialog from './SizeSelectionDialog';
 
 const BiasRow = ({
   row,
@@ -9,9 +10,11 @@ const BiasRow = ({
   tableId,
   handleInputChange,
   handleRemoveRow,
-  setUnsavedChanges
+  setUnsavedChanges,
+  orderSizes = []
 }) => {
   const editable = row.isEditable !== false;
+  const [sizeDialogOpen, setSizeDialogOpen] = useState(false);
 
   const inputSx = {
     width: '100%',
@@ -174,6 +177,24 @@ const BiasRow = ({
         />
       </TableCell>
 
+      {/* Sizes */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <Typography
+          onClick={() => editable && setSizeDialogOpen(true)}
+          sx={{
+            fontWeight: 'bold',
+            color: (row.sizes === 'ALL' || !row.sizes) ? 'secondary.main' : 'primary.main',
+            minWidth: '80px',
+            cursor: editable ? 'pointer' : 'default',
+            '&:hover': editable ? {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)'
+            } : {}
+          }}
+        >
+          {row.sizes || "ALL"}
+        </Typography>
+      </TableCell>
+
       {/* Status Icon */}
       <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         {editable ? (
@@ -212,6 +233,19 @@ const BiasRow = ({
           <DeleteOutline />
         </IconButton>
       </TableCell>
+
+      {/* Size Selection Dialog */}
+      <SizeSelectionDialog
+        open={sizeDialogOpen}
+        onClose={() => setSizeDialogOpen(false)}
+        onSave={(selectedSizes) => {
+          handleInputChange(tableId, rowId, "sizes", selectedSizes);
+          setUnsavedChanges(true);
+          setSizeDialogOpen(false);
+        }}
+        currentSizes={row.sizes || "ALL"}
+        orderSizes={orderSizes.map(size => size.size || size)}
+      />
     </TableRow>
   );
 };

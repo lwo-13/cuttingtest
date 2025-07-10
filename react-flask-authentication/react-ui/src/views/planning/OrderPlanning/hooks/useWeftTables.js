@@ -34,6 +34,7 @@ const useWeftTables = ({
           panels: "",
           consumption: "",
           bagno: "",
+          sizes: "ALL",
           status: "not_ready",
           isEditable: true
         }
@@ -94,6 +95,7 @@ const useWeftTables = ({
             panels: "",
             consumption: "",
             bagno: "",
+            sizes: "ALL",
             status: "not_ready",
             isEditable: true
           }

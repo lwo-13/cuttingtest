@@ -15,6 +15,7 @@ const BiasTableHeader = () => (
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Panel Length [m]</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Cons [m]</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Bagno</TableCell>
+      <TableCell align="center" sx={{ padding: "2px 6px" }}>Sizes</TableCell>
       <TableCell align="center" sx={{ padding: "2px 6px" }}>Status</TableCell>
       <TableCell></TableCell>
     </TableRow>

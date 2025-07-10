@@ -479,6 +479,7 @@ const useHandleSave = ({
             dye_lot: row.bagno || null,
             item_type: "CA",
             extra: parseFloat(table.alongExtra),
+            applicable_sizes: row.sizes, // ✅ Send applicable_sizes to backend
 
             table_id: table.id,
             row_id: row.id,
@@ -533,6 +534,7 @@ const useHandleSave = ({
             dye_lot: row.bagno || null,
             item_type: "CW",
             spreading: table.spreading, // ✅ Send spreading info to backend
+            applicable_sizes: row.sizes, // ✅ Send applicable_sizes to backend
 
             table_id: table.id,
             row_id: row.id,
@@ -586,6 +588,7 @@ const useHandleSave = ({
             fabric_color: table.fabricColor,
             dye_lot: row.bagno || null,
             item_type: "CB",
+            applicable_sizes: row.sizes, // ✅ Send applicable_sizes to backend
 
             table_id: table.id,
             row_id: row.id,

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDetail, MattressPhase
+from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDetail, MattressPhase, OrderLinesView
 from flask_restx import Namespace, Resource
 from datetime import datetime
 import math
@@ -8,6 +8,44 @@ from sqlalchemy.exc import OperationalError
 
 collaretto_bp = Blueprint('collaretto_bp', __name__)
 collaretto_api = Namespace('collaretto', description="Collaretto Management")
+
+def validate_applicable_sizes(applicable_sizes, order_commessa):
+    """
+    Validate that the applicable_sizes string contains only valid sizes for the given order.
+
+    Args:
+        applicable_sizes (str): Dash-separated sizes like "S-M-L" or None/empty for ALL
+        order_commessa (str): Order number to validate against
+
+    Returns:
+        tuple: (is_valid: bool, error_message: str or None)
+    """
+    if not applicable_sizes or applicable_sizes.strip() == '':
+        return True, None  # Empty means ALL, which is always valid
+
+    try:
+        # Get valid sizes for this order
+        order_sizes = db.session.query(OrderLinesView.size)\
+            .filter_by(order_commessa=order_commessa)\
+            .distinct().all()
+
+        valid_sizes = {size[0] for size in order_sizes if size[0]}
+
+        if not valid_sizes:
+            return False, f"No sizes found for order {order_commessa}"
+
+        # Parse the applicable_sizes string
+        requested_sizes = set(size.strip() for size in applicable_sizes.split('-') if size.strip())
+
+        # Check if all requested sizes are valid
+        invalid_sizes = requested_sizes - valid_sizes
+        if invalid_sizes:
+            return False, f"Invalid sizes for order {order_commessa}: {', '.join(invalid_sizes)}. Valid sizes: {', '.join(sorted(valid_sizes))}"
+
+        return True, None
+
+    except Exception as e:
+        return False, f"Error validating sizes: {str(e)}"
 
 def retry_on_deadlock(func, max_retries=3, delay=1):
     """Retry function on deadlock errors"""
@@ -37,6 +75,13 @@ class CollarettoAlong(Resource):
             # ✅ Extract Collaretto level data
             collaretto_name = data.get('collaretto')
             row_id = data.get('row_id')
+            applicable_sizes = data.get('applicable_sizes')  # Get applicable_sizes from frontend
+
+            # Validate applicable_sizes if provided
+            if applicable_sizes and applicable_sizes != 'ALL':
+                is_valid, error_msg = validate_applicable_sizes(applicable_sizes, data.get('order_commessa'))
+                if not is_valid:
+                    return jsonify({"success": False, "message": error_msg})
 
             # ✅ Check if collaretto exists
             existing_collaretto = Collaretto.query.filter_by(row_id=row_id).first()
@@ -91,6 +136,7 @@ class CollarettoAlong(Resource):
                 existing_detail.cons_actual = detail_data.get('cons_actual')
                 existing_detail.extra = detail_data.get('extra')
                 existing_detail.total_collaretto = detail_data.get('total_collaretto')
+                existing_detail.applicable_sizes = applicable_sizes if applicable_sizes != 'ALL' else None
                 existing_detail.updated_at = datetime.now()
             else:
                 print(f"➕ Inserting new collaretto detail for {collaretto_name}")
@@ -108,6 +154,7 @@ class CollarettoAlong(Resource):
                     cons_actual=detail_data.get('cons_actual'),
                     extra=detail_data.get('extra'),
                     total_collaretto=detail_data.get('total_collaretto'),
+                    applicable_sizes=applicable_sizes if applicable_sizes != 'ALL' else None,
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
@@ -181,7 +228,8 @@ class GetCollarettoByOrder(Resource):
                         "rolls_planned": detail.rolls_planned,
                         "total_collaretto": detail.total_collaretto,
                         "cons_planned": detail.cons_planned,
-                        "extra": detail.extra  # ✅ Moved inside details
+                        "extra": detail.extra,  # ✅ Moved inside details
+                        "applicable_sizes": detail.applicable_sizes  # ✅ Return applicable_sizes
                     }
                 })
 
@@ -211,8 +259,14 @@ class CollarettoWeft(Resource):
         sequence_number = data.get('sequence_number')
 
         details = data.get('details', [])
-            
+        applicable_sizes = data.get('applicable_sizes')  # Get applicable_sizes from frontend
+
         try:
+            # Validate applicable_sizes if provided
+            if applicable_sizes and applicable_sizes != 'ALL':
+                is_valid, error_msg = validate_applicable_sizes(applicable_sizes, order_commessa)
+                if not is_valid:
+                    return jsonify({"success": False, "message": error_msg})
             new_mattress_created = False
             # ✅ Determine item_type based on spreading
             mattress_item_type = 'MSW' if spreading == 'MANUAL' else 'ASW'
@@ -342,6 +396,7 @@ class CollarettoWeft(Resource):
                     existing_collaretto_detail.rolls_planned = detail.get('rolls_planned')
                     existing_collaretto_detail.cons_planned = detail.get('cons_planned')
                     existing_collaretto_detail.extra = detail.get('extra')
+                    existing_collaretto_detail.applicable_sizes = applicable_sizes if applicable_sizes != 'ALL' else None
                     existing_collaretto_detail.updated_at = datetime.now()
                     db.session.flush()
 
@@ -364,6 +419,7 @@ class CollarettoWeft(Resource):
                         rolls_planned=detail.get('rolls_planned'),
                         cons_planned=detail.get('cons_planned'),
                         extra=detail.get('extra'),
+                        applicable_sizes=applicable_sizes if applicable_sizes != 'ALL' else None,
                         created_at=datetime.now(),
                         updated_at=datetime.now()
                     )
@@ -481,6 +537,7 @@ class GetWeftByOrder(Resource):
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
                         "extra": detail.extra,
+                        "applicable_sizes": detail.applicable_sizes,  # ✅ Return applicable_sizes
                         "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
                         "rewound_width": mattress_detail.length_mattress if mattress_detail else None,
@@ -513,8 +570,14 @@ class CollarettoBias(Resource):
         sequence_number = data.get('sequence_number')
 
         details = data.get('details', [])
+        applicable_sizes = data.get('applicable_sizes')  # Get applicable_sizes from frontend
 
         try:
+            # Validate applicable_sizes if provided
+            if applicable_sizes and applicable_sizes != 'ALL':
+                is_valid, error_msg = validate_applicable_sizes(applicable_sizes, order_commessa)
+                if not is_valid:
+                    return jsonify({"success": False, "message": error_msg})
             new_mattress_created = False
 
             existing_mattress = Mattresses.query.filter_by(row_id=row_id).first()
@@ -639,6 +702,7 @@ class CollarettoBias(Resource):
                     existing_coll_detail.rolls_planned = detail.get('rolls_planned')
                     existing_coll_detail.cons_planned = detail.get('cons_planned')
                     existing_coll_detail.extra = detail.get('extra')
+                    existing_coll_detail.applicable_sizes = applicable_sizes if applicable_sizes != 'ALL' else None
                     existing_coll_detail.updated_at = datetime.now()
                     db.session.flush()
 
@@ -661,6 +725,7 @@ class CollarettoBias(Resource):
                         rolls_planned=detail.get('rolls_planned'),
                         cons_planned=detail.get('cons_planned'),
                         extra=detail.get('extra'),
+                        applicable_sizes=applicable_sizes if applicable_sizes != 'ALL' else None,
                         created_at=datetime.now(),
                         updated_at=datetime.now()
                     )
@@ -733,6 +798,7 @@ class GetBiasByOrder(Resource):
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
                         "extra": detail.extra,  # ✅ Add extra field
+                        "applicable_sizes": detail.applicable_sizes,  # ✅ Return applicable_sizes
                         "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail
                         "panel_length": panel_length,
