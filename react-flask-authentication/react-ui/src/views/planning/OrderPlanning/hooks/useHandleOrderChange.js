@@ -235,14 +235,9 @@ const handleOrderChange = async (newValue, context) => {
         };
       }
 
-      // Use panel length directly from backend
-      const panelLength = bias.details.panel_length || "";
-
-      // Calculate rewound width from panel length: panel length ÷ √2 (convert to cm)
-      const panelLengthNum = parseFloat(panelLength);
-      const rewoundWidth = !isNaN(panelLengthNum) && panelLengthNum > 0
-        ? ((panelLengthNum * 100) / Math.SQRT2).toFixed(1)
-        : "";
+      // Calculate panel length from usable width: same as usable width but in meters
+      const usableWidthCM = bias.details.total_width || 0;
+      const panelLength = (usableWidthCM / 100).toFixed(2); // Convert cm to meters
 
       biasTablesById[tableId].rows.push({
         id: bias.row_id,
@@ -252,7 +247,6 @@ const handleOrderChange = async (newValue, context) => {
         usableWidth: bias.details.total_width,
         grossLength: bias.details.gross_length,
         pcsSeamtoSeam: bias.details.pcs_seam,
-        rewoundWidth: rewoundWidth,
         collarettoWidth: bias.details.roll_width,
         scrapRoll: bias.details.scrap_rolls,
         rolls: bias.details.rolls_planned,

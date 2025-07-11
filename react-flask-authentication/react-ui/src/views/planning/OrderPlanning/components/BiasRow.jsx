@@ -82,17 +82,6 @@ const BiasRow = ({
         />
       </TableCell>
 
-      {/* Panel Length */}
-      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
-        <TextField
-          variant="outlined"
-          value={row.panelLength || ""}
-          disabled={!editable}
-          onChange={handleChange("panelLength", /[^0-9.]/g, 4)}
-          sx={inputSx}
-        />
-      </TableCell>
-
       {/* Collaretto Width */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
@@ -123,15 +112,6 @@ const BiasRow = ({
       {/* N° Panels */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
-      </TableCell>
-
-      {/* Rewound Width */}
-      <TableCell align="center">
-        <Typography sx={{ fontWeight: 'normal' }}>
-          {row.rewoundWidth && parseFloat(row.rewoundWidth) !== 0
-            ? parseFloat(row.rewoundWidth).toFixed(1)
-            : ""}
-        </Typography>
       </TableCell>
 
       {/* Consumption */}
