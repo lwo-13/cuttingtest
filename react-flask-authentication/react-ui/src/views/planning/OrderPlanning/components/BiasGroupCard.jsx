@@ -81,7 +81,7 @@ const BiasGroupCard = ({
           <TextField
             label="Extra %"
             variant="outlined"
-            value={table.biasExtra || ""}
+            value={table.biasExtra ?? ""}
             disabled={!isTableEditable(table)}
             onChange={(e) => {
               const value = e.target.value.replace(/\D/g, '').slice(0, 2);

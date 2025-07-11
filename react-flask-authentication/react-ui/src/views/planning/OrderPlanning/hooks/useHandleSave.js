@@ -294,7 +294,7 @@ const useHandleSave = ({
 
         return table.rows.some((row, rowIndex) => {
           if (
-            !row.pieces || !row.totalWidth || !row.grossLength ||
+            !row.pieces || !row.usableWidth || !row.grossLength ||
             !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam
           ) {
             invalidBiasRow = `Collaretto Bias ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
@@ -598,7 +598,7 @@ const useHandleSave = ({
             details: [
               {
                 pieces: parseFloat(row.pieces) || 0,
-                total_width: parseFloat(row.totalWidth) || 0,
+                total_width: parseFloat(row.usableWidth) || 0,
                 gross_length: parseFloat(row.grossLength) || 0,
                 pcs_seam: parseFloat(row.pcsSeamtoSeam) || 0,
                 panel_length: parseFloat(row.panelLength) || 0,

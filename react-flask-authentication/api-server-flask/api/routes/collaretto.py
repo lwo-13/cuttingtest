@@ -797,7 +797,7 @@ class GetBiasByOrder(Resource):
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
                         "cons_planned": detail.cons_planned,
-                        "extra": detail.extra,  # ✅ Add extra field
+                        "extra": detail.extra if detail.extra is not None else 0,  # ✅ Add extra field, default to 0 if null
                         "applicable_sizes": detail.applicable_sizes,  # ✅ Return applicable_sizes
                         "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
                         # ✅ Pull these from MattressDetail

@@ -44,39 +44,14 @@ const BiasRow = ({
       </TableCell>
 
       {/* Usable Width */}
-      <TableCell sx={{ padding: '4px', textAlign: 'center', position: 'relative' }}>
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <TextField
           variant="outlined"
-          value={row.totalWidth || ""}
+          value={row.usableWidth || ""}
           disabled={!editable}
-          onChange={handleChange("totalWidth", /\D/g, 3)}
-          sx={{
-            ...inputSx,
-            '& .MuiOutlinedInput-input': {
-              textAlign: 'center',
-              paddingRight: '20px' // Make room for indicator
-            }
-          }}
+          onChange={handleChange("usableWidth", /\D/g, 3)}
+          sx={inputSx}
         />
-        {/* Visual indicator positioned as watermark inside the input */}
-        {row.totalWidth && parseFloat(row.totalWidth) > 0 && (
-          <span
-            style={{
-              position: 'absolute',
-              top: '50%',
-              right: '22px',
-              transform: 'translateY(-50%)',
-              fontSize: '12px',
-              fontWeight: 'normal',
-              color: parseFloat(row.totalWidth) > 87.5 ? 'rgba(0, 128, 0, 0.6)' : 'rgba(255, 0, 0, 0.6)',
-              pointerEvents: 'none',
-              zIndex: 1,
-              opacity: 0.7
-            }}
-          >
-            {parseFloat(row.totalWidth) > 87.5 ? 'Single' : 'Double'}
-          </span>
-        )}
       </TableCell>
 
       {/* Gross Length */}
@@ -104,6 +79,17 @@ const BiasRow = ({
               fontStyle: row.isPcsSeamCalculated ? 'italic' : 'normal'
             }
           }}
+        />
+      </TableCell>
+
+      {/* Panel Length */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <TextField
+          variant="outlined"
+          value={row.panelLength || ""}
+          disabled={!editable}
+          onChange={handleChange("panelLength", /[^0-9.]/g, 4)}
+          sx={inputSx}
         />
       </TableCell>
 
@@ -139,11 +125,11 @@ const BiasRow = ({
         <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
       </TableCell>
 
-      {/* Panel Length */}
+      {/* Rewound Width */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>
-          {row.panelLength && parseFloat(row.panelLength) !== 0
-            ? parseFloat(row.panelLength).toFixed(2)
+          {row.rewoundWidth && parseFloat(row.rewoundWidth) !== 0
+            ? parseFloat(row.rewoundWidth).toFixed(1)
             : ""}
         </Typography>
       </TableCell>

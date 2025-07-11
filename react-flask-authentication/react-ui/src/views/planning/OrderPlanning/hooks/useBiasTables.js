@@ -17,13 +17,13 @@ const useBiasTables = ({
       fabricType: "",
       fabricCode: "",
       fabricColor: "",
-      biasExtra: "10",
+      biasExtra: "0",
       rows: [
         {
           id: rowId,
           sequenceNumber: 1,
           pieces: "",
-          totalWidth: "",
+          usableWidth: "",
           grossLength: "",
           pcsSeamtoSeam: "",
           rewoundWidth: "",
@@ -85,7 +85,7 @@ const useBiasTables = ({
             id: newRowId,
             sequenceNumber: nextSeq,
             pieces: "",
-            totalWidth: "",
+            usableWidth: "",
             grossLength: "",
             pcsSeamtoSeam: "",
             rewoundWidth: "",
@@ -137,7 +137,7 @@ const useBiasTables = ({
           const updatedRow = { ...row, [field]: value };
 
           // Parse relevant fields
-          const totalWidth = parseFloat(field === "totalWidth" ? value : row.totalWidth) || 0;
+          const usableWidth = parseFloat(field === "usableWidth" ? value : row.usableWidth) || 0;
           const grossLength = parseFloat(field === "grossLength" ? value : row.grossLength) || 0;
           const collWidthMM = parseFloat(field === "collarettoWidth" ? value : row.collarettoWidth) || 0;
           const collWidthM = collWidthMM / 1000;
@@ -148,7 +148,7 @@ const useBiasTables = ({
             updatedRow.isPcsSeamCalculated = false;
           } else {
             if (!row.pcsSeamtoSeam || row.isPcsSeamCalculated) {
-              const seamTotal = (totalWidth / 100) * Math.SQRT2;
+              const seamTotal = (usableWidth / 100) * Math.SQRT2;
               updatedRow.pcsSeamtoSeam = seamTotal > 0 && grossLength > 0
                 ? (seamTotal / grossLength).toFixed(1)
                 : "";
@@ -156,16 +156,42 @@ const useBiasTables = ({
             }
           }
 
-          const rewoundWidth = parseFloat(field === "rewoundWidth" ? value : row.rewoundWidth);
           const scrap = parseFloat(field === "scrapRoll" ? value : row.scrapRoll) || 0;
 
-          // N° Rolls = totalWidth (cm) / collarettoWidth (mm) - scrap
-          // If totalWidth ≤ 87.5, multiply by 2 before division
-          const adjustedTotalWidth = totalWidth <= 87.5 ? totalWidth * 2 : totalWidth;
-          const totalWidthMM = adjustedTotalWidth * 10; // Convert cm to mm
-          updatedRow.rolls = !isNaN(totalWidth) && !isNaN(collWidthMM) && !isNaN(scrap)
-            ? Math.floor(totalWidthMM / collWidthMM) - scrap
-            : "";
+          // Panel length handling - manual input takes priority
+          let panelLength;
+          if (field === "panelLength") {
+            // Manual input of panel length
+            panelLength = parseFloat(value) || 0;
+            updatedRow.panelLength = value;
+          } else {
+            // Auto-calculate panel length only if it's empty or not manually set
+            const currentPanelLength = parseFloat(row.panelLength);
+            if (!row.panelLength || isNaN(currentPanelLength)) {
+              // Auto-calculate based on usable width
+              panelLength = !isNaN(usableWidth) ?
+                (usableWidth <= 87.5 ? (usableWidth * 2) / 100 : usableWidth / 100) : 0;
+              updatedRow.panelLength = panelLength > 0 ? panelLength.toFixed(2) : "";
+            } else {
+              // Keep existing manual value
+              panelLength = currentPanelLength;
+            }
+          }
+
+          // NEW CALCULATIONS BASED ON PANEL LENGTH
+
+          // Rewound Width = panel length ÷ √2 (convert to cm)
+          const rewoundWidthCalc = !isNaN(panelLength) && panelLength > 0
+            ? (panelLength * 100) / Math.SQRT2  // Convert meters to cm and divide by √2
+            : 0;
+          updatedRow.rewoundWidth = rewoundWidthCalc > 0 ? rewoundWidthCalc.toFixed(1) : "";
+
+          // N° Rolls = panel length ÷ (√2 × collaretto width)
+          // collWidthM already declared above, using existing variable
+          const rollsCalc = !isNaN(panelLength) && !isNaN(collWidthM) && panelLength > 0 && collWidthM > 0
+            ? panelLength / (Math.SQRT2 * collWidthM) - scrap
+            : 0;
+          updatedRow.rolls = rollsCalc > 0 ? Math.floor(rollsCalc) : "";
 
           const pieces = parseFloat(field === "pieces" ? value : row.pieces);
           const rolls = parseFloat(updatedRow.rolls);
@@ -183,19 +209,12 @@ const useBiasTables = ({
           }
 
           const panels = parseFloat(updatedRow.panels);
-          // Panel length calculation based on total width value (convert cm to meters)
-          const panelLength = !isNaN(totalWidth) ?
-            (totalWidth <= 87.5 ? (totalWidth * 2) / 100 : totalWidth / 100) : null;
 
-          // Store panel length for display
-          updatedRow.panelLength = !isNaN(panelLength) && panelLength > 0
-            ? panelLength.toFixed(2)
-            : "";
-
-          // Consumption calculation: add 0.5 for ≤87.5, add 1 for >87.5
-          const consumptionAdjustment = totalWidth <= 87.5 ? 0.5 : 1;
-          updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
-            ? ((panels + consumptionAdjustment) * panelLength).toFixed(2)
+          // NEW Consumption calculation: usable width + (panel length × n panels)
+          // Convert usable width from cm to meters for calculation
+          const usableWidthM = usableWidth / 100;
+          updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength) && !isNaN(usableWidthM) && panels > 0 && panelLength > 0 && usableWidthM > 0
+            ? (usableWidthM + (panelLength * panels)).toFixed(2)
             : "";
 
           return updatedRow;
@@ -268,8 +287,34 @@ const useBiasTables = ({
 
       const updatedRows = table.rows.map(row => {
         const pieces = parseFloat(row.pieces);
-        const rolls = parseFloat(row.rolls);
         const pcsSeam = parseFloat(row.pcsSeamtoSeam);
+        const usableWidth = parseFloat(row.usableWidth);
+        const collWidthMM = parseFloat(row.collarettoWidth);
+        const scrap = parseFloat(row.scrapRoll) || 0;
+
+        // Use manual panel length if available, otherwise auto-calculate
+        let panelLength;
+        const currentPanelLength = parseFloat(row.panelLength);
+        if (row.panelLength && !isNaN(currentPanelLength)) {
+          // Use manual panel length
+          panelLength = currentPanelLength;
+        } else {
+          // Auto-calculate panel length
+          panelLength = !isNaN(usableWidth) ?
+            (usableWidth <= 87.5 ? (usableWidth * 2) / 100 : usableWidth / 100) : 0;
+        }
+
+        // Recalculate Rewound Width = panel length ÷ √2 (convert to cm)
+        const rewoundWidthCalc = !isNaN(panelLength) && panelLength > 0
+          ? (panelLength * 100) / Math.SQRT2
+          : 0;
+
+        // Recalculate N° Rolls = panel length ÷ (√2 × collaretto width)
+        const collWidthM = collWidthMM / 1000; // Convert mm to meters
+        const rollsCalc = !isNaN(panelLength) && !isNaN(collWidthM) && panelLength > 0 && collWidthM > 0
+          ? panelLength / (Math.SQRT2 * collWidthM) - scrap
+          : 0;
+        const rolls = rollsCalc > 0 ? Math.floor(rollsCalc) : 0;
 
         // Calculate panels with extra percentage
         const panelsCalculation = (pieces * (1 + extra)) / (rolls * pcsSeam);
@@ -279,21 +324,19 @@ const useBiasTables = ({
           panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
         }
 
-        const totalWidth = parseFloat(row.totalWidth);
-        const panelLength = !isNaN(totalWidth) ?
-          (totalWidth <= 87.5 ? (totalWidth * 2) / 100 : totalWidth / 100) : null;
-
-        // Calculate consumption with updated panels: add 0.5 for ≤87.5, add 1 for >87.5
-        const rowTotalWidth = parseFloat(row.totalWidth);
-        const consumptionAdjustment = rowTotalWidth <= 87.5 ? 0.5 : 1;
-        const consumption = !isNaN(panels) && !isNaN(panelLength) && panels > 0 && panelLength > 0
-          ? ((panels + consumptionAdjustment) * panelLength).toFixed(2)
+        // NEW Consumption calculation: usable width + (panel length × n panels)
+        const rowUsableWidth = parseFloat(row.usableWidth);
+        const usableWidthM = rowUsableWidth / 100; // Convert cm to meters
+        const consumption = !isNaN(panels) && !isNaN(panelLength) && !isNaN(usableWidthM) && panels > 0 && panelLength > 0 && usableWidthM > 0
+          ? (usableWidthM + (panelLength * panels)).toFixed(2)
           : "";
 
         return {
           ...row,
+          rolls: rolls > 0 ? rolls.toString() : "",
+          rewoundWidth: rewoundWidthCalc > 0 ? rewoundWidthCalc.toFixed(1) : "",
           panels: panels,
-          panelLength: !isNaN(panelLength) && panelLength > 0 ? panelLength.toFixed(2) : "",
+          panelLength: row.panelLength && !isNaN(currentPanelLength) ? row.panelLength : (panelLength > 0 ? panelLength.toFixed(2) : ""),
           consumption: consumption
         };
       });
