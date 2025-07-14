@@ -227,6 +227,22 @@
     "maxPiecesInPackage": "Max Pieces in Package",
     "styleSettings": "Style Settings",
     "manageStyleSettings": "Manage Style Settings",
-    "apply": "Apply"
+    "apply": "Apply",
+    "collarettoInfo": "Collaretto Info",
+    "sizeSplitting": "Size Splitting",
+    "totalLayers": "Total Layers",
+    "layersPerRow": "Layers per Row",
+    "widthCm": "Width [cm]",
+    "batchDyeLot": "Batch/Dye Lot",
+    "markerName": "Marker Name",
+    "enterBatchNumber": "Enter batch number",
+    "previewRowsWillBeCreated": "Preview: {{count}} rows will be created",
+    "layersCalculation": "{{totalLayers}} total layers ÷ {{layersPerRow}} layers per row = {{rows}} rows",
+    "lastRowWillHave": "Last row will have {{layers}} layers",
+    "totalLayersMustBePositive": "Total Layers must be a positive number",
+    "layersPerRowMustBePositive": "Layers per Row must be a positive number",
+    "invalidLayerConfiguration": "Invalid layer configuration",
+    "widthMustBePositive": "Width must be a positive number",
+    "pleaseSelectMarker": "Please select a marker"
   }
 }

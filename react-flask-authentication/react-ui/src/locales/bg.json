@@ -227,6 +227,22 @@
     "maxPiecesInPackage": "Максимални бройки в пакет",
     "styleSettings": "Настройки за стила",
     "manageStyleSettings": "Управление на настройките за стила",
-    "apply": "Приложи"
+    "apply": "Приложи",
+    "collarettoInfo": "Информация за бие",
+    "sizeSplitting": "Разделяне по размери",
+    "totalLayers": "Общо катове",
+    "layersPerRow": "Катове на ред",
+    "widthCm": "Ширина [см]",
+    "batchDyeLot": "Партида/Баня",
+    "markerName": "Име на маркер",
+    "enterBatchNumber": "Въведете номер на партида",
+    "previewRowsWillBeCreated": "Преглед: {{count}} реда ще бъдат създадени",
+    "layersCalculation": "{{totalLayers}} общо катове ÷ {{layersPerRow}} катове на ред = {{rows}} реда",
+    "lastRowWillHave": "Последният ред ще има {{layers}} катове",
+    "totalLayersMustBePositive": "Общо катове трябва да бъде положително число",
+    "layersPerRowMustBePositive": "Катове на ред трябва да бъде положително число",
+    "invalidLayerConfiguration": "Невалидна конфигурация на катове",
+    "widthMustBePositive": "Ширината трябва да бъде положително число",
+    "pleaseSelectMarker": "Моля, изберете маркер"
   }
 }
