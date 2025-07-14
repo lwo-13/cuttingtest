@@ -17,7 +17,7 @@ const AlongTableHeader = () => {
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.totalCollaretto', 'Total Collaretto [m]')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.consumption')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.bagno')}</TableCell>
-        <TableCell align="center" sx={{ padding: "2px 6px" }}>Sizes</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.sizes')}</TableCell>
         <TableCell></TableCell>
       </TableRow>
     </TableHead>

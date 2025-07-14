@@ -162,9 +162,9 @@
   },
   "table": {
     "pieces": "Броя",
-    "usableWidth": "Използваема ширина [см]",
-    "grossLength": "Брутна дължина [м]",
-    "pcsSeamToSeam": "Бр. от снадка до снадка",
+    "usableWidth": "Работна ширина [см]",
+    "grossLength": "Разход за бройка [м]",
+    "pcsSeamToSeam": "Бр. снадка до снадка",
     "rewoundWidth": "Дължина панел [м]",
     "collarettoWidth": "Ширина на бието [мм]",
     "scrapRolls": "Отпадъчни ролки",
@@ -179,8 +179,9 @@
     "status": "Статус",
     "mattress": "Настил",
     "na": "Н/П",
-    "numberOfPanels": "Брой панели",
-    "totalCollaretto": "Общо коларетто [м]"
+    "numberOfPanels": "Брой катове",
+    "totalCollaretto": "Общо бие [м]",
+    "sizes": "Размери"
   },
   "dashboard": {
     "workInProgress": "В ПРОЦЕС НА РАЗРАБОТКА",
@@ -201,7 +202,10 @@
     "addMattress": "Добави настил",
     "addCollarettoAlong": "Добави бие по дължина (Ordito)",
     "addCollarettoWeft": "Добави бие по ширина (Trama)",
-    "addCollarettoBias": "Добави бие по диагонал (Sbieco)",
+    "addCollarettoBias": "Добави бие по верев (Sbieco)",
+    "collarettoAlongGrain": "Бие по дължина",
+    "collarettoWeft": "Бие по ширина",
+    "collarettoBias": "Бие по верев",
     "unsavedChanges": "Незапазени промени",
     "unsavedChangesMessage": "Имате незапазени промени, запазете ги или ги изтрийте.",
     "pinHeader": "Закачи заглавката",
@@ -222,6 +226,7 @@
     "styleCommentPlaceholder": "Добавете коментар за стил {{style}}...",
     "maxPiecesInPackage": "Максимални бройки в пакет",
     "styleSettings": "Настройки за стила",
-    "manageStyleSettings": "Управление на настройките за стила"
+    "manageStyleSettings": "Управление на настройките за стила",
+    "apply": "Приложи"
   }
 }

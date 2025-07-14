@@ -1851,7 +1851,7 @@ const OrderPlanning = () => {
                                         <IconChevronUp stroke={1.5} size="1rem" />
                                     }
                                 </IconButton>
-                                Collaretto Along the Grain
+                                {t('orderPlanning.collarettoAlongGrain', 'Collaretto Along the Grain')}
                             </Box>
                         }
                     >
@@ -1932,7 +1932,7 @@ const OrderPlanning = () => {
                                         <IconChevronUp stroke={1.5} size="1rem" />
                                     }
                                 </IconButton>
-                                Collaretto in Weft
+                                {t('orderPlanning.collarettoWeft', 'Collaretto in Weft')}
                             </Box>
                         }
                     >
@@ -2014,7 +2014,7 @@ const OrderPlanning = () => {
                                         <IconChevronUp stroke={1.5} size="1rem" />
                                     }
                                 </IconButton>
-                                Collaretto in Bias
+                                {t('orderPlanning.collarettoBias', 'Collaretto in Bias')}
                             </Box>
                         }
                     >

@@ -12,8 +12,10 @@ import {
   FormControlLabel,
   Checkbox
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], orderSizes = [], onApply }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     collarettoTypes: {
       usableWidth: '',
@@ -119,13 +121,13 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
             {/* Collaretto Info Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main', textAlign: 'center' }}>
-                Collaretto Info
+                {t('orderPlanning.collarettoInfo')}
               </Typography>
               <Grid container spacing={2} justifyContent="center">
                 {/* Usable Width [cm] */}
                 <Grid item xs={4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <TextField
-                    label="Usable Width [cm]"
+                    label={t('table.usableWidth')}
                     variant="outlined"
                     size="small"
                     value={formData.collarettoTypes.usableWidth}
@@ -140,7 +142,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
                 {/* Gross Length [m] */}
                 <Grid item xs={4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <TextField
-                    label="Gross Length [m]"
+                    label={t('table.grossLength')}
                     variant="outlined"
                     size="small"
                     value={formData.collarettoTypes.grossLength}
@@ -155,7 +157,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
                 {/* Pcs Seam to Seam */}
                 <Grid item xs={4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <TextField
-                    label="Pcs Seam to Seam"
+                    label={t('table.pcsSeamToSeam')}
                     variant="outlined"
                     size="small"
                     value={formData.collarettoTypes.pcsSeamtoSeam}
@@ -170,7 +172,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
                 {/* Rewound Width [m] */}
                 <Grid item xs={4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <TextField
-                    label="Rewound Width [m]"
+                    label={t('table.rewoundWidth')}
                     variant="outlined"
                     size="small"
                     value={formData.collarettoTypes.rewoundWidth}
@@ -185,7 +187,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
                 {/* Collaretto Width [mm] */}
                 <Grid item xs={4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <TextField
-                    label="Collaretto Width [mm]"
+                    label={t('table.collarettoWidth')}
                     variant="outlined"
                     size="small"
                     value={formData.collarettoTypes.collarettoWidth}
@@ -200,7 +202,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
                 {/* Scrap Rolls */}
                 <Grid item xs={4} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <TextField
-                    label="Scrap Rolls"
+                    label={t('table.scrapRolls')}
                     variant="outlined"
                     size="small"
                     value={formData.collarettoTypes.scrapRolls}
@@ -219,7 +221,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
             {/* Size Splitting */}
             <Grid item xs={12}>
               <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main', textAlign: 'center' }}>
-                Size Splitting
+                {t('orderPlanning.sizeSplitting')}
               </Typography>
               <Grid container spacing={2} justifyContent="center">
                 {orderSizes.map((sizeObj) => (
@@ -237,7 +239,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
                           }}
                         />
                       }
-                      label={`Size ${sizeObj.size}`}
+                      label={`${t('orderPlanning.size')} ${sizeObj.size}`}
                       sx={{
                         "& .MuiFormControlLabel-label": { fontWeight: "normal" }
                       }}
@@ -259,7 +261,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
             textTransform: 'none'
           }}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           onClick={handleApply}
@@ -269,7 +271,7 @@ const WeftAutoPopulateDialog = ({ open, onClose, table, mattressTables = [], ord
             textTransform: 'none'
           }}
         >
-          Apply
+          {t('orderPlanning.apply')}
         </Button>
       </DialogActions>
     </Dialog>

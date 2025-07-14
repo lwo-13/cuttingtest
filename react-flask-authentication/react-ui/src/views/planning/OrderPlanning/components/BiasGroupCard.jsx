@@ -11,7 +11,6 @@ const BiasGroupCard = ({
   handleBiasExtraChange
 }) => {
 
-
   return (
     <Box p={1}>
       {/* Fabric Information */}
@@ -91,6 +90,7 @@ const BiasGroupCard = ({
             sx={{ width: '100%', minWidth: '60px', "& input": { fontWeight: "normal" } }}
           />
         </Grid>
+
       </Grid>
     </Box>
   );

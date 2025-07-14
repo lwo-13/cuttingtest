@@ -9,8 +9,10 @@ import {
   Autocomplete,
   Grid
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
+  const { t } = useTranslation();
   const [width, setWidth] = useState('');
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [errors, setErrors] = useState({});
@@ -49,29 +51,29 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
     // Validate layer planning fields
     const totalLayersNum = parseInt(totalLayers);
     if (!totalLayers || isNaN(totalLayersNum) || totalLayersNum <= 0) {
-      newErrors.totalLayers = 'Total Layers must be a positive number';
+      newErrors.totalLayers = t('orderPlanning.totalLayersMustBePositive');
     }
 
     const layersPerRowNum = parseInt(layersPerRow);
     if (!layersPerRow || isNaN(layersPerRowNum) || layersPerRowNum <= 0) {
-      newErrors.layersPerRow = 'Layers per Row must be a positive number';
+      newErrors.layersPerRow = t('orderPlanning.layersPerRowMustBePositive');
     }
 
     // Validate that we have at least one row
     const rowsNeeded = calculateRowsNeeded();
     if (rowsNeeded <= 0) {
-      newErrors.totalLayers = 'Invalid layer configuration';
+      newErrors.totalLayers = t('orderPlanning.invalidLayerConfiguration');
     }
 
     // Validate Width
     const widthNum = parseFloat(width);
     if (!width || isNaN(widthNum) || widthNum <= 0) {
-      newErrors.width = 'Width must be a positive number';
+      newErrors.width = t('orderPlanning.widthMustBePositive');
     }
 
     // Validate Marker
     if (!selectedMarker) {
-      newErrors.marker = 'Please select a marker';
+      newErrors.marker = t('orderPlanning.pleaseSelectMarker');
     }
 
     setErrors(newErrors);
@@ -110,7 +112,7 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
             {/* Total Layers */}
             <Grid item xs={6}>
               <TextField
-                label="Total Layers"
+                label={t('orderPlanning.totalLayers')}
                 variant="outlined"
                 fullWidth
                 value={totalLayers}
@@ -145,7 +147,7 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
             {/* Layers per Row */}
             <Grid item xs={6}>
               <TextField
-                label="Layers per Row"
+                label={t('orderPlanning.layersPerRow')}
                 variant="outlined"
                 fullWidth
                 value={layersPerRow}
@@ -180,7 +182,7 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
             {/* Width */}
             <Grid item xs={6}>
               <TextField
-                label="Width [cm]"
+                label={t('orderPlanning.widthCm')}
                 variant="outlined"
                 fullWidth
                 value={width}
@@ -221,7 +223,7 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
             {/* Batch (Optional) */}
             <Grid item xs={6}>
               <TextField
-                label="Batch (Optional)"
+                label={`${t('orderPlanning.batchDyeLot')} (${t('common.optional')})`}
                 variant="outlined"
                 fullWidth
                 value={batch}
@@ -229,7 +231,7 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
                   const value = e.target.value.slice(0, 20); // Limit to 20 characters
                   setBatch(value);
                 }}
-                placeholder="Enter batch number"
+                placeholder={t('orderPlanning.enterBatchNumber')}
                 sx={{
                   "& input": { fontWeight: "normal" }
                 }}
@@ -249,14 +251,20 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
                   }}
                 >
                   <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.dark' }}>
-                    Preview: {calculateRowsNeeded()} rows will be created
+                    {t('orderPlanning.previewRowsWillBeCreated', { count: calculateRowsNeeded() })}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'primary.dark', mt: 0.5 }}>
-                    {totalLayers} total layers ÷ {layersPerRow} layers per row = {calculateRowsNeeded()} rows
+                    {t('orderPlanning.layersCalculation', {
+                      totalLayers,
+                      layersPerRow,
+                      rows: calculateRowsNeeded()
+                    })}
                   </Typography>
                   {parseInt(totalLayers) % parseInt(layersPerRow) !== 0 && (
                     <Typography variant="body2" sx={{ color: 'warning.dark', mt: 0.5 }}>
-                      Last row will have {parseInt(totalLayers) % parseInt(layersPerRow)} layers
+                      {t('orderPlanning.lastRowWillHave', {
+                        layers: parseInt(totalLayers) % parseInt(layersPerRow)
+                      })}
                     </Typography>
                   )}
                 </Box>
@@ -300,7 +308,7 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Marker Name"
+                    label={t('orderPlanning.markerName')}
                     variant="outlined"
                     error={!!errors.marker}
                     helperText={errors.marker}
@@ -321,14 +329,14 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
               onClick={handleClose}
               sx={{ minWidth: '100px' }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="contained"
               onClick={handleApply}
               sx={{ minWidth: '100px' }}
             >
-              Apply
+              {t('orderPlanning.apply')}
             </Button>
           </Box>
         </Box>
