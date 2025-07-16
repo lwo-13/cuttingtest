@@ -1,7 +1,8 @@
 import React from 'react';
-import { TableRow, TableCell, TextField, Typography } from '@mui/material';
+import { TableRow, TableCell, TextField, Typography, IconButton } from '@mui/material';
+import { Print } from '@mui/icons-material';
 
-const MattressRowReadOnlyWithSizes = ({ row, orderSizes }) => {
+const MattressRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress }) => {
   return (
     <TableRow>
       {/* Mattress Name (short display) */}
@@ -111,8 +112,17 @@ const MattressRowReadOnlyWithSizes = ({ row, orderSizes }) => {
         </Typography>
       </TableCell>
 
-      {/* Empty Cell (icon placeholder) */}
-      <TableCell />
+      {/* Print Icon */}
+      <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px' }}>
+        <IconButton
+          onClick={() => onPrintMattress && onPrintMattress(row)}
+          color="primary"
+          size="small"
+          sx={{ padding: '4px' }}
+        >
+          <Print fontSize="small" />
+        </IconButton>
+      </TableCell>
     </TableRow>
   );
 };

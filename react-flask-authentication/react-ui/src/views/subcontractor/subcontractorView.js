@@ -35,6 +35,7 @@ import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 // Print Utils
 import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
+// Dynamic import to handle potential module resolution issues
 
 const SubcontractorView = () => {
     // State for orders and selection
@@ -199,6 +200,46 @@ const SubcontractorView = () => {
         handlePrint(tables, adhesiveTables, [], [], [], {}, () => {});
     };
 
+    // Handle individual mattress print
+    const handlePrintMattress = async (row) => {
+        try {
+            // Dynamic import to handle potential module resolution issues
+            const { default: printMattressBG } = await import('../import-print-tools/Print/printBG');
+            // Convert row data to the format expected by printMattressBG
+            const mattressData = {
+                id: row.id,
+                mattress: row.mattressName,
+                order_commessa: selectedOrder?.id || '',
+                fabric_code: tables.find(table => table.rows.some(r => r.id === row.id))?.fabricCode || '',
+                fabric_color: tables.find(table => table.rows.some(r => r.id === row.id))?.fabricColor || '',
+                dye_lot: row.bagno || '',
+                spreading_method: tables.find(table => table.rows.some(r => r.id === row.id))?.spreadingMethod || '',
+                table_id: tables.find(table => table.rows.some(r => r.id === row.id))?.id || '',
+                details: [{
+                    layers: row.layers,
+                    cons_planned: row.expectedConsumption,
+                    allowance: tables.find(table => table.rows.some(r => r.id === row.id))?.allowance || 0
+                }],
+                markers: [{
+                    marker_name: row.markerName,
+                    marker_width: row.width,
+                    marker_length: row.markerLength,
+                    efficiency: row.efficiency,
+                    size_quantities: row.piecesPerSize || {}
+                }]
+            };
+
+            // Call the print function with the single mattress
+            await printMattressBG([mattressData], () => {
+                // Refresh callback - could trigger a data refresh if needed
+                console.log('Print completed for mattress:', row.mattressName);
+            });
+        } catch (error) {
+            console.error('Error printing mattress:', error);
+            alert('Error printing mattress. Please try again.');
+        }
+    };
+
     const handleCloseDestinationPrintDialog = () => {
         setOpenDestinationPrintDialog(false);
     };
@@ -345,6 +386,7 @@ const SubcontractorView = () => {
                                             key={row.id}
                                             row={row}
                                             orderSizes={orderSizes}
+                                            onPrintMattress={handlePrintMattress}
                                             />
                                         ))}
                                     </TableBody>
