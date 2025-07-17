@@ -4,7 +4,7 @@ from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy.exc import OperationalError
 
 mattress_bp = Blueprint('mattress_bp', __name__)
@@ -470,14 +470,61 @@ class GetKanbanMattressesResource(Resource):
 @ mattress_api.route('/all_with_details')
 class GetAllMattressesWithDetailsResource(Resource):
     def get(self):
-        """Fetch all mattress records with associated details and markers."""
+        """Fetch mattress records with associated details and markers, filtered for travel document printing.
+
+        Filters applied:
+        - Only mattresses created within the last 30 days
+        - Only mattresses assigned to ZALLI cutting room
+        - Only mattresses in early phases (0 - NOT SET, 1 - TO LOAD)
+        - Only mattresses with both details and markers
+        """
         try:
-            # Query all mattresses with their details and markers
-            mattresses = Mattresses.query.join(MattressDetail).join(MattressMarker).all()
+
+            # ABSOLUTE STRICT DATE FILTERING - ONLY LAST 30 DAYS
+            current_time = datetime.now()
+            one_month_ago = current_time - timedelta(days=30)
+
+            print(f"� TRAVEL DOCUMENT ENDPOINT CALLED")
+            print(f"� CURRENT TIME: {current_time}")
+            print(f"� CUTOFF DATE: {one_month_ago}")
+
+            # STEP 1: Get ONLY recent mattresses (last 30 days) AND cutting room ZALLI
+            recent_mattresses = db.session.query(Mattresses).join(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).filter(
+                Mattresses.created_at >= one_month_ago,
+                MattressProductionCenter.cutting_room == 'ZALLI'
+            ).all()
+
+            print(f"� FOUND {len(recent_mattresses)} mattresses from last 30 days")
+
+            # STEP 2: Filter by phase status (only early phases)
+            filtered_mattresses = []
+            for mattress in recent_mattresses:
+                # Get active phase for this mattress
+                active_phase = db.session.query(MattressPhase).filter(
+                    MattressPhase.mattress_id == mattress.id,
+                    MattressPhase.active == True
+                ).first()
+
+                if active_phase and active_phase.status in ["0 - NOT SET", "1 - TO LOAD"]:
+                    # Check if mattress has details and markers
+                    has_details = len(mattress.details) > 0
+                    has_markers = len(mattress.mattress_markers) > 0
+
+                    if has_details and has_markers:
+                        filtered_mattresses.append(mattress)
+
+
+            mattresses = filtered_mattresses
+            print(f"� FINAL COUNT: {len(mattresses)} mattresses after all filtering")
 
             # Create a list of dictionaries with mattress info, details, and markers
             data = []
             for mattress in mattresses:
+                # Debug: Check each mattress date
+                print(f"✅ Including mattress: {mattress.mattress} - Created: {mattress.created_at}")
+
                 mattress_dict = mattress.to_dict()
 
                 # Add related details and markers
