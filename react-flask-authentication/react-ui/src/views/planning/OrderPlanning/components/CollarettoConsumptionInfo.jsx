@@ -9,8 +9,10 @@ import {
 } from '@mui/material';
 import { Info as InfoIcon } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
+import { useTranslation } from 'react-i18next';
 
-const CollarettoConsumptionInfo = ({ style, fabricCode, plannedByBagno }) => {
+const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
+    const { t } = useTranslation();
     const [consumptionData, setConsumptionData] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -70,91 +72,84 @@ const CollarettoConsumptionInfo = ({ style, fabricCode, plannedByBagno }) => {
         return parseFloat(num).toFixed(2);
     };
 
-    // Function to match collaretto pieces with specific bagno sizes
-    const findMatchingSizes = (individualPieces, totalPieces, bagno, plannedQuantities) => {
-        // Use planned quantities from API response first, fallback to current order's plannedByBagno
-        const bagnoSizes = plannedQuantities || plannedByBagno?.[bagno];
+    // Function to get applicable sizes from collaretto record
+    const getApplicableSizes = (record) => {
+        // Use the stored applicable_sizes from the collaretto record
+        const applicableSizes = record.applicable_sizes;
 
-        if (!bagnoSizes || Object.keys(bagnoSizes).length === 0) {
-            return { individual: [], total: [], useTotal: false, bestMatches: [] };
+        if (!applicableSizes) {
+            // If no applicable_sizes stored, it means ALL sizes
+            return {
+                sizes: ['ALL'],
+                displayText: 'ALL',
+                isAll: true
+            };
         }
-        const tolerance = Math.max(10, individualPieces * 0.02); // 2% tolerance or minimum 10 pieces
 
-        // Helper function to find matches for given pieces
-        const findMatches = (pieces) => {
-            const matchingSizes = [];
-
-            // Check individual sizes first
-            Object.entries(bagnoSizes).forEach(([size, plannedQty]) => {
-                if (Math.abs(plannedQty - pieces) <= tolerance) {
-                    matchingSizes.push({
-                        combination: [size],
-                        total_qty: plannedQty,
-                        difference: Math.abs(plannedQty - pieces),
-                        breakdown: [{ size: size, qty: plannedQty }]
-                    });
-                }
-            });
-
-            // Check combinations of 2 sizes
-            const sizeEntries = Object.entries(bagnoSizes);
-            for (let i = 0; i < sizeEntries.length; i++) {
-                for (let j = i + 1; j < sizeEntries.length; j++) {
-                    const [size1, qty1] = sizeEntries[i];
-                    const [size2, qty2] = sizeEntries[j];
-                    const totalQty = qty1 + qty2;
-
-                    if (Math.abs(totalQty - pieces) <= tolerance) {
-                        matchingSizes.push({
-                            combination: [size1, size2],
-                            total_qty: totalQty,
-                            difference: Math.abs(totalQty - pieces),
-                            breakdown: [
-                                { size: size1, qty: qty1 },
-                                { size: size2, qty: qty2 }
-                            ]
-                        });
-                    }
-                }
-            }
-
-            // Check combination of all sizes
-            if (sizeEntries.length >= 3) {
-                const totalQty = sizeEntries.reduce((sum, [, qty]) => sum + qty, 0);
-                if (Math.abs(totalQty - pieces) <= tolerance) {
-                    matchingSizes.push({
-                        combination: sizeEntries.map(([size]) => size),
-                        total_qty: totalQty,
-                        difference: Math.abs(totalQty - pieces),
-                        breakdown: sizeEntries.map(([size, qty]) => ({ size, qty }))
-                    });
-                }
-            }
-
-            // Sort by difference (best matches first) and then by number of sizes (simpler combinations first)
-            matchingSizes.sort((a, b) => {
-                if (a.difference !== b.difference) return a.difference - b.difference;
-                return a.combination.length - b.combination.length;
-            });
-
-            return matchingSizes;
-        };
-
-        // Try individual pieces first
-        const individualMatches = findMatches(individualPieces);
-
-        // If no individual matches and we have different total pieces, try total
-        const totalMatches = (totalPieces && totalPieces !== individualPieces) ? findMatches(totalPieces) : [];
-
-        // Decide which to use: prefer individual if it has matches, otherwise use total
-        const useTotal = individualMatches.length === 0 && totalMatches.length > 0;
+        // Parse the dash-separated sizes (e.g., "S-M-L" -> ["S", "M", "L"])
+        const sizesArray = applicableSizes.split('-').filter(size => size.trim());
 
         return {
-            individual: individualMatches || [],
-            total: totalMatches || [],
-            useTotal: useTotal,
-            bestMatches: useTotal ? (totalMatches || []) : (individualMatches || [])
+            sizes: sizesArray,
+            displayText: sizesArray.join(' + '),
+            isAll: false
         };
+    };
+
+    // Function to get grain direction from item_type
+    const getGrainDirection = (itemType) => {
+        switch (itemType) {
+            case 'CA':
+                return t('orderPlanning.collarettoAlongGrain', 'Along the Grain');
+            case 'CW':
+                return t('orderPlanning.collarettoWeft', 'Weft');
+            case 'CB':
+                return t('orderPlanning.collarettoBias', 'Bias');
+            default:
+                return t('common.unknown', 'Unknown');
+        }
+    };
+
+    // Function to format numbers with dynamic decimal places (removes trailing zeros)
+    const formatNumberDynamic = (value) => {
+        if (value === null || value === undefined || isNaN(value)) return '0';
+        return parseFloat(value).toString();
+    };
+
+    // Function to group records by collaretto type (Gross Length + Pcs Seam + Collaretto Width)
+    const groupRecordsByType = (records) => {
+        const groups = {};
+
+        records.forEach(record => {
+            // For along the grain (CA), don't include pcs_seam in grouping
+            const typeKey = record.item_type === 'CA'
+                ? `${record.gross_length}-${record.collarettoWidth}`
+                : `${record.gross_length}-${record.pcs_seam}-${record.collarettoWidth}`;
+
+            if (!groups[typeKey]) {
+                groups[typeKey] = {
+                    item_type: record.item_type,
+                    pcs_seam: record.pcs_seam,
+                    usable_width: record.usable_width, // Keep for display but not grouping
+                    gross_length: record.gross_length,
+                    collarettoWidth: record.collarettoWidth,
+                    records: [],
+                    allApplicableSizes: new Set()
+                };
+            }
+
+            groups[typeKey].records.push(record);
+
+            // Collect all applicable sizes for this type
+            const sizeInfo = getApplicableSizes(record);
+            if (sizeInfo.isAll) {
+                groups[typeKey].allApplicableSizes.add('ALL');
+            } else {
+                sizeInfo.sizes.forEach(size => groups[typeKey].allApplicableSizes.add(size));
+            }
+        });
+
+        return groups;
     };
 
     const TooltipContent = () => {
@@ -178,183 +173,121 @@ const CollarettoConsumptionInfo = ({ style, fabricCode, plannedByBagno }) => {
         if (!consumptionData || Object.keys(consumptionData).length === 0 || !consumptionData.records || consumptionData.records.length === 0) {
             return (
                 <Box sx={{ p: 2, maxWidth: 300 }}>
-                    <Typography variant="body2" color="text.secondary">No collaretto data found for {style} - {fabricCode}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>Check console for debug information</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {t('orderPlanning.noCollarettoData', 'No collaretto data found for {{style}} - {{fabricCode}}', { style, fabricCode })}
+                    </Typography>
                 </Box>
             );
         }
 
+        // Group records by grain direction (item_type) first
+        const recordsByGrainDirection = {};
+        if (consumptionData.records) {
+            consumptionData.records.forEach(record => {
+                const grainDirection = record.item_type || 'Unknown';
+                if (!recordsByGrainDirection[grainDirection]) {
+                    recordsByGrainDirection[grainDirection] = [];
+                }
+                recordsByGrainDirection[grainDirection].push(record);
+            });
+        }
+
         return (
-            <Box sx={{ p: 2, maxWidth: 700, maxHeight: 600, overflow: 'auto' }}>
-                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold', fontSize: '1rem' }}>
-                    Collaretto Information ({consumptionData.total_records} records)
+            <Box sx={{ p: 3, maxWidth: 700, maxHeight: 600, overflow: 'auto' }}>
+                <Typography variant="subtitle1" sx={{ mb: 3, fontWeight: 'bold', fontSize: '1rem' }}>
+                    {t('orderPlanning.collarettoInfo', 'Collaretto Information')}
                 </Typography>
 
-                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', mb: 2 }}>
-                    {/* Header */}
-                    <Box sx={{ bgcolor: 'primary.main', color: 'white', p: 1.5 }}>
-                        <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
-                            {consumptionData.style} - {consumptionData.fabric_code}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                            {consumptionData.description}
-                        </Typography>
-                    </Box>
-
-                    {/* Statistics */}
-                    <Box sx={{ p: 1.5, bgcolor: 'grey.50' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'text.secondary', mb: 1 }}>Statistics</Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
-                            <Box>
-                                <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Avg m/pc</Typography>
-                                <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'primary.main' }}>
-                                    {(consumptionData.statistics?.avg_consumption_per_piece || 0).toFixed(3)}
-                                </Typography>
-                            </Box>
-                            <Box>
-                                <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Avg Length</Typography>
-                                <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'secondary.main' }}>
-                                    {formatNumber(consumptionData.statistics?.avg_length || 0)} m
-                                </Typography>
-                            </Box>
-                        </Box>
-                    </Box>
-                </Box>
-
-                {/* Individual Records */}
-                {consumptionData.records.map((record) => (
-                    <Box key={record.collaretto_id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', mb: 2 }}>
-                        {/* Record Header */}
-                        <Box sx={{ bgcolor: 'secondary.main', color: 'white', p: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
-                                Order: {record.order_commessa} (ID: {record.collaretto_id})
-                                {(() => {
-                                    const bagno = record.bagno_info?.bagno;
-                                    const individualPieces = record.pieces;
-                                    const totalPieces = record.bagno_info?.pieces_to_match;
-                                    const plannedQuantities = record.bagno_info?.planned_quantities;
-                                    const matchResult = bagno ? findMatchingSizes(individualPieces, totalPieces, bagno, plannedQuantities) : { bestMatches: [] };
-                                    return matchResult?.bestMatches?.length > 0 && (
-                                        <Typography component="span" sx={{ fontSize: '0.8rem', ml: 2, opacity: 0.9 }}>
-                                            Sizes: {matchResult.bestMatches[0]?.combination?.join(' + ') || 'Unknown'}
-                                            {matchResult.useTotal && (
-                                                <Typography component="span" sx={{ fontSize: '0.7rem', color: 'info.main' }}>
-                                                    {' '}(total)
-                                                </Typography>
-                                            )}
-                                        </Typography>
-                                    );
-                                })()}
+                {/* Show separate section for each grain direction */}
+                {Object.entries(recordsByGrainDirection).map(([grainDirection, records]) => (
+                    <Box key={grainDirection} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', mb: 3 }}>
+                        {/* Header for this grain direction */}
+                        <Box sx={{ bgcolor: 'primary.main', color: 'white', p: 1.5 }}>
+                            <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'white' }}>
+                                {consumptionData.fabric_code} ({consumptionData.fabric_type}) - {getGrainDirection(grainDirection)}
                             </Typography>
                         </Box>
 
-                        {/* Record Details */}
+                        {/* Spacing between header and collaretto lines */}
                         <Box sx={{ p: 1.5 }}>
-                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 2 }}>
-                                <Box>
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                                        Pieces: {formatNumber(record.pieces)}
-                                    </Typography>
-                                    {record.bagno_info?.total_pieces_in_bagno && record.bagno_info.total_pieces_in_bagno !== record.pieces && (
-                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', color: 'info.main' }}>
-                                            Bagno Total: {formatNumber(record.bagno_info.total_pieces_in_bagno)}
-                                        </Typography>
-                                    )}
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>Pcs Seam: {formatNumber(record.pcs_seam)}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>Width: {formatNumber(record.usable_width)} cm</Typography>
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>Length: {formatNumber(record.gross_length)} m</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>Consumption: {formatNumber(record.cons_planned)} m</Typography>
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'primary.main' }}>
-                                        m/pc: {(record.consumption_per_piece || 0).toFixed(3)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-
-                            {/* Matching Sizes for this Bagno */}
+                            {/* Grouped Collaretto Types for this grain direction */}
                             {(() => {
-                                const bagno = record.bagno_info?.bagno;
-                                const individualPieces = record.pieces;
-                                const totalPieces = record.bagno_info?.pieces_to_match;
-                                const plannedQuantities = record.bagno_info?.planned_quantities;
-                                const matchResult = bagno ? findMatchingSizes(individualPieces, totalPieces, bagno, plannedQuantities) : { bestMatches: [], useTotal: false };
+                            const groupedTypes = groupRecordsByType(records);
 
-                                if (matchResult?.bestMatches?.length > 0) {
-                                    return (
-                                        <Box>
-                                            <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'text.secondary', mb: 1 }}>
-                                                Matching Sizes for Bagno {bagno}
-                                                {matchResult.useTotal && (
-                                                    <Typography component="span" sx={{ fontSize: '0.7rem', color: 'info.main', fontWeight: 'normal' }}>
-                                                        {' '}(using bagno total {formatNumber(totalPieces)} pieces)
-                                                    </Typography>
-                                                )}:
+                            return Object.entries(groupedTypes).map(([typeKey, typeData]) => {
+                                const hasAllSizes = typeData.allApplicableSizes.has('ALL');
+                                const specificSizes = Array.from(typeData.allApplicableSizes).filter(size => size !== 'ALL').sort();
+                                const displaySizes = hasAllSizes ? 'ALL' : specificSizes.join(' + ');
+
+                                return (
+                                    <Box key={typeKey} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', mb: 1.5 }}>
+                                        {/* Collaretto Type Header */}
+                                        <Box sx={{ bgcolor: 'secondary.main', color: 'white', p: 1 }}>
+                                            <Typography variant="subtitle2" sx={{ fontSize: '0.85rem', color: 'white' }}>
+                                                {formatNumberDynamic(typeData.gross_length)} m{typeData.item_type !== 'CA' ? ` • ${formatNumberDynamic(typeData.pcs_seam)} seam` : ''} • {typeData.collarettoWidth > 0 ? Math.round(typeData.collarettoWidth) + ' mm' : 'N/A'}
+                                                <Typography component="span" sx={{ fontSize: '0.8rem', ml: 2, opacity: 0.9 }}>
+                                                    ({typeData.records.length} {t('common.records', typeData.records.length === 1 ? 'record' : 'records')})
+                                                </Typography>
                                             </Typography>
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                {(matchResult.bestMatches || []).map((combination, index) => (
-                                                    <Box key={index} sx={{
-                                                        bgcolor: 'grey.100',
-                                                        borderRadius: 1,
-                                                        p: 1,
-                                                        border: '1px solid',
-                                                        borderColor: 'grey.300'
-                                                    }}>
-                                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                                            {combination.combination.join(' + ')}
-                                                            {matchResult.useTotal && (
-                                                                <Typography component="span" sx={{ fontSize: '0.7rem', color: 'info.main', fontWeight: 'normal' }}>
-                                                                    {' '}(total match)
-                                                                </Typography>
-                                                            )}
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'text.primary' }}>
-                                                            Total: {formatNumber(combination.total_qty)}
-                                                            {combination.difference > 0 && (
-                                                                <Typography component="span" sx={{ color: 'warning.main' }}>
-                                                                    {' '}(Diff: {formatNumber(combination.difference)})
-                                                                </Typography>
-                                                            )}
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                                                            {(combination?.breakdown || []).map((item, itemIndex) => (
-                                                                <Typography key={itemIndex} variant="body2" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                                                                    {item.size}: {formatNumber(item.qty)}
-                                                                </Typography>
-                                                            ))}
-                                                        </Box>
-                                                    </Box>
-                                                ))}
-                                            </Box>
+                                        </Box>
 
-                                            {/* Show alternative matches if using total but individual had no matches */}
-                                            {matchResult.useTotal && matchResult.individual.length === 0 && (
-                                                <Box sx={{ mt: 1, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
-                                                    <Typography variant="body2" sx={{ fontSize: '0.7rem', color: 'info.dark' }}>
-                                                        Individual {formatNumber(individualPieces)} pieces had no direct matches.
-                                                        Using bagno total for matching.
+                                        {/* Type Details */}
+                                        <Box sx={{ p: 1.5 }}>
+                                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+                                                <Box>
+                                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                                        {t('table.usableWidth', 'Usable Width')}: {Math.round(typeData.usable_width)} {t('common.cm', 'cm')}
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                                        {t('table.grossLength', 'Gross Length')}: {formatNumberDynamic(typeData.gross_length)} {t('common.m', 'm')}
                                                     </Typography>
                                                 </Box>
-                                            )}
-                                        </Box>
-                                    );
-                                } else {
-                                    return (
-                                        <Box sx={{ bgcolor: 'warning.light', borderRadius: 1, p: 1, mt: 1 }}>
-                                            <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'warning.dark' }}>
-                                                No matching sizes found for {formatNumber(individualPieces)} pieces in Bagno {bagno}
-                                                {totalPieces && totalPieces !== individualPieces && (
-                                                    <Typography component="span" sx={{ fontSize: '0.7rem', display: 'block' }}>
-                                                        (Also tried bagno total: {formatNumber(totalPieces)} pieces)
+                                                <Box>
+                                                    {typeData.item_type !== 'CA' && (
+                                                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                                            {t('table.pcsSeamToSeam', 'Pcs Seam')}: {formatNumberDynamic(typeData.pcs_seam)}
+                                                        </Typography>
+                                                    )}
+                                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                                        {t('table.collarettoWidth', 'Collaretto Width')}: {typeData.collarettoWidth > 0 ? Math.round(typeData.collarettoWidth) + ' ' + t('common.mm', 'mm') : t('table.na', 'N/A')}
                                                     </Typography>
-                                                )}
-                                            </Typography>
+                                                </Box>
+                                            </Box>
+
+                                            {/* Applicable Sizes */}
+                                            <Box sx={{ mt: 1 }}>
+                                                <Box sx={{
+                                                    bgcolor: hasAllSizes ? 'info.light' : 'success.light',
+                                                    borderRadius: 1,
+                                                    p: 1,
+                                                    border: '1px solid',
+                                                    borderColor: hasAllSizes ? 'info.main' : 'success.main'
+                                                }}>
+                                                    <Typography variant="body2" sx={{
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: 'bold',
+                                                        color: 'white'
+                                                    }}>
+                                                        {displaySizes}
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{
+                                                        fontSize: '0.7rem',
+                                                        color: 'white',
+                                                        mt: 0.5,
+                                                        opacity: 0.9
+                                                    }}>
+                                                        {hasAllSizes
+                                                            ? t('orderPlanning.collarettoAppliesToAllSizes', 'This collaretto type applies to all sizes')
+                                                            : t('orderPlanning.collarettoAppliesToSpecificSizes', 'This collaretto type applies to specific sizes: {{sizes}}', { sizes: specificSizes.join(', ') })
+                                                        }
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
                                         </Box>
-                                    );
-                                }
-                            })()}
+                                    </Box>
+                                );
+                            });
+                        })()}
                         </Box>
                     </Box>
                 ))}

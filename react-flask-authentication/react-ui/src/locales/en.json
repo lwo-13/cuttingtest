@@ -139,7 +139,14 @@
     "noOperatorsAvailable": "No operators available",
     "lastUpdated": "Last updated",
     "extra": "extra",
-    "sector": "Sector"
+    "sector": "Sector",
+    "unknown": "Unknown",
+    "records": "records",
+    "cm": "cm",
+    "m": "m",
+    "mm": "mm",
+    "print": "Print",
+    "saving": "Saving..."
   },
   "audit": {
     "createdBy": "Created by",
@@ -243,6 +250,28 @@
     "layersPerRowMustBePositive": "Layers per Row must be a positive number",
     "invalidLayerConfiguration": "Invalid layer configuration",
     "widthMustBePositive": "Width must be a positive number",
-    "pleaseSelectMarker": "Please select a marker"
+    "pleaseSelectMarker": "Please select a marker",
+    "noCollarettoData": "No collaretto data found for {{style}} - {{fabricCode}}",
+    "collarettoAppliesToAllSizes": "This collaretto type applies to all sizes",
+    "collarettoAppliesToSpecificSizes": "This collaretto type applies to specific sizes: {{sizes}}",
+    "fabricType": "Fabric Type",
+    "fabricCode": "Fabric Code",
+    "fabricColor": "Fabric Color",
+    "allowance": "Extra",
+    "spreadingMethod": "Spreading Method",
+    "spreading": "Spreading",
+    "avgConsumption": "Avg Consumption",
+    "totalConsumption": "Total Consumption",
+    "addRow": "Add Row",
+    "removeTable": "Remove Table",
+    "addAdhesive": "Add Adhesive",
+    "adhesive": "Adhesive",
+    "automatic": "Automatic",
+    "manual": "Manual",
+    "multipleDestinationsFound": "Multiple destinations found. Choose which destination to print, or print all destinations.",
+    "printAllDestinations": "Print All Destinations",
+    "padPrint": "Pad Print",
+    "pattern": "Pattern",
+    "padPrintColor": "Pad Print Color"
   }
 }

@@ -1,20 +1,22 @@
 // src/views/orderPlanning/PadPrintInfo.jsx
 import React from 'react';
 import { Grid, TextField, Box } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 
 const PadPrintInfo = ({ padPrintInfo }) => {
+    const { t } = useTranslation();
     if (!padPrintInfo) return null;
 
     return (
-        <MainCard title="Pad Print" sx={{ width: '100%', height: '100%' }}>
+        <MainCard title={t('orderPlanning.padPrint', 'Pad Print')} sx={{ width: '100%', height: '100%' }}>
             <Grid container spacing={2}>
                 {/* Fields Column - 1/3 width */}
                 <Grid item xs={12} md={4}>
                     <Box display="flex" flexDirection="column" gap={2}>
                         {/* Pattern Field */}
                         <TextField
-                            label="Pattern"
+                            label={t('orderPlanning.pattern', 'Pattern')}
                             variant="outlined"
                             value={padPrintInfo.pattern || ""}
                             InputProps={{ readOnly: true }}
@@ -23,7 +25,7 @@ const PadPrintInfo = ({ padPrintInfo }) => {
 
                         {/* Pad Print Color Field - Below Pattern */}
                         <TextField
-                            label="Pad Print Color"
+                            label={t('orderPlanning.padPrintColor', 'Pad Print Color')}
                             variant="outlined"
                             value={padPrintInfo.padprint_color || ""}
                             InputProps={{ readOnly: true }}

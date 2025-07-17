@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Grid, Autocomplete, TextField, Box, IconButton } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { useTranslation } from 'react-i18next';
 import WeftAutoPopulateDialog from './WeftAutoPopulateDialog';
 
 const WeftGroupCard = ({
@@ -16,6 +17,7 @@ const WeftGroupCard = ({
   orderSizes = [], // Add order sizes for size splitting checkboxes
   handleAddRowWeft // Add function to create new rows
 }) => {
+  const { t } = useTranslation();
   // Dialog state
   const [autoPopulateDialogOpen, setAutoPopulateDialogOpen] = useState(false);
 
@@ -262,7 +264,7 @@ const WeftGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
+            renderInput={(params) => <TextField {...params} label={t('orderPlanning.fabricType', 'Fabric Type')} variant="outlined" />}
             sx={{ width: '100%', minWidth: '60px', "& .MuiAutocomplete-input": { fontWeight: 'normal' } }}
           />
         </Grid>
@@ -270,7 +272,7 @@ const WeftGroupCard = ({
         {/* Fabric Code */}
         <Grid item xs={3} sm={2} md={2}>
           <TextField
-            label="Fabric Code"
+            label={t('orderPlanning.fabricCode', 'Fabric Code')}
             variant="outlined"
             value={table.fabricCode || ""}
             disabled={!isTableEditable(table)}
@@ -290,7 +292,7 @@ const WeftGroupCard = ({
         {/* Fabric Color */}
         <Grid item xs={3} sm={2} md={1.5}>
           <TextField
-            label="Fabric Color"
+            label={t('orderPlanning.fabricColor', 'Fabric Color')}
             variant="outlined"
             value={table.fabricColor || ""}
             disabled={!isTableEditable(table)}

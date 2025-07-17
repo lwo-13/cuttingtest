@@ -10,14 +10,16 @@ import {
     Divider
 } from '@mui/material';
 import { Print } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
-const DestinationPrintDialog = ({ 
-    open, 
-    onClose, 
-    destinations, 
-    onPrintDestination, 
-    onPrintAll 
+const DestinationPrintDialog = ({
+    open,
+    onClose,
+    destinations,
+    onPrintDestination,
+    onPrintAll
 }) => {
+    const { t } = useTranslation();
     return (
         <Dialog 
             open={open} 
@@ -29,7 +31,7 @@ const DestinationPrintDialog = ({
             
             <DialogContent>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Multiple destinations found. Choose which destination to print, or print all destinations.
+                    {t('orderPlanning.multipleDestinationsFound', 'Multiple destinations found. Choose which destination to print, or print all destinations.')}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -51,7 +53,7 @@ const DestinationPrintDialog = ({
                                 }
                             }}
                         >
-                            Print {destination}
+                            {t('common.print', 'Print')} {destination}
                         </Button>
                     ))}
                     
@@ -71,7 +73,7 @@ const DestinationPrintDialog = ({
                             }
                         }}
                     >
-                        Print All Destinations
+                        {t('orderPlanning.printAllDestinations', 'Print All Destinations')}
                     </Button>
                 </Box>
             </DialogContent>

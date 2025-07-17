@@ -1,15 +1,17 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { AddCircleOutline } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
-const AdhesiveActionRow = ({ 
-  avgConsumption, 
-  tableId, 
-  isTableEditable, 
-  table, 
-  handleAddRow, 
-  handleRemoveTable 
+const AdhesiveActionRow = ({
+  avgConsumption,
+  tableId,
+  isTableEditable,
+  table,
+  handleAddRow,
+  handleRemoveTable
 }) => {
+  const { t } = useTranslation();
 
   const totalConsumption = table.rows.reduce((sum, row) => {
     const value = parseFloat(row.expectedConsumption);
@@ -32,10 +34,10 @@ const AdhesiveActionRow = ({
         {showConsumption && (
           <Box display="flex" gap={2} alignItems="center">
             <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              Avg Cons: {avgConsumption.toFixed(2)} m/pc
+              {t('orderPlanning.avgConsumption', 'Avg Consumption')}: {avgConsumption.toFixed(2)} m/pc
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              Total Cons: {totalConsumption.toFixed(0)} m
+              {t('orderPlanning.totalConsumption', 'Total Consumption')}: {totalConsumption.toFixed(0)} m
             </Typography>
           </Box>
         )}
@@ -49,7 +51,7 @@ const AdhesiveActionRow = ({
           startIcon={<AddCircleOutline />}
           onClick={() => handleAddRow(tableId)}
         >
-          Add Row
+          {t('orderPlanning.addRow', 'Add Row')}
         </Button>
 
         {isTableEditable(table) && (
@@ -58,7 +60,7 @@ const AdhesiveActionRow = ({
             color="error"
             onClick={() => handleRemoveTable(table.id)}
           >
-            Remove
+            {t('orderPlanning.removeTable', 'Remove Table')}
           </Button>
         )}
       </Box>
