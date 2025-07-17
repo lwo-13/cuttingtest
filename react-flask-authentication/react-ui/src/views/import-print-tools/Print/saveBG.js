@@ -11,10 +11,28 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
         return;
     }
 
+    // Create a single PDF document for all mattresses
+    const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+    });
+
+    // Register the fonts once for the entire document
+    doc.addFileToVFS("Roboto-Bold-bold.ttf", RobotoBold);
+    doc.addFont("Roboto-Bold-bold.ttf", "Roboto-Bold", "bold");
+    doc.addFileToVFS("Roboto-Regular-normal.ttf", RobotoRegular);
+    doc.addFont("Roboto-Regular-normal.ttf", "Roboto-Regular", "normal");
+
+    let isFirstPage = true;
+
     for (const mattress of selectedMattresses) {
         try {
-
-
+            // Add new page for each mattress except the first one
+            if (!isFirstPage) {
+                doc.addPage();
+            }
+            isFirstPage = false;
 
             // ✅ Helper function to ensure string conversion
             const ensureString = (value) => (value !== null && value !== undefined ? value.toString() : "N/A");
@@ -159,20 +177,6 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             // Define headers for the padprint table.
             const padPrintHeaders = ["Падпринт", "Цвят"];
-
-            // ✅ Setup PDF
-            const doc = new jsPDF({
-                orientation: "landscape",
-                unit: "mm",
-                format: "a4"
-            });
-
-            // Register the fonts
-            doc.addFileToVFS("Roboto-Bold-bold.ttf", RobotoBold);
-            doc.addFont("Roboto-Bold-bold.ttf", "Roboto-Bold", "bold");
-
-            doc.addFileToVFS("Roboto-Regular-normal.ttf", RobotoRegular);
-            doc.addFont("Roboto-Regular-normal.ttf", "Roboto-Regular", "normal");
 
             const startX = 10;
             const startY = 10;
@@ -447,12 +451,17 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
             // ✅ Remove the canvas if you want
             document.body.removeChild(barcodeCanvas);
 
-            doc.save(`Капак_${mattressName}.pdf`);
-
-
         } catch (error) {
             console.error("Error processing mattress", error);
         }
+    }
+
+    // Save single PDF file with all mattresses
+    if (selectedMattresses.length === 1) {
+        doc.save(`Капак_${selectedMattresses[0].mattress}.pdf`);
+    } else {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        doc.save(`Капак_Multiple_${timestamp}.pdf`);
     }
 };
 

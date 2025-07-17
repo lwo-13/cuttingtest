@@ -10,10 +10,27 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
         return;
     }
 
+    // Create a single PDF document for all mattresses
+    const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+    });
+
+    let isFirstPage = true;
+    const mattressIds = []; // Store IDs for batch update
+
     for (const mattress of selectedMattresses) {
         try {
+            // Add new page for each mattress except the first one
+            if (!isFirstPage) {
+                doc.addPage();
+            }
+            isFirstPage = false;
+
             // ✅ Get mattress ID
             const mattressId = mattress.id; // ✅ Now we store the mattress_id for updates
+            mattressIds.push(mattressId);
 
             // ✅ Helper function to ensure string conversion
             const ensureString = (value) =>
@@ -164,13 +181,6 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                 { label: "Color", value: fabricColor },
                 { label: "Dye Lot", value: dyeLot }
             ];
-
-            // ✅ Setup PDF
-            const doc = new jsPDF({
-                orientation: "landscape",
-                unit: "mm",
-                format: "a4"
-            });
 
             const startX = 10;
             const startY = 10;
@@ -520,21 +530,31 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
             // ✅ Remove the canvas if you want
             document.body.removeChild(barcodeCanvas);
 
-            // Save the PDF file
-            doc.save(`Mattress_Travel_Doc_${mattressName}.pdf`);
-
-            // ✅ API Call to Update Print Status
-            await axios.put(`/mattress/update_print_travel`, {
-                mattress_id: mattressId,
-                print_travel: true // ✅ Set as printed
-            });
-
-            // ✅ Refresh the table to reflect the new status
-            fetchMattresses();
         } catch (error) {
             console.error("Error processing mattress", error);
         }
     }
+
+    // Save single PDF file with all mattresses
+    if (selectedMattresses.length === 1) {
+        doc.save(`Mattress_Travel_Doc_${selectedMattresses[0].mattress}.pdf`);
+    } else {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        doc.save(`Mattress_Travel_Doc_Multiple_${timestamp}.pdf`);
+    }
+
+    // Batch update all mattress print statuses
+    try {
+        for (const mattressId of mattressIds) {
+            await axios.put(`/mattress/update_print_travel`, {
+                mattress_id: mattressId,
+                print_travel: true // ✅ Set as printed
+            });
+        }
+    } catch (error) {
+        console.error("Error updating print statuses", error);
+    }
+
     // ✅ Refresh the table to reflect the new status after processing all
     fetchMattresses();
 };

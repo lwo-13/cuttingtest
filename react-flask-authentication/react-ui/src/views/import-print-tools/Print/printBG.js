@@ -11,10 +11,37 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
         return;
     }
 
+
+
+    // Create a single PDF document for all mattresses
+    const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+    });
+
+    // Register the fonts once for the entire document
+    doc.addFileToVFS("Roboto-Bold-bold.ttf", RobotoBold);
+    doc.addFont("Roboto-Bold-bold.ttf", "Roboto-Bold", "bold");
+    doc.addFileToVFS("Roboto-Regular-normal.ttf", RobotoRegular);
+    doc.addFont("Roboto-Regular-normal.ttf", "Roboto-Regular", "normal");
+
+    // Set default font size for the entire document
+    doc.setFontSize(10);
+
+    let isFirstPage = true;
+    const mattressIds = []; // Store IDs for batch update
+
     for (const mattress of selectedMattresses) {
         try {
+            // Add new page for each mattress except the first one
+            if (!isFirstPage) {
+                doc.addPage();
+            }
+            isFirstPage = false;
 
             const mattressId = mattress.id;
+            mattressIds.push(mattressId);
 
             const ensureString = (value) => (value !== null && value !== undefined ? value.toString() : "N/A");
 
@@ -186,28 +213,12 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             const padPrintHeaders = ["Падпринт", "Цвят"];
 
-            // Setup PDF
-            const doc = new jsPDF({
-                orientation: "landscape",
-                unit: "mm",
-                format: "a4"
-            });
-
-            // Register the fonts
-            doc.addFileToVFS("Roboto-Bold-bold.ttf", RobotoBold);
-            doc.addFont("Roboto-Bold-bold.ttf", "Roboto-Bold", "bold");
-
-            doc.addFileToVFS("Roboto-Regular-normal.ttf", RobotoRegular);
-            doc.addFont("Roboto-Regular-normal.ttf", "Roboto-Regular", "normal");
-        
-            const startX = 10; 
+            const startX = 10;
             const startY = 10;
             const rowHeight = 8;
             const firstColumnWidth = 40;
             const secondColumnWidth = 80;
-        
-            doc.setFontSize(10);
-        
+
             // Draw Order Table (Left)
             orderTable.forEach((field, index) => {
                 const yPos = startY + index * rowHeight;
@@ -467,22 +478,32 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             // Remove the canvas
             document.body.removeChild(barcodeCanvas);
-        
-            doc.save(`Капак_${mattressName}.pdf`);
-
-
-            // API Call to Update Print Status
-            await axios.put(`/mattress/update_print_travel`, {
-                mattress_id: mattressId,
-                print_travel: true
-            });
-
 
         } catch (error) {
             console.error("Error processing mattress", error);
         }
     }
-    
+
+    // Save single PDF file with all mattresses
+    if (selectedMattresses.length === 1) {
+        doc.save(`Капак_${selectedMattresses[0].mattress}.pdf`);
+    } else {
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        doc.save(`Капак_Multiple_${timestamp}.pdf`);
+    }
+
+    // Batch update all mattress print statuses
+    try {
+        for (const mattressId of mattressIds) {
+            await axios.put(`/mattress/update_print_travel`, {
+                mattress_id: mattressId,
+                print_travel: true
+            });
+        }
+    } catch (error) {
+        console.error("Error updating print statuses", error);
+    }
+
     // Refresh the table to reflect the new status
     fetchMattresses();
 };
