@@ -30,7 +30,7 @@ class MattressResource(Resource):
             existing_mattress = Mattresses.query.filter_by(row_id=data["row_id"]).first()
 
             if existing_mattress:
-                print(f"🔄 Updating existing mattress: {data['mattress']}")
+    
 
                 # ✅ Update mattress details including the mattress name
                 existing_mattress.mattress = data["mattress"]  # ✅ Update mattress name
@@ -66,7 +66,7 @@ class MattressResource(Resource):
 
                 mattress_id = existing_mattress.id  # ✅ Get existing ID for marker saving
                 db.session.commit()
-                print(f"✅ Mattress Updated (ID: {mattress_id})")
+
 
                 # ✅ Update mattress sizes if provided (for existing mattress)
                 if "sizes" in data:
@@ -98,7 +98,7 @@ class MattressResource(Resource):
 
                             except OperationalError as e:
                                 if "deadlock victim" in str(e).lower():
-                                    print(f"🔁 Deadlock on mattress size {size_data['size']} — retrying ({attempt + 1}/{retry_attempts})...")
+
                                     time.sleep(0.3)
                                 else:
                                     raise
@@ -107,7 +107,7 @@ class MattressResource(Resource):
 
             else:
                 # ✅ Insert new mattress
-                print(f"➕ Inserting new mattress: {data['mattress']}")
+
                 new_mattress = Mattresses(
                     mattress=data["mattress"],
                     order_commessa=data["order_commessa"],
@@ -149,7 +149,7 @@ class MattressResource(Resource):
                 db.session.add_all(phases)
 
                 db.session.commit()
-                print(f"✅ Mattress Added (ID: {mattress_id})")
+
 
                 # ✅ Insert mattress sizes if provided (for new mattress)
                 if "sizes" in data:
@@ -178,7 +178,7 @@ class MattressResource(Resource):
             if existing_marker:
                 if existing_marker.marker_id != marker_id:
                     # ✅ If the marker has changed, delete the old one and insert the new one
-                    print(f"🟡 Marker changed. Removing old marker {existing_marker.marker_name} and adding {data['marker_name']}")
+
                     db.session.delete(existing_marker)
 
                     new_marker_entry = MattressMarker(
@@ -190,7 +190,7 @@ class MattressResource(Resource):
                     )
                     db.session.add(new_marker_entry)
                 else:
-                    print(f"✅ Marker already up to date for Mattress ID: {mattress_id}")
+                    pass
 
             else:
                 # ✅ Insert new marker if none exists
@@ -202,7 +202,7 @@ class MattressResource(Resource):
                     marker_length=data["marker_length"]
                 )
                 db.session.add(new_marker_entry)
-                print(f"✅ New marker added for Mattress ID: {mattress_id}")
+
 
             db.session.commit()
             return {
@@ -213,7 +213,7 @@ class MattressResource(Resource):
 
         except Exception as e:
             db.session.rollback()  # ✅ Rollback transaction on error
-            print(f"❌ Exception: {str(e)}")
+
             return {"success": False, "message": str(e)}, 500
 
 @mattress_api.route('/get_by_order/<string:order_commessa>', methods=['GET'])
@@ -321,11 +321,11 @@ class DeleteMattressResource(Resource):
                 db.session.rollback()  # 🔥 THIS is the missing piece
 
                 if "deadlocked" in str(e).lower() and attempt < max_retries:
-                    print(f"⚠️ Deadlock detected, retrying delete for {mattress_name} (attempt {attempt + 1})...")
+
                     time.sleep(retry_delay)
                     continue
 
-                print(f"❌ Error deleting mattress {mattress_name}: {e}")
+
                 return {"success": False, "message": str(e)}, 500
 
 @ mattress_api.route('/all')
@@ -484,10 +484,6 @@ class GetAllMattressesWithDetailsResource(Resource):
             current_time = datetime.now()
             one_month_ago = current_time - timedelta(days=30)
 
-            print(f"� TRAVEL DOCUMENT ENDPOINT CALLED")
-            print(f"� CURRENT TIME: {current_time}")
-            print(f"� CUTOFF DATE: {one_month_ago}")
-
             # STEP 1: Get ONLY recent mattresses (last 30 days) AND cutting room ZALLI
             recent_mattresses = db.session.query(Mattresses).join(
                 MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
@@ -495,8 +491,6 @@ class GetAllMattressesWithDetailsResource(Resource):
                 Mattresses.created_at >= one_month_ago,
                 MattressProductionCenter.cutting_room == 'ZALLI'
             ).all()
-
-            print(f"� FOUND {len(recent_mattresses)} mattresses from last 30 days")
 
             # STEP 2: Filter by phase status (only early phases)
             filtered_mattresses = []
@@ -517,14 +511,10 @@ class GetAllMattressesWithDetailsResource(Resource):
 
 
             mattresses = filtered_mattresses
-            print(f"� FINAL COUNT: {len(mattresses)} mattresses after all filtering")
 
             # Create a list of dictionaries with mattress info, details, and markers
             data = []
             for mattress in mattresses:
-                # Debug: Check each mattress date
-                print(f"✅ Including mattress: {mattress.mattress} - Created: {mattress.created_at}")
-
                 mattress_dict = mattress.to_dict()
 
                 # Add related details and markers
@@ -718,7 +708,7 @@ class MoveMattressResource(Resource):
         if old_position == new_position:
             return
 
-        print(f"Reordering within column: {old_position} -> {new_position}")
+
 
         # Get all items in the same column (excluding the one being moved)
         all_items = db.session.query(MattressKanban).filter(
@@ -749,9 +739,9 @@ class MoveMattressResource(Resource):
         # Update all positions
         for i, item in enumerate(new_order):
             item.position = i
-            print(f"Setting position {i} for mattress {item.mattress_id}")
 
-        print(f"Final position for moved item: {kanban_entry.position}")
+
+
 
     def _insert_at_position(self, day, shift, position):
         """Insert space at specific position by shifting items down"""
@@ -776,7 +766,6 @@ class MoveMattressResource(Resource):
 class UpdateDeviceResource(Resource):
     """Legacy endpoint - redirects to new unified move endpoint"""
     def put(self, mattress_id):
-        data = request.get_json()
         # Redirect to new unified endpoint
         move_resource = MoveMattressResource()
         return move_resource.put(mattress_id)
@@ -914,7 +903,7 @@ class SaveMattressProductionCenter(Resource):
 
         except Exception as e:
             db.session.rollback()
-            print("❌ Error in /mattress/production_center/save:", e)
+
             return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/production_center/get/<string:table_id>', methods=['GET'])
@@ -947,7 +936,7 @@ class DeleteMattressProductionCenter(Resource):
             if record:
                 db.session.delete(record)
                 db.session.commit()
-                print(f"🗑️ Deleted production center entry for table_id: {table_id}")
+
                 return {"success": True, "msg": f"Production center entry for table {table_id} deleted successfully"}, 200
             else:
                 # Not an error if the record doesn't exist - table might not have had production center data
@@ -955,7 +944,7 @@ class DeleteMattressProductionCenter(Resource):
 
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error deleting production center entry for table {table_id}: {e}")
+
             return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/production_center/orders', methods=['GET'])
@@ -975,7 +964,7 @@ class GetOrdersWithProductionCenter(Resource):
             return {"success": True, "data": result}, 200
 
         except Exception as e:
-            print("❌ Error in /mattress/production_center/orders:", e)
+
             return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/production_center/orders_by_cutting_room/<string:cutting_room>', methods=['GET'])
@@ -994,12 +983,12 @@ class GetOrdersByCuttingRoom(Resource):
 
             result = [{"order_commessa": order.order_commessa} for order in orders]
 
-            print(f"📊 Found {len(result)} orders for cutting room '{cutting_room}'")
+
 
             return {"success": True, "data": result}, 200
 
         except Exception as e:
-            print(f"❌ Error in /mattress/production_center/orders_by_cutting_room/{cutting_room}:", e)
+
             return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/production_center/combinations/<string:order_commessa>', methods=['GET'])
@@ -1053,7 +1042,7 @@ class GetProductionCenterCombinations(Resource):
             }, 200
 
         except Exception as e:
-            print("❌ Error in /production_center/combinations:", e)
+
             return {"success": False, "msg": str(e)}, 500
 
 @mattress_api.route('/approve')
@@ -1061,7 +1050,7 @@ class ApproveMattressesResource(Resource):
     def post(self):
         mattress_ids = request.json.get('mattress_ids', [])
         operator = request.json.get('operator', 'Unknown')  # ✅ Get operator from frontend
-        print("Received mattress_ids:", mattress_ids, "Operator:", operator)
+
 
         if not mattress_ids:
             return {"success": False, "message": "No mattress IDs provided"}, 400
@@ -1352,8 +1341,8 @@ class GetProductionCenterOptions(Resource):
                 # PXE1 - VERONA combinations
                 {"production_center": "PXE1", "cutting_room": "VERONA", "destination": "VERONA"},
 
-                # PXE1 - TEXTILE CONSTRUCTION combinations
-                {"production_center": "PXE1", "cutting_room": "TEXTILE CONSTRUCTION", "destination": "TEXTILE CONSTRUCTION"},
+                # PXE1 - TEXCONS combinations
+                {"production_center": "PXE1", "cutting_room": "TEXCONS", "destination": "TEXCONS"},
 
                 # PXE3 - VEGATEX combinations
                 {"production_center": "PXE3", "cutting_room": "VEGATEX", "destination": "VEGATEX"},
@@ -1387,7 +1376,7 @@ class GetProductionCenterOptions(Resource):
             return {"success": True, "data": options}, 200
 
         except Exception as e:
-            print(f"❌ Error fetching production center options: {str(e)}")
+
             return {"success": False, "msg": str(e)}, 500
 
 
