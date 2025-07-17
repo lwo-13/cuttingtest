@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Grid, Autocomplete, TextField, Box, IconButton } from '@mui/material';
 import { AutoFixHigh } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import AlongAutoPopulateDialog from './AlongAutoPopulateDialog';
 
 const AlongGroupCard = ({
@@ -15,6 +16,7 @@ const AlongGroupCard = ({
   orderSizes = [], // Add order sizes for size splitting checkboxes
   handleAddRowAlong // Add function to create new rows
 }) => {
+  const { t } = useTranslation();
   const [autoPopulateDialogOpen, setAutoPopulateDialogOpen] = useState(false);
 
   // Check if there's a matching destination, fabric code and color in mattress tables
@@ -232,7 +234,7 @@ const AlongGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
+            renderInput={(params) => <TextField {...params} label={t('orderPlanning.fabricType', 'Fabric Type')} variant="outlined" />}
             sx={{ width: '100%', minWidth: '60px', "& .MuiAutocomplete-input": { fontWeight: 'normal' } }}
           />
         </Grid>
@@ -240,7 +242,7 @@ const AlongGroupCard = ({
         {/* Fabric Code */}
         <Grid item xs={3} sm={2} md={2}>
           <TextField
-            label="Fabric Code"
+            label={t('orderPlanning.fabricCode', 'Fabric Code')}
             variant="outlined"
             value={table.fabricCode || ""}
             disabled={!isTableEditable(table)}
@@ -260,7 +262,7 @@ const AlongGroupCard = ({
         {/* Fabric Color */}
         <Grid item xs={3} sm={2} md={1.5}>
           <TextField
-            label="Fabric Color"
+            label={t('orderPlanning.fabricColor', 'Fabric Color')}
             variant="outlined"
             value={table.fabricColor || ""}
             disabled={!isTableEditable(table)}

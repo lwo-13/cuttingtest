@@ -1472,14 +1472,24 @@ const OrderPlanning = () => {
                                 {/* Collaretto Helper Shortcut */}
                                 <CollarettoHelperShortcut tables={tables} />
 
-                                {/* Original Collaretto Consumption Info */}
-                                {selectedOrder && tables.length > 0 && tables[0].fabricCode && (
-                                    <CollarettoConsumptionInfo
-                                        style={selectedOrder.style}
-                                        fabricCode={tables[0].fabricCode}
-                                        plannedByBagno={getTablePlannedByBagno(tables[0]).bagnoMap}
-                                    />
-                                )}
+                                {/* Collaretto Consumption Info - Multiple fabric+grain combinations */}
+                                {selectedOrder && tables.length > 0 && (() => {
+                                    // Get all unique fabric codes from tables
+                                    const uniqueFabricCodes = [...new Set(tables
+                                        .filter(table => table.fabricCode)
+                                        .map(table => table.fabricCode)
+                                    )];
+
+                                    // For each fabric code, we'll let the component handle multiple grain directions
+                                    // The API will return all records for that fabric, and the component will group them
+                                    return uniqueFabricCodes.map(fabricCode => (
+                                        <CollarettoConsumptionInfo
+                                            key={`collaretto-${fabricCode}`}
+                                            style={selectedOrder.style}
+                                            fabricCode={fabricCode}
+                                        />
+                                    ));
+                                })()}
 
                                 {/* Order Actions Bar in Header */}
                                 <OrderActionBar

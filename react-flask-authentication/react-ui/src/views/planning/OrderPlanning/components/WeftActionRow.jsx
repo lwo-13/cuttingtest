@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { AddCircleOutline } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 const WeftActionRow = ({
   tableId,
@@ -10,6 +11,7 @@ const WeftActionRow = ({
   handleRemoveWeft,
   setUnsavedChanges
 }) => {
+  const { t } = useTranslation();
   const editable = isTableEditable(table);
 
   // Total consumption
@@ -61,14 +63,14 @@ const WeftActionRow = ({
           const avg = stats.totalPcs > 0 ? stats.totalCons / stats.totalPcs : 0;
           return (
             <Typography key={key} variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              ({key}) Avg Cons {avg.toFixed(3)} m/pc
+              ({key}) {t('orderPlanning.avgConsumption', 'Avg Consumption')} {avg.toFixed(3)} m/pc
             </Typography>
           );
         })}
 
         {totalConsumption > 0 && (
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Total Cons: {totalConsumption.toFixed(0)} m
+            {t('orderPlanning.totalConsumption', 'Total Consumption')}: {totalConsumption.toFixed(0)} m
           </Typography>
         )}
       </Box>
@@ -84,7 +86,7 @@ const WeftActionRow = ({
             setUnsavedChanges(true);
           }}
         >
-          Add Row
+          {t('orderPlanning.addRow', 'Add Row')}
         </Button>
 
         {editable && (
@@ -96,7 +98,7 @@ const WeftActionRow = ({
               setUnsavedChanges(true);
             }}
           >
-            Remove
+            {t('orderPlanning.removeTable', 'Remove Table')}
           </Button>
         )}
       </Box>

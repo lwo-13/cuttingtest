@@ -1,9 +1,11 @@
 // src/views/orderPlanning/PadPrintInfoManual.jsx
 import React, { useState, useMemo } from 'react';
 import { Grid, MenuItem, Select, InputLabel, FormControl, Box } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 
 const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => {
+    const { t } = useTranslation();
 
     const tezenisOptions = ['AYLOGO', 'AK000200', 'TRANSFER', 'NO'];
     const calzedoniaOptions = ['AK000049', 'AKOM23', 'AKOM24', 'NO'];
@@ -38,17 +40,17 @@ const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => 
     }, [brand]);
 
     return (
-        <MainCard title="Pad Print" sx={{ width: '100%', height: '100%' }}>
+        <MainCard title={t('orderPlanning.padPrint', 'Pad Print')} sx={{ width: '100%', height: '100%' }}>
             <Grid container spacing={2}>
                 {/* Fields Column - 1/3 width */}
                 <Grid item xs={12} md={4}>
                     <Box display="flex" flexDirection="column" gap={2}>
                         {/* Pattern Field */}
                         <FormControl fullWidth>
-                            <InputLabel>Pattern</InputLabel>
+                            <InputLabel>{t('orderPlanning.pattern', 'Pattern')}</InputLabel>
                             <Select
                                 value={pattern}
-                                label="Pattern"
+                                label={t('orderPlanning.pattern', 'Pattern')}
                                 onChange={(e) => setPattern(e.target.value)}
                             >
                                 {patternOptions.map((opt) => (

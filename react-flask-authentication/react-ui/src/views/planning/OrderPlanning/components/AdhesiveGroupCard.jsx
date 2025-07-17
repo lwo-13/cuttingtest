@@ -1,5 +1,6 @@
 import React from 'react';
 import { Grid, Autocomplete, TextField, Box } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const AdhesiveGroupCard = ({
   table,
@@ -12,6 +13,7 @@ const AdhesiveGroupCard = ({
   setUnsavedChanges,
   updateExpectedConsumption
 }) => {
+  const { t } = useTranslation();
   return (
     <Box p={1}>
       {/* Fabric Information */}
@@ -32,7 +34,7 @@ const AdhesiveGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
+            renderInput={(params) => <TextField {...params} label={t('orderPlanning.fabricType', 'Fabric Type')} variant="outlined" />}
             sx={{
               width: '100%',
               minWidth: '60px',
@@ -44,7 +46,7 @@ const AdhesiveGroupCard = ({
         {/* Fabric Code */}
         <Grid item xs={3} sm={2} md={1.5}>
           <TextField
-            label="Fabric Code"
+            label={t('orderPlanning.fabricCode', 'Fabric Code')}
             value={table.fabricCode || ''}
             disabled={!isTableEditable(table)}
             onChange={(e) => {
@@ -67,7 +69,7 @@ const AdhesiveGroupCard = ({
         {/* Fabric Color */}
         <Grid item xs={3} sm={2} md={1.5}>
           <TextField
-            label="Fabric Color"
+            label={t('orderPlanning.fabricColor', 'Fabric Color')}
             value={table.fabricColor || ''}
             disabled={!isTableEditable(table)}
             onChange={(e) => {
@@ -102,7 +104,7 @@ const AdhesiveGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            renderInput={(params) => <TextField {...params} label="Spreading Method" variant="outlined" />}
+            renderInput={(params) => <TextField {...params} label={t('orderPlanning.spreadingMethod', 'Spreading Method')} variant="outlined" />}
             sx={{
               width: '100%',
               minWidth: '60px',
@@ -150,7 +152,11 @@ const AdhesiveGroupCard = ({
         <Grid item xs={3} sm={2} md={1.5}>
           <Autocomplete
             options={spreadingOptions}
-            getOptionLabel={(option) => option}
+            getOptionLabel={(option) => {
+              if (option === 'AUTOMATIC') return t('orderPlanning.automatic', 'Automatic');
+              if (option === 'MANUAL') return t('orderPlanning.manual', 'Manual');
+              return option;
+            }}
             value={table.spreading || null}
             disabled={!isTableEditable(table)}
             onChange={(event, newValue) => {
@@ -161,7 +167,7 @@ const AdhesiveGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            renderInput={(params) => <TextField {...params} label="Spreading" variant="outlined" />}
+            renderInput={(params) => <TextField {...params} label={t('orderPlanning.spreading', 'Spreading')} variant="outlined" />}
             sx={{
               width: '100%',
               minWidth: '60px',

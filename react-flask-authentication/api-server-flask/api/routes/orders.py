@@ -461,18 +461,23 @@ class GetCollarettoConsumption(Resource):
                         bagno_groups[bagno]['total_pieces'] += pieces
                         bagno_groups[bagno]['total_consumption'] += cons_planned
 
+                        roll_width_value = float(detail.roll_width) if detail.roll_width else 0
+
                         record_data = {
                             'order_commessa': collaretto.order_commessa,
                             'collaretto_id': collaretto.id,
                             'fabric_type': collaretto.fabric_type or 'N/A',
+                            'item_type': collaretto.item_type,  # Add item_type for grain direction
                             'pieces': pieces,
                             'usable_width': float(detail.usable_width) if detail.usable_width else 0,
                             'gross_length': gross_length,
                             'cons_planned': cons_planned,
                             'pcs_seam': float(detail.pcs_seam) if detail.pcs_seam else 0,
+                            'collarettoWidth': roll_width_value,  # Use frontend field name
                             'consumption_per_piece': round(cons_planned / pieces, 4) if pieces > 0 else 0,
                             'bagno': bagno,
-                            'mattress_id': detail.mattress_id
+                            'mattress_id': detail.mattress_id,
+                            'applicable_sizes': detail.applicable_sizes  # Add the stored applicable sizes
                         }
                         bagno_groups[bagno]['records'].append(record_data)
                         collaretto_records.append(record_data)

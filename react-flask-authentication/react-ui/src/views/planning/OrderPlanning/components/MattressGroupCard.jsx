@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Grid, Autocomplete, TextField, Box, IconButton, CircularProgress } from '@mui/material';
 import { Refresh, AutoFixHigh } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import MattressBulkAddDialog from './MattressBulkAddDialog';
 
 const MattressGroupCard = ({
@@ -18,6 +19,7 @@ const MattressGroupCard = ({
   markerOptions,
   onBulkAddRows
 }) => {
+  const { t } = useTranslation();
   // Dialog state for bulk add
   const [bulkAddDialogOpen, setBulkAddDialogOpen] = useState(false);
 
@@ -41,7 +43,7 @@ const MattressGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            renderInput={(params) => <TextField {...params} label="Fabric Type" variant="outlined" />}
+            renderInput={(params) => <TextField {...params} label={t('orderPlanning.fabricType', 'Fabric Type')} variant="outlined" />}
             sx={{
               width: '100%',
               minWidth: '60px',
@@ -53,7 +55,7 @@ const MattressGroupCard = ({
         {/* Fabric Code (Text Input) */}
         <Grid item xs={3} sm={2} md={2}>
           <TextField
-            label="Fabric Code"
+            label={t('orderPlanning.fabricCode', 'Fabric Code')}
             variant="outlined"
             value={table.fabricCode || ""}
             disabled={!isTableEditable(table)}
@@ -77,7 +79,7 @@ const MattressGroupCard = ({
         {/* Fabric Color (Text Input) */}
         <Grid item xs={3} sm={2} md={1.5}>
           <TextField
-            label="Fabric Color"
+            label={t('orderPlanning.fabricColor', 'Fabric Color')}
             variant="outlined"
             value={table.fabricColor || ""}
             disabled={!isTableEditable(table)}
@@ -101,7 +103,7 @@ const MattressGroupCard = ({
         {/* Allowance */}
         <Grid item xs={1.5} sm={1.5} md={1.5}>
           <TextField
-            label="Allowance [m]"
+            label={t('orderPlanning.allowance', 'Allowance') + ' [m]'}
             variant="outlined"
             value={table?.allowance || ""}
             disabled={!isTableEditable(table)}
@@ -155,7 +157,7 @@ const MattressGroupCard = ({
               setUnsavedChanges(true);
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Spreading Method" variant="outlined" />
+              <TextField {...params} label={t('orderPlanning.spreadingMethod', 'Spreading Method')} variant="outlined" />
             )}
             sx={{
               width: '100%',
@@ -169,7 +171,11 @@ const MattressGroupCard = ({
         <Grid item xs={3} sm={2} md={2}>
           <Autocomplete
             options={spreadingOptions}
-            getOptionLabel={(option) => option}
+            getOptionLabel={(option) => {
+              if (option === 'AUTOMATIC') return t('orderPlanning.automatic', 'Automatic');
+              if (option === 'MANUAL') return t('orderPlanning.manual', 'Manual');
+              return option;
+            }}
             value={table.spreading || null}
             disabled={!isTableEditable(table)}
             onChange={(event, newValue) => {
@@ -181,7 +187,7 @@ const MattressGroupCard = ({
               setUnsavedChanges(true);
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Spreading" variant="outlined" />
+              <TextField {...params} label={t('orderPlanning.spreading', 'Spreading')} variant="outlined" />
             )}
             sx={{
               width: '100%',

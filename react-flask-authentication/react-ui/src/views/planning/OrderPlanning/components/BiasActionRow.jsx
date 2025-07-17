@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { AddCircleOutline } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 const BiasActionRow = ({
   tableId,
@@ -10,6 +11,7 @@ const BiasActionRow = ({
   handleRemoveBias,
   setUnsavedChanges
 }) => {
+  const { t } = useTranslation();
   const editable = isTableEditable(table);
 
   const totalConsumption = table.rows.reduce((sum, row) => {
@@ -60,14 +62,14 @@ const BiasActionRow = ({
           const avg = stats.totalPcs > 0 ? stats.totalCons / stats.totalPcs : 0;
           return (
             <Typography key={key} variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              ({key}): Avg Cons {avg.toFixed(3)} m/pc
+              ({key}): {t('orderPlanning.avgConsumption', 'Avg Consumption')} {avg.toFixed(3)} m/pc
             </Typography>
           );
         })}
 
         {totalConsumption > 0 && (
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Total Cons: {totalConsumption.toFixed(0)} m
+            {t('orderPlanning.totalConsumption', 'Total Consumption')}: {totalConsumption.toFixed(0)} m
           </Typography>
         )}
       </Box>
@@ -83,7 +85,7 @@ const BiasActionRow = ({
             setUnsavedChanges(true);
           }}
         >
-          Add Row
+          {t('orderPlanning.addRow', 'Add Row')}
         </Button>
 
         {editable && (
@@ -95,7 +97,7 @@ const BiasActionRow = ({
               setUnsavedChanges(true);
             }}
           >
-            Remove
+            {t('orderPlanning.removeTable', 'Remove Table')}
           </Button>
         )}
       </Box>
