@@ -6,14 +6,15 @@ import RobotoRegular from "../../../assets/fonts/Roboto-Regular-normal";
 
 // Export the function so it can be reused
 const printMattressBG = async (selectedMattresses, fetchMattresses) => {
-    if (!selectedMattresses || selectedMattresses.length === 0) {
-        alert("No mattress selected. Please select a mattress first.");
-        return;
-    }
+    try {
+        if (!selectedMattresses || selectedMattresses.length === 0) {
+            alert("No mattress selected. Please select a mattress first.");
+            return;
+        }
 
 
 
-    // Create a single PDF document for all mattresses
+        // Create a single PDF document for all mattresses
     const doc = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -67,7 +68,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             try {
                 const response = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
                 if (response.data.success) {
-                    markerLines = response.data.marker_lines; 
+                    markerLines = response.data.marker_lines;
                 }
             } catch (error) {
                 console.error("Error fetching marker lines:", error);
@@ -143,7 +144,11 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             
             let padPrintImage = null;
 
-            if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
+            // Only try to load image if pattern is not "NO" and not "TRANSFER"
+            if (padPrintData.length > 0 &&
+                padPrintData[0].pattern !== "NO" &&
+                padPrintData[0].pattern.toUpperCase() !== "TRANSFER") {
+
                 const pattern = padPrintData[0].pattern.toLowerCase();
                 const imageUrl = `http://172.27.57.210:5000/api/padprint/image/${pattern}.jpg`;
 
@@ -155,18 +160,13 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 }
             }
 
-            // Check if padprint image is required but missing
-            if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO" && !padPrintImage) {
+            // Log warning if padprint image is missing but continue with printing (only for non-TRANSFER patterns)
+            if (padPrintData.length > 0 &&
+                padPrintData[0].pattern !== "NO" &&
+                padPrintData[0].pattern.toUpperCase() !== "TRANSFER" &&
+                !padPrintImage) {
                 const pattern = padPrintData[0].pattern;
-                const errorMessage = `❌ PADPRINT ERROR: Cannot print mattress "${mattressName}" - Required padprint image "${pattern}" could not be loaded.`;
-                console.error(errorMessage);
-
-                alert(`Padprint Error: Cannot print mattress "${mattressName}"\n\nRequired padprint image "${pattern}" could not be loaded.\n\nPossible causes:\n• Image file missing on server\n• Network connection issues\n• Image file corrupted\n• Server not responding\n\nPlease contact IT support if the problem persists.`);
-
-
-
-                // Skip this mattress and continue with the next one
-                continue;
+                console.warn(`⚠️ PADPRINT WARNING: Padprint image "${pattern}" could not be loaded for mattress "${mattressName}". Continuing with printing without image.`);
             }
 
             // Fetch destination from mattress production center using table_id
@@ -504,8 +504,12 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
         console.error("Error updating print statuses", error);
     }
 
-    // Refresh the table to reflect the new status
-    fetchMattresses();
+        // Refresh the table to reflect the new status
+        fetchMattresses();
+    } catch (error) {
+        console.error("Critical error in printMattressBG:", error);
+        alert(`Critical error in print function: ${error.message}`);
+    }
 };
 
 export default printMattressBG;
