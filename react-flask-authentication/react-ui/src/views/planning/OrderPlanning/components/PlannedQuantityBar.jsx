@@ -124,42 +124,48 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
       ? Object.values(metersByBagno).reduce((sum, val) => sum + val, 0)
       : 0;
 
+    // Build header cells array to avoid whitespace issues
+    const headerCells = [
+      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>,
+      ...uniqueSizes.map(size => (
+        <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
+      )),
+      <TableCell key="total" align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>,
+      <TableCell key="cons" align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
+    ];
+
+    if (collarettoConsumption || adhesiveConsumption) {
+      headerCells.push(
+        <TableCell key="extra-cons" align="center" sx={{ fontWeight: 'bold' }}>
+          {collarettoConsumption && adhesiveConsumption ? (
+            <Box component="span">
+              <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
+                With Collaretto
+              </Typography>
+              <Typography component="span" sx={{ color: 'black', fontWeight: 'bold' }}>
+                {' and '}
+              </Typography>
+              <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                Adhesive Cons [m]
+              </Typography>
+            </Box>
+          ) : collarettoConsumption ? (
+            <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
+              With Collaretto Cons [m]
+            </Typography>
+          ) : (
+            <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+              With Adhesive Cons [m]
+            </Typography>
+          )}
+        </TableCell>
+      );
+    }
+
     return (
       <Table size="small" sx={{ mt: 2 }}>
         <TableHead>
-          <TableRow>
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
-            {uniqueSizes.map(size => (
-              <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
-            ))}
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
-            {(collarettoConsumption || adhesiveConsumption) && (
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                {collarettoConsumption && adhesiveConsumption ? (
-                  <Box component="span">
-                    <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
-                      With Collaretto
-                    </Typography>
-                    <Typography component="span" sx={{ color: 'black', fontWeight: 'bold' }}>
-                      {' and '}
-                    </Typography>
-                    <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
-                      Adhesive Cons [m]
-                    </Typography>
-                  </Box>
-                ) : collarettoConsumption ? (
-                  <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
-                    With Collaretto Cons [m]
-                  </Typography>
-                ) : (
-                  <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
-                    With Adhesive Cons [m]
-                  </Typography>
-                )}
-              </TableCell>
-            )}
-          </TableRow>
+          <TableRow>{headerCells}</TableRow>
         </TableHead>
         <TableBody>
           {(bagnoOrder || []).map((bagno) => {
@@ -169,54 +175,58 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
             const collarettoConsForBagno = total * parseFloat(collarettoConsumption || 0);
             const adhesiveConsForBagno = total * parseFloat(adhesiveConsumption || 0);
 
+            // Build row cells array to avoid whitespace issues
+            const rowCells = [
+              <TableCell key="bagno" align="center">{bagno}</TableCell>,
+              ...uniqueSizes.map(size => (
+                <TableCell key={size} align="center">
+                  {sizeMap[size] || 0}
+                </TableCell>
+              )),
+              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>,
+              <TableCell key="cons" align="center" sx={{ fontWeight: 500 }}>
+                {mattressConsForBagno.toFixed(0)}
+              </TableCell>
+            ];
+
+            if (collarettoConsumption || adhesiveConsumption) {
+              rowCells.push(
+                <TableCell key="extra-cons" align="center" sx={{ fontWeight: 500 }}>
+                  <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+                    <Typography component="span" sx={{ color: 'black' }}>
+                      {Math.round(mattressConsForBagno)}
+                    </Typography>
+                    {collarettoConsumption && (
+                      <Typography component="span" sx={{ color: '#673ab7' }}>
+                        {" + " + Math.round(collarettoConsForBagno)}
+                      </Typography>
+                    )}
+                    {adhesiveConsumption && (
+                      <Typography component="span" sx={{ color: '#ff9800' }}>
+                        {" + " + Math.round(adhesiveConsForBagno)}
+                      </Typography>
+                    )}
+                    <Typography component="span" sx={{ color: 'black' }}>
+                      {" = " + Math.round(mattressConsForBagno + collarettoConsForBagno + adhesiveConsForBagno)}
+                    </Typography>
+                    {/* Width splitting toggle button */}
+                    {collarettoConsumption && (
+                      <IconButton
+                        size="small"
+                        onClick={() => toggleBagnoExpansion(bagno)}
+                        sx={{ ml: 0.5, color: '#673ab7' }}
+                      >
+                        {expandedBagnos[bagno] ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                    )}
+                  </Box>
+                </TableCell>
+              );
+            }
+
             return (
               <Fragment key={bagno}>
-                <TableRow>
-                  <TableCell align="center">{bagno}</TableCell>
-                  {uniqueSizes.map(size => (
-                    <TableCell key={size} align="center">
-                      {sizeMap[size] || 0}
-                    </TableCell>
-                  ))}
-                  <TableCell align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 500 }}>
-                    {mattressConsForBagno.toFixed(0)}
-                  </TableCell>
-                  {(collarettoConsumption || adhesiveConsumption) && (
-                    <TableCell align="center" sx={{ fontWeight: 500 }}>
-                      <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
-                        <Typography component="span" sx={{ color: 'black' }}>
-                          {Math.round(mattressConsForBagno)}
-                        </Typography>
-                        {collarettoConsumption && (
-                          <Typography component="span" sx={{ color: '#673ab7' }}>
-                            {" + " + Math.round(collarettoConsForBagno)}
-                          </Typography>
-                        )}
-                        {adhesiveConsumption && (
-                          <Typography component="span" sx={{ color: '#ff9800' }}>
-                            {" + " + Math.round(adhesiveConsForBagno)}
-                          </Typography>
-                        )}
-                        <Typography component="span" sx={{ color: 'black' }}>
-                          {" = " + Math.round(mattressConsForBagno + collarettoConsForBagno + adhesiveConsForBagno)}
-                        </Typography>
-
-                        {/* Width splitting toggle button */}
-                        {collarettoConsumption && (
-                          <IconButton
-                            size="small"
-                            onClick={() => toggleBagnoExpansion(bagno)}
-                            sx={{ ml: 0.5, color: '#673ab7' }}
-                          >
-                            {expandedBagnos[bagno] ? <ExpandLess /> : <ExpandMore />}
-                          </IconButton>
-                        )}
-                      </Box>
-                    </TableCell>
-                  )}
-                </TableRow>
-
+                <TableRow>{rowCells}</TableRow>
                 {/* Width splitting row - expands RIGHT HERE under each bagno */}
                 {expandedBagnos[bagno] && collarettoConsumption && (
                   <TableRow>
@@ -319,55 +329,65 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
               </Fragment>
             );
           })}
+          {(() => {
+            // Build totals row cells array to avoid whitespace issues
+            const totalRowCells = [
+              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>,
+              ...uniqueSizes.map(size => {
+                const total = totalPerSize[size] || 0;
+                const ordered = getOrderedQty(size);
+                const pct = ordered ? ((total / ordered) * 100).toFixed(1) : null;
 
-          {/* 🔽 Totals Row */}
-          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
-            {uniqueSizes.map(size => {
-              const total = totalPerSize[size] || 0;
-              const ordered = getOrderedQty(size);
-              const pct = ordered ? ((total / ordered) * 100).toFixed(1) : null;
+                return (
+                  <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
+                    {total} {pct ? `(${pct}%)` : ''}
+                  </TableCell>
+                );
+              }),
+              <TableCell key="total-pcs" align="center" sx={{ fontWeight: 'bold' }}>
+                {Object.values(totalPerSize).reduce((sum, val) => sum + val, 0)}{" "}
+                ({((Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) /
+                    orderSizes.reduce((sum, s) => sum + (s.qty || 0), 0)) * 100).toFixed(1)}%)
+              </TableCell>,
+              <TableCell key="total-meters" align="center" sx={{ fontWeight: 'bold' }}>
+                {totalMeters.toFixed(0)}
+              </TableCell>
+            ];
 
-              return (
-                <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
-                  {total} {pct ? `(${pct}%)` : ''}
+            if (collarettoConsumption || adhesiveConsumption) {
+              totalRowCells.push(
+                <TableCell key="total-extra-cons" align="center" sx={{ fontWeight: 'bold' }}>
+                  <Box>
+                    <Typography component="span" sx={{ color: 'black' }}>
+                      {Math.round(totalMeters)}
+                    </Typography>
+                    {collarettoConsumption && (
+                      <Typography component="span" sx={{ color: '#673ab7' }}>
+                        {" + " + Math.round(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0))}
+                      </Typography>
+                    )}
+                    {adhesiveConsumption && (
+                      <Typography component="span" sx={{ color: '#ff9800' }}>
+                        {" + " + Math.round(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))}
+                      </Typography>
+                    )}
+                    <Typography component="span" sx={{ color: 'black' }}>
+                      {" = " + Math.round(totalMeters +
+                        (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0)) +
+                        (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))
+                      )}
+                    </Typography>
+                  </Box>
                 </TableCell>
               );
-            })}
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-              {Object.values(totalPerSize).reduce((sum, val) => sum + val, 0)}{" "}
-              ({((Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) /
-                  orderSizes.reduce((sum, s) => sum + (s.qty || 0), 0)) * 100).toFixed(1)}%)
-            </TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-              {totalMeters.toFixed(0)}
-            </TableCell>
-            {(collarettoConsumption || adhesiveConsumption) && (
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                <Box>
-                  <Typography component="span" sx={{ color: 'black' }}>
-                    {Math.round(totalMeters)}
-                  </Typography>
-                  {collarettoConsumption && (
-                    <Typography component="span" sx={{ color: '#673ab7' }}>
-                      {" + " + Math.round(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0))}
-                    </Typography>
-                  )}
-                  {adhesiveConsumption && (
-                    <Typography component="span" sx={{ color: '#ff9800' }}>
-                      {" + " + Math.round(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))}
-                    </Typography>
-                  )}
-                  <Typography component="span" sx={{ color: 'black' }}>
-                    {" = " + Math.round(totalMeters +
-                      (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0)) +
-                      (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))
-                    )}
-                  </Typography>
-                </Box>
-              </TableCell>
-            )}
-          </TableRow>
+            }
+
+            return (
+              <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                {totalRowCells}
+              </TableRow>
+            );
+          })()}
         </TableBody>
       </Table>
     );

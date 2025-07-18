@@ -94,7 +94,6 @@ const ProductionCenterTabs = forwardRef(({
             const response = await axios.get(`/orders/production_center_combinations/get/${selectedOrder.id}`);
             if (response.data.success) {
                 const combos = response.data.data || [];
-                console.log('📥 Fetched combinations from API:', combos);
                 setCombinations(combos);
 
 
@@ -616,27 +615,30 @@ const ProductionCenterTabs = forwardRef(({
                                                 {combination.destination && combination.destination !== combination.cutting_room && ` - ${combination.destination}`}
                                                 {percentage > 0 && ` (${percentage}%)`}
                                             </span>
-                                            <IconButton
-                                                size="small"
+                                            <Edit
+                                                fontSize="small"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleEditCombination(combination);
                                                 }}
-                                                sx={{ ml: 1 }}
-                                            >
-                                                <Edit fontSize="small" />
-                                            </IconButton>
+                                                sx={{
+                                                    ml: 1,
+                                                    cursor: 'pointer',
+                                                    '&:hover': { color: 'primary.main' }
+                                                }}
+                                            />
                                             {combinations.length > 1 && (
-                                                <IconButton
-                                                    size="small"
+                                                <Delete
+                                                    fontSize="small"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleDeleteCombination(combination);
                                                     }}
-                                                    color="error"
-                                                >
-                                                    <Delete fontSize="small" />
-                                                </IconButton>
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        '&:hover': { color: 'error.main' }
+                                                    }}
+                                                />
                                             )}
                                         </Box>
                                     }

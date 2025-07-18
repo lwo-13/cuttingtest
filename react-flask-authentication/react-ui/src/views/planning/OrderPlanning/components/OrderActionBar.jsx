@@ -1,9 +1,8 @@
 import React from 'react';
-import { Box, Button, Chip} from '@mui/material';
+import { Box, Button, Chip, CircularProgress } from '@mui/material';
 import PushPin from '@mui/icons-material/PushPin';
 import PushPinOutlined from '@mui/icons-material/PushPinOutlined';
 import IconButton from '@mui/material/IconButton';
-import { LoadingButton } from '@mui/lab';
 import SaveIcon from '@mui/icons-material/Save';
 import { Print, RestoreOutlined } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -60,11 +59,9 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, set
             )}
 
             {/* Enhanced Save Button */}
-            <LoadingButton
+            <Button
                 variant="contained"
-                loading={saving}
-                loadingPosition="start"
-                startIcon={<SaveIcon />}
+                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
                 onClick={handleSave}
                 disabled={!unsavedChanges && !saving}
                 sx={{
@@ -84,7 +81,7 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, set
                 }}
             >
                 {saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
-            </LoadingButton>
+            </Button>
 
             {/* Print Button */}
             <Button

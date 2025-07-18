@@ -71,8 +71,6 @@ const handleOrderChange = async (newValue, context) => {
   setSelectedColorCode(newValue.colorCode);
 
 
-
-  console.log(`🔍 Fetching mattresses for order: ${newValue.id}`);
   fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
   fetchBrandForStyle(newValue.style);
 

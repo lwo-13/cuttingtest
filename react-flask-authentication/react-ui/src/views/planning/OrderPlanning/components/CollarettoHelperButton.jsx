@@ -113,21 +113,23 @@ const CollarettoHelperShortcut = ({ tables }) => {
                 placement="left"
                 arrow
             >
-                <IconButton
-                    size="medium"
-                    onClick={handleClick}
-                    disabled={!hasActiveTables}
-                    sx={{
-                        color: hasActiveTables ? '#673ab7' : '#ccc',
-                        m: 0.5,
-                        '&:hover': hasActiveTables ? {
-                            backgroundColor: '#673ab7',
-                            color: 'white'
-                        } : {}
-                    }}
-                >
-                    <CalculateIcon />
-                </IconButton>
+                <span>
+                    <IconButton
+                        size="medium"
+                        onClick={handleClick}
+                        disabled={!hasActiveTables}
+                        sx={{
+                            color: hasActiveTables ? '#673ab7' : '#ccc',
+                            m: 0.5,
+                            '&:hover': hasActiveTables ? {
+                                backgroundColor: '#673ab7',
+                                color: 'white'
+                            } : {}
+                        }}
+                    >
+                        <CalculateIcon />
+                    </IconButton>
+                </span>
             </Tooltip>
         </Box>
     );

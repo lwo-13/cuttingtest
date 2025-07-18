@@ -5,7 +5,7 @@ import { ReactComponent as LogoSVG } from '../assets/images/logo.svg';  // Corre
 const Logo = () => {
   const theme = useTheme();
 
-  return <LogoSVG width="160" height="auto" />;
+  return <LogoSVG width="160" height="50" />;
 };
 
 export default Logo;

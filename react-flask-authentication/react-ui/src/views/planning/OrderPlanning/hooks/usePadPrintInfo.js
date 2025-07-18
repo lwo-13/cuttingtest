@@ -14,7 +14,6 @@ const usePadPrintInfo = () => {
                 p.style === style &&
                 p.color === color
             );
-            console.log("🔍 Fetching pad print info for:", season, style, color);
 
             setPadPrintInfo(matchingPadPrint || null);
         } catch (err) {
