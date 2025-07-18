@@ -23,15 +23,59 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField
+    TextField,
+    IconButton
 } from '@mui/material';
 
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
+import {
+    ChevronLeft,
+    ChevronRight,
+    UnfoldMore
+} from '@mui/icons-material';
+
+// assets
+import { IconTool } from '@tabler/icons';
 import useCollapseMenu from '../../hooks/useCollapseMenu';
 
 const SpreaderView = () => {
     const { t } = useTranslation();
+
+    // Function to reset operator selection
+    const resetOperatorSession = () => {
+        setSelectedOperator('');
+        setOperatorSessionDate(null);
+        setSnackbar({
+            open: true,
+            message: "Operator session has been reset. Please select an operator to continue.",
+            severity: "warning"
+        });
+    };
+
+    // Function to check if we need to reset operator session
+    const checkOperatorSessionValidity = () => {
+        const now = new Date();
+        const currentDate = now.toDateString();
+
+        // Reset if it's a new day
+        if (operatorSessionDate && operatorSessionDate !== currentDate) {
+            resetOperatorSession();
+            return;
+        }
+
+        // Reset after 4 hours of inactivity (14400000 ms)
+        const timeSinceLastActivity = now - lastActivityTime;
+        if (selectedOperator && timeSinceLastActivity > 14400000) { // 4 hours
+            resetOperatorSession();
+            return;
+        }
+    };
+
+    // Function to update activity time
+    const updateActivityTime = () => {
+        setLastActivityTime(new Date());
+    };
     // Automatically collapse the sidebar menu
     useCollapseMenu(true);
 
@@ -49,6 +93,28 @@ const SpreaderView = () => {
     const [actualLayers, setActualLayers] = useState('');
     const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
     const [activeSpreadingMattress, setActiveSpreadingMattress] = useState(null); // Track active spreading mattress
+    const [expandedShift, setExpandedShift] = useState(null); // Track which shift is expanded ('first', 'second', or null)
+    const [lastActivityTime, setLastActivityTime] = useState(new Date());
+    const [operatorSessionDate, setOperatorSessionDate] = useState(null);
+
+    // Width change dialog state
+    const [widthChangeDialog, setWidthChangeDialog] = useState({
+        open: false,
+        mattressId: null,
+        markerName: '',
+        currentWidth: '',
+        newWidth: '',
+        selectedMarker: '',
+        availableMarkers: [],
+        loadingMarkers: false,
+        style: '',
+        orderCommessa: '',
+        currentMarkerLength: '',
+        layers: '',
+        allowance: 0.02, // Default allowance value in meters
+        plannedConsumption: '' // Fetch from mattress_details.cons_planned
+    });
+
     const account = useSelector((state) => state.account);
     const { user } = account;
 
@@ -74,10 +140,19 @@ const SpreaderView = () => {
         // Set up auto-refresh polling every 5 minutes
         const refreshInterval = setInterval(() => {
             fetchMattresses(false); // Background refresh
+            checkOperatorSessionValidity(); // Check if operator session is still valid
         }, 300000); // 5 minutes (300,000 ms)
 
-        // Clean up the interval when component unmounts
-        return () => clearInterval(refreshInterval);
+        // Set up session validity check every 30 minutes
+        const sessionCheckInterval = setInterval(() => {
+            checkOperatorSessionValidity();
+        }, 1800000); // 30 minutes (1,800,000 ms)
+
+        // Clean up the intervals when component unmounts
+        return () => {
+            clearInterval(refreshInterval);
+            clearInterval(sessionCheckInterval);
+        };
     }, [spreaderDevice]);
 
     const fetchOperators = async () => {
@@ -86,15 +161,7 @@ const SpreaderView = () => {
             const response = await axios.get('/operators/active');
             if (response.data.success) {
                 setOperators(response.data.data);
-                // Set default selected operator to the current user if they're in the list
-                const currentUserName = user?.username || '';
-                const matchingOperator = response.data.data.find(op => op.name === currentUserName);
-                if (matchingOperator) {
-                    setSelectedOperator(matchingOperator.id.toString());
-                } else if (response.data.data.length > 0) {
-                    // Otherwise select the first operator
-                    setSelectedOperator(response.data.data[0].id.toString());
-                }
+                // Don't auto-select any operator - leave it empty by default
             } else {
                 console.error("Error fetching operators:", response.data.message);
             }
@@ -160,6 +227,9 @@ const SpreaderView = () => {
     };
 
     const handleStartSpreading = (mattressId) => {
+        // Update activity time
+        updateActivityTime();
+
         // Check if there's already an active spreading mattress for this spreader
         if (activeSpreadingMattress) {
             setSnackbar({
@@ -223,6 +293,9 @@ const SpreaderView = () => {
 
     const handleFinishSpreading = () => {
         if (!selectedMattress) return;
+
+        // Update activity time
+        updateActivityTime();
 
         // Validate actual layers input
         if (!actualLayers || isNaN(actualLayers) || Number(actualLayers) <= 0) {
@@ -291,6 +364,192 @@ const SpreaderView = () => {
 
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
+    };
+
+    // Width change dialog handlers
+    const parseMattressSizes = (sizesString) => {
+        // Parse "S - 10; M - 15; L - 20" format into {S: 10, M: 15, L: 20}
+        if (!sizesString) return {};
+
+        const sizeQuantities = {};
+        const sizeEntries = sizesString.split(';');
+
+        sizeEntries.forEach(entry => {
+            const trimmed = entry.trim();
+            if (trimmed) {
+                const parts = trimmed.split(' - ');
+                if (parts.length === 2) {
+                    const size = parts[0].trim();
+                    const quantity = parseFloat(parts[1].trim());
+                    if (!isNaN(quantity)) {
+                        sizeQuantities[size] = quantity;
+                    }
+                }
+            }
+        });
+
+        return sizeQuantities;
+    };
+
+    const areSizeQuantitiesEqual = (mattressSizes, markerSizes) => {
+        // Compare two size quantity objects for exact match
+        const mattressKeys = Object.keys(mattressSizes).sort();
+        const markerKeys = Object.keys(markerSizes).sort();
+
+        // Check if they have the same sizes
+        if (mattressKeys.length !== markerKeys.length) return false;
+        if (mattressKeys.join(',') !== markerKeys.join(',')) return false;
+
+        // Check if quantities match
+        for (const size of mattressKeys) {
+            if (mattressSizes[size] !== markerSizes[size]) return false;
+        }
+
+        return true;
+    };
+
+    const fetchMarkersForStyle = async (style, orderCommessa, mattressSizes) => {
+        try {
+            setWidthChangeDialog(prev => ({ ...prev, loadingMarkers: true }));
+
+            // First get the order lines to get the sizes
+            const orderLinesResponse = await axios.get(`/orders/order_lines?order_commessa=${encodeURIComponent(orderCommessa)}`);
+
+            if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
+                const sizes = orderLinesResponse.data.data.map(line => line.size);
+
+                // Then fetch markers for this style with these sizes
+                const markersResponse = await axios.get('/markers/marker_headers_planning', {
+                    params: {
+                        style: style,
+                        sizes: sizes.join(',')
+                    }
+                });
+
+                if (markersResponse.data.success) {
+                    // Parse mattress sizes for comparison
+                    const mattressSizeQuantities = parseMattressSizes(mattressSizes);
+
+                    // Filter markers to only include those with exact size quantity matches
+                    const matchingMarkers = markersResponse.data.data.filter(marker => {
+                        return areSizeQuantitiesEqual(mattressSizeQuantities, marker.size_quantities || {});
+                    });
+
+                    setWidthChangeDialog(prev => ({
+                        ...prev,
+                        availableMarkers: matchingMarkers,
+                        loadingMarkers: false
+                    }));
+                } else {
+                    console.error('Failed to fetch markers:', markersResponse.data.msg);
+                    setWidthChangeDialog(prev => ({ ...prev, loadingMarkers: false }));
+                }
+            } else {
+                console.error('Failed to fetch order lines');
+                setWidthChangeDialog(prev => ({ ...prev, loadingMarkers: false }));
+            }
+        } catch (error) {
+            console.error('Error fetching markers:', error);
+            setWidthChangeDialog(prev => ({ ...prev, loadingMarkers: false }));
+        }
+    };
+
+    const handleOpenWidthChangeDialog = async (mattress) => {
+        // Update activity time
+        updateActivityTime();
+
+        // First get the style from order_commessa and planned consumption
+        try {
+            const orderLinesResponse = await axios.get(`/orders/order_lines?order_commessa=${encodeURIComponent(mattress.order_commessa)}`);
+
+            let style = '';
+            if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
+                style = orderLinesResponse.data.data[0].style;
+            }
+
+            // Use planned consumption from mattress data (already available from kanban endpoint)
+            const plannedConsumption = mattress.consumption || '';
+
+            setWidthChangeDialog({
+                open: true,
+                mattressId: mattress.id,
+                markerName: mattress.marker || '',
+                currentWidth: mattress.width || '',
+                newWidth: '',
+                selectedMarker: '',
+                availableMarkers: [],
+                loadingMarkers: false,
+                style: style,
+                orderCommessa: mattress.order_commessa,
+                currentMarkerLength: mattress.markerLength || '',
+                layers: mattress.layers || '',
+                allowance: 0.02,
+                plannedConsumption: plannedConsumption
+            });
+
+            // Fetch markers for this style with exact size matches
+            if (style) {
+                await fetchMarkersForStyle(style, mattress.order_commessa, mattress.sizes);
+            }
+        } catch (error) {
+            console.error('Error opening width change dialog:', error);
+            setWidthChangeDialog({
+                open: true,
+                mattressId: mattress.id,
+                markerName: mattress.marker || '',
+                currentWidth: mattress.width || '',
+                newWidth: '',
+                selectedMarker: '',
+                availableMarkers: [],
+                loadingMarkers: false,
+                style: '',
+                orderCommessa: mattress.order_commessa,
+                currentMarkerLength: mattress.markerLength || '',
+                layers: mattress.layers || '',
+                allowance: 0.02,
+                plannedConsumption: ''
+            });
+        }
+    };
+
+    const handleCloseWidthChangeDialog = () => {
+        setWidthChangeDialog({
+            open: false,
+            mattressId: null,
+            markerName: '',
+            currentWidth: '',
+            newWidth: '',
+            selectedMarker: '',
+            availableMarkers: [],
+            loadingMarkers: false,
+            style: '',
+            orderCommessa: '',
+            currentMarkerLength: '',
+            layers: '',
+            allowance: 0.02,
+            plannedConsumption: ''
+        });
+    };
+
+    const handleSubmitWidthChange = () => {
+        // TODO: Implement width change submission logic
+        console.log('Submitting width change:', {
+            mattressId: widthChangeDialog.mattressId,
+            markerName: widthChangeDialog.markerName,
+            currentWidth: widthChangeDialog.currentWidth,
+            newWidth: widthChangeDialog.newWidth,
+            selectedMarker: widthChangeDialog.selectedMarker,
+            style: widthChangeDialog.style,
+            orderCommessa: widthChangeDialog.orderCommessa
+        });
+
+        setSnackbar({
+            open: true,
+            message: `Width change request submitted for ${widthChangeDialog.markerName}`,
+            severity: 'success'
+        });
+
+        handleCloseWidthChangeDialog();
     };
 
     const renderMattressCard = (mattress) => (
@@ -368,12 +627,27 @@ const SpreaderView = () => {
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
                     <Grid item xs={6}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.order')}:</strong> {mattress.order_commessa}</Typography>
-                        {mattress.destination && mattress.destination !== 'Not Assigned' && (
-                            <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.destination', 'Destination')}:</strong> {mattress.destination}</Typography>
-                        )}
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.fabric')}:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('table.bagno')}:</strong> {mattress.dye_lot}</Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.spreadingMethod')}:</strong> {mattress.spreading_method}</Typography>
+                        {mattress.destination && mattress.destination !== 'Not Assigned' && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                <strong>{t('common.destination', 'Destination')}:</strong> {
+                                    mattress.destination.includes('ZALLI 1')
+                                        ? 'ZALLI 1'
+                                        : mattress.destination
+                                }
+                            </Typography>
+                        )}
+                        {/* Only show sector field if destination contains "ZALLI 1" */}
+                        {mattress.destination && mattress.destination.includes('ZALLI 1') && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                <strong>{t('common.sector', 'Sector')}:</strong> {
+                                    mattress.destination.includes(' - ')
+                                        ? mattress.destination.split(' - ')[1]
+                                        : mattress.destination
+                                }
+                            </Typography>
+                        )}
                     </Grid>
                     <Grid item xs={6}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('table.width')}:</strong> {mattress.width} cm</Typography>
@@ -385,14 +659,35 @@ const SpreaderView = () => {
                                 <span style={{ color: '#666', fontSize: '0.9em' }}> (+{mattress.extra} {t('common.extra', 'extra')})</span>
                             )}
                         </Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.sector', 'Sector')}:</strong> {mattress.sector || t('table.na')}</Typography>
                         <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.sizes')}:</strong> {mattress.sizes || t('table.na')}</Typography>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}><strong>{t('common.spreadingMethod')}:</strong> {mattress.spreading_method}</Typography>
                     </Grid>
                 </Grid>
 
                 {/* Action buttons */}
                 {mattress.status === "1 - TO LOAD" && (
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span
+                            onClick={() => {
+                                if (!selectedOperator) {
+                                    setSnackbar({
+                                        open: true,
+                                        message: "Please select an operator before changing width",
+                                        severity: "warning"
+                                    });
+                                    return;
+                                }
+                                handleOpenWidthChangeDialog(mattress);
+                            }}
+                            title={!selectedOperator ? "Select an operator first" : "Change Width"}
+                            style={{
+                                cursor: !selectedOperator ? 'not-allowed' : 'pointer',
+                                userSelect: 'none',
+                                opacity: !selectedOperator ? 0.5 : 1
+                            }}
+                        >
+                            <IconTool size={20} />
+                        </span>
                         <Button
                             variant="contained"
                             color="primary"
@@ -481,10 +776,24 @@ const SpreaderView = () => {
                                 id="operator-select"
                                 value={selectedOperator}
                                 label={t('spreader.selectOperator')}
-                                onChange={(e) => setSelectedOperator(e.target.value)}
+                                onChange={(e) => {
+                                    const operatorId = e.target.value;
+                                    setSelectedOperator(operatorId);
+                                    if (operatorId) {
+                                        // Set session date when operator is selected
+                                        setOperatorSessionDate(new Date().toDateString());
+                                        updateActivityTime();
+                                    } else {
+                                        // Clear session date when no operator selected
+                                        setOperatorSessionDate(null);
+                                    }
+                                }}
                                 size="small"
                                 disabled={loadingOperators}
                             >
+                                <MenuItem value="">
+                                    <span style={{ color: 'gray', fontStyle: 'italic' }}>No operator selected</span>
+                                </MenuItem>
                                 {operators.length === 0 ? (
                                     <MenuItem value="" disabled>
                                         {t('common.noOperatorsAvailable')}
@@ -505,25 +814,100 @@ const SpreaderView = () => {
                 }
             >
                 <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                            <Typography variant="h4" gutterBottom>{t('kanban.firstShift')}</Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            {mattresses.firstShift && mattresses.firstShift.length > 0 ? (
-                                mattresses.firstShift.map(renderMattressCard)
-                            ) : (
-                                <Typography variant="body2" color="textSecondary">{t('spreader.noMattressesFirstShift', 'No mattresses assigned for 1st shift')}</Typography>
+                    {/* First Shift */}
+                    <Grid item xs={12} md={expandedShift === 'first' ? 10 : expandedShift === 'second' ? 2 : 6}>
+                        <Paper sx={{
+                            p: 2,
+                            bgcolor: '#f5f5f5',
+                            borderRadius: 2,
+                            minHeight: expandedShift === 'second' ? '60px' : 'auto'
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="h4" gutterBottom={expandedShift !== 'second'}>
+                                    {t('kanban.firstShift')}
+                                </Typography>
+                                <Box>
+                                    {expandedShift !== 'first' && (
+                                        <ChevronRight
+                                            onClick={() => setExpandedShift('first')}
+                                            sx={{
+                                                cursor: 'pointer',
+                                                fontSize: '24px',
+                                                marginRight: '8px',
+                                                '&:hover': { color: 'primary.main' }
+                                            }}
+                                        />
+                                    )}
+                                    {expandedShift === 'first' && (
+                                        <ChevronLeft
+                                            onClick={() => setExpandedShift(null)}
+                                            sx={{
+                                                cursor: 'pointer',
+                                                fontSize: '24px',
+                                                '&:hover': { color: 'primary.main' }
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+                            </Box>
+                            {expandedShift !== 'second' && (
+                                <>
+                                    <Divider sx={{ mb: 2 }} />
+                                    {mattresses.firstShift && mattresses.firstShift.length > 0 ? (
+                                        mattresses.firstShift.map(renderMattressCard)
+                                    ) : (
+                                        <Typography variant="body2" color="textSecondary">{t('spreader.noMattressesFirstShift', 'No mattresses assigned for 1st shift')}</Typography>
+                                    )}
+                                </>
                             )}
                         </Paper>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                            <Typography variant="h4" gutterBottom>{t('kanban.secondShift')}</Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            {mattresses.secondShift && mattresses.secondShift.length > 0 ? (
-                                mattresses.secondShift.map(renderMattressCard)
-                            ) : (
-                                <Typography variant="body2" color="textSecondary">{t('spreader.noMattressesSecondShift', 'No mattresses assigned for 2nd shift')}</Typography>
+
+                    {/* Second Shift */}
+                    <Grid item xs={12} md={expandedShift === 'second' ? 10 : expandedShift === 'first' ? 2 : 6}>
+                        <Paper sx={{
+                            p: 2,
+                            bgcolor: '#f5f5f5',
+                            borderRadius: 2,
+                            minHeight: expandedShift === 'first' ? '60px' : 'auto'
+                        }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="h4" gutterBottom={expandedShift !== 'first'}>
+                                    {t('kanban.secondShift')}
+                                </Typography>
+                                <Box>
+                                    {expandedShift !== 'second' && (
+                                        <ChevronLeft
+                                            onClick={() => setExpandedShift('second')}
+                                            sx={{
+                                                cursor: 'pointer',
+                                                fontSize: '24px',
+                                                marginRight: '8px',
+                                                '&:hover': { color: 'primary.main' }
+                                            }}
+                                        />
+                                    )}
+                                    {expandedShift === 'second' && (
+                                        <ChevronRight
+                                            onClick={() => setExpandedShift(null)}
+                                            sx={{
+                                                cursor: 'pointer',
+                                                fontSize: '24px',
+                                                '&:hover': { color: 'primary.main' }
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+                            </Box>
+                            {expandedShift !== 'first' && (
+                                <>
+                                    <Divider sx={{ mb: 2 }} />
+                                    {mattresses.secondShift && mattresses.secondShift.length > 0 ? (
+                                        mattresses.secondShift.map(renderMattressCard)
+                                    ) : (
+                                        <Typography variant="body2" color="textSecondary">{t('spreader.noMattressesSecondShift', 'No mattresses assigned for 2nd shift')}</Typography>
+                                    )}
+                                </>
                             )}
                         </Paper>
                     </Grid>
@@ -633,6 +1017,264 @@ const SpreaderView = () => {
                         disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
                     >
                         {processingMattress === (selectedMattress?.id) ? t('spreader.processing') : t('common.confirm')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Width Change Request Dialog */}
+            <Dialog
+                open={widthChangeDialog.open}
+                onClose={handleCloseWidthChangeDialog}
+                maxWidth="md"
+                PaperProps={{
+                    sx: { width: '600px', maxWidth: '600px' }
+                }}
+            >
+
+                <DialogContent>
+                    <Box sx={{ pt: 2 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2, gap: 1 }}>
+                            <Typography variant="body1" sx={{ color: 'gray' }}>
+                                Marker: {(() => {
+                                    const markerName = widthChangeDialog.markerName;
+                                    const parenIndex = markerName.indexOf('(');
+                                    if (parenIndex !== -1) {
+                                        const mainName = markerName.substring(0, parenIndex).trim();
+                                        const parenContent = markerName.substring(parenIndex);
+                                        return (
+                                            <>
+                                                <span style={{ color: 'gray' }}>{mainName}</span>
+                                                <span style={{ color: 'gray', fontSize: '0.85em', marginLeft: '5px' }}>{parenContent}</span>
+                                            </>
+                                        );
+                                    }
+                                    return <span style={{ color: 'gray' }}>{markerName}</span>;
+                                })()}
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: 'gray' }}>
+                                Current Width: {widthChangeDialog.currentWidth} cm
+                            </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mt: 1 }}>
+                            <TextField
+                                label="New Width (cm)"
+                                type="number"
+                                value={widthChangeDialog.newWidth}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    // Only allow numbers and limit to 3 digits
+                                    if (value === '' || (/^\d{1,3}$/.test(value) && parseInt(value) >= 0)) {
+                                        setWidthChangeDialog(prev => {
+                                            // Check if current selected marker is still valid for new width
+                                            let newSelectedMarker = prev.selectedMarker;
+                                            if (value && value.trim() !== '' && prev.selectedMarker) {
+                                                const newWidth = parseFloat(value);
+                                                if (!isNaN(newWidth)) {
+                                                    const selectedMarkerData = prev.availableMarkers.find(
+                                                        m => m.marker_name === prev.selectedMarker
+                                                    );
+                                                    if (selectedMarkerData) {
+                                                        const markerWidth = parseFloat(selectedMarkerData.marker_width);
+                                                        // Clear selection if marker width doesn't match new width range
+                                                        if (markerWidth < newWidth || markerWidth > newWidth + 0.5) {
+                                                            newSelectedMarker = '';
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            return {
+                                                ...prev,
+                                                newWidth: value,
+                                                selectedMarker: newSelectedMarker
+                                            };
+                                        });
+                                    }
+                                }}
+                                inputProps={{
+                                    min: 0,
+                                    max: 999,
+                                    maxLength: 3,
+                                    style: { textAlign: 'center', fontWeight: 'normal' }
+                                }}
+                                sx={{
+                                    width: '160px',
+                                    flexShrink: 0,
+                                    '& input[type=number]': {
+                                        '-moz-appearance': 'textfield'
+                                    },
+                                    '& input[type=number]::-webkit-outer-spin-button': {
+                                        '-webkit-appearance': 'none',
+                                        margin: 0
+                                    },
+                                    '& input[type=number]::-webkit-inner-spin-button': {
+                                        '-webkit-appearance': 'none',
+                                        margin: 0
+                                    }
+                                }}
+                            />
+                            <FormControl variant="outlined" fullWidth sx={{ flexGrow: 1 }}>
+                                <InputLabel id="marker-select-label">Select Alternative Marker</InputLabel>
+                                <Select
+                                    labelId="marker-select-label"
+                                    label="Select Alternative Marker"
+                                    value={widthChangeDialog.selectedMarker}
+                                    onChange={(e) => {
+                                        const selectedMarkerName = e.target.value;
+                                        const selectedMarkerData = widthChangeDialog.availableMarkers.find(
+                                            m => m.marker_name === selectedMarkerName
+                                        );
+
+                                        setWidthChangeDialog(prev => ({
+                                            ...prev,
+                                            selectedMarker: selectedMarkerName,
+                                            newWidth: selectedMarkerData ? selectedMarkerData.marker_width.toString() : prev.newWidth
+                                        }));
+                                    }}
+                                    disabled={widthChangeDialog.loadingMarkers}
+                                    sx={{
+                                        '& .MuiSelect-select': {
+                                            fontWeight: 'normal'
+                                        }
+                                    }}
+                                    endAdornment={
+                                        widthChangeDialog.selectedMarker && (
+                                            <IconButton
+                                                size="small"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setWidthChangeDialog(prev => ({
+                                                        ...prev,
+                                                        selectedMarker: '',
+                                                        newWidth: ''
+                                                    }));
+                                                }}
+                                                sx={{ mr: 1 }}
+                                            >
+                                                ✕
+                                            </IconButton>
+                                        )
+                                    }
+                                >
+                                    {widthChangeDialog.loadingMarkers ? (
+                                        <MenuItem disabled>Loading markers...</MenuItem>
+                                    ) : (
+                                        (() => {
+                                            let filteredMarkers = widthChangeDialog.availableMarkers;
+
+                                            // Exclude the current marker from the list
+                                            filteredMarkers = filteredMarkers.filter(marker =>
+                                                marker.marker_name !== widthChangeDialog.markerName
+                                            );
+
+                                            // Filter by new width if provided
+                                            if (widthChangeDialog.newWidth && widthChangeDialog.newWidth.trim() !== '') {
+                                                const newWidth = parseFloat(widthChangeDialog.newWidth);
+                                                if (!isNaN(newWidth)) {
+                                                    filteredMarkers = filteredMarkers.filter(marker => {
+                                                        const markerWidth = parseFloat(marker.marker_width);
+                                                        return markerWidth >= newWidth && markerWidth <= newWidth + 0.5;
+                                                    });
+                                                }
+                                            }
+
+                                            return filteredMarkers.length > 0 ? (
+                                                filteredMarkers.map((marker) => (
+                                                    <MenuItem key={marker.marker_name} value={marker.marker_name}>
+                                                        <span style={{ color: 'black' }}>{marker.marker_name}</span>
+                                                        <span style={{ color: 'gray', marginLeft: '10px', fontSize: '0.85em' }}>
+                                                            ({marker.marker_width}cm x {marker.marker_length}m)
+                                                        </span>
+                                                    </MenuItem>
+                                                ))
+                                            ) : (
+                                                <MenuItem disabled>No markers available for this width</MenuItem>
+                                            );
+                                        })()
+                                    )}
+                                </Select>
+                            </FormControl>
+                        </Box>
+
+                        {widthChangeDialog.selectedMarker && (
+                            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, textAlign: 'center' }}>
+                                    Selected Marker Details:
+                                </Typography>
+                                {(() => {
+                                    const selectedMarkerData = widthChangeDialog.availableMarkers.find(
+                                        m => m.marker_name === widthChangeDialog.selectedMarker
+                                    );
+                                    if (selectedMarkerData) {
+                                        return (
+                                            <Box sx={{ display: 'flex', gap: 3 }}>
+                                                <Box sx={{ flex: 1, textAlign: 'center' }}>
+                                                    <Typography variant="body2">
+                                                        <strong>Width:</strong> {selectedMarkerData.marker_width} cm
+                                                    </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>Length:</strong> {selectedMarkerData.marker_length} m
+                                                    </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>Efficiency:</strong> {selectedMarkerData.efficiency}%
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ flex: 1, textAlign: 'center' }}>
+                                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                                        <strong>Size Quantities:</strong>
+                                                    </Typography>
+                                                    {Object.entries(selectedMarkerData.size_quantities || {}).map(([size, qty]) => (
+                                                        <Typography key={size} variant="body2">
+                                                            {size}: {qty} pcs
+                                                        </Typography>
+                                                    ))}
+                                                </Box>
+                                                <Box sx={{ flex: 1, textAlign: 'center' }}>
+                                                    <Typography variant="body2">
+                                                        <strong>Planned Consumption:</strong> {widthChangeDialog.plannedConsumption || '0.00'} m
+                                                    </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>New Consumption:</strong> {(() => {
+                                                            const newLength = parseFloat(selectedMarkerData.marker_length) || 0;
+                                                            const layers = parseFloat(widthChangeDialog.layers) || 0;
+                                                            const allowance = widthChangeDialog.allowance || 0.02;
+                                                            const newConsumption = (newLength + allowance) * layers;
+                                                            return newConsumption.toFixed(2);
+                                                        })()} m
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                                        <strong>Δ:</strong> {(() => {
+                                                            const oldConsumption = parseFloat(widthChangeDialog.plannedConsumption) || 0;
+                                                            const newLength = parseFloat(selectedMarkerData.marker_length) || 0;
+                                                            const layers = parseFloat(widthChangeDialog.layers) || 0;
+                                                            const allowance = widthChangeDialog.allowance || 0.02;
+                                                            const newConsumption = (newLength + allowance) * layers;
+                                                            const difference = newConsumption - oldConsumption;
+                                                            const sign = difference >= 0 ? '+' : '';
+                                                            return `${sign}${difference.toFixed(2)}`;
+                                                        })()} m
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                            </Box>
+                        )}
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseWidthChangeDialog}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSubmitWidthChange}
+                        variant="contained"
+                        disabled={!widthChangeDialog.newWidth || widthChangeDialog.newWidth <= 0}
+                    >
+                        {widthChangeDialog.selectedMarker ? 'Change Marker' : 'New Marker Request'}
                     </Button>
                 </DialogActions>
             </Dialog>

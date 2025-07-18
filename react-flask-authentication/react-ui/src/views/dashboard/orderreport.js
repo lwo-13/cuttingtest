@@ -354,6 +354,7 @@ const OrderReport = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    showHelpers={false}
                                 />
                             </Box>
 

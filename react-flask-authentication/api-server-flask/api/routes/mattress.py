@@ -379,8 +379,8 @@ class GetKanbanMattressesResource(Resource):
                 db.func.coalesce(MattressProductionCenter.production_center, 'Not Assigned').label('production_center'),
                 db.func.coalesce(MattressProductionCenter.cutting_room, 'Not Assigned').label('cutting_room'),
                 db.func.coalesce(MattressProductionCenter.destination, 'Not Assigned').label('destination'),
-                # Adding sector information from production_center (order-level fallback)
-                db.func.coalesce(ProductionCenter.destination, 'No Sector Assigned').label('sector')
+                # Adding sector information from table-specific production center (use destination as sector)
+                db.func.coalesce(MattressProductionCenter.destination, 'No Sector Assigned').label('sector')
             ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
              .outerjoin(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
