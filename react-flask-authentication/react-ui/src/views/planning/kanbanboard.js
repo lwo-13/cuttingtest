@@ -382,6 +382,10 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const isSpreader = device !== "SP0" && device !== "MS"; // MS is treated like SP0 (single column)
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Show More functionality for SP0 (not set) column
+  const [visibleCount, setVisibleCount] = useState(20); // Show first 20 mattresses
+  const incrementCount = 10; // Show 10 more each time
+
   const sortedMattresses = [...mattresses].sort((a, b) => a.position - b.position);
   const firstShift = sortedMattresses.filter(m => m.shift === '1shift');
   const secondShift = sortedMattresses.filter(m => m.shift === '2shift');
@@ -395,6 +399,22 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
         m.marker?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     : sortedMattresses;
+
+  // Visible mattresses for SP0 column (with Show More functionality)
+  const visibleMattresses = device === "SP0" ? filteredMattresses.slice(0, visibleCount) : filteredMattresses;
+  const hasMoreMattresses = device === "SP0" && filteredMattresses.length > visibleCount;
+
+  // Reset visible count when search term changes
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    if (device === "SP0") {
+      setVisibleCount(20); // Reset to initial count when searching
+    }
+  };
+
+  const handleShowMore = () => {
+    setVisibleCount(prev => prev + incrementCount);
+  };
 
   const [{ isOverFirst }, dropFirst] = useDrop({
     accept: "MATTRESS",
@@ -448,7 +468,7 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
               type="text"
               placeholder={t('kanban.searchPlaceholder')}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
               style={{
                 padding: '8px',
                 border: '1px solid #e0e0e0',
@@ -484,7 +504,33 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
             border: (device === "SP0" ? isOverUnassigned : device === "MS" ? isOverMS : isOverFirst) ? "2px dashed #9c27b0" : "2px solid transparent"
           }}
         >
-          {filteredMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={null} device={device} />)}
+          {visibleMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={null} device={device} />)}
+          {hasMoreMattresses && (
+            <Box
+              onClick={handleShowMore}
+              sx={{
+                p: 2,
+                mb: 1,
+                bgcolor: '#f0f0f0',
+                border: '2px dashed #9c27b0',
+                borderRadius: 2,
+                textAlign: 'center',
+                cursor: 'pointer',
+                '&:hover': {
+                  bgcolor: '#e1bee7',
+                  transform: 'scale(1.02)'
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Typography variant="body2" color="secondary" sx={{ fontWeight: 'bold' }}>
+                📦 {t('kanban.showMore') || 'Show More'} ({filteredMattresses.length - visibleCount} {t('kanban.remaining') || 'remaining'})
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t('kanban.clickToLoad') || 'Click to load'} {Math.min(incrementCount, filteredMattresses.length - visibleCount)} {t('kanban.more') || 'more'}
+              </Typography>
+            </Box>
+          )}
         </Paper>
       )}
     </Box>

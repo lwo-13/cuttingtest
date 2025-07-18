@@ -43,7 +43,11 @@
     "mattress": "Настил",
     "marker": "Маркер",
     "pieces": "бр.",
-    "layers": "катове"
+    "layers": "катове",
+    "showMore": "Покажи още",
+    "remaining": "останали",
+    "clickToLoad": "Кликнете за зареждане на",
+    "more": "още"
   },
   "cutter": {
     "title": "Резач",

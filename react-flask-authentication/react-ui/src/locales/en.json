@@ -43,7 +43,11 @@
     "mattress": "Mattress",
     "marker": "Marker",
     "pieces": "pcs",
-    "layers": "layers"
+    "layers": "layers",
+    "showMore": "Show More",
+    "remaining": "remaining",
+    "clickToLoad": "Click to load",
+    "more": "more"
   },
   "cutter": {
     "title": "Cutter",
