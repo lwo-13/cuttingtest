@@ -328,6 +328,35 @@ class DeleteMattressResource(Resource):
 
                 return {"success": False, "message": str(e)}, 500
 
+@mattress_api.route('/delete_by_row_id/<string:row_id>', methods=['DELETE'])
+class DeleteMattressByRowIdResource(Resource):
+    def delete(self, row_id):
+        """Delete mattress by row_id - more reliable than mattress name"""
+        max_retries = 2
+        retry_delay = 0.5  # seconds
+
+        for attempt in range(max_retries + 1):
+            try:
+                mattress = Mattresses.query.filter_by(row_id=row_id).first()
+
+                if not mattress:
+                    return {"success": True, "message": f"Mattress with row_id {row_id} already deleted or not found"}, 200
+
+                mattress_name = mattress.mattress  # Store for logging
+                db.session.delete(mattress)
+                db.session.commit()
+
+                return {"success": True, "message": f"Deleted mattress {mattress_name} (row_id: {row_id})"}, 200
+
+            except Exception as e:
+                db.session.rollback()
+
+                if "deadlocked" in str(e).lower() and attempt < max_retries:
+                    time.sleep(retry_delay)
+                    continue
+
+                return {"success": False, "message": str(e)}, 500
+
 @ mattress_api.route('/all')
 class GetAllMattressesResource(Resource):
     def get(self):

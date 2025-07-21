@@ -26,6 +26,42 @@ import useCollapseMenu from '../../hooks/useCollapseMenu';
 
 const CutterView = () => {
     const { t } = useTranslation();
+
+    // Function to reset operator selection
+    const resetOperatorSession = () => {
+        setSelectedOperator('');
+        setOperatorSessionDate(null);
+        setSnackbar({
+            open: true,
+            message: "Operator session has been reset. Please select an operator to continue.",
+            severity: "warning"
+        });
+    };
+
+    // Function to check if we need to reset operator session
+    const checkOperatorSessionValidity = () => {
+        const now = new Date();
+        const currentDate = now.toDateString();
+
+        // Reset if it's a new day
+        if (operatorSessionDate && operatorSessionDate !== currentDate) {
+            resetOperatorSession();
+            return;
+        }
+
+        // Reset after 4 hours of inactivity (14400000 ms)
+        const timeSinceLastActivity = now - lastActivityTime;
+        if (selectedOperator && timeSinceLastActivity > 14400000) { // 4 hours
+            resetOperatorSession();
+            return;
+        }
+    };
+
+    // Function to update activity time
+    const updateActivityTime = () => {
+        setLastActivityTime(new Date());
+    };
+
     // Automatically collapse the sidebar menu
     useCollapseMenu(true);
 
@@ -40,6 +76,8 @@ const CutterView = () => {
     const [loadingOperators, setLoadingOperators] = useState(false);
     const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
     const [activeCuttingMattress, setActiveCuttingMattress] = useState(null); // Track active cutting mattress
+    const [lastActivityTime, setLastActivityTime] = useState(new Date());
+    const [operatorSessionDate, setOperatorSessionDate] = useState(null);
     const account = useSelector((state) => state.account);
     const { user } = account;
 
@@ -80,10 +118,19 @@ const CutterView = () => {
         // Set up auto-refresh polling every 5 minutes
         const refreshInterval = setInterval(() => {
             fetchMattresses(false); // Background refresh
+            checkOperatorSessionValidity(); // Check if operator session is still valid
         }, 300000); // 5 minutes (300,000 ms)
 
-        // Clean up the interval when component unmounts
-        return () => clearInterval(refreshInterval);
+        // Set up session validity check every 30 minutes
+        const sessionCheckInterval = setInterval(() => {
+            checkOperatorSessionValidity();
+        }, 1800000); // 30 minutes (1,800,000 ms)
+
+        // Clean up the intervals when component unmounts
+        return () => {
+            clearInterval(refreshInterval);
+            clearInterval(sessionCheckInterval);
+        };
     }, [cutterDevice]);
 
     const fetchOperators = async () => {
@@ -92,15 +139,7 @@ const CutterView = () => {
             const response = await axios.get('/cutter_operators/active');
             if (response.data.success) {
                 setOperators(response.data.data);
-                // Set default selected operator to the current user if they're in the list
-                const currentUserName = user?.username || '';
-                const matchingOperator = response.data.data.find(op => op.name === currentUserName);
-                if (matchingOperator) {
-                    setSelectedOperator(matchingOperator.id.toString());
-                } else if (response.data.data.length > 0) {
-                    // Otherwise select the first operator
-                    setSelectedOperator(response.data.data[0].id.toString());
-                }
+                // Don't auto-select any operator - leave it empty by default
             } else {
                 console.error("Error fetching cutter operators:", response.data.message);
             }
@@ -175,6 +214,9 @@ const CutterView = () => {
     };
 
     const handleStartCutting = (mattressId) => {
+        // Update activity time
+        updateActivityTime();
+
         // Check if there's already an active cutting mattress for this cutter
         if (activeCuttingMattress) {
             setSnackbar({
@@ -225,6 +267,9 @@ const CutterView = () => {
     };
 
     const handleFinishCutting = (mattressId, layers) => {
+        // Update activity time
+        updateActivityTime();
+
         // Get the selected operator name
         const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
         const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
@@ -362,56 +407,73 @@ const CutterView = () => {
         return (
             <Card key={mattress.id} sx={{ mb: 2, boxShadow: 2 }}>
                 <Box sx={{ p: 1.5 }}>
-                    {/* Header with mattress ID and pieces/layers info */}
+                    {/* Header with mattress ID and pills - matching spreader style */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Box>
-                            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                                {t('kanban.mattress')}: {mattress.mattress}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                {t('cutter.status')}: {mattress.status}
+                            <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+                                {mattress.mattress}
                             </Typography>
                             {sourceDevice && sourceDevice !== cutterDevice && (
-                                <Typography variant="body2" color="primary">
+                                <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
                                     <strong>{t('cutter.from')}: {sourceDevice}</strong>
                                 </Typography>
                             )}
                         </Box>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Box sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                bgcolor: '#e3f2fd', // Light blue background
-                                px: 1.5,
-                                py: 0.5,
-                                borderRadius: 1,
-                                minWidth: '60px'
-                            }}>
-                                <Typography variant="h5" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
-                                    {mattress.total_pcs || 0}
-                                </Typography>
-                                <Typography sx={{ fontSize: '0.75rem', color: '#1976d2' }}>{t('kanban.pieces')}</Typography>
+
+                        {/* Status, Pieces, and Layers pills on the right */}
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: mattress.status?.includes('ON CUT') ? 'secondary.main' : 'text.secondary',
+                                    bgcolor: mattress.status?.includes('ON CUT') ? '#f3e5f5' : '#ffffff',
+                                    px: 1,
+                                    py: 1,
+                                    borderRadius: 2,
+                                    minWidth: 100,
+                                    fontWeight: 'bold',
+                                    fontSize: '0.875rem'
+                                }}
+                            >
+                                {mattress.status?.split(' - ')[1] || mattress.status}
                             </Box>
+                            {mattress.total_pcs > 0 && (
+                                <Box sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    bgcolor: '#e3f2fd',
+                                    px: 1,
+                                    py: 1,
+                                    borderRadius: 2,
+                                    minWidth: 100
+                                }}>
+                                    <Typography variant="h4" color="#2196f3" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+                                    {mattress.total_pcs}
+                                    </Typography>
+                                    <Typography sx={{ ml: 1, fontSize: '1rem', color: '#1976d2' }}>{t('kanban.pieces')}</Typography>
+                                </Box>
+                            )}
                             <Box sx={{
                                 display: 'flex',
-                                flexDirection: 'column',
                                 alignItems: 'center',
-                                bgcolor: '#f3e5f5', // Light purple background
-                                px: 1.5,
-                                py: 0.5,
-                                borderRadius: 1,
-                                minWidth: '60px'
+                                justifyContent: 'center',
+                                bgcolor: '#f3e5f5',
+                                px: 1,
+                                py: 1,
+                                borderRadius: 2,
+                                minWidth: 100
                             }}>
-                                <Typography variant="h5" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1 }}>
-                                    {mattress.layers || 0}
+                                <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+                                    {mattress.layers || 0} {t('kanban.layers')}
                                 </Typography>
-                                <Typography sx={{ fontSize: '0.75rem', color: '#7b1fa2' }}>{t('kanban.layers')}</Typography>
                             </Box>
                         </Box>
                     </Box>
 
-                    <Divider sx={{ my: 1 }} />
+                    <Divider sx={{ my: 1.5 }} />
 
                     {/* Details section - simplified to a single row with better alignment */}
                     <Box sx={{
@@ -543,10 +605,24 @@ const CutterView = () => {
                                 id="operator-select"
                                 value={selectedOperator}
                                 label={t('cutter.selectOperator')}
-                                onChange={(e) => setSelectedOperator(e.target.value)}
+                                onChange={(e) => {
+                                    const operatorId = e.target.value;
+                                    setSelectedOperator(operatorId);
+                                    if (operatorId) {
+                                        // Set session date when operator is selected
+                                        setOperatorSessionDate(new Date().toDateString());
+                                        updateActivityTime();
+                                    } else {
+                                        // Clear session date when no operator selected
+                                        setOperatorSessionDate(null);
+                                    }
+                                }}
                                 size="small"
                                 disabled={loadingOperators}
                             >
+                                <MenuItem value="">
+                                    <span style={{ color: 'gray', fontStyle: 'italic' }}>No operator selected</span>
+                                </MenuItem>
                                 {operators.length === 0 ? (
                                     <MenuItem value="" disabled>
                                         {t('common.noOperatorsAvailable', 'No operators available')}
@@ -566,28 +642,16 @@ const CutterView = () => {
                     </Box>
                 }
             >
-                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-                    <Paper sx={{
-                        p: 2,
-                        mb: 3,
-                        bgcolor: '#f5f5f5',
-                        maxWidth: '800px',
-                        width: '100%',
-                        borderRadius: 2
-                    }}>
-                        <Typography variant="h5" gutterBottom color="primary">
-                            {t('cutter.assignmentInfo')}
-                        </Typography>
-                        <Typography variant="body1" sx={{ mb: 1 }}>
-                            {cutterDevice === 'CT1' ?
-                                t('cutter.assignmentCT1') :
-                                t('cutter.assignmentCT2')}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                            {t('cutter.statusInfo')}
-                        </Typography>
-                    </Paper>
-                </Box>
+                {/* No operator selected warning */}
+                {!selectedOperator && (
+                    <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                        <Alert severity="warning" sx={{ maxWidth: '800px', width: '100%' }}>
+                            <Typography variant="body1">
+                                Please select an operator to start cutting operations.
+                            </Typography>
+                        </Alert>
+                    </Box>
+                )}
 
                 <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                     <Paper sx={{

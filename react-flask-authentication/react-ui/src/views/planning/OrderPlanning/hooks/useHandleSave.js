@@ -31,6 +31,8 @@ const useHandleSave = ({
   setDeletedTableIds,
   deletedCombinations,
   setDeletedCombinations,
+  deletedRowIds,
+  setDeletedRowIds,
   setErrorMessage,
   setOpenError,
   setSuccessMessage,
@@ -804,15 +806,36 @@ const useHandleSave = ({
         .then(() => saveWeftRows())
         .then(() => saveBiasRows())
         .then(async () => {
-          // ✅ Delete Only Rows That Were Removed from UI (Sequential)
-          console.log("🗑️ Mattresses to delete:", deletedMattresses);
+          // ✅ Delete by row_id first (more reliable)
+          console.log("🗑️ Row IDs to delete:", deletedRowIds);
+          if (deletedRowIds && deletedRowIds.length > 0) {
+            const results = await deleteSequentially(
+              deletedRowIds,
+              (rowId) => axios.delete(`/mattress/delete_by_row_id/${rowId}`),
+              'mattress by row_id'
+            );
+
+            const successfulDeletes = results
+              .filter(r => r.success)
+              .map(r => r.item);
+
+            // Remove successfully deleted row IDs from the list
+            if (setDeletedRowIds) {
+              setDeletedRowIds(prev =>
+                prev.filter(rowId => !successfulDeletes.includes(rowId))
+              );
+            }
+          }
+
+          // ✅ Fallback: Delete by name for any remaining records (legacy support)
+          console.log("🗑️ Mattresses to delete by name:", deletedMattresses);
           const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
 
           if (mattressesToDelete.length > 0) {
             const results = await deleteSequentially(
               mattressesToDelete,
               (mattress) => axios.delete(`/mattress/delete/${mattress}`),
-              'mattress'
+              'mattress by name'
             );
 
             const successfulDeletes = results
@@ -867,15 +890,34 @@ const useHandleSave = ({
           }
         })
         .then(async () => {
-          // ✅ Delete Only Weft Rows Removed from the UI (Sequential)
-          console.log("🗑️ Weft Rows to delete:", deletedWeft);
+          // ✅ Delete collaretto rows by row_id first (more reliable)
+          // Note: deletedRowIds contains row IDs from all table types (mattress, weft, bias, along)
+          // The backend endpoints will handle the appropriate deletion based on what exists
+          console.log("🗑️ Collaretto Row IDs to delete:", deletedRowIds);
+          if (deletedRowIds && deletedRowIds.length > 0) {
+            const results = await deleteSequentially(
+              deletedRowIds,
+              (rowId) => axios.delete(`/collaretto/delete_by_row_id/${rowId}`),
+              'collaretto by row_id'
+            );
+
+            const successfulDeletes = results
+              .filter(r => r.success)
+              .map(r => r.item);
+
+            // Note: We already cleared deletedRowIds in the mattress section above
+            // This is just for collaretto records that might exist with the same row_ids
+          }
+
+          // ✅ Fallback: Delete weft rows by name for any remaining records
+          console.log("🗑️ Weft Rows to delete by name:", deletedWeft);
           const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
 
           if (weftToDelete.length > 0) {
             const results = await deleteSequentially(
               weftToDelete,
               (weft) => axios.delete(`/collaretto/delete_weft_bias/${weft}`),
-              'weft row'
+              'weft row by name'
             );
 
             const successfulDeletes = results
@@ -888,14 +930,15 @@ const useHandleSave = ({
           }
         })
         .then(async () => {
-          console.log("🗑️ Bias Rows to delete:", deletedBias);
+          // ✅ Fallback: Delete bias rows by name for any remaining records
+          console.log("🗑️ Bias Rows to delete by name:", deletedBias);
           const biasToDelete = deletedBias.filter(bias => !newBiasNames.has(bias));
 
           if (biasToDelete.length > 0) {
             const results = await deleteSequentially(
               biasToDelete,
               (bias) => axios.delete(`/collaretto/delete_weft_bias/${bias}`),
-              'bias row'
+              'bias row by name'
             );
 
             const successfulDeletes = results
@@ -993,6 +1036,9 @@ const useHandleSave = ({
           setDeletedAlong([]);
           setDeletedWeft([]);
           setDeletedBias([]);
+          if (setDeletedRowIds) {
+            setDeletedRowIds([]);
+          }
           setUnsavedChanges(false);
 
           setSuccessMessage("Saving completed successfully!");

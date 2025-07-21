@@ -479,7 +479,51 @@ class DeleteWeft(Resource):
                 return jsonify({"success": False, "message": "Database is busy, please try again in a moment."})
             else:
                 return jsonify({"success": False, "message": error_msg})
-        
+
+@collaretto_api.route('/delete_by_row_id/<string:row_id>', methods=['DELETE'])
+class DeleteCollarettoByRowId(Resource):
+    def delete(self, row_id):
+        """Delete collaretto by row_id - more reliable than collaretto name"""
+        def delete_operation():
+            # ✅ Check if the collaretto exists by row_id
+            collaretto = Collaretto.query.filter_by(row_id=row_id).first()
+
+            if not collaretto:
+                return {"success": True, "message": f"Collaretto with row_id {row_id} not found or already deleted"}
+
+            collaretto_name = collaretto.collaretto  # Store for logging
+            print(f"🔎 Found collaretto: {collaretto_name} (row_id: {row_id}), deleting attached mattress...")
+
+            # ✅ Fetch ONE mattress_id from collaretto_details
+            detail = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).first()
+            if detail and detail.mattress_id:
+                mattress = Mattresses.query.get(detail.mattress_id)
+                if mattress:
+                    print(f"🗑️ Deleting mattress: {mattress.mattress}")
+                    db.session.delete(mattress)  # ✅ CASCADE takes care of MattressDetails and Phases
+
+            # ✅ Delete the collaretto itself (cascade handles collaretto_details)
+            db.session.delete(collaretto)
+            db.session.commit()
+
+            return {"success": True, "message": f"Deleted collaretto {collaretto_name} (row_id: {row_id})"}
+
+        try:
+            # Execute delete with deadlock retry
+            result = retry_on_deadlock(delete_operation, max_retries=5, delay=0.5)
+            return jsonify(result)
+
+        except Exception as e:
+            db.session.rollback()
+            error_msg = str(e)
+            print(f"❌ Error deleting collaretto by row_id {row_id}: {error_msg}")
+
+            # Check if it's a deadlock error and provide user-friendly message
+            if '1205' in error_msg or 'deadlock' in error_msg.lower():
+                return jsonify({"success": False, "message": "Database is busy, please try again in a moment."})
+            else:
+                return jsonify({"success": False, "message": error_msg})
+
 @collaretto_api.route('/get_weft_by_order/<order_id>', methods=['GET'])
 class GetWeftByOrder(Resource):
     def get(self, order_id):
