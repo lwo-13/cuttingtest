@@ -6,6 +6,8 @@ const BadgeCountContext = createContext();
 export const BadgeCountProvider = ({ children }) => {
   const [orderRatioPendingCount, setOrderRatioPendingCount] = useState(0);
   const [widthValidationCount, setWidthValidationCount] = useState(0);
+  const [widthChangeApprovalsCount, setWidthChangeApprovalsCount] = useState(0);
+  const [markerRequestsCount, setMarkerRequestsCount] = useState(0);
 
   const refreshOrderRatioCount = async () => {
     try {
@@ -25,9 +27,29 @@ export const BadgeCountProvider = ({ children }) => {
     }
   };
 
+  const refreshWidthChangeApprovalsCount = async () => {
+    try {
+      const res = await axios.get('/width_change_requests/pending/count');
+      setWidthChangeApprovalsCount(res.data.count);
+    } catch (err) {
+      console.error("❌ Failed to fetch width change approvals count:", err);
+    }
+  };
+
+  const refreshMarkerRequestsCount = async () => {
+    try {
+      const res = await axios.get('/marker_requests/pending/count');
+      setMarkerRequestsCount(res.data.count);
+    } catch (err) {
+      console.error("❌ Failed to fetch marker requests count:", err);
+    }
+  };
+
   const refreshAllBadges = () => {
     refreshOrderRatioCount();
     refreshWidthValidationCount();
+    refreshWidthChangeApprovalsCount();
+    refreshMarkerRequestsCount();
   };
 
   useEffect(() => {
@@ -39,8 +61,12 @@ export const BadgeCountProvider = ({ children }) => {
       value={{
         orderRatioPendingCount,
         widthValidationCount,
+        widthChangeApprovalsCount,
+        markerRequestsCount,
         refreshOrderRatioCount,
         refreshWidthValidationCount,
+        refreshWidthChangeApprovalsCount,
+        refreshMarkerRequestsCount,
         refreshAllBadges
       }}
     >

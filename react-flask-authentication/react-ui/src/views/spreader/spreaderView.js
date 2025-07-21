@@ -531,23 +531,55 @@ const SpreaderView = () => {
         });
     };
 
-    const handleSubmitWidthChange = () => {
-        // TODO: Implement width change submission logic
-        console.log('Submitting width change:', {
-            mattressId: widthChangeDialog.mattressId,
-            markerName: widthChangeDialog.markerName,
-            currentWidth: widthChangeDialog.currentWidth,
-            newWidth: widthChangeDialog.newWidth,
-            selectedMarker: widthChangeDialog.selectedMarker,
-            style: widthChangeDialog.style,
-            orderCommessa: widthChangeDialog.orderCommessa
-        });
+    const handleSubmitWidthChange = async () => {
+        try {
+            const requestType = widthChangeDialog.selectedMarker ? 'change_marker' : 'new_marker';
 
-        setSnackbar({
-            open: true,
-            message: `Width change request submitted for ${widthChangeDialog.markerName}`,
-            severity: 'success'
-        });
+            // Get the selected marker details if one is selected
+            let selectedMarkerData = null;
+            if (widthChangeDialog.selectedMarker) {
+                selectedMarkerData = widthChangeDialog.availableMarkers.find(
+                    m => m.marker_name === widthChangeDialog.selectedMarker
+                );
+            }
+
+            const requestData = {
+                mattress_id: widthChangeDialog.mattressId,
+                requested_by: user?.username || 'Unknown',
+                current_marker_name: widthChangeDialog.markerName,
+                current_width: parseFloat(widthChangeDialog.currentWidth),
+                requested_width: parseFloat(widthChangeDialog.newWidth),
+                selected_marker_name: widthChangeDialog.selectedMarker || null,
+                selected_marker_id: selectedMarkerData?.id || null,
+                request_type: requestType,
+                style: widthChangeDialog.style,
+                order_commessa: widthChangeDialog.orderCommessa,
+                size_quantities: {} // This would need to be populated from mattress sizes
+            };
+
+            const response = await axios.post('/width_change_requests/create', requestData);
+
+            if (response.data.success) {
+                setSnackbar({
+                    open: true,
+                    message: `Width change request submitted successfully. Awaiting shift manager approval.`,
+                    severity: 'success'
+                });
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: response.data.message || 'Failed to submit width change request',
+                    severity: 'error'
+                });
+            }
+        } catch (error) {
+            console.error('Error submitting width change request:', error);
+            setSnackbar({
+                open: true,
+                message: 'Error submitting width change request',
+                severity: 'error'
+            });
+        }
 
         handleCloseWidthChangeDialog();
     };

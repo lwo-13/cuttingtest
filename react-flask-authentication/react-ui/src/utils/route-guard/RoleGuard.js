@@ -30,8 +30,8 @@ const RoleGuard = ({ children, allowedRoles }) => {
     }
 
     // Check if user role is in allowed roles
-    // Administrator, Manager, and Project Admin can access all pages
-    if (allowedRoles.includes(user.role) || user.role === 'Administrator' || user.role === 'Manager' || user.role === 'Project Admin') {
+    // Administrator, Manager, Project Admin, and Shift Manager can access all pages
+    if (allowedRoles.includes(user.role) || user.role === 'Administrator' || user.role === 'Manager' || user.role === 'Project Admin' || user.role === 'Shift Manager') {
         return children;
     }
 

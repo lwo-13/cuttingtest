@@ -829,3 +829,99 @@ class MattressProductionCenter(db.Model):
                 result[column.name] = value
         return result
 
+
+class WidthChangeRequest(db.Model):
+    __tablename__ = 'width_change_requests'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id'), nullable=False)
+    requested_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # Username of spreader
+    current_marker_name = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    current_width = db.Column(db.Float, nullable=False)
+    requested_width = db.Column(db.Float, nullable=False)
+    selected_marker_name = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # If existing marker selected
+    selected_marker_id = db.Column(db.Integer, db.ForeignKey('marker_headers.id'), nullable=True)  # If existing marker selected
+    request_type = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # 'change_marker' or 'new_marker'
+    status = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='pending')  # 'pending', 'approved', 'rejected'
+    approved_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Username of shift manager
+    approval_notes = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    approved_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    mattress = db.relationship('Mattresses', backref=db.backref('width_change_requests', lazy=True))
+    selected_marker = db.relationship('MarkerHeader', backref=db.backref('width_change_requests', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'mattress_id': self.mattress_id,
+            'requested_by': self.requested_by,
+            'current_marker_name': self.current_marker_name,
+            'current_width': self.current_width,
+            'requested_width': self.requested_width,
+            'selected_marker_name': self.selected_marker_name,
+            'selected_marker_id': self.selected_marker_id,
+            'request_type': self.request_type,
+            'status': self.status,
+            'approved_by': self.approved_by,
+            'approval_notes': self.approval_notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            # Include mattress details for display
+            'mattress': self.mattress.to_dict() if self.mattress else None
+        }
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+
+
+class MarkerRequest(db.Model):
+    __tablename__ = 'marker_requests'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    width_change_request_id = db.Column(db.Integer, db.ForeignKey('width_change_requests.id'), nullable=False)
+    requested_width = db.Column(db.Float, nullable=False)
+    style = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    size_quantities = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # JSON string of size quantities
+    requested_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # Username of spreader (original requester)
+    status = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='pending')  # 'pending', 'completed', 'cancelled'
+    assigned_to = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Username of planner
+    created_marker_id = db.Column(db.Integer, db.ForeignKey('marker_headers.id'), nullable=True)  # Once marker is created
+    planner_notes = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    width_change_request = db.relationship('WidthChangeRequest', backref=db.backref('marker_request', uselist=False, lazy=True))
+    created_marker = db.relationship('MarkerHeader', backref=db.backref('marker_requests', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'width_change_request_id': self.width_change_request_id,
+            'requested_width': self.requested_width,
+            'style': self.style,
+            'order_commessa': self.order_commessa,
+            'size_quantities': self.size_quantities,
+            'requested_by': self.requested_by,
+            'status': self.status,
+            'assigned_to': self.assigned_to,
+            'created_marker_id': self.created_marker_id,
+            'planner_notes': self.planner_notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            # Include related data for display
+            'width_change_request': self.width_change_request.to_dict() if self.width_change_request else None
+        }
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+

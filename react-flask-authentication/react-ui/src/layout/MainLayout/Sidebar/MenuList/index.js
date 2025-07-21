@@ -12,7 +12,7 @@ import { useBadgeCount } from '../../../../contexts/BadgeCountContext';
 //-----------------------|| SIDEBAR MENU LIST ||-----------------------//
 
 const MenuList = () => {
-    const { mattressPendingCount, orderRatioPendingCount, widthValidationCount} = useBadgeCount();
+    const { mattressPendingCount, orderRatioPendingCount, widthValidationCount, widthChangeApprovalsCount, markerRequestsCount} = useBadgeCount();
     const account = useSelector((state) => state.account);
     const userRole = account?.user?.role || '';
 
@@ -34,6 +34,7 @@ const MenuList = () => {
             default:
                 // Hide everything for Spreader, Cutter, and Subcontractor except their own group
                 if (['Spreader', 'Cutter', 'Subcontractor'].includes(userRole)) return false;
+                // Shift Manager can see most items except operators
                 return true;
         }
     });
@@ -49,6 +50,12 @@ const MenuList = () => {
             }
             if (item.id === 'width_validation') {
                 return { ...item, badgeContent: widthValidationCount };
+            }
+            if (item.id === 'width_change_approvals') {
+                return { ...item, badgeContent: widthChangeApprovalsCount };
+            }
+            if (item.id === 'marker_requests') {
+                return { ...item, badgeContent: markerRequestsCount };
             }
             return item;
         })

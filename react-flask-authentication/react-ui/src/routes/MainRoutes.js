@@ -20,6 +20,8 @@ const OrderPlanning = Loadable(lazy(() => import('../views/planning/orderplannin
 // to do lists routing
 const ItalianRatio = Loadable(lazy(() => import('../views/to-do-lists/italian_ratio')));
 const WidthValidation = Loadable(lazy(() => import('../views/to-do-lists/width_validation')));
+const WidthChangeApprovals = Loadable(lazy(() => import('../views/to-do-lists/width_change_approvals')));
+const MarkerRequests = Loadable(lazy(() => import('../views/to-do-lists/marker_requests')));
 
 // tables routing
 const Orders = Loadable(lazy(() => import('../views/tables/orders')));
@@ -70,6 +72,8 @@ const MainRoutes = () => {
 
                     '/to-do-lists/italian-ratio',
                     '/to-do-lists/width-validation',
+                    '/to-do-lists/width-change-approvals',
+                    '/to-do-lists/marker-requests',
 
                     '/tables/orders',
                     '/tables/markerdb',
@@ -101,6 +105,8 @@ const MainRoutes = () => {
 
                             <Route path="/to-do-lists/italian-ratio" component={ItalianRatio} />
                             <Route path="/to-do-lists/width-validation" component={WidthValidation} />
+                            <Route path="/to-do-lists/width-change-approvals" component={WidthChangeApprovals} />
+                            <Route path="/to-do-lists/marker-requests" component={MarkerRequests} />
 
                             <Route path="/tables/orders" component={Orders} />
                             <Route path="/tables/markerdb" component={MarkerDB} />
