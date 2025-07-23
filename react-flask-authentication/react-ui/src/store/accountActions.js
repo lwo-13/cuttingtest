@@ -5,7 +5,7 @@ import { LOGOUT } from './actions'; // ✅ Points to your actions.js
 export const logoutUser = () => {
     return async (dispatch) => {
         try {
-            await axios.post('/api/users/logout');  // ✅ Your Flask logout endpoint
+            await axios.post('/users/logout');  // ✅ Your Flask logout endpoint
         } catch (error) {
             console.warn('Logout failed or session expired:', error.message);
         }
