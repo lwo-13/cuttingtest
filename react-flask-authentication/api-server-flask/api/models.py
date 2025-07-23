@@ -834,7 +834,7 @@ class WidthChangeRequest(db.Model):
     __tablename__ = 'width_change_requests'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id'), nullable=False)
+    mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id', ondelete='CASCADE'), nullable=False)
     requested_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # Username of spreader
     operator = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Name of the operator
     current_marker_name = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
@@ -850,7 +850,7 @@ class WidthChangeRequest(db.Model):
     approved_at = db.Column(db.DateTime, nullable=True)
 
     # Relationships
-    mattress = db.relationship('Mattresses', backref=db.backref('width_change_requests', lazy=True))
+    mattress = db.relationship('Mattresses', backref=db.backref('width_change_requests', cascade='all, delete-orphan'))
     selected_marker = db.relationship('MarkerHeader', backref=db.backref('width_change_requests', lazy=True))
 
     def to_dict(self):
@@ -883,7 +883,7 @@ class MarkerRequest(db.Model):
     __tablename__ = 'marker_requests'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    width_change_request_id = db.Column(db.Integer, db.ForeignKey('width_change_requests.id'), nullable=False)
+    width_change_request_id = db.Column(db.Integer, db.ForeignKey('width_change_requests.id', ondelete='CASCADE'), nullable=False)
     requested_width = db.Column(db.Float, nullable=False)
     style = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
@@ -896,7 +896,7 @@ class MarkerRequest(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
     # Relationships
-    width_change_request = db.relationship('WidthChangeRequest', backref=db.backref('marker_request', uselist=False, lazy=True))
+    width_change_request = db.relationship('WidthChangeRequest', backref=db.backref('marker_request', uselist=False, cascade='all, delete-orphan'))
     created_marker = db.relationship('MarkerHeader', backref=db.backref('marker_requests', lazy=True))
 
     def to_dict(self):

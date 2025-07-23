@@ -3,6 +3,7 @@ import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Paper, Box, Grid, Button, Typography, Alert, Snackbar } from "@mui/material";
 import LockIcon from '@mui/icons-material/Lock';
+import ViewStreamIcon from '@mui/icons-material/ViewStream';
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
@@ -528,8 +529,8 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
   const { t } = useTranslation();
   const ref = useRef(null);
 
-  // Check if mattress is locked (pending approval)
-  const isLocked = mattress.status === "PENDING APPROVAL";
+  // Check if mattress is locked (pending approval or on spread)
+  const isLocked = mattress.status === "PENDING APPROVAL" || mattress.status === "2 - ON SPREAD";
 
   const [{ isDragging }, drag] = useDrag({
     type: "MATTRESS",
@@ -659,32 +660,35 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
         }} />
       )}
 
-      <MainCard ref={ref} sx={{
-        mb: 1,
-        opacity: isDragging ? 0.5 : isLocked ? 0.8 : 1,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        textAlign: 'center',
-        cursor: isLocked ? 'not-allowed' : 'grab',
-        transform: isDragging ? 'rotate(5deg) scale(1.05)' : isOver ? 'scale(1.02)' : 'none',
-        transition: 'all 0.3s ease',
-        border: isLocked ? '2px solid #ff9800' : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
-        bgcolor: isLocked ? '#fff3e0' : isOver ? '#f3e5f5' : 'white',
-        boxShadow: isLocked ? '0 2px 8px rgba(255, 152, 0, 0.3)' : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
-        width: '100%',
-        height: '90px',
-        minHeight: '90px',
-        maxHeight: '90px',
-        padding: '8px',
-        position: 'relative',
-        '&:hover': {
-          transform: isLocked ? 'none' : isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
-          boxShadow: isLocked ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 10px rgba(0,0,0,0.1)'
-        }
-      }}>
-      {/* Lock icon for pending approval */}
+      <MainCard
+        ref={ref}
+        border={false}
+        sx={{
+          mb: 1,
+          opacity: isDragging ? 0.5 : isLocked ? 0.8 : 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          textAlign: 'center',
+          cursor: isLocked ? 'not-allowed' : 'grab',
+          transform: isDragging ? 'rotate(5deg) scale(1.05)' : isOver ? 'scale(1.02)' : 'none',
+          transition: 'all 0.3s ease',
+          border: isLocked ? (mattress.status === "PENDING APPROVAL" ? '2px solid #ff9800 !important' : '2px solid #2196f3 !important') : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
+          bgcolor: isLocked ? (mattress.status === "PENDING APPROVAL" ? '#fff3e0' : '#e3f2fd') : isOver ? '#f3e5f5' : 'white',
+          boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
+          width: '100%',
+          height: '90px',
+          minHeight: '90px',
+          maxHeight: '90px',
+          padding: '8px',
+          position: 'relative',
+          '&:hover': {
+            transform: isLocked ? 'none' : isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
+            boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : '0 2px 10px rgba(0,0,0,0.1)'
+          }
+        }}>
+      {/* Status icons for locked mattresses */}
       {isLocked && (
         <Box sx={{
           position: 'absolute',
@@ -692,14 +696,18 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           right: 8,
           display: 'flex',
           alignItems: 'center',
-          bgcolor: '#ff9800',
+          bgcolor: mattress.status === "PENDING APPROVAL" ? '#ff9800' : '#2196f3',
           color: 'white',
           borderRadius: '50%',
           width: 24,
           height: 24,
           justifyContent: 'center'
         }}>
-          <LockIcon sx={{ fontSize: 14 }} />
+          {mattress.status === "PENDING APPROVAL" ? (
+            <LockIcon sx={{ fontSize: 14 }} />
+          ) : (
+            <ViewStreamIcon sx={{ fontSize: 14 }} />
+          )}
         </Box>
       )}
 

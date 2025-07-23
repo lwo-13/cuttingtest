@@ -1310,9 +1310,12 @@ class UpdateMattressStatusResource(Resource):
                         "conflict": True
                     }, 409
 
-                # CRITICAL: Check if mattress is already assigned to a different device
+                # CRITICAL: Check if mattress is already assigned to a different CUTTER device
                 # This prevents the race condition where two cutters try to start the same mattress
-                if current_active_phase.device and current_active_phase.device != device:
+                # Only check for cutter devices (CT1, CT2, etc.), not spreader devices (SP1, SP2, etc.)
+                if (current_active_phase.device and
+                    current_active_phase.device.startswith('CT') and
+                    current_active_phase.device != device):
                     # Get mattress name for better error message
                     current_mattress = db.session.query(Mattresses).filter_by(id=mattress_id).first()
                     mattress_name = current_mattress.mattress if current_mattress else f"ID {mattress_id}"

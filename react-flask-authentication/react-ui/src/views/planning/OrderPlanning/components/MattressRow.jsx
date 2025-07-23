@@ -5,7 +5,8 @@ import {
   TextField,
   Typography,
   IconButton,
-  Autocomplete
+  Autocomplete,
+  Box
 } from '@mui/material';
 import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 import LockOutlined from '@mui/icons-material/LockOutlined';
@@ -125,7 +126,10 @@ const MattressRow = ({
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <TextField
           variant="outlined"
-          value={row.layers || ""}
+          value={!editable && row.layers_a && String(row.layers_a) !== String(row.layers)
+            ? `${row.layers_a} (${row.layers})`
+            : row.layers || ""
+          }
           disabled={!editable}
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -136,15 +140,44 @@ const MattressRow = ({
             minWidth: '65px',
             maxWidth: '80px',
             textAlign: 'center',
-            "& input": { textAlign: 'center', fontWeight: 'normal' }
+            "& input": {
+              textAlign: 'center',
+              fontWeight: 'normal',
+              // Apply light red color (error snackbar color) when showing layers_a different from layers
+              color: !editable && row.layers_a && String(row.layers_a) !== String(row.layers)
+                ? '#d32f2f !important'
+                : 'inherit'
+            },
+            // Also override the disabled input color specifically
+            "& .Mui-disabled": {
+              color: !editable && row.layers_a && String(row.layers_a) !== String(row.layers)
+                ? '#d32f2f !important'
+                : undefined,
+              WebkitTextFillColor: !editable && row.layers_a && String(row.layers_a) !== String(row.layers)
+                ? '#d32f2f !important'
+                : undefined
+            }
           }}
         />
       </TableCell>
 
       {/* Expected Consumption */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-        <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.expectedConsumption ? parseFloat(row.expectedConsumption).toFixed(1) : ""}
+        <Typography
+          variant="body1"
+          sx={{
+            fontWeight: 'normal',
+            textAlign: 'center',
+            // Apply light red color when showing cons_actual different from expectedConsumption
+            color: !editable && row.cons_actual && row.cons_actual !== row.expectedConsumption
+              ? '#d32f2f'
+              : 'inherit'
+          }}
+        >
+          {!editable && row.cons_actual && row.cons_actual !== row.expectedConsumption
+            ? `${parseFloat(row.cons_actual).toFixed(1)} (${parseFloat(row.expectedConsumption || 0).toFixed(1)})`
+            : row.expectedConsumption ? parseFloat(row.expectedConsumption).toFixed(1) : ""
+          }
         </Typography>
       </TableCell>
 
