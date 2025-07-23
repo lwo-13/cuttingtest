@@ -77,7 +77,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
         .map(row => row.bagno))];
 
       if (uniqueBagnos.length > 0) {
-        console.log(`🗑️ Mattress table deleted with bagnos: ${uniqueBagnos.join(', ')} - triggering collaretto pieces recalculation`);
+
 
         // Dispatch events for each unique bagno after table deletion
         setTimeout(() => {
@@ -326,7 +326,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
 
         // ✅ Trigger auto-fetching for collaretto tables when a mattress row is deleted
         if (rowToDelete.bagno && rowToDelete.bagno !== 'Unknown') {
-          console.log(`🗑️ Mattress row deleted with bagno ${rowToDelete.bagno} - triggering collaretto pieces recalculation`);
+
 
           // Dispatch event to recalculate collaretto pieces after this mattress row is removed
           setTimeout(() => {
@@ -407,7 +407,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           window.layersChangeTimeouts = {};
         }
 
-        // Set a timeout to dispatch the event after a short delay (300ms)
+        // Set a timeout to dispatch the event after a delay (1500ms)
         // This gives the user time to finish typing before we update
         window.layersChangeTimeouts[rowId] = setTimeout(() => {
           const updatedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
@@ -427,21 +427,19 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           }
           // Remove the timeout reference
           delete window.layersChangeTimeouts[rowId];
-        }, 300);
+        }, 1500);
       }
     }
 
-    // Also trigger the event if the bagno field is changed and there are valid layers
-    if (field === "bagno" && value && value !== 'Unknown') {
+    // Also trigger the event if the bagno field is changed (including when cleared) and there are valid layers
+    if (field === "bagno") {
       const changedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
       if (changedRow) {
         const layers = parseInt(changedRow.layers);
         if (!isNaN(layers) && layers > 0) {
           // ✅ Capture the OLD bagno value before state update
           const oldBagnoValue = changedRow.bagno;
-          const newBagnoValue = value;
-
-          console.log(`🔄 Bagno changed from "${oldBagnoValue}" to "${newBagnoValue}" - will update both`);
+          const newBagnoValue = value || ""; // Handle empty values
 
           // Clear any existing timeout for this row's bagno
           if (window.bagnoChangeTimeouts && window.bagnoChangeTimeouts[rowId]) {
@@ -453,38 +451,54 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
             window.bagnoChangeTimeouts = {};
           }
 
-          // Set a timeout to dispatch the event after a short delay (300ms)
+          // ✅ Track the ORIGINAL bagno value (before any changes in this typing session)
+          if (!window.originalBagnoValues) {
+            window.originalBagnoValues = {};
+          }
+
+          // If this is the first change for this row, store the original value
+          // Only store if the old value is not empty/unknown
+          if (!window.originalBagnoValues[rowId] && oldBagnoValue && oldBagnoValue !== 'Unknown') {
+            window.originalBagnoValues[rowId] = oldBagnoValue;
+          }
+
+          // Set a timeout to dispatch the event after a delay (1500ms)
           // This gives the user time to finish typing before we update
+          const finalBagnoValueFromInput = newBagnoValue;
+
           window.bagnoChangeTimeouts[rowId] = setTimeout(() => {
             const updatedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
             if (updatedRow) {
               const finalLayers = parseInt(updatedRow.layers);
-              if (!isNaN(finalLayers) && finalLayers > 0) {
-                // ✅ Dispatch event for NEW bagno (to add pieces)
-                window.dispatchEvent(new CustomEvent('mattressLayersChanged', {
-                  detail: {
-                    bagno: newBagnoValue,
-                    tableId: tableId,
-                    rowId: rowId,
-                    newLayers: finalLayers
-                  }
-                }));
 
-                // ✅ Dispatch event for OLD bagno (to recalculate remaining pieces)
-                if (oldBagnoValue && oldBagnoValue !== 'Unknown' && oldBagnoValue !== newBagnoValue) {
-                  console.log(`🔄 Recalculating pieces for old bagno: ${oldBagnoValue}`);
+              if (!isNaN(finalLayers) && finalLayers > 0) {
+                // Dispatch event for NEW bagno (to add pieces) - only if final bagno is valid
+                if (finalBagnoValueFromInput && finalBagnoValueFromInput !== 'Unknown') {
+                  window.dispatchEvent(new CustomEvent('mattressLayersChanged', {
+                    detail: {
+                      bagno: finalBagnoValueFromInput,
+                      tableId: tableId,
+                      rowId: rowId,
+                      newLayers: finalLayers
+                    }
+                  }));
+                }
+
+                // Dispatch event for ORIGINAL bagno (to recalculate remaining pieces)
+                const originalBagnoValue = window.originalBagnoValues[rowId];
+                if (originalBagnoValue && originalBagnoValue !== 'Unknown' && originalBagnoValue !== finalBagnoValueFromInput) {
                   window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
                     detail: {
-                      bagno: oldBagnoValue
-                      // Handler will recalculate from remaining mattress tables
+                      bagno: originalBagnoValue
                     }
                   }));
                 }
               }
             }
-            // Remove the timeout reference
+            // Remove the timeout reference and original bagno tracking
             delete window.bagnoChangeTimeouts[rowId];
-          }, 300);
+            delete window.originalBagnoValues[rowId];
+          }, 1500);
         }
       }
     }
@@ -498,7 +512,7 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           // Store the bagno value in a closure for the timeout
           const rowBagno = changedRow.bagno;
 
-          console.log(`🎯 Pieces per size changed for bagno ${rowBagno} - triggering collaretto recalculation`);
+
 
           // For marker selection, we don't need a delay since it's not a typing operation
           // The event handler will recalculate total pieces from all mattress tables

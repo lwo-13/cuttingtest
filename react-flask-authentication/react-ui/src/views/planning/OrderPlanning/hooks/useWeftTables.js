@@ -199,7 +199,7 @@ const useWeftTables = ({
         window.collarettoBagnoChangeTimeouts = {};
       }
 
-      // Set a timeout to dispatch the event after a short delay (300ms)
+      // Set a timeout to dispatch the event after a delay (1500ms)
       // This waits until you stop typing before auto-fetching
       window.collarettoBagnoChangeTimeouts[rowId] = setTimeout(() => {
         window.dispatchEvent(new CustomEvent('collarettoBagnoChanged', {
@@ -213,7 +213,7 @@ const useWeftTables = ({
 
         // Remove the timeout reference
         delete window.collarettoBagnoChangeTimeouts[rowId];
-      }, 300);
+      }, 1500);
     }
 
     // ✅ Dispatch event when sizes field is changed to auto-update pieces based on new size selection

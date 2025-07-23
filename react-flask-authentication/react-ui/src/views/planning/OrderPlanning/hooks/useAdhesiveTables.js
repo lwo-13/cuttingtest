@@ -75,21 +75,7 @@ const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedCha
                     .filter(row => row.bagno && row.bagno !== 'Unknown')
                     .map(row => row.bagno))];
 
-                if (uniqueBagnos.length > 0) {
-                    console.log(`🗑️ Adhesive table deleted with bagnos: ${uniqueBagnos.join(', ')} - triggering collaretto pieces recalculation`);
-
-                    // Dispatch events for each unique bagno after table deletion
-                    setTimeout(() => {
-                        uniqueBagnos.forEach(bagno => {
-                            window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
-                                detail: {
-                                    bagno: bagno
-                                    // ✅ Removed piecesPerSize - let the handler recalculate from remaining tables
-                                }
-                            }));
-                        });
-                    }, 100); // Small delay to ensure state update is complete
-                }
+                // Adhesive tables don't trigger collaretto auto-updates
 
                 // Track deleted table ID for production center cleanup
                 if (setDeletedTableIds) {
@@ -150,20 +136,7 @@ const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedCha
                     addToDeletedIfNotExists(rowToRemove.mattressName, setDeletedMattresses);
                 }
 
-                // ✅ Trigger auto-fetching for collaretto tables when an adhesive row is deleted
-                if (rowToRemove && rowToRemove.bagno && rowToRemove.bagno !== 'Unknown') {
-                    console.log(`🗑️ Adhesive row deleted with bagno ${rowToRemove.bagno} - triggering collaretto pieces recalculation`);
-
-                    // Dispatch event to recalculate collaretto pieces after this adhesive row is removed
-                    setTimeout(() => {
-                        window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
-                            detail: {
-                                bagno: rowToRemove.bagno
-                                // ✅ Removed piecesPerSize - let the handler recalculate from remaining tables
-                            }
-                        }));
-                    }, 100); // Small delay to ensure state update is complete
-                }
+                // Adhesive tables don't trigger collaretto auto-updates
 
                 return {
                     ...table,
@@ -213,62 +186,7 @@ const useAdhesiveTables = ({ orderSizeNames, setDeletedMattresses, setUnsavedCha
             });
         });
 
-        // ✅ Handle bagno changes for adhesive tables (same logic as mattress tables)
-        if (field === "bagno" && value && value !== 'Unknown') {
-            const changedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
-            if (changedRow) {
-                const layers = parseInt(changedRow.layers);
-                if (!isNaN(layers) && layers > 0) {
-                    // ✅ Capture the OLD bagno value before state update
-                    const oldBagnoValue = changedRow.bagno;
-                    const newBagnoValue = value;
-
-                    console.log(`🔄 Adhesive bagno changed from "${oldBagnoValue}" to "${newBagnoValue}" - will update both`);
-
-                    // Clear any existing timeout for this row's bagno
-                    if (window.adhesiveBagnoChangeTimeouts && window.adhesiveBagnoChangeTimeouts[rowId]) {
-                        clearTimeout(window.adhesiveBagnoChangeTimeouts[rowId]);
-                    }
-
-                    // Initialize the timeouts object if it doesn't exist
-                    if (!window.adhesiveBagnoChangeTimeouts) {
-                        window.adhesiveBagnoChangeTimeouts = {};
-                    }
-
-                    // Set a timeout to dispatch the event after a short delay (300ms)
-                    window.adhesiveBagnoChangeTimeouts[rowId] = setTimeout(() => {
-                        const updatedRow = tables.find(t => t.id === tableId)?.rows.find(r => r.id === rowId);
-                        if (updatedRow) {
-                            const finalLayers = parseInt(updatedRow.layers);
-                            if (!isNaN(finalLayers) && finalLayers > 0) {
-                                // ✅ Dispatch event for NEW bagno (to add pieces)
-                                window.dispatchEvent(new CustomEvent('mattressLayersChanged', {
-                                    detail: {
-                                        bagno: newBagnoValue,
-                                        tableId: tableId,
-                                        rowId: rowId,
-                                        newLayers: finalLayers
-                                    }
-                                }));
-
-                                // ✅ Dispatch event for OLD bagno (to recalculate remaining pieces)
-                                if (oldBagnoValue && oldBagnoValue !== 'Unknown' && oldBagnoValue !== newBagnoValue) {
-                                    console.log(`🔄 Recalculating pieces for old adhesive bagno: ${oldBagnoValue}`);
-                                    window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
-                                        detail: {
-                                            bagno: oldBagnoValue
-                                            // Handler will recalculate from remaining tables
-                                        }
-                                    }));
-                                }
-                            }
-                        }
-                        // Remove the timeout reference
-                        delete window.adhesiveBagnoChangeTimeouts[rowId];
-                    }, 300);
-                }
-            }
-        }
+        // Adhesive tables don't have auto-update functionality for collaretto
 
         setUnsavedChanges(true);
     };
