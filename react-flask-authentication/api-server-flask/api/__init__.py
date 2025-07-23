@@ -23,8 +23,14 @@ def create_app():
     # Initialize database
     db.init_app(app)
 
-    # Enable CORS
-    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://172.27.57.210:3000", "http://127.0.0.1:3000"]}}, supports_credentials=True)
+    # Enable CORS - Updated to support VPN proxy access
+    allowed_origins = [
+        "http://localhost:3000",           # Local development
+        "http://172.27.57.210:3000",       # Direct VM access
+        "http://127.0.0.1:3000",           # Local development alternative
+        "https://sslvpn1.calzedonia.com"   # VPN proxy access
+    ]
+    CORS(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
 
     # Register Blueprints (auth, markers, etc.)
     register_blueprints(app)

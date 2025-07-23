@@ -2,7 +2,7 @@
     "name": "react-berry-admin-template",
     "version": "0.0.4",
     "private": true,
-    "homepage": "https://berrydashboard.io",
+    "homepage": "/",
     "build": {
         "yarn": "v14.0.0,v16.0.0",
         "npm": "v14.0.0,v16.0.0"
@@ -59,7 +59,13 @@
     },
     "scripts": {
         "start": "react-scripts start",
+        "start:local": "env-cmd -f .env.local react-scripts start",
+        "start:vm": "env-cmd -f .env.vm react-scripts start",
+        "start:vpn": "env-cmd -f .env.vpn react-scripts start",
         "build": "react-scripts build",
+        "build:local": "env-cmd -f .env.local react-scripts build",
+        "build:vm": "env-cmd -f .env.vm react-scripts build",
+        "build:vpn": "env-cmd -f .env.vpn react-scripts build",
         "test": "react-scripts test --passWithNoTests",
         "eject": "react-scripts eject"
     },
@@ -88,6 +94,7 @@
         "@babel/preset-env": "^7.26.9",
         "@babel/preset-react": "^7.26.3",
         "babel-loader": "^8.3.0",
+        "env-cmd": "^10.1.0",
         "eslint-config-react-app": "^7.0.1",
         "eslint-plugin-testing-library": "^7.1.1",
         "sass": "^1.85.0",
