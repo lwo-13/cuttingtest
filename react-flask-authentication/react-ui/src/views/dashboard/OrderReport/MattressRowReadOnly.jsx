@@ -123,7 +123,10 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
 
       {/* Progress Bar */}
       <TableCell sx={{ minWidth: '150px', textAlign: 'center', padding: '4px' }}>
-        <MattressProgressBar currentPhase={row.phase_status} />
+        <MattressProgressBar
+          currentPhase={row.phase_status}
+          hasPendingWidthChange={row.has_pending_width_change}
+        />
       </TableCell>
 
       {/* Empty Cell (icon placeholder) */}

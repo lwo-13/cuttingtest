@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Paper, Box, Grid, Button, Typography, Alert, Snackbar } from "@mui/material";
+import LockIcon from '@mui/icons-material/Lock';
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
@@ -109,13 +110,10 @@ const KanbanBoard = () => {
   }, []);
 
   const fetchMattresses = () => {
-    console.log('Fetching mattresses for day:', selectedDay);
     axios.get(`/mattress/kanban?day=${selectedDay.toLowerCase()}`)
       .then((res) => {
-        console.log('Fetch response:', res.data);
         if (res.data.success) {
           setMattresses(res.data.data);
-          console.log('Mattresses loaded:', res.data.data.length);
         } else {
           console.error("Error fetching data:", res.data.message);
         }
@@ -156,8 +154,6 @@ const KanbanBoard = () => {
   }, []);
 
   const moveMattress = async (id, targetDevice, targetShift, targetPosition = null) => {
-    console.log(`Moving mattress ${id} to device ${targetDevice}, shift ${targetShift}, position ${targetPosition}`);
-
     const prevMattresses = [...mattresses];
 
     // MS validation: Check if trying to move AS mattress to MS device
@@ -250,13 +246,10 @@ const KanbanBoard = () => {
       position: targetPosition
     };
 
-    console.log('API call:', `/mattress/move_mattress/${id}`, payload);
-
     try {
       const response = await axios.put(`/mattress/move_mattress/${id}`, payload);
 
       if (response.data.success) {
-        console.log('Move successful:', response.data);
         // Refresh after short delay to show the movement
         setTimeout(() => {
           fetchMattresses();
@@ -269,11 +262,9 @@ const KanbanBoard = () => {
 
       // Try fallback to old endpoint
       try {
-        console.log('Trying fallback endpoint...');
         const fallbackResponse = await axios.put(`/mattress/update_device/${id}`, payload);
 
         if (fallbackResponse.data.success) {
-          console.log('Fallback successful');
           setTimeout(() => {
             fetchMattresses();
           }, 300);
@@ -348,7 +339,7 @@ const KanbanBoard = () => {
                       .filter(
                         (m) =>
                           m.device === device &&
-                          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD")
+                          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL")
                       )
               }
               moveMattress={moveMattress}
@@ -419,7 +410,6 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const [{ isOverFirst }, dropFirst] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      console.log('Dropping on first shift:', item);
       // Always use target position if available (from hover over specific cards)
       const targetPosition = item.targetPosition !== undefined ? item.targetPosition : null;
       moveMattress(item.id, device, '1shift', targetPosition);
@@ -430,7 +420,6 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const [{ isOverSecond }, dropSecond] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      console.log('Dropping on second shift:', item);
       // Always use target position if available (from hover over specific cards)
       const targetPosition = item.targetPosition !== undefined ? item.targetPosition : null;
       moveMattress(item.id, device, '2shift', targetPosition);
@@ -442,7 +431,6 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const [{ isOverUnassigned }, dropUnassigned] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      console.log('Dropping on unassigned:', item);
       moveMattress(item.id, "SP0", null, null);
     },
     collect: (monitor) => ({ isOverUnassigned: !!monitor.isOver() })
@@ -452,7 +440,6 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const [{ isOverMS }, dropMS] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      console.log('Dropping on MS:', item);
       moveMattress(item.id, "MS", null, null);
     },
     collect: (monitor) => ({ isOverMS: !!monitor.isOver() })
@@ -541,10 +528,14 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
   const { t } = useTranslation();
   const ref = useRef(null);
 
+  // Check if mattress is locked (pending approval)
+  const isLocked = mattress.status === "PENDING APPROVAL";
+
   const [{ isDragging }, drag] = useDrag({
     type: "MATTRESS",
+    canDrag: !isLocked, // Disable dragging for locked mattresses
     item: () => {
-      console.log('Starting drag for mattress:', mattress.id, 'from device:', mattress.device || device, 'shift:', mattress.shift || shift);
+      if (isLocked) return null; // Prevent drag if locked
       return {
         id: mattress.id,
         index,
@@ -558,8 +549,9 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
 
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: "MATTRESS",
+    canDrop: () => !isLocked, // Prevent dropping on locked mattresses
     hover: (item, monitor) => {
-      if (!ref.current || item.id === mattress.id) {
+      if (!ref.current || item.id === mattress.id || isLocked) {
         return;
       }
 
@@ -610,14 +602,12 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           return;
         }
 
-        console.log(`Same column move: drag ${dragIndex} -> target ${targetPosition} (hover ${hoverIndex}, mouse ${hoverClientY < hoverMiddleY ? 'top' : 'bottom'})`);
         item.targetPosition = targetPosition;
         item.index = targetPosition;
         return;
       }
 
       // For cross-column moves, always use hover index
-      console.log('Cross-column move: setting target position:', hoverIndex, 'for item:', item.id);
       item.targetPosition = hoverIndex;
     },
     collect: (monitor) => ({
@@ -626,7 +616,13 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
     })
   });
 
-  drag(drop(ref));
+  // Only connect drag/drop if not locked
+  if (!isLocked) {
+    drag(drop(ref));
+  } else {
+    // For locked items, only connect the ref without drag/drop
+    drop(ref);
+  }
 
   const tooltipContent = (
     <Box>
@@ -636,6 +632,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
       )}
       <strong>{t('common.fabric', 'Fabric')}:</strong> {mattress.fabric_code} &nbsp;&nbsp; {mattress.fabric_color} <br />
       <strong>{t('table.bagno')}:</strong> {mattress.dye_lot} <br />
+      {mattress.marker && mattress.marker !== '--' && (<><strong>{t('kanban.marker')}:</strong> {mattress.marker} <br /></>)}
       <strong>{t('common.markerLength', 'Marker Length')}:</strong> {mattress.marker_length} m<br />
       <strong>{t('common.markerWidth', 'Marker Width')}:</strong> {mattress.width} cm<br />
       {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>{t('common.sizes', 'Sizes')}:</strong> {mattress.sizes}</Box>)}
@@ -664,30 +661,49 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
 
       <MainCard ref={ref} sx={{
         mb: 1,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.5 : isLocked ? 0.8 : 1,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
         textAlign: 'center',
-        cursor: 'grab',
+        cursor: isLocked ? 'not-allowed' : 'grab',
         transform: isDragging ? 'rotate(5deg) scale(1.05)' : isOver ? 'scale(1.02)' : 'none',
         transition: 'all 0.3s ease',
-        border: isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
-        bgcolor: isOver ? '#f3e5f5' : 'white',
-        boxShadow: isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
+        border: isLocked ? '2px solid #ff9800' : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
+        bgcolor: isLocked ? '#fff3e0' : isOver ? '#f3e5f5' : 'white',
+        boxShadow: isLocked ? '0 2px 8px rgba(255, 152, 0, 0.3)' : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
         width: '100%',
-        height: '120px',
-        minHeight: '120px',
-        maxHeight: '120px',
-        padding: '12px',
+        height: '90px',
+        minHeight: '90px',
+        maxHeight: '90px',
+        padding: '8px',
+        position: 'relative',
         '&:hover': {
-          transform: isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+          transform: isLocked ? 'none' : isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
+          boxShadow: isLocked ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 10px rgba(0,0,0,0.1)'
         }
       }}>
-      <strong>{t('kanban.mattress')}:</strong> {mattress.mattress} <br />
-      {mattress.marker && mattress.marker !== '--' && (<><strong>{t('kanban.marker')}:</strong> {mattress.marker} <br /></>)}
+      {/* Lock icon for pending approval */}
+      {isLocked && (
+        <Box sx={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          display: 'flex',
+          alignItems: 'center',
+          bgcolor: '#ff9800',
+          color: 'white',
+          borderRadius: '50%',
+          width: 24,
+          height: 24,
+          justifyContent: 'center'
+        }}>
+          <LockIcon sx={{ fontSize: 14 }} />
+        </Box>
+      )}
+
+      {mattress.mattress} <br />
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1 }}>
         {mattress.total_pcs > 0 && (
           <Box sx={{

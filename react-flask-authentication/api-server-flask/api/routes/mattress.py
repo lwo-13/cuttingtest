@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, MattressProductionCenter, SystemSettings
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, MattressProductionCenter, SystemSettings, WidthChangeRequest
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
@@ -265,11 +265,18 @@ class GetMattressesByOrder(Resource):
             if not mattresses:
                 return {"success": False, "message": "No mattresses found for this order"}, 404
 
+            # Get all mattress IDs that have pending width change requests
+            pending_width_change_mattresses = set()
+            pending_requests = WidthChangeRequest.query.filter_by(status='pending').all()
+            for req in pending_requests:
+                pending_width_change_mattresses.add(req.mattress_id)
+
             result = []
             for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
+                    "has_pending_width_change": mattress.id in pending_width_change_mattresses,
                     # Table-specific production center fields (before fabric info)
                     "production_center": production_center,
                     "cutting_room": cutting_room,
@@ -394,6 +401,7 @@ class GetKanbanMattressesResource(Resource):
                 MattressMarker.marker_length,
                 MattressMarker.marker_width,
                 MattressDetail.layers,
+                MattressDetail.layers_a,  # Add actual layers for cutter display
                 # Use CollarettoDetail.extra for collaretto mattresses, MattressDetail.extra for regular mattresses
                 db.func.coalesce(CollarettoDetail.extra, MattressDetail.extra).label('extra'),
                 MattressDetail.cons_planned,
@@ -451,16 +459,29 @@ class GetKanbanMattressesResource(Resource):
                 size_dict.setdefault(row.mattress_id, []).append(f"{row.size} - {pcs}")
                 pcs_sum_dict[row.mattress_id] = pcs_sum_dict.get(row.mattress_id, 0) + pcs
 
+            # Get all mattress IDs that have pending width change requests
+            pending_width_change_mattresses = set()
+            pending_requests = WidthChangeRequest.query.filter_by(status='pending').all()
+            for req in pending_requests:
+                pending_width_change_mattresses.add(req.mattress_id)
+
             # Build final result
             result = []
             for row in query:
                 pcs_per_layer = pcs_sum_dict.get(row.mattress_id, 0)
-                total_pcs = pcs_per_layer * row.layers if pcs_per_layer else 0
+                # Use actual layers (layers_a) when available, fallback to planned layers
+                effective_layers = row.layers_a if row.layers_a is not None else row.layers
+                total_pcs = pcs_per_layer * effective_layers if pcs_per_layer else 0
+
+                # Check if this mattress has a pending width change request
+                mattress_status = row.status
+                if row.mattress_id in pending_width_change_mattresses:
+                    mattress_status = "PENDING APPROVAL"
 
                 result.append({
                     "id": row.mattress_id,
                     "mattress": row.mattress,
-                    "status": row.status,
+                    "status": mattress_status,
                     "device": row.device if row.device else "SP0",
                     "order_commessa": row.order_commessa,
                     "table_id": row.table_id,
@@ -477,7 +498,8 @@ class GetKanbanMattressesResource(Resource):
                     "marker": row.marker_name,
                     "marker_length": row.marker_length or row.length_mattress,
                     "width": row.marker_width or row.usable_width,
-                    "layers": row.layers,
+                    "layers": row.layers,  # Planned layers
+                    "layers_a": row.layers_a,  # Actual layers (set by spreader)
                     "extra": row.extra,
                     "consumption": row.cons_planned,
                     "bagno_ready": row.bagno_ready,  # Include bagno_ready field
@@ -1286,6 +1308,78 @@ class UpdateMattressStatusResource(Resource):
 
             db.session.commit()
             return {"success": True, "message": f"Status updated to '{new_status}'"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/update_status_and_layers/<int:mattress_id>', methods=['PUT'])
+class UpdateStatusAndLayersResource(Resource):
+    """Update both status and actual layers of a mattress in a single call"""
+
+    @mattress_api.doc(params={'mattress_id': 'ID of the mattress to update'})
+    def put(self, mattress_id):
+        """Update both status and actual layers (layers_a) of a mattress"""
+        data = request.get_json()
+        new_status = data.get('status')
+        layers_a = data.get('layers_a')
+        operator = data.get('operator', 'Unknown')
+        device = data.get('device')
+
+        if not new_status:
+            return {"success": False, "message": "Status is required"}, 400
+
+        if layers_a is None:
+            return {"success": False, "message": "layers_a is required"}, 400
+
+        try:
+            # Update status first
+            all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
+            if not all_phases:
+                return {"success": False, "message": "Mattress phases not found"}, 404
+
+            # Deactivate current active phases
+            for phase in all_phases:
+                if phase.active:
+                    phase.active = False
+
+            # Activate the requested phase
+            target_phase = next((p for p in all_phases if p.status == new_status), None)
+            if target_phase:
+                target_phase.active = True
+                target_phase.operator = operator
+
+                # Set device if provided, otherwise keep from previous phase
+                if device:
+                    target_phase.device = device
+                else:
+                    # Keep the device from the previous phase
+                    current_device = next((p.device for p in all_phases if p.device), None)
+                    if current_device:
+                        target_phase.device = current_device
+            else:
+                return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
+
+            # Update layers_a and calculate cons_actual
+            mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+            if not mattress_detail:
+                return {"success": False, "message": "Mattress detail not found"}, 404
+
+            # Update the layers_a field
+            mattress_detail.layers_a = layers_a
+
+            # Calculate cons_actual using the same formula as cons_planned
+            if mattress_detail.layers > 0:
+                # cons_actual = (cons_planned / layers) * layers_a
+                mattress_detail.cons_actual = (mattress_detail.cons_planned / mattress_detail.layers) * float(layers_a)
+            else:
+                # Fallback to direct calculation if layers is zero
+                mattress_detail.cons_actual = mattress_detail.length_mattress * float(layers_a)
+
+            db.session.commit()
+            return {"success": True, "message": f"Status updated to '{new_status}' and layers_a updated to {layers_a}"}, 200
 
         except Exception as e:
             db.session.rollback()

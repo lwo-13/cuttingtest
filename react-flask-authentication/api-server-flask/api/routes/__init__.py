@@ -19,6 +19,7 @@ from .marker_calculator import marker_calculator_bp, marker_calculator_api  # Ma
 from .width_change_requests import width_change_requests_bp, width_change_requests_api  # Width change requests module
 from .marker_requests import marker_requests_bp, marker_requests_api  # Marker requests module
 from .navision import navision_bp, navision_api  # Navision integration module
+from .dashboard import dashboard_bp, dashboard_api  # Dashboard analytics module
 
 # Define the main RESTx API with Swagger documentation settings
 rest_api = Api(
@@ -44,6 +45,7 @@ def register_blueprints(app):
     app.register_blueprint(marker_calculator_bp, url_prefix="/api/marker_calculator")
     app.register_blueprint(width_change_requests_bp, url_prefix="/api/width_change_requests")
     app.register_blueprint(marker_requests_bp, url_prefix="/api/marker_requests")
+    app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
 
     app.register_blueprint(navision_bp, url_prefix="/api/navision")
 
@@ -60,5 +62,6 @@ def register_blueprints(app):
     rest_api.add_namespace(marker_calculator_api, path="/api/marker_calculator")
     rest_api.add_namespace(width_change_requests_api, path="/api/width_change_requests")
     rest_api.add_namespace(marker_requests_api, path="/api/marker_requests")
+    rest_api.add_namespace(dashboard_api, path="/api/dashboard")
 
     rest_api.add_namespace(navision_api, path="/api/navision")

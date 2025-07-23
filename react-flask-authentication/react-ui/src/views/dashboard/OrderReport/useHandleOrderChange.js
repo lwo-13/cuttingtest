@@ -188,6 +188,7 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
         cons_real: mattress.cons_real || "",
         bagno: mattress.dye_lot,
         phase_status: mattress.phase_status || "0 - NOT SET",
+        has_pending_width_change: mattress.has_pending_width_change || false,
         sequenceNumber: mattress.sequence_number || 0
       });
     }
