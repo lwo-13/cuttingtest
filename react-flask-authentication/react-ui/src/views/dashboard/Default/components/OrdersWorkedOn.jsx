@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 
 // material-ui
 import {
@@ -37,7 +37,7 @@ const OrdersWorkedOn = ({ selectedPeriod }) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get(`/api/dashboard/orders-worked-on?period=${selectedPeriod}`);
+            const response = await axios.get(`/dashboard/orders-worked-on?period=${selectedPeriod}`);
             if (response.data.success) {
                 setOrders(response.data.data);
             } else {

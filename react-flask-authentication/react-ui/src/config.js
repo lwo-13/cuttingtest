@@ -1,23 +1,19 @@
+// Backend URL is now handled in axiosInstance.js
 let BACKEND_SERVER = "/";
-
-// Determine if we're running through VPN proxy
-const isVPNProxy = process.env.REACT_APP_BACKEND_SERVER &&
-                   process.env.REACT_APP_BACKEND_SERVER.includes('sslvpn1.calzedonia.com');
 
 // Set basename for VPN proxy routing
 const getBasename = () => {
-    // Check if we're actually running through the VPN proxy URL
+    // Only use proxy path if we're actually on the VPN domain
     if (typeof window !== 'undefined' && window.location.hostname === 'sslvpn1.calzedonia.com') {
         return '/web_forward_CuttingApplication';
     }
-    // Check if we're testing the VPN path locally
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
+    // Or if we're explicitly testing the VPN path locally (localhost only)
+    if (typeof window !== 'undefined' &&
+        window.location.hostname === 'localhost' &&
+        window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
         return '/web_forward_CuttingApplication';
     }
-    // Check environment variable as fallback
-    if (isVPNProxy) {
-        return '/web_forward_CuttingApplication';
-    }
+    // For Docker/VM access (172.27.57.210) or any other case, use no basename
     return '';
 };
 

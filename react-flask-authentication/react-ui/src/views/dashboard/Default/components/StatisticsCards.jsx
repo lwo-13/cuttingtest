@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from 'utils/axiosInstance';
 
 // material-ui
 import {
@@ -33,7 +33,7 @@ const StatisticsCards = ({ selectedPeriod }) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get(`/api/dashboard/statistics?period=${selectedPeriod}`);
+            const response = await axios.get(`/dashboard/statistics?period=${selectedPeriod}`);
             if (response.data.success) {
                 setStatistics(response.data.data);
             } else {
