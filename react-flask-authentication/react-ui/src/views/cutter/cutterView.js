@@ -30,6 +30,9 @@ const CutterView = () => {
     // Function to reset operator selection
     const resetOperatorSession = () => {
         setSelectedOperator('');
+        localStorage.removeItem('cutter_selectedOperator');
+        localStorage.removeItem('cutter_lastUser');
+        localStorage.removeItem('cutter_lastToken');
         setOperatorSessionDate(null);
         setSnackbar({
             open: true,
@@ -79,7 +82,7 @@ const CutterView = () => {
     const [lastActivityTime, setLastActivityTime] = useState(new Date());
     const [operatorSessionDate, setOperatorSessionDate] = useState(null);
     const account = useSelector((state) => state.account);
-    const { user } = account;
+    const { user, token, isLoggedIn } = account;
 
     // Extract cutter number from username (e.g., "Cutter1" -> "CT1")
     const getCutterDevice = (username) => {
@@ -89,6 +92,34 @@ const CutterView = () => {
     };
 
     const cutterDevice = getCutterDevice(user?.username);
+
+    // Initialize operator selection based on user and login state
+    useEffect(() => {
+        if (user?.username && token && isLoggedIn) {
+            // User is logged in - check for stored operator
+            const storedOperator = localStorage.getItem('cutter_selectedOperator');
+            const storedUser = localStorage.getItem('cutter_lastUser');
+            const storedToken = localStorage.getItem('cutter_lastToken');
+            const currentUser = user.username;
+
+            // If same user AND same token, restore operator; otherwise start fresh
+            if (storedOperator && storedUser === currentUser && storedToken === token) {
+                setSelectedOperator(storedOperator);
+            } else {
+                // Fresh login or different user - reset to default
+                localStorage.removeItem('cutter_selectedOperator');
+                localStorage.removeItem('cutter_lastUser');
+                localStorage.removeItem('cutter_lastToken');
+                setSelectedOperator('');
+            }
+        } else {
+            // User logged out - clear operator selection and localStorage
+            setSelectedOperator('');
+            localStorage.removeItem('cutter_selectedOperator');
+            localStorage.removeItem('cutter_lastUser');
+            localStorage.removeItem('cutter_lastToken');
+        }
+    }, [user?.username, token, isLoggedIn]);
 
     // Get corresponding spreader devices based on cutter device
     const getAssociatedSpreaderDevices = (cutterDevice) => {
@@ -162,36 +193,30 @@ const CutterView = () => {
         axios.get(`/mattress/kanban?day=today`)
             .then((res) => {
                 if (res.data.success) {
-                    // Filter mattresses based on status and device
+                    // Filter mattresses based on status - show ALL "TO CUT" mattresses for flexibility
+                    // Use more efficient filtering with early returns
                     const filteredMattresses = res.data.data.filter(m => {
-                        // Include mattresses that are already assigned to this cutter device
-                        if (m.device === cutterDevice &&
-                            (m.status === "3 - TO CUT" || m.status === "4 - ON CUT")) {
-                            return true;
+                        // Quick check for already assigned to this cutter
+                        if (m.device === cutterDevice) {
+                            return m.status === "3 - TO CUT" || m.status === "4 - ON CUT";
                         }
 
-                        // Include mattresses that are ready to be cut (status "3 - TO CUT")
-                        // and come from associated spreader devices but haven't been assigned to a cutter yet
-                        if (m.status === "3 - TO CUT" &&
-                            associatedSpreaderDevices.includes(m.device) &&
-                            (!m.device.startsWith('CT'))) {
-                            return true;
-                        }
-
-                        return false;
+                        // Quick check for available "TO CUT" mattresses
+                        return m.status === "3 - TO CUT" && !m.device.startsWith('CT');
                     });
 
-                    // Sort all mattresses by position
-                    filteredMattresses.sort((a, b) => a.position - b.position);
+                    // Sort all mattresses by position (more efficient with pre-sorted data)
+                    filteredMattresses.sort((a, b) => (a.position || 0) - (b.position || 0));
 
-                    // Check if there's any mattress with status "4 - ON CUT" for this specific cutter device
-                    const onCutMattress = filteredMattresses.find(
-                        m => m.status === "4 - ON CUT" && m.device === cutterDevice
-                    );
-                    setActiveCuttingMattress(onCutMattress || null);
-
-                    // Debug: Log marker names
-                    console.log("Mattress data sample:", filteredMattresses.length > 0 ? filteredMattresses[0] : "No mattresses");
+                    // More efficient: find active cutting mattress during filtering
+                    let onCutMattress = null;
+                    for (const m of filteredMattresses) {
+                        if (m.status === "4 - ON CUT" && m.device === cutterDevice) {
+                            onCutMattress = m;
+                            break; // Early exit once found
+                        }
+                    }
+                    setActiveCuttingMattress(onCutMattress);
 
                     // Set all mattresses in a single list
                     setMattresses(filteredMattresses);
@@ -276,22 +301,11 @@ const CutterView = () => {
 
         setProcessingMattress(mattressId);
 
-        // First update the status to "5 - COMPLETED"
+        // Only update the status to "5 - COMPLETED" (layers_a is updated by spreader, not cutter)
         axios.put(`/mattress/update_status/${mattressId}`, {
             status: "5 - COMPLETED",
             operator: operatorName,
             device: cutterDevice // Explicitly set the device to ensure it's updated
-        })
-        .then((res) => {
-            if (res.data.success) {
-                // Then update the actual layers (layers_a) in mattress_details
-                // Use the planned layers value automatically
-                return axios.put(`/mattress/update_layers_a/${mattressId}`, {
-                    layers_a: Number(layers)
-                });
-            } else {
-                throw new Error(res.data.message || "Failed to update status");
-            }
         })
         .then((res) => {
             if (res.data.success) {
@@ -304,13 +318,17 @@ const CutterView = () => {
                 setActiveCuttingMattress(null);
                 fetchMattresses(false); // Refresh the data in background
             } else {
-                throw new Error(res.data.message || "Failed to update actual layers");
+                setSnackbar({
+                    open: true,
+                    message: "Error: " + res.data.message,
+                    severity: "error"
+                });
             }
         })
         .catch((err) => {
             setSnackbar({
                 open: true,
-                message: "Error: " + (err.message || "Unknown error"),
+                message: "API Error: " + (err.message || "Unknown error"),
                 severity: "error"
             });
             console.error("API Error:", err);
@@ -467,7 +485,7 @@ const CutterView = () => {
                                 minWidth: 100
                             }}>
                                 <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
-                                    {mattress.layers || 0} {t('kanban.layers')}
+                                    {mattress.layers_a || mattress.layers || 0} {t('kanban.layers')}
                                 </Typography>
                             </Box>
                         </Box>
@@ -475,7 +493,7 @@ const CutterView = () => {
 
                     <Divider sx={{ my: 1.5 }} />
 
-                    {/* Details section - simplified to a single row with better alignment */}
+                    {/* Details section - first row */}
                     <Box sx={{
                         display: 'flex',
                         flexWrap: 'wrap',
@@ -488,33 +506,31 @@ const CutterView = () => {
                             <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.destination', 'Destination')}:</strong> {mattress.destination}</Typography>
                         )}
                         <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('common.fabric')}:</strong> {mattress.fabric_code} {mattress.fabric_color}</Typography>
-                        <Box sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            height: '24px', // Fixed height to match other elements
-                            position: 'relative',
-                            top: '-1px' // Move up by 1mm for perfect alignment
-                        }}>
-                            <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('kanban.marker')}:</strong> {mattress.marker || t('table.na')}</Typography>
-                            {mattress.marker && (
-                                <Tooltip title={t('common.copyMarkerName', 'Copy marker name')}>
-                                    <IconButton
-                                        size="small"
-                                        onClick={() => copyToClipboard(mattress.marker)}
-                                        sx={{
-                                            ml: 0.5,
-                                            p: 0.25,
-                                            height: '24px',
-                                            width: '24px',
-                                            position: 'relative',
-                                            top: '-1px' // Move the icon up by 1mm as well
-                                        }}
-                                    >
-                                        <ContentCopyIcon fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
-                            )}
-                        </Box>
+                    </Box>
+
+                    {/* Marker section - separate paragraph for better aesthetics */}
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        mt: 1,
+                        gap: 0.5
+                    }}>
+                        <Typography variant="body2" sx={{ lineHeight: 1.5 }}><strong>{t('kanban.marker')}:</strong> {mattress.marker || t('table.na')}</Typography>
+                        {mattress.marker && (
+                            <Tooltip title={t('common.copyMarkerName', 'Copy marker name')}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => copyToClipboard(mattress.marker)}
+                                    sx={{
+                                        p: 0.25,
+                                        height: '24px',
+                                        width: '24px'
+                                    }}
+                                >
+                                    <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </Box>
 
                     {/* Action buttons */}
@@ -535,9 +551,9 @@ const CutterView = () => {
                         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                             <Button
                                 variant="contained"
-                                color="success"
+                                color="secondary"
                                 disabled={processingMattress === mattress.id || !selectedOperator}
-                                onClick={() => handleFinishCutting(mattress.id, mattress.layers)}
+                                onClick={() => handleFinishCutting(mattress.id, mattress.layers_a || mattress.layers)}
                             >
                                 {processingMattress === mattress.id ? t('cutter.processing') : t('cutter.finishCutting')}
                             </Button>
@@ -580,7 +596,7 @@ const CutterView = () => {
                 title={
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography variant="h3" component="span">
-                            {`${cutterDevice} Assigned Mattresses - Today`}
+                            Cutter Job Queue
                         </Typography>
                         {refreshing && (
                             <CircularProgress
@@ -608,11 +624,18 @@ const CutterView = () => {
                                 onChange={(e) => {
                                     const operatorId = e.target.value;
                                     setSelectedOperator(operatorId);
+                                    // Save to localStorage for persistence across page refreshes
                                     if (operatorId) {
+                                        localStorage.setItem('cutter_selectedOperator', operatorId);
+                                        localStorage.setItem('cutter_lastUser', user?.username || '');
+                                        localStorage.setItem('cutter_lastToken', token || '');
                                         // Set session date when operator is selected
                                         setOperatorSessionDate(new Date().toDateString());
                                         updateActivityTime();
                                     } else {
+                                        localStorage.removeItem('cutter_selectedOperator');
+                                        localStorage.removeItem('cutter_lastUser');
+                                        localStorage.removeItem('cutter_lastToken');
                                         // Clear session date when no operator selected
                                         setOperatorSessionDate(null);
                                     }
@@ -644,12 +667,25 @@ const CutterView = () => {
             >
                 {/* No operator selected warning */}
                 {!selectedOperator && (
-                    <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-                        <Alert severity="warning" sx={{ maxWidth: '800px', width: '100%' }}>
-                            <Typography variant="body1">
-                                Please select an operator to start cutting operations.
-                            </Typography>
-                        </Alert>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                        <Box sx={{
+                            maxWidth: '800px',
+                            width: '100%',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }}>
+                            <Alert severity="warning" sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 'auto'
+                            }}>
+                                <Typography variant="body1">
+                                    Please select an operator to start cutting operations.
+                                </Typography>
+                            </Alert>
+                        </Box>
                     </Box>
                 )}
 

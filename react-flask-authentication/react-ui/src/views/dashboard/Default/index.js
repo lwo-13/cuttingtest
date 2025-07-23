@@ -14,17 +14,53 @@ import TotalIncomeLightCard from './TotalIncomeLightCard';
 import TotalGrowthBarChart from './TotalGrowthBarChart';
 import { gridSpacing } from './../../../store/constant';
 
+// dashboard components
+import DateFilter from './components/DateFilter';
+import StatisticsCards from './components/StatisticsCards';
+import OrdersWorkedOn from './components/OrdersWorkedOn';
+import MarkersImported from './components/MarkersImported';
+
 //-----------------------|| DEFAULT DASHBOARD ||-----------------------//
 
 const Dashboard = () => {
     const { t } = useTranslation();
     const [isLoading, setLoading] = useState(true);
+    const [selectedPeriod, setSelectedPeriod] = useState('today');
+
     useEffect(() => {
         setLoading(false);
     }, []);
 
+    const handlePeriodChange = (period) => {
+        setSelectedPeriod(period);
+    };
+
     return (
         <Grid container spacing={gridSpacing}>
+            {/* Date Filter */}
+            <Grid item xs={12}>
+                <DateFilter
+                    selectedPeriod={selectedPeriod}
+                    onPeriodChange={handlePeriodChange}
+                />
+            </Grid>
+
+            {/* Statistics Cards */}
+            <Grid item xs={12}>
+                <StatisticsCards selectedPeriod={selectedPeriod} />
+            </Grid>
+
+            {/* Orders Worked On */}
+            <Grid item xs={12} lg={6}>
+                <OrdersWorkedOn selectedPeriod={selectedPeriod} />
+            </Grid>
+
+            {/* Markers Imported */}
+            <Grid item xs={12} lg={6}>
+                <MarkersImported selectedPeriod={selectedPeriod} />
+            </Grid>
+
+            {/* Future Components - Preserved for later use */}
             {/*<Grid item xs={12}>
                 <Grid container spacing={gridSpacing}>
                     <Grid item lg={4} md={6} sm={6} xs={12}>
@@ -55,34 +91,6 @@ const Dashboard = () => {
                     </Grid>
                 </Grid>
             </Grid> */}
-            <Box 
-                sx={{
-                    width: '100%',
-                    height: '100%',
-                    height: '90vh',              // Adjust to '100vh' if you want full screen
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                }}
-            >
-                <Box
-                    sx={{
-                        textAlign: 'center',
-                        p: 10,
-                        border: '2px dashed #ccc',
-                        borderRadius: 2,
-                        backgroundColor: '#f9f9f9'
-                    }}
-                >
-                    <ConstructionIcon sx={{ fontSize: 80, color: 'orange' }} />
-                    <Typography variant="h4" sx={{ mt: 2 }}>
-                        {t('dashboard.workInProgress', 'WORK IN PROGRESS')}
-                    </Typography>
-                    <Typography variant="subtitle1" sx={{ mt: 1 }}>
-                        {t('dashboard.cuttingSystem', 'Cutting λν - ZALLI')}
-                    </Typography>
-                </Box>
-            </Box>
         </Grid>
     );
 };

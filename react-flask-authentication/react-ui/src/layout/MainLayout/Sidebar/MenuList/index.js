@@ -41,7 +41,17 @@ const MenuList = () => {
 
     const updatedItems = filteredItems.map((group) => ({
         ...group,
-        children: group.children.map((item) => {
+        children: group.children.filter((item) => {
+            // Hide width_validation page from non-admin users
+            if (item.id === 'width_validation' && userRole !== 'Project Admin') {
+                return false;
+            }
+            // Hide width_change_approvals page from users other than Shift Manager, Manager, and Project Admin
+            if (item.id === 'width_change_approvals' && !['Shift Manager', 'Manager', 'Project Admin'].includes(userRole)) {
+                return false;
+            }
+            return true;
+        }).map((item) => {
             if (item.id === 'mattress_approval') {
                 return { ...item, badgeContent: mattressPendingCount };
             }

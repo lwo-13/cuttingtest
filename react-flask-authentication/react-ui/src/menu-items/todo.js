@@ -1,5 +1,5 @@
 // assets
-import { IconChartPie3, IconRuler2, IconCheck, IconTool } from '@tabler/icons';
+import { IconChartPie3, IconRuler2, IconTool, IconClipboardCheck } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| TO DO MENU ITEMS ||-----------------------//
@@ -32,7 +32,7 @@ const todo = {
       title: i18n.t('sidebar.widthChangeApprovals', 'Width Change Approvals'),
       type: 'item',
       url: '/to-do-lists/width-change-approvals',
-      icon: IconCheck,
+      icon: IconTool,
       breadcrumbs: false,
       badgeContent: 0
     },
@@ -41,7 +41,7 @@ const todo = {
       title: i18n.t('sidebar.markerRequests', 'Marker Requests'),
       type: 'item',
       url: '/to-do-lists/marker-requests',
-      icon: IconTool,
+      icon: IconClipboardCheck,
       breadcrumbs: false,
       badgeContent: 0
     }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Tooltip } from '@mui/material';
 
-const MattressProgressBar = ({ currentPhase }) => {
+const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false }) => {
   // Define the phases in order
   const phases = [
     { id: 0, label: "NOT SET", shortLabel: "NS" },
@@ -29,11 +29,14 @@ const MattressProgressBar = ({ currentPhase }) => {
   // Get color for each phase
   const getPhaseColor = (phaseId) => {
     if (phaseId < currentPhaseNumber) {
-      return '#4caf50'; // Green for completed phases
+      // Completed phases: yellow if pending width change, otherwise green
+      return hasPendingWidthChange ? '#ff9800' : '#4caf50';
     } else if (phaseId === currentPhaseNumber) {
-      return '#2196f3'; // Blue for current phase
+      // Current phase: yellow if pending width change, otherwise blue
+      return hasPendingWidthChange ? '#ff9800' : '#2196f3';
     } else {
-      return '#e0e0e0'; // Gray for future phases
+      // Future phases: always gray
+      return '#e0e0e0';
     }
   };
 
@@ -57,7 +60,8 @@ const MattressProgressBar = ({ currentPhase }) => {
                 height: 16,
                 borderRadius: '50%',
                 backgroundColor: getPhaseColor(phase.id),
-                border: phase.id === currentPhaseNumber ? '2px solid #1976d2' : '1px solid #ccc',
+                border: (hasPendingWidthChange && phase.id <= currentPhaseNumber) ? '2px solid #f57c00' :
+                        phase.id === currentPhaseNumber ? '2px solid #1976d2' : '1px solid #ccc',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 '&:hover': {
@@ -74,7 +78,8 @@ const MattressProgressBar = ({ currentPhase }) => {
               sx={{
                 width: 12,
                 height: 2,
-                backgroundColor: isPhaseActive(phase.id) ? '#4caf50' : '#e0e0e0',
+                backgroundColor: (hasPendingWidthChange && isPhaseActive(phase.id)) ? '#ff9800' :
+                                isPhaseActive(phase.id) ? '#4caf50' : '#e0e0e0',
                 transition: 'background-color 0.2s ease'
               }}
             />

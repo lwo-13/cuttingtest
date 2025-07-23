@@ -74,6 +74,7 @@ class MarkerHeadersPlanning(Resource):
 
                 # ✅ Append full marker data
                 result.append({
+                    "id": header.id,  # Include the marker ID
                     "marker_name": header.marker_name,
                     "marker_width": header.marker_width,
                     "marker_length": header.marker_length,
@@ -84,6 +85,97 @@ class MarkerHeadersPlanning(Resource):
             return {"success": True, "data": result}, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
+
+
+@markers_api.route('/by-style-and-sizes')
+class MarkersByStyleAndSizes(Resource):
+    def post(self):
+        """Get markers for a specific style with matching size quantities and width range"""
+        try:
+            data = request.get_json()
+            style = data.get('style')
+            size_quantities = data.get('size_quantities')
+            requested_width = data.get('requested_width')  # Optional width filter
+
+            if not style or not size_quantities:
+                return {"success": False, "message": "Style and size_quantities are required"}, 400
+
+            # Parse the size quantities if it's a string
+            if isinstance(size_quantities, str):
+                try:
+                    size_quantities = json.loads(size_quantities)
+                except:
+                    return {"success": False, "message": "Invalid size_quantities format"}, 400
+
+            # Query markers that match the style
+            query = MarkerHeader.query.filter(
+                MarkerHeader.marker_name.like(f'{style}%')
+            )
+
+            # Add width filter for decimal variations (e.g., 160, 160.1, 160.2, ..., 160.9)
+            if requested_width:
+                base_width = int(requested_width)  # Get the integer part (e.g., 160)
+                query = query.filter(
+                    MarkerHeader.marker_width >= base_width,
+                    MarkerHeader.marker_width < base_width + 1
+                )
+
+            markers = query.all()
+
+            result = []
+            for marker in markers:
+                # Get the marker's size quantities
+                marker_sizes = {}
+                for size_detail in marker.marker_sizes:
+                    marker_sizes[size_detail.size] = size_detail.quantity
+
+                # Compare size quantities (only check if marker has the same sizes with non-zero quantities)
+                request_sizes = {k: v for k, v in size_quantities.items() if v > 0}
+                marker_nonzero_sizes = {k: v for k, v in marker_sizes.items() if v > 0}
+
+                # Check if the marker has exactly the same sizes with quantities > 0
+                if set(request_sizes.keys()) == set(marker_nonzero_sizes.keys()):
+                    result.append({
+                        "id": marker.id,
+                        "marker_name": marker.marker_name,
+                        "marker_width": marker.marker_width,
+                        "marker_length": marker.marker_length,
+                        "efficiency": marker.efficiency,
+                        "size_quantities": marker_sizes
+                    })
+
+            return {
+                "success": True,
+                "data": result
+            }, 200
+
+        except Exception as e:
+            return {"success": False, "message": f"Error fetching markers for style and sizes: {str(e)}"}, 500
+
+
+@markers_api.route('/<int:marker_id>/size-quantities')
+class MarkerSizeQuantities(Resource):
+    def get(self, marker_id):
+        """Get size quantities for a specific marker"""
+        try:
+            # Get marker lines for this marker
+            marker_lines = MarkerLine.query.filter_by(marker_header_id=marker_id).all()
+
+            if not marker_lines:
+                return {"success": False, "message": "Marker not found or has no size data"}, 404
+
+            # Build size quantities dictionary
+            size_quantities = {}
+            for line in marker_lines:
+                size_quantities[line.size] = int(line.pcs_on_layer)
+
+            return {
+                "success": True,
+                "data": size_quantities
+            }, 200
+
+        except Exception as e:
+            return {"success": False, "message": f"Error fetching marker size quantities: {str(e)}"}, 500
 
 # ===================== Import Marker ==========================
 @markers_api.route('/import_marker', methods=['POST'])

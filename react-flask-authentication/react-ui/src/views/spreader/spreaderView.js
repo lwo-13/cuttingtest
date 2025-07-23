@@ -45,6 +45,9 @@ const SpreaderView = () => {
     // Function to reset operator selection
     const resetOperatorSession = () => {
         setSelectedOperator('');
+        localStorage.removeItem('spreader_selectedOperator');
+        localStorage.removeItem('spreader_lastUser');
+        localStorage.removeItem('spreader_lastToken');
         setOperatorSessionDate(null);
         setSnackbar({
             open: true,
@@ -112,11 +115,12 @@ const SpreaderView = () => {
         currentMarkerLength: '',
         layers: '',
         allowance: 0.02, // Default allowance value in meters
-        plannedConsumption: '' // Fetch from mattress_details.cons_planned
+        plannedConsumption: '', // Fetch from mattress_details.cons_planned
+        mattressSizes: '' // Store the mattress sizes string
     });
 
     const account = useSelector((state) => state.account);
-    const { user } = account;
+    const { user, token, isLoggedIn } = account;
 
     // Extract spreader number from username (e.g., "Spreader1" -> "SP1")
     const getSpreaderDevice = (username) => {
@@ -126,6 +130,34 @@ const SpreaderView = () => {
     };
 
     const spreaderDevice = getSpreaderDevice(user?.username);
+
+    // Initialize operator selection based on user and login state
+    useEffect(() => {
+        if (user?.username && token && isLoggedIn) {
+            // User is logged in - check for stored operator
+            const storedOperator = localStorage.getItem('spreader_selectedOperator');
+            const storedUser = localStorage.getItem('spreader_lastUser');
+            const storedToken = localStorage.getItem('spreader_lastToken');
+            const currentUser = user.username;
+
+            // If same user AND same token, restore operator; otherwise start fresh
+            if (storedOperator && storedUser === currentUser && storedToken === token) {
+                setSelectedOperator(storedOperator);
+            } else {
+                // Fresh login or different user - reset to default
+                localStorage.removeItem('spreader_selectedOperator');
+                localStorage.removeItem('spreader_lastUser');
+                localStorage.removeItem('spreader_lastToken');
+                setSelectedOperator('');
+            }
+        } else {
+            // User logged out - clear operator selection and localStorage
+            setSelectedOperator('');
+            localStorage.removeItem('spreader_selectedOperator');
+            localStorage.removeItem('spreader_lastUser');
+            localStorage.removeItem('spreader_lastToken');
+        }
+    }, [user?.username, token, isLoggedIn]);
 
     useEffect(() => {
         if (!spreaderDevice) {
@@ -187,7 +219,7 @@ const SpreaderView = () => {
                     // Filter mattresses assigned to this spreader
                     const filteredMattresses = res.data.data.filter(
                         m => m.device === spreaderDevice &&
-                        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD")
+                        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL")
                     );
 
                     // Group by shift
@@ -484,7 +516,8 @@ const SpreaderView = () => {
                 currentMarkerLength: mattress.markerLength || '',
                 layers: mattress.layers || '',
                 allowance: 0.02,
-                plannedConsumption: plannedConsumption
+                plannedConsumption: plannedConsumption,
+                mattressSizes: mattress.sizes || ''
             });
 
             // Fetch markers for this style with exact size matches
@@ -507,7 +540,8 @@ const SpreaderView = () => {
                 currentMarkerLength: mattress.markerLength || '',
                 layers: mattress.layers || '',
                 allowance: 0.02,
-                plannedConsumption: ''
+                plannedConsumption: '',
+                mattressSizes: mattress.sizes || ''
             });
         }
     };
@@ -527,7 +561,8 @@ const SpreaderView = () => {
             currentMarkerLength: '',
             layers: '',
             allowance: 0.02,
-            plannedConsumption: ''
+            plannedConsumption: '',
+            mattressSizes: ''
         });
     };
 
@@ -543,9 +578,17 @@ const SpreaderView = () => {
                 );
             }
 
+            // Get the selected operator name
+            const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
+            const operatorName = selectedOperatorObj ? selectedOperatorObj.name : null;
+
+            // Parse mattress sizes to get size quantities
+            const sizeQuantities = parseMattressSizes(widthChangeDialog.mattressSizes);
+
             const requestData = {
                 mattress_id: widthChangeDialog.mattressId,
                 requested_by: user?.username || 'Unknown',
+                operator: operatorName,
                 current_marker_name: widthChangeDialog.markerName,
                 current_width: parseFloat(widthChangeDialog.currentWidth),
                 requested_width: parseFloat(widthChangeDialog.newWidth),
@@ -554,7 +597,7 @@ const SpreaderView = () => {
                 request_type: requestType,
                 style: widthChangeDialog.style,
                 order_commessa: widthChangeDialog.orderCommessa,
-                size_quantities: {} // This would need to be populated from mattress sizes
+                size_quantities: sizeQuantities
             };
 
             const response = await axios.post('/width_change_requests/create', requestData);
@@ -565,6 +608,9 @@ const SpreaderView = () => {
                     message: `Width change request submitted successfully. Awaiting shift manager approval.`,
                     severity: 'success'
                 });
+
+                // Refresh mattress data to show the new "PENDING APPROVAL" status
+                fetchMattresses(false);
             } else {
                 setSnackbar({
                     open: true,
@@ -607,8 +653,10 @@ const SpreaderView = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: mattress.status?.includes('ON SPREAD') ? 'secondary.main' : 'text.secondary',
-                                bgcolor: mattress.status?.includes('ON SPREAD') ? '#f3e5f5' : '#ffffff',
+                                color: mattress.status?.includes('ON SPREAD') ? 'secondary.main' :
+                                       mattress.status === 'PENDING APPROVAL' ? '#ff9800' : 'text.secondary',
+                                bgcolor: mattress.status?.includes('ON SPREAD') ? '#f3e5f5' :
+                                         mattress.status === 'PENDING APPROVAL' ? '#fff3e0' : '#ffffff',
                                 px: 1,
                                 py: 1,
                                 borderRadius: 2,
@@ -709,13 +757,22 @@ const SpreaderView = () => {
                                     });
                                     return;
                                 }
+                                if (mattress.status === "PENDING APPROVAL") {
+                                    setSnackbar({
+                                        open: true,
+                                        message: "Cannot change width while approval is pending",
+                                        severity: "warning"
+                                    });
+                                    return;
+                                }
                                 handleOpenWidthChangeDialog(mattress);
                             }}
-                            title={!selectedOperator ? "Select an operator first" : "Change Width"}
+                            title={!selectedOperator ? "Select an operator first" :
+                                   mattress.status === "PENDING APPROVAL" ? "Width change pending approval" : "Change Width"}
                             style={{
-                                cursor: !selectedOperator ? 'not-allowed' : 'pointer',
+                                cursor: (!selectedOperator || mattress.status === "PENDING APPROVAL") ? 'not-allowed' : 'pointer',
                                 userSelect: 'none',
-                                opacity: !selectedOperator ? 0.5 : 1
+                                opacity: (!selectedOperator || mattress.status === "PENDING APPROVAL") ? 0.5 : 1
                             }}
                         >
                             <IconTool size={20} />
@@ -726,10 +783,12 @@ const SpreaderView = () => {
                             disabled={
                                 processingMattress === mattress.id ||
                                 !selectedOperator ||
-                                activeSpreadingMattress !== null
+                                activeSpreadingMattress !== null ||
+                                mattress.status === "PENDING APPROVAL"
                             }
                             onClick={() => handleStartSpreading(mattress.id)}
-                            title={activeSpreadingMattress ? t('spreader.cannotStartSpreading', { mattress: activeSpreadingMattress.mattress, device: spreaderDevice }) : ""}
+                            title={activeSpreadingMattress ? t('spreader.cannotStartSpreading', { mattress: activeSpreadingMattress.mattress, device: spreaderDevice }) :
+                                   mattress.status === "PENDING APPROVAL" ? "Width change pending approval" : ""}
                         >
                             {processingMattress === mattress.id ? t('spreader.processing') : t('spreader.startSpreading')}
                         </Button>
@@ -745,6 +804,13 @@ const SpreaderView = () => {
                         >
                             {processingMattress === mattress.id ? t('spreader.processing') : t('spreader.finishSpreading')}
                         </Button>
+                    </Box>
+                )}
+                {mattress.status === "PENDING APPROVAL" && (
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                        <Typography variant="body2" color="warning.main" sx={{ fontStyle: 'italic', fontWeight: 'bold' }}>
+                            Width change request pending approval
+                        </Typography>
                     </Box>
                 )}
             </Box>
@@ -811,11 +877,18 @@ const SpreaderView = () => {
                                 onChange={(e) => {
                                     const operatorId = e.target.value;
                                     setSelectedOperator(operatorId);
+                                    // Save to localStorage for persistence across page refreshes
                                     if (operatorId) {
+                                        localStorage.setItem('spreader_selectedOperator', operatorId);
+                                        localStorage.setItem('spreader_lastUser', user?.username || '');
+                                        localStorage.setItem('spreader_lastToken', token || '');
                                         // Set session date when operator is selected
                                         setOperatorSessionDate(new Date().toDateString());
                                         updateActivityTime();
                                     } else {
+                                        localStorage.removeItem('spreader_selectedOperator');
+                                        localStorage.removeItem('spreader_lastUser');
+                                        localStorage.removeItem('spreader_lastToken');
                                         // Clear session date when no operator selected
                                         setOperatorSessionDate(null);
                                     }
@@ -845,6 +918,30 @@ const SpreaderView = () => {
                     </Box>
                 }
             >
+                {/* No operator selected warning */}
+                {!selectedOperator && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                        <Box sx={{
+                            maxWidth: '800px',
+                            width: '100%',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }}>
+                            <Alert severity="warning" sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 'auto'
+                            }}>
+                                <Typography variant="body1">
+                                    Please select an operator to start spreading operations.
+                                </Typography>
+                            </Alert>
+                        </Box>
+                    </Box>
+                )}
+
                 <Grid container spacing={3}>
                     {/* First Shift */}
                     <Grid item xs={12} md={expandedShift === 'first' ? 10 : expandedShift === 'second' ? 2 : 6}>
@@ -1134,14 +1231,14 @@ const SpreaderView = () => {
                                     width: '160px',
                                     flexShrink: 0,
                                     '& input[type=number]': {
-                                        '-moz-appearance': 'textfield'
+                                        MozAppearance: 'textfield'
                                     },
                                     '& input[type=number]::-webkit-outer-spin-button': {
-                                        '-webkit-appearance': 'none',
+                                        WebkitAppearance: 'none',
                                         margin: 0
                                     },
                                     '& input[type=number]::-webkit-inner-spin-button': {
-                                        '-webkit-appearance': 'none',
+                                        WebkitAppearance: 'none',
                                         margin: 0
                                     }
                                 }}

@@ -29,6 +29,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PendingIcon from '@mui/icons-material/Pending';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import { useBadgeCount } from 'contexts/BadgeCountContext';
@@ -54,10 +56,125 @@ const MarkerRequests = () => {
         message: '',
         severity: 'success'
     });
+    const [markersForStyle, setMarkersForStyle] = useState({});
+    const [selectedMarkers, setSelectedMarkers] = useState({});
 
     useEffect(() => {
         fetchMarkerRequests();
     }, []);
+
+    // Fetch markers for all pending requests when requests are loaded
+    useEffect(() => {
+        const pendingRequests = requests.filter(req => req.status === 'pending');
+        pendingRequests.forEach(request => {
+            fetchMarkersForRequest(request);
+        });
+    }, [requests]);
+
+    // Helper function to compare size quantities (same as spreader logic)
+    const areSizeQuantitiesEqual = (requestSizes, markerSizes) => {
+        // Compare two size quantity objects for exact match
+        const requestKeys = Object.keys(requestSizes).sort();
+        const markerKeys = Object.keys(markerSizes).sort();
+
+        // Check if they have the same sizes
+        if (requestKeys.length !== markerKeys.length) return false;
+        if (requestKeys.join(',') !== markerKeys.join(',')) return false;
+
+        // Check if quantities match
+        for (const size of requestKeys) {
+            if (requestSizes[size] !== markerSizes[size]) return false;
+        }
+
+        return true;
+    };
+
+    // Parse size quantities string (same as spreader logic)
+    const parseSizeQuantities = (sizesString) => {
+        // Parse "S - 10; M - 15; L - 20" format into {S: 10, M: 15, L: 20}
+        if (!sizesString) return {};
+
+        const sizeQuantities = {};
+        const sizeEntries = sizesString.split(';');
+
+        sizeEntries.forEach(entry => {
+            const trimmed = entry.trim();
+            if (trimmed) {
+                const parts = trimmed.split(' - ');
+                if (parts.length === 2) {
+                    const size = parts[0].trim();
+                    const quantity = parseFloat(parts[1].trim());
+                    if (!isNaN(quantity)) {
+                        sizeQuantities[size] = quantity;
+                    }
+                }
+            }
+        });
+
+        return sizeQuantities;
+    };
+
+    // Fetch markers for a specific style and size quantities (using spreader logic)
+    const fetchMarkersForRequest = async (request) => {
+        const cacheKey = `${request.style}_${request.size_quantities}`;
+        if (markersForStyle[cacheKey]) {
+            return; // Already fetched
+        }
+
+        try {
+            // Parse the size quantities from the request
+            let requestSizeQuantities = {};
+            if (typeof request.size_quantities === 'string') {
+                requestSizeQuantities = parseSizeQuantities(request.size_quantities);
+            } else if (typeof request.size_quantities === 'object') {
+                try {
+                    const parsed = typeof request.size_quantities === 'string' ?
+                        JSON.parse(request.size_quantities) : request.size_quantities;
+                    requestSizeQuantities = parsed || {};
+                } catch (e) {
+                    console.error('Error parsing size quantities:', e);
+                    requestSizeQuantities = {};
+                }
+            }
+
+            // Get the sizes for the API call
+            const sizes = Object.keys(requestSizeQuantities);
+
+            // Use the same API endpoint as spreader
+            const response = await axios.get('/markers/marker_headers_planning', {
+                params: {
+                    style: request.style,
+                    sizes: sizes.join(',')
+                }
+            });
+
+            if (response.data.success) {
+                // Filter markers with both size quantity matches AND width filtering
+                const matchingMarkers = response.data.data.filter(marker => {
+                    // First check size quantities match (same as spreader)
+                    const sizeQuantitiesMatch = areSizeQuantitiesEqual(requestSizeQuantities, marker.size_quantities || {});
+
+                    // Then check width filtering (decimal variations like original logic)
+                    let widthMatches = true;
+                    if (request.requested_width) {
+                        const baseWidth = Math.floor(request.requested_width); // Get integer part (e.g., 160)
+                        const markerWidth = marker.marker_width;
+                        // Include decimal variations: 160.0, 160.1, 160.2, ..., 160.9
+                        widthMatches = markerWidth >= baseWidth && markerWidth < baseWidth + 1;
+                    }
+
+                    return sizeQuantitiesMatch && widthMatches;
+                });
+
+                setMarkersForStyle(prev => ({
+                    ...prev,
+                    [cacheKey]: matchingMarkers
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching markers for request:', error);
+        }
+    };
 
     const fetchMarkerRequests = async () => {
         try {
@@ -110,43 +227,59 @@ const MarkerRequests = () => {
                     });
                     break;
                 case 'complete':
-                    if (!actionDialog.createdMarkerId) {
-                        setSnackbar({
-                            open: true,
-                            message: 'Please specify the created marker ID',
-                            severity: 'error'
+                    // Check if user selected an existing marker or wants to create new
+                    const selectedMarkerId = selectedMarkers[selectedRequest.id];
+
+                    if (selectedMarkerId) {
+                        // User selected an existing marker - use that marker
+                        response = await axios.post(`/marker_requests/${selectedRequest.id}/complete`, {
+                            created_marker_id: selectedMarkerId,
+                            planner_notes: actionDialog.notes
                         });
-                        return;
+                    } else {
+                        // User wants to create a new marker
+                        if (!actionDialog.createdMarkerId) {
+                            setSnackbar({
+                                open: true,
+                                message: 'Please select an existing marker or enter the created marker ID',
+                                severity: 'error'
+                            });
+                            return;
+                        }
+                        response = await axios.post(`/marker_requests/${selectedRequest.id}/complete`, {
+                            created_marker_id: actionDialog.createdMarkerId,
+                            planner_notes: actionDialog.notes
+                        });
                     }
-                    response = await axios.post(`/marker_requests/${selectedRequest.id}/complete`, {
-                        created_marker_id: actionDialog.createdMarkerId,
-                        planner_notes: actionDialog.notes
-                    });
                     break;
                 case 'cancel':
                     response = await axios.post(`/marker_requests/${selectedRequest.id}/cancel`, {
-                        planner_notes: actionDialog.notes
+                        planner_notes: actionDialog.notes,
+                        cancelled_by: user.username
                     });
                     break;
-                case 'update_notes':
-                    response = await axios.post(`/marker_requests/${selectedRequest.id}/update_notes`, {
-                        planner_notes: actionDialog.notes
-                    });
-                    break;
+
                 default:
                     return;
             }
 
             if (response.data.success) {
+                let successMessage = `Marker request ${actionDialog.action}d successfully`;
+
+                // Special message for cancellation to indicate width change rejection
+                if (actionDialog.action === 'cancel') {
+                    successMessage = 'Marker request cancelled and width change request rejected successfully';
+                }
+
                 setSnackbar({
                     open: true,
-                    message: `Marker request ${actionDialog.action}d successfully`,
+                    message: successMessage,
                     severity: 'success'
                 });
-                
+
                 // Refresh the requests list
                 await fetchMarkerRequests();
-                
+
                 // Refresh badge counts
                 refreshAllBadges();
             } else {
@@ -224,9 +357,7 @@ const MarkerRequests = () => {
     return (
         <>
             <MainCard title="Marker Requests">
-                <Typography variant="body1" sx={{ mb: 3 }}>
-                    Manage marker creation requests from approved width changes.
-                </Typography>
+
 
                 {requests.length === 0 ? (
                     <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
@@ -255,27 +386,76 @@ const MarkerRequests = () => {
                             <AccordionDetails>
                                 <Grid container spacing={2}>
                                     <Grid item xs={12} md={6}>
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                            Request Details
+                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                            <strong>Style:</strong> {request.style}
                                         </Typography>
-                                        <Typography variant="body2"><strong>Requested by:</strong> {request.requested_by}</Typography>
-                                        <Typography variant="body2"><strong>Style:</strong> {request.style}</Typography>
-                                        <Typography variant="body2"><strong>Order:</strong> {request.order_commessa}</Typography>
-                                        <Typography variant="body2"><strong>Requested Width:</strong> {request.requested_width} cm</Typography>
-                                        <Typography variant="body2"><strong>Created:</strong> {new Date(request.created_at).toLocaleString()}</Typography>
-                                        {request.size_quantities && (
-                                            <Box sx={{ mt: 1 }}>
-                                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Size Quantities:</Typography>
-                                                <Typography variant="body2" sx={{ fontSize: '0.85em', color: 'text.secondary' }}>
-                                                    {JSON.stringify(JSON.parse(request.size_quantities), null, 2)}
-                                                </Typography>
-                                            </Box>
-                                        )}
+
+                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                            <strong>Width:</strong> {request.requested_width} cm
+                                        </Typography>
+
+                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                            <strong>Fabric:</strong> {request.fabric_code || 'N/A'}
+                                        </Typography>
+
+                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                            <strong>Size Quantities:</strong> {(() => {
+                                                try {
+                                                    const sizes = typeof request.size_quantities === 'string' ?
+                                                        JSON.parse(request.size_quantities) : request.size_quantities;
+                                                    return Object.entries(sizes || {})
+                                                        .map(([size, qty]) => `${size}: ${qty}`)
+                                                        .join(', ') || 'N/A';
+                                                } catch (e) {
+                                                    return request.size_quantities || 'N/A';
+                                                }
+                                            })()}
+                                        </Typography>
+
+                                        <Typography variant="body2">
+                                            <strong>Created:</strong> {new Date(request.created_at).toLocaleString()}
+                                        </Typography>
                                     </Grid>
                                     <Grid item xs={12} md={6}>
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                            Status & Actions
-                                        </Typography>
+                                        {/* Marker Selection Dropdown */}
+                                        {request.status === 'pending' && (
+                                            <Box sx={{ mb: 2 }}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel>Select Marker</InputLabel>
+                                                    <Select
+                                                        value={selectedMarkers[request.id] || ''}
+                                                        label="Select Marker"
+                                                        onChange={(e) => {
+                                                            setSelectedMarkers(prev => ({
+                                                                ...prev,
+                                                                [request.id]: e.target.value
+                                                            }));
+                                                        }}
+
+                                                    >
+                                                        {(() => {
+                                                            const cacheKey = `${request.style}_${request.size_quantities}`;
+                                                            const markers = markersForStyle[cacheKey] || [];
+
+                                                            if (markers.length === 0) {
+                                                                return (
+                                                                    <MenuItem value="" disabled>
+                                                                        <em>0 markers found</em>
+                                                                    </MenuItem>
+                                                                );
+                                                            }
+
+                                                            return markers.map((marker) => (
+                                                                <MenuItem key={marker.id} value={marker.id}>
+                                                                    {marker.marker_name} - {marker.marker_width}cm
+                                                                </MenuItem>
+                                                            ));
+                                                        })()}
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
+                                        )}
+
                                         {request.assigned_to && (
                                             <Typography variant="body2"><strong>Assigned to:</strong> {request.assigned_to}</Typography>
                                         )}
@@ -290,38 +470,44 @@ const MarkerRequests = () => {
                                         )}
                                         
                                         {request.status === 'pending' && (
-                                            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    startIcon={<AssignmentIcon />}
-                                                    onClick={() => handleOpenActionDialog(request, 'assign')}
-                                                >
-                                                    Assign
-                                                </Button>
+                                            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
                                                 <Button
                                                     variant="contained"
-                                                    color="success"
                                                     size="small"
+                                                    disabled={!selectedMarkers[request.id]}
+                                                    sx={{
+                                                        backgroundColor: '#00e676',
+                                                        '&:hover': {
+                                                            backgroundColor: '#00c853'
+                                                        },
+                                                        '&:disabled': {
+                                                            backgroundColor: '#e0e0e0'
+                                                        },
+                                                        minWidth: '40px',
+                                                        width: '40px',
+                                                        height: '32px'
+                                                    }}
                                                     onClick={() => handleOpenActionDialog(request, 'complete')}
                                                 >
-                                                    Complete
+                                                    <CheckIcon fontSize="small" />
                                                 </Button>
                                                 <Button
                                                     variant="contained"
-                                                    color="error"
                                                     size="small"
+                                                    sx={{
+                                                        backgroundColor: '#f44336',
+                                                        '&:hover': {
+                                                            backgroundColor: '#c62828'
+                                                        },
+                                                        minWidth: '40px',
+                                                        width: '40px',
+                                                        height: '32px'
+                                                    }}
                                                     onClick={() => handleOpenActionDialog(request, 'cancel')}
                                                 >
-                                                    Cancel
+                                                    <CloseIcon fontSize="small" />
                                                 </Button>
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    onClick={() => handleOpenActionDialog(request, 'update_notes')}
-                                                >
-                                                    Update Notes
-                                                </Button>
+
                                             </Box>
                                         )}
                                     </Grid>
@@ -338,7 +524,7 @@ const MarkerRequests = () => {
                     {actionDialog.action === 'assign' && 'Assign Marker Request'}
                     {actionDialog.action === 'complete' && 'Complete Marker Request'}
                     {actionDialog.action === 'cancel' && 'Cancel Marker Request'}
-                    {actionDialog.action === 'update_notes' && 'Update Notes'}
+
                 </DialogTitle>
                 <DialogContent>
                     {selectedRequest && (
@@ -349,9 +535,15 @@ const MarkerRequests = () => {
                             <Typography variant="body1" sx={{ mb: 1 }}>
                                 <strong>Width:</strong> {selectedRequest.requested_width}cm
                             </Typography>
-                            <Typography variant="body1" sx={{ mb: 2 }}>
+                            <Typography variant="body1" sx={{ mb: 1 }}>
                                 <strong>Order:</strong> {selectedRequest.order_commessa}
                             </Typography>
+
+                            {/* Fabric Information in Dialog */}
+                            <Box sx={{ mt: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>Fabric Code:</Typography>
+                                <Typography variant="body2">{selectedRequest.fabric_code || 'N/A'}</Typography>
+                            </Box>
                         </Box>
                     )}
                     
@@ -397,7 +589,7 @@ const MarkerRequests = () => {
                         {actionDialog.action === 'assign' && 'Assign'}
                         {actionDialog.action === 'complete' && 'Complete'}
                         {actionDialog.action === 'cancel' && 'Cancel Request'}
-                        {actionDialog.action === 'update_notes' && 'Update'}
+
                     </Button>
                 </DialogActions>
             </Dialog>

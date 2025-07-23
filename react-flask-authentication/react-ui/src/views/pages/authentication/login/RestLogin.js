@@ -115,10 +115,7 @@ const RestLogin = (props, { ...others }) => {
                                 username: values.username
                             })
                             .then(function (response) {
-                                console.log("Raw API response:", response);
-                                console.log("Parsed data:", response.data);
                                 if (response.data.success) {
-                                    console.log(response.data);
                                     localStorage.setItem("token", response.data.token);
                                     dispatcher({
                                         type: ACCOUNT_INITIALIZE,

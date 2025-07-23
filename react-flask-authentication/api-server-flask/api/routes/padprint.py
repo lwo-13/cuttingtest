@@ -253,7 +253,28 @@ class PadPrintDetail(Resource):
             padprint.color = data.get('color', padprint.color)
             padprint.padprint_color = data.get('padprint_color', padprint.padprint_color)
             padprint.pattern = data.get('pattern', padprint.pattern)
-            padprint.date = data.get('date', padprint.date)
+
+            # Handle date parsing properly
+            date_str = data.get('date')
+            if date_str:
+                # Try to parse different date formats
+                if isinstance(date_str, str):
+                    try:
+                        # Try ISO format with microseconds first
+                        if 'T' in date_str:
+                            # Remove microseconds if present and parse
+                            date_str_clean = date_str.split('.')[0]  # Remove microseconds
+                            padprint.date = datetime.strptime(date_str_clean, '%Y-%m-%dT%H:%M:%S')
+                        else:
+                            # Try simple date format
+                            padprint.date = datetime.strptime(date_str, '%Y-%m-%d')
+                    except ValueError:
+                        # If parsing fails, keep the original date
+                        pass
+                else:
+                    # If it's already a datetime object, use it directly
+                    padprint.date = date_str
+
             db.session.commit()
             return padprint.to_dict(), 200
         except Exception as e:

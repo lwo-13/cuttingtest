@@ -836,6 +836,7 @@ class WidthChangeRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     mattress_id = db.Column(db.Integer, db.ForeignKey('mattresses.id'), nullable=False)
     requested_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # Username of spreader
+    operator = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Name of the operator
     current_marker_name = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     current_width = db.Column(db.Float, nullable=False)
     requested_width = db.Column(db.Float, nullable=False)
@@ -844,7 +845,6 @@ class WidthChangeRequest(db.Model):
     request_type = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # 'change_marker' or 'new_marker'
     status = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='pending')  # 'pending', 'approved', 'rejected'
     approved_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Username of shift manager
-    approval_notes = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     approved_at = db.Column(db.DateTime, nullable=True)
@@ -858,6 +858,7 @@ class WidthChangeRequest(db.Model):
             'id': self.id,
             'mattress_id': self.mattress_id,
             'requested_by': self.requested_by,
+            'operator': self.operator,
             'current_marker_name': self.current_marker_name,
             'current_width': self.current_width,
             'requested_width': self.requested_width,
@@ -866,7 +867,6 @@ class WidthChangeRequest(db.Model):
             'request_type': self.request_type,
             'status': self.status,
             'approved_by': self.approved_by,
-            'approval_notes': self.approval_notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'approved_at': self.approved_at.isoformat() if self.approved_at else None,
@@ -890,9 +890,7 @@ class MarkerRequest(db.Model):
     size_quantities = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # JSON string of size quantities
     requested_by = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # Username of spreader (original requester)
     status = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, default='pending')  # 'pending', 'completed', 'cancelled'
-    assigned_to = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Username of planner
     created_marker_id = db.Column(db.Integer, db.ForeignKey('marker_headers.id'), nullable=True)  # Once marker is created
-    planner_notes = db.Column(db.Text(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -911,9 +909,7 @@ class MarkerRequest(db.Model):
             'size_quantities': self.size_quantities,
             'requested_by': self.requested_by,
             'status': self.status,
-            'assigned_to': self.assigned_to,
             'created_marker_id': self.created_marker_id,
-            'planner_notes': self.planner_notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,

@@ -11,11 +11,7 @@ import {
     Button,
     Chip,
     Grid,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
+
     Alert,
     Snackbar,
     CircularProgress
@@ -24,6 +20,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PendingIcon from '@mui/icons-material/Pending';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import { useBadgeCount } from 'contexts/BadgeCountContext';
@@ -36,12 +34,6 @@ const WidthChangeApprovals = () => {
 
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedRequest, setSelectedRequest] = useState(null);
-    const [approvalDialog, setApprovalDialog] = useState({
-        open: false,
-        action: '', // 'approve' or 'reject'
-        notes: ''
-    });
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
@@ -68,101 +60,110 @@ const WidthChangeApprovals = () => {
         }
     };
 
-    const handleOpenApprovalDialog = (request, action) => {
-        setSelectedRequest(request);
-        setApprovalDialog({
-            open: true,
-            action: action,
-            notes: ''
-        });
-    };
-
-    const handleCloseApprovalDialog = () => {
-        setApprovalDialog({
-            open: false,
-            action: '',
-            notes: ''
-        });
-        setSelectedRequest(null);
-    };
-
-    const handleSubmitApproval = async () => {
-        if (!selectedRequest) return;
-
+    const handleApproval = async (request, action) => {
         try {
-            const endpoint = approvalDialog.action === 'approve' ? 'approve' : 'reject';
-            const response = await axios.post(`/width_change_requests/${selectedRequest.id}/${endpoint}`, {
-                approved_by: user.username,
-                approval_notes: approvalDialog.notes
+            const endpoint = action === 'approve' ? 'approve' : 'reject';
+            const response = await axios.post(`/width_change_requests/${request.id}/${endpoint}`, {
+                approved_by: user.username
             });
 
             if (response.data.success) {
                 setSnackbar({
                     open: true,
-                    message: `Width change request ${approvalDialog.action}d successfully`,
+                    message: `Width change request ${action}d successfully`,
                     severity: 'success'
                 });
-                
+
                 // Refresh the requests list
                 await fetchWidthChangeRequests();
-                
+
                 // Refresh badge counts
                 refreshAllBadges();
             } else {
                 setSnackbar({
                     open: true,
-                    message: response.data.message || `Failed to ${approvalDialog.action} request`,
+                    message: response.data.message || `Failed to ${action} request`,
                     severity: 'error'
                 });
             }
         } catch (error) {
-            console.error(`Error ${approvalDialog.action}ing request:`, error);
+            console.error(`Error ${action}ing request:`, error);
             setSnackbar({
                 open: true,
-                message: `Error ${approvalDialog.action}ing request`,
+                message: `Error ${action}ing request`,
                 severity: 'error'
             });
-        } finally {
-            handleCloseApprovalDialog();
         }
     };
 
-    const getStatusIcon = (status) => {
-        switch (status) {
+    const getStatusIcon = (request) => {
+        // Check if it's a new marker request without selected marker
+        if (request.status === 'pending' && request.request_type === 'new_marker' && !request.selected_marker_name) {
+            return <PendingIcon sx={{ color: 'blue', mr: 1 }} />;
+        }
+
+        switch (request.status) {
             case 'pending':
                 return <PendingIcon sx={{ color: 'orange', mr: 1 }} />;
             case 'approved':
                 return <CheckCircleIcon sx={{ color: 'green', mr: 1 }} />;
             case 'rejected':
                 return <CancelIcon sx={{ color: 'red', mr: 1 }} />;
+            case 'waiting_for_marker':
+                return <PendingIcon sx={{ color: 'blue', mr: 1 }} />;
             default:
                 return <PendingIcon sx={{ color: 'gray', mr: 1 }} />;
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
+    const getStatusColor = (request) => {
+        // Check if it's a new marker request without selected marker
+        if (request.status === 'pending' && request.request_type === 'new_marker' && !request.selected_marker_name) {
+            return 'info';
+        }
+
+        switch (request.status) {
             case 'pending':
                 return 'warning';
             case 'approved':
                 return 'success';
             case 'rejected':
                 return 'error';
+            case 'waiting_for_marker':
+                return 'info';
             default:
                 return 'default';
         }
     };
 
-    const getStatusText = (status) => {
-        switch (status) {
+    const getStatusText = (request) => {
+        // Check if it's a new marker request without selected marker
+        if (request.status === 'pending' && request.request_type === 'new_marker' && !request.selected_marker_name) {
+            return 'Waiting for Marker';
+        }
+
+        switch (request.status) {
             case 'pending':
                 return 'Pending Approval';
             case 'approved':
                 return 'Approved';
             case 'rejected':
                 return 'Rejected';
+            case 'waiting_for_marker':
+                return 'Waiting for Marker';
             default:
-                return status;
+                return request.status;
+        }
+    };
+
+    const getRequestTypeText = (requestType) => {
+        switch (requestType) {
+            case 'change_marker':
+                return 'Change to Existing Marker';
+            case 'new_marker':
+                return 'New Marker Required';
+            default:
+                return requestType;
         }
     };
 
@@ -183,10 +184,6 @@ const WidthChangeApprovals = () => {
     return (
         <>
             <MainCard title="Width Change Approvals">
-                <Typography variant="body1" sx={{ mb: 3 }}>
-                    Review and approve/reject width change requests from spreader operators.
-                </Typography>
-
                 {requests.length === 0 ? (
                     <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
                         No width change requests available
@@ -195,80 +192,238 @@ const WidthChangeApprovals = () => {
                     requests.map((request, index) => (
                         <Accordion key={request.id} sx={{ mb: 1 }}>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                    {getStatusIcon(request.status)}
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2, fontSize: '1.1rem' }}>
-                                        {request.mattress?.mattress || `Mattress ID: ${request.mattress_id}`}
-                                    </Typography>
-                                    <Chip
-                                        label={getStatusText(request.status)}
-                                        color={getStatusColor(request.status)}
-                                        size="small"
-                                        sx={{ mr: 2 }}
-                                    />
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        {request.current_width}cm → {request.requested_width}cm
-                                    </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        {getStatusIcon(request)}
+                                        <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2, fontSize: '1.1rem' }}>
+                                            {request.mattress?.mattress || `Mattress ID: ${request.mattress_id}`}
+                                        </Typography>
+                                        <Chip
+                                            label={getStatusText(request)}
+                                            color={getStatusColor(request)}
+                                            size="small"
+                                            sx={{ mr: 2 }}
+                                        />
+                                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                            {request.current_width}cm → {request.requested_width}cm
+                                        </Typography>
+                                    </Box>
+
+                                    {/* Show approve/reject buttons only for pending requests that have a marker OR are change_marker type */}
+                                    {request.status === 'pending' && (request.request_type === 'change_marker' || request.selected_marker_name) && (
+                                        <Box sx={{ display: 'flex', gap: 1, mr: 1 }} onClick={(e) => e.stopPropagation()}>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                sx={{
+                                                    backgroundColor: '#00e676',
+                                                    '&:hover': {
+                                                        backgroundColor: '#00c853'
+                                                    },
+                                                    minWidth: '40px',
+                                                    width: '40px',
+                                                    height: '32px'
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleApproval(request, 'approve');
+                                                }}
+                                            >
+                                                <CheckIcon fontSize="small" />
+                                            </Button>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                sx={{
+                                                    backgroundColor: '#f44336',
+                                                    '&:hover': {
+                                                        backgroundColor: '#c62828'
+                                                    },
+                                                    minWidth: '40px',
+                                                    width: '40px',
+                                                    height: '32px'
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleApproval(request, 'reject');
+                                                }}
+                                            >
+                                                <CloseIcon fontSize="small" />
+                                            </Button>
+                                        </Box>
+                                    )}
+
+                                    {/* Show waiting message only for waiting_for_marker status */}
+                                    {request.status === 'waiting_for_marker' && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                                Waiting for marker creation
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {/* Show marker info for new_marker requests with pending status and available marker info */}
+                                    {request.status === 'pending' && request.request_type === 'new_marker' && request.selected_marker_name && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 'medium' }}>
+                                                New Marker: {request.selected_marker_name} - {request.new_width}cm
+                                            </Typography>
+                                        </Box>
+                                    )}
                                 </Box>
                             </AccordionSummary>
                             <AccordionDetails>
                                 <Grid container spacing={2}>
-                                    <Grid item xs={12} md={6}>
+                                    <Grid item xs={12}>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                            Request Details
+                                            {getRequestTypeText(request.request_type)}
                                         </Typography>
-                                        <Typography variant="body2"><strong>Requested by:</strong> {request.requested_by}</Typography>
-                                        <Typography variant="body2"><strong>Current Marker:</strong> {request.current_marker_name}</Typography>
-                                        <Typography variant="body2"><strong>Current Width:</strong> {request.current_width} cm</Typography>
-                                        <Typography variant="body2"><strong>Requested Width:</strong> {request.requested_width} cm</Typography>
-                                        <Typography variant="body2"><strong>Request Type:</strong> {request.request_type === 'change_marker' ? 'Change to Existing Marker' : 'New Marker Required'}</Typography>
-                                        {request.selected_marker_name && (
-                                            <Typography variant="body2"><strong>Selected Marker:</strong> {request.selected_marker_name}</Typography>
-                                        )}
-                                        <Typography variant="body2"><strong>Created:</strong> {new Date(request.created_at).toLocaleString()}</Typography>
-                                    </Grid>
-                                    <Grid item xs={12} md={6}>
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                            Mattress Details
-                                        </Typography>
-                                        {request.mattress && (
-                                            <>
-                                                <Typography variant="body2"><strong>Order:</strong> {request.mattress.order_commessa}</Typography>
-                                                <Typography variant="body2"><strong>Layers:</strong> {request.mattress.layers}</Typography>
-                                                <Typography variant="body2"><strong>Status:</strong> {request.mattress.status}</Typography>
-                                            </>
-                                        )}
-                                        
-                                        {request.status === 'pending' && (
-                                            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                                                <Button
-                                                    variant="contained"
-                                                    color="success"
-                                                    size="small"
-                                                    onClick={() => handleOpenApprovalDialog(request, 'approve')}
-                                                >
-                                                    Approve
-                                                </Button>
-                                                <Button
-                                                    variant="contained"
-                                                    color="error"
-                                                    size="small"
-                                                    onClick={() => handleOpenApprovalDialog(request, 'reject')}
-                                                >
-                                                    Reject
-                                                </Button>
-                                            </Box>
-                                        )}
-                                        
-                                        {request.status !== 'pending' && (
-                                            <Box sx={{ mt: 2 }}>
-                                                <Typography variant="body2"><strong>Approved by:</strong> {request.approved_by}</Typography>
-                                                <Typography variant="body2"><strong>Approved at:</strong> {new Date(request.approved_at).toLocaleString()}</Typography>
-                                                {request.approval_notes && (
-                                                    <Typography variant="body2"><strong>Notes:</strong> {request.approval_notes}</Typography>
+
+                                        {request.request_type === 'change_marker' ? (
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 2 }}>
+                                                {/* Current Marker - 1/3 width */}
+                                                <Box sx={{ flex: 1, pr: 1 }}>
+                                                    <Typography variant="body2"><strong>Current Marker:</strong> {request.current_marker_name}</Typography>
+                                                    <Typography variant="body2" sx={{ mt: 1 }}><strong>Current Width:</strong> {request.current_width} cm</Typography>
+                                                    {request.current_marker_length && (
+                                                        <Typography variant="body2" sx={{ mt: 1 }}><strong>Current Length:</strong> {request.current_marker_length} cm</Typography>
+                                                    )}
+                                                </Box>
+
+                                                {/* New Marker - 1/3 width */}
+                                                <Box sx={{ flex: 1, px: 1 }}>
+                                                    <Typography variant="body2"><strong>New Marker:</strong> {request.selected_marker_name}</Typography>
+                                                    <Typography variant="body2" sx={{ mt: 1 }}><strong>New Width:</strong> {request.requested_width} cm</Typography>
+                                                    {request.selected_marker_length && (
+                                                        <Typography variant="body2" sx={{ mt: 1 }}><strong>New Length:</strong> {request.selected_marker_length} cm</Typography>
+                                                    )}
+                                                </Box>
+
+                                                {/* Consumption Analysis - 1/3 width */}
+                                                {request.selected_marker_length && request.mattress_layers && request.planned_consumption ? (
+                                                    <Box sx={{ flex: 1, pl: 1 }}>
+                                                        <Typography variant="body2"><strong>Old Cons.:</strong> {parseFloat(request.planned_consumption).toFixed(2)} m</Typography>
+                                                        <Typography variant="body2" sx={{ mt: 1 }}><strong>New Cons.:</strong> {(() => {
+                                                            const newLength = parseFloat(request.selected_marker_length) || 0;
+                                                            const layers = parseFloat(request.mattress_layers) || 0;
+                                                            const extra = parseFloat(request.extra) || 0.02;
+                                                            const newConsumption = (newLength + extra) * layers;
+                                                            return newConsumption.toFixed(2);
+                                                        })()} m</Typography>
+                                                        <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                                            <strong>Δ:</strong> {(() => {
+                                                                const oldConsumption = parseFloat(request.planned_consumption) || 0;
+                                                                const newLength = parseFloat(request.selected_marker_length) || 0;
+                                                                const layers = parseFloat(request.mattress_layers) || 0;
+                                                                const extra = parseFloat(request.extra) || 0.02;
+                                                                const newConsumption = (newLength + extra) * layers;
+                                                                const difference = newConsumption - oldConsumption;
+                                                                const sign = difference >= 0 ? '+' : '';
+                                                                const color = difference >= 0 ? '#d32f2f' : '#2e7d32';
+                                                                return (
+                                                                    <span style={{ color }}>
+                                                                        {sign}{difference.toFixed(2)} m
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                        </Typography>
+                                                    </Box>
+                                                ) : (
+                                                    <Box sx={{ flex: 1 }}></Box>
                                                 )}
                                             </Box>
+                                        ) : (
+                                            /* New Marker Required requests */
+                                            request.selected_marker_name ? (
+                                                /* When marker has been created */
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 2 }}>
+                                                    {/* Current Marker - 1/3 width */}
+                                                    <Box sx={{ flex: 1, pr: 1 }}>
+                                                        <Typography variant="body2"><strong>Current Marker:</strong> {request.current_marker_name}</Typography>
+                                                        <Typography variant="body2" sx={{ mt: 1 }}><strong>Current Width:</strong> {request.current_width} cm</Typography>
+                                                        {request.current_marker_length && (
+                                                            <Typography variant="body2" sx={{ mt: 1 }}><strong>Current Length:</strong> {request.current_marker_length} cm</Typography>
+                                                        )}
+                                                    </Box>
+
+                                                    {/* New Marker - 1/3 width */}
+                                                    <Box sx={{ flex: 1, px: 1 }}>
+                                                        <Typography variant="body2"><strong>New Marker:</strong> {request.selected_marker_name}</Typography>
+                                                        <Typography variant="body2" sx={{ mt: 1 }}><strong>New Width:</strong> {request.requested_width} cm</Typography>
+                                                        {request.selected_marker_length && (
+                                                            <Typography variant="body2" sx={{ mt: 1 }}><strong>New Length:</strong> {request.selected_marker_length} cm</Typography>
+                                                        )}
+                                                    </Box>
+
+                                                    {/* Consumption Analysis - 1/3 width */}
+                                                    {request.selected_marker_length && request.mattress_layers && request.planned_consumption ? (
+                                                        <Box sx={{ flex: 1, pl: 1 }}>
+                                                            <Typography variant="body2"><strong>Old Cons.:</strong> {parseFloat(request.planned_consumption).toFixed(2)} m</Typography>
+                                                            <Typography variant="body2" sx={{ mt: 1 }}><strong>New Cons.:</strong> {(() => {
+                                                                const newLength = parseFloat(request.selected_marker_length) || 0;
+                                                                const layers = parseFloat(request.mattress_layers) || 0;
+                                                                const extra = parseFloat(request.extra) || 0.02;
+                                                                const newConsumption = (newLength + extra) * layers;
+                                                                return newConsumption.toFixed(2);
+                                                            })()} m</Typography>
+                                                            <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                                                <strong>Δ:</strong> {(() => {
+                                                                    const oldConsumption = parseFloat(request.planned_consumption) || 0;
+                                                                    const newLength = parseFloat(request.selected_marker_length) || 0;
+                                                                    const layers = parseFloat(request.mattress_layers) || 0;
+                                                                    const extra = parseFloat(request.extra) || 0.02;
+                                                                    const newConsumption = (newLength + extra) * layers;
+                                                                    const difference = newConsumption - oldConsumption;
+                                                                    const sign = difference >= 0 ? '+' : '';
+                                                                    const color = difference >= 0 ? '#d32f2f' : '#2e7d32';
+                                                                    return (
+                                                                        <span style={{ color }}>
+                                                                            {sign}{difference.toFixed(2)} m
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                            </Typography>
+                                                        </Box>
+                                                    ) : (
+                                                        <Box sx={{ flex: 1 }}></Box>
+                                                    )}
+                                                </Box>
+                                            ) : (
+                                                /* When marker hasn't been created yet */
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 2 }}>
+                                                    <Box sx={{ flex: 1, pr: 2 }}>
+                                                        <Typography variant="body2"><strong>Current Marker:</strong> {request.current_marker_name}</Typography>
+                                                        <Typography variant="body2" sx={{ mt: 1 }}><strong>Current Width:</strong> {request.current_width} cm</Typography>
+                                                        {request.current_marker_length && (
+                                                            <Typography variant="body2" sx={{ mt: 1 }}><strong>Current Length:</strong> {request.current_marker_length} cm</Typography>
+                                                        )}
+                                                    </Box>
+                                                    <Box sx={{ flex: 1, pl: 2 }}>
+                                                        <Typography variant="body2"><strong>New Width:</strong> {request.requested_width} cm</Typography>
+                                                    </Box>
+                                                </Box>
+                                            )
                                         )}
+
+
+
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                                            {/* First Column - Creation Info */}
+                                            <Box sx={{ flex: 1, pr: 2 }}>
+                                                <Typography variant="body2"><strong>Created:</strong> {new Date(request.created_at).toLocaleString()}</Typography>
+                                                <Typography variant="body2"><strong>Requested by:</strong> {request.operator ? `${request.operator} (${request.requested_by})` : request.requested_by}</Typography>
+                                            </Box>
+
+                                            {/* Second Column - Approval Info */}
+                                            <Box sx={{ flex: 1, pl: 2 }}>
+                                                {request.status !== 'pending' && (
+                                                    <>
+                                                        <Typography variant="body2"><strong>Approved by:</strong> {request.approved_by}</Typography>
+                                                        <Typography variant="body2"><strong>Approved at:</strong> {new Date(request.approved_at).toLocaleString()}</Typography>
+                                                    </>
+                                                )}
+                                            </Box>
+                                        </Box>
                                     </Grid>
                                 </Grid>
                             </AccordionDetails>
@@ -277,46 +432,7 @@ const WidthChangeApprovals = () => {
                 )}
             </MainCard>
 
-            {/* Approval Dialog */}
-            <Dialog open={approvalDialog.open} onClose={handleCloseApprovalDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    {approvalDialog.action === 'approve' ? 'Approve' : 'Reject'} Width Change Request
-                </DialogTitle>
-                <DialogContent>
-                    {selectedRequest && (
-                        <Box sx={{ mb: 2 }}>
-                            <Typography variant="body1" sx={{ mb: 1 }}>
-                                <strong>Mattress:</strong> {selectedRequest.mattress?.mattress || `ID: ${selectedRequest.mattress_id}`}
-                            </Typography>
-                            <Typography variant="body1" sx={{ mb: 1 }}>
-                                <strong>Width Change:</strong> {selectedRequest.current_width}cm → {selectedRequest.requested_width}cm
-                            </Typography>
-                            <Typography variant="body1" sx={{ mb: 2 }}>
-                                <strong>Requested by:</strong> {selectedRequest.requested_by}
-                            </Typography>
-                        </Box>
-                    )}
-                    <TextField
-                        label="Notes (optional)"
-                        multiline
-                        rows={3}
-                        fullWidth
-                        value={approvalDialog.notes}
-                        onChange={(e) => setApprovalDialog(prev => ({ ...prev, notes: e.target.value }))}
-                        placeholder={`Add notes for this ${approvalDialog.action}al...`}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseApprovalDialog}>Cancel</Button>
-                    <Button
-                        onClick={handleSubmitApproval}
-                        variant="contained"
-                        color={approvalDialog.action === 'approve' ? 'success' : 'error'}
-                    >
-                        {approvalDialog.action === 'approve' ? 'Approve' : 'Reject'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+
 
             {/* Snackbar for notifications */}
             <Snackbar
