@@ -120,7 +120,9 @@ const handleOrderChange = async (newValue, context) => {
         efficiency: marker?.efficiency || "",
         piecesPerSize: marker?.size_quantities || {},
         layers: mattress.layers || "",
+        layers_a: mattress.layers_a || "", // Load actual layers from database
         expectedConsumption: mattress.cons_planned || "",
+        cons_actual: mattress.cons_actual || "", // Load actual consumption from database
         bagno: mattress.dye_lot,
         status: mattress.bagno_ready ? "ready" : "not_ready", // Load status from bagno_ready field
         isEditable: mattress.phase_status === "0 - NOT SET",

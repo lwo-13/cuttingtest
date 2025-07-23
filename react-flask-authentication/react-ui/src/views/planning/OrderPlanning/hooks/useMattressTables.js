@@ -172,7 +172,9 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
               markerLength: "",
               efficiency: "",
               layers: "",
+              layers_a: "", // Add layers_a field for new rows
               expectedConsumption: "",
+              cons_actual: "", // Add cons_actual field for new rows
               bagno: "",
               status: "not_ready",
               isEditable: true,
@@ -254,7 +256,9 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
             markerLength: selectedMarker.marker_length.toString(),
             efficiency: selectedMarker.efficiency.toString(),
             layers: rowLayers,
+            layers_a: "", // Add layers_a field for new rows
             expectedConsumption: "",
+            cons_actual: "", // Add cons_actual field for new rows
             bagno: batch || "", // Use provided batch or empty string
             status: "not_ready",
             isEditable: true,

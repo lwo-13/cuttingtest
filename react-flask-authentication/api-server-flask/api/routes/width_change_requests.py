@@ -295,3 +295,33 @@ class GetWidthChangeRequest(Resource):
             
         except Exception as e:
             return {"success": False, "message": f"Error fetching width change request: {str(e)}"}, 500
+
+
+@width_change_requests_api.route('/<int:request_id>')
+class DeleteWidthChangeRequest(Resource):
+    def delete(self, request_id):
+        """Delete a width change request and its associated marker request"""
+        try:
+            width_request = WidthChangeRequest.query.get(request_id)
+            if not width_request:
+                return {"success": False, "message": "Width change request not found"}, 404
+
+            # Store info for logging
+            mattress_id = width_request.mattress_id
+            request_type = width_request.request_type
+
+            # Delete the width change request (CASCADE will handle marker_request deletion)
+            db.session.delete(width_request)
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Width change request {request_id} and associated marker request deleted successfully",
+                "deleted_request_id": request_id,
+                "mattress_id": mattress_id,
+                "request_type": request_type
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Error deleting width change request: {str(e)}"}, 500

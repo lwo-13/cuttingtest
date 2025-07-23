@@ -168,4 +168,31 @@ class GetMarkerRequest(Resource):
             return {"success": False, "message": f"Error fetching marker request: {str(e)}"}, 500
 
 
+@marker_requests_api.route('/<int:request_id>')
+class DeleteMarkerRequest(Resource):
+    def delete(self, request_id):
+        """Delete a marker request"""
+        try:
+            marker_request = MarkerRequest.query.get(request_id)
+            if not marker_request:
+                return {"success": False, "message": "Marker request not found"}, 404
 
+            # Store info for logging
+            width_change_request_id = marker_request.width_change_request_id
+            style = marker_request.style
+
+            # Delete the marker request
+            db.session.delete(marker_request)
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Marker request {request_id} deleted successfully",
+                "deleted_request_id": request_id,
+                "width_change_request_id": width_change_request_id,
+                "style": style
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Error deleting marker request: {str(e)}"}, 500

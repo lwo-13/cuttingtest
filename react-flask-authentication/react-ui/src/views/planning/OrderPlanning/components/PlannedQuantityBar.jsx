@@ -99,6 +99,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
   const uniqueSizes = orderSizes.map(s => s.size);
 
+
+
   const renderBagnoTable = () => {
     const totalPerSize = {};
 

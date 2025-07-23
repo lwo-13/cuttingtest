@@ -3,7 +3,11 @@ export const getTablePlannedQuantities = (table) => {
 
     table.rows.forEach(row => {
         Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
-            const layers = parseInt(row.layers) || 0;
+            // Use actual layers (layers_a) if available and different from planned layers for locked rows
+            const isLocked = !row.isEditable;
+            const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+            const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) || 0 : parseInt(row.layers) || 0;
+
             const pieces = parseInt(pcs) || 0;
             plannedQuantities[size] = (plannedQuantities[size] || 0) + (pieces * layers);
         });
@@ -31,8 +35,11 @@ export const getTablePlannedByBagno = (table) => {
             return;
         }
 
-        // Skip rows without valid layers
-        const layers = parseInt(row.layers);
+        // Use actual layers (layers_a) if available and different from planned layers for locked rows
+        const isLocked = !row.isEditable;
+        const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+        const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) : parseInt(row.layers);
+
         if (isNaN(layers) || layers <= 0) {
             return;
         }
@@ -62,7 +69,11 @@ export const getMetersByBagno = (table) => {
 
     table.rows.forEach(row => {
       const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
-      const consumption = parseFloat(row.expectedConsumption) || 0;
+
+      // Use actual consumption (cons_actual) if available and different from expected consumption for locked rows
+      const isLocked = !row.isEditable;
+      const hasActualConsumption = row.cons_actual && row.cons_actual !== row.expectedConsumption;
+      const consumption = (isLocked && hasActualConsumption) ? parseFloat(row.cons_actual) || 0 : parseFloat(row.expectedConsumption) || 0;
 
       // Track order when first encountered
       if (!bagnoMeters.hasOwnProperty(bagno)) {
