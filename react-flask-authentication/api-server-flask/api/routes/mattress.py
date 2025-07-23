@@ -1269,20 +1269,79 @@ class UpdateMattressStatusResource(Resource):
 
     @mattress_api.doc(params={'mattress_id': 'ID of the mattress to update'})
     def put(self, mattress_id):
-        """Update the status of a mattress to a new value"""
+        """Update the status of a mattress to a new value with race condition prevention"""
         data = request.get_json()
         new_status = data.get('status')
         operator = data.get('operator', 'Unknown')
         device = data.get('device')  # Get device from request
+        expected_current_status = data.get('expected_current_status')  # For optimistic locking
 
         if not new_status:
             return {"success": False, "message": "Status is required"}, 400
 
         try:
-            # Get all mattress phases
-            all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
+            # Get all mattress phases with row-level locking to prevent concurrent modifications
+            all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).with_for_update().all()
             if not all_phases:
                 return {"success": False, "message": "Mattress phases not found"}, 404
+
+            # Get current active phase for validation
+            current_active_phase = next((p for p in all_phases if p.active), None)
+            if not current_active_phase:
+                return {"success": False, "message": "No active phase found for mattress"}, 404
+
+            # Optimistic locking: check if the current status matches expected status
+            if expected_current_status and current_active_phase.status != expected_current_status:
+                return {
+                    "success": False,
+                    "message": f"Mattress status has changed. Expected '{expected_current_status}' but found '{current_active_phase.status}'. Please refresh and try again.",
+                    "current_status": current_active_phase.status,
+                    "conflict": True
+                }, 409  # HTTP 409 Conflict
+
+            # Special validation for "4 - ON CUT" status to prevent multiple cutters
+            if new_status == "4 - ON CUT":
+                # Ensure mattress is in "3 - TO CUT" status before allowing "4 - ON CUT"
+                if current_active_phase.status != "3 - TO CUT":
+                    return {
+                        "success": False,
+                        "message": f"Cannot start cutting. Mattress must be in 'TO CUT' status, but is currently '{current_active_phase.status}'.",
+                        "current_status": current_active_phase.status,
+                        "conflict": True
+                    }, 409
+
+                # CRITICAL: Check if mattress is already assigned to a different device
+                # This prevents the race condition where two cutters try to start the same mattress
+                if current_active_phase.device and current_active_phase.device != device:
+                    # Get mattress name for better error message
+                    current_mattress = db.session.query(Mattresses).filter_by(id=mattress_id).first()
+                    mattress_name = current_mattress.mattress if current_mattress else f"ID {mattress_id}"
+                    return {
+                        "success": False,
+                        "message": f"Mattress {mattress_name} has already been assigned to {current_active_phase.device}. Please refresh to see current assignments.",
+                        "conflict": True,
+                        "assigned_device": current_active_phase.device
+                    }, 409
+
+                # Check if this device already has a mattress in "ON CUT" status
+                if device:
+                    existing_cutting = db.session.query(MattressPhase).filter(
+                        MattressPhase.status == "4 - ON CUT",
+                        MattressPhase.active == True,
+                        MattressPhase.device == device,
+                        MattressPhase.mattress_id != mattress_id  # Exclude current mattress
+                    ).first()
+
+                    if existing_cutting:
+                        # Get mattress name for better error message
+                        cutting_mattress = db.session.query(Mattresses).filter_by(id=existing_cutting.mattress_id).first()
+                        mattress_name = cutting_mattress.mattress if cutting_mattress else f"ID {existing_cutting.mattress_id}"
+                        return {
+                            "success": False,
+                            "message": f"Device {device} is already cutting mattress {mattress_name}. Please finish the current mattress before starting a new one.",
+                            "conflict": True,
+                            "active_cutting_mattress": mattress_name
+                        }, 409
 
             # Deactivate current active phases
             for phase in all_phases:

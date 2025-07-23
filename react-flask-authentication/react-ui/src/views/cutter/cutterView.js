@@ -19,6 +19,7 @@ import {
     Tooltip
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 import MainCard from '../../ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
@@ -65,6 +66,22 @@ const CutterView = () => {
         setLastActivityTime(new Date());
     };
 
+    // Function to notify other cutter tabs about mattress status changes
+    const notifyOtherCutters = (mattressId, newStatus, device) => {
+        const changeData = {
+            mattressId,
+            newStatus,
+            device,
+            timestamp: Date.now(),
+            source: cutterDevice
+        };
+        localStorage.setItem('cutter_mattress_status_change', JSON.stringify(changeData));
+        // Remove the item immediately to trigger the event for other tabs
+        setTimeout(() => {
+            localStorage.removeItem('cutter_mattress_status_change');
+        }, 100);
+    };
+
     // Automatically collapse the sidebar menu
     useCollapseMenu(true);
 
@@ -81,6 +98,7 @@ const CutterView = () => {
     const [activeCuttingMattress, setActiveCuttingMattress] = useState(null); // Track active cutting mattress
     const [lastActivityTime, setLastActivityTime] = useState(new Date());
     const [operatorSessionDate, setOperatorSessionDate] = useState(null);
+    const [conflictDetected, setConflictDetected] = useState(false);
     const account = useSelector((state) => state.account);
     const { user, token, isLoggedIn } = account;
 
@@ -146,21 +164,36 @@ const CutterView = () => {
         fetchMattresses(true); // Initial load
         fetchOperators();
 
-        // Set up auto-refresh polling every 5 minutes
+        // Set up auto-refresh polling every 30 seconds for real-time updates
         const refreshInterval = setInterval(() => {
             fetchMattresses(false); // Background refresh
             checkOperatorSessionValidity(); // Check if operator session is still valid
-        }, 300000); // 5 minutes (300,000 ms)
+        }, 30000); // 30 seconds (30,000 ms) - much more frequent for race condition prevention
 
         // Set up session validity check every 30 minutes
         const sessionCheckInterval = setInterval(() => {
             checkOperatorSessionValidity();
         }, 1800000); // 30 minutes (1,800,000 ms)
 
-        // Clean up the intervals when component unmounts
+        // Listen for cross-tab communication about mattress status changes
+        const handleStorageChange = (e) => {
+            if (e.key === 'cutter_mattress_status_change') {
+                const changeData = JSON.parse(e.newValue || '{}');
+                if (changeData.timestamp && (Date.now() - changeData.timestamp) < 5000) { // Only process recent changes
+                    console.log('Received mattress status change notification:', changeData);
+                    // Refresh data immediately when another cutter makes changes
+                    fetchMattresses(false);
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        // Clean up the intervals and event listeners when component unmounts
         return () => {
             clearInterval(refreshInterval);
             clearInterval(sessionCheckInterval);
+            window.removeEventListener('storage', handleStorageChange);
         };
     }, [cutterDevice]);
 
@@ -193,16 +226,22 @@ const CutterView = () => {
         axios.get(`/mattress/kanban?day=today`)
             .then((res) => {
                 if (res.data.success) {
-                    // Filter mattresses based on status - show ALL "TO CUT" mattresses for flexibility
-                    // Use more efficient filtering with early returns
+                    // Filter mattresses based on status and device assignment
                     const filteredMattresses = res.data.data.filter(m => {
-                        // Quick check for already assigned to this cutter
+                        // Show mattresses assigned to this cutter (TO CUT or ON CUT)
                         if (m.device === cutterDevice) {
                             return m.status === "3 - TO CUT" || m.status === "4 - ON CUT";
                         }
 
-                        // Quick check for available "TO CUT" mattresses
-                        return m.status === "3 - TO CUT" && !m.device.startsWith('CT');
+                        // Show available "TO CUT" mattresses that are NOT assigned to any cutter
+                        // This prevents showing mattresses that other cutters have started
+                        if (m.status === "3 - TO CUT") {
+                            // Only show if no device assigned OR device is not a cutter (CT1, CT2, etc.)
+                            return !m.device || !m.device.startsWith('CT');
+                        }
+
+                        // Don't show mattresses in other statuses or assigned to other cutters
+                        return false;
                     });
 
                     // Sort all mattresses by position (more efficient with pre-sorted data)
@@ -217,6 +256,25 @@ const CutterView = () => {
                         }
                     }
                     setActiveCuttingMattress(onCutMattress);
+
+                    // Check for potential conflicts (TO CUT mattresses assigned to other cutters)
+                    const conflicts = filteredMattresses.filter(m =>
+                        m.status === "3 - TO CUT" &&
+                        m.device &&
+                        m.device.startsWith('CT') &&
+                        m.device !== cutterDevice
+                    );
+
+                    if (conflicts.length > 0 && !conflictDetected) {
+                        setConflictDetected(true);
+                        setSnackbar({
+                            open: true,
+                            message: `${conflicts.length} mattress(es) may have been assigned to other cutters. Data refreshed.`,
+                            severity: "warning"
+                        });
+                    } else if (conflicts.length === 0 && conflictDetected) {
+                        setConflictDetected(false);
+                    }
 
                     // Set all mattresses in a single list
                     setMattresses(filteredMattresses);
@@ -252,6 +310,17 @@ const CutterView = () => {
             return;
         }
 
+        // Find the mattress to get its current status for optimistic locking
+        const mattress = mattresses.find(m => m.id === mattressId);
+        if (!mattress) {
+            setSnackbar({
+                open: true,
+                message: "Mattress not found. Please refresh the page.",
+                severity: "error"
+            });
+            return;
+        }
+
         // Get the selected operator name
         const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
         const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
@@ -260,28 +329,59 @@ const CutterView = () => {
         axios.put(`/mattress/update_status/${mattressId}`, {
             status: "4 - ON CUT",
             operator: operatorName,
-            device: cutterDevice // Explicitly set the device to ensure it's updated
+            device: cutterDevice, // Explicitly set the device to ensure it's updated
+            expected_current_status: mattress.status // Add optimistic locking
         })
         .then((res) => {
             if (res.data.success) {
+                // Immediately update local state to hide mattress from other cutters
+                setMattresses(prevMattresses =>
+                    prevMattresses.map(m =>
+                        m.id === mattressId
+                            ? { ...m, status: "4 - ON CUT", device: cutterDevice }
+                            : m
+                    )
+                );
+
+                // Notify other cutter tabs about this change
+                notifyOtherCutters(mattressId, "4 - ON CUT", cutterDevice);
+
                 setSnackbar({
                     open: true,
                     message: "Status updated to ON CUT successfully",
                     severity: "success"
                 });
-                fetchMattresses(false); // Refresh the data in background
+
+                // Also refresh data in background to sync with server
+                fetchMattresses(false);
             } else {
                 setSnackbar({
                     open: true,
                     message: "Error: " + res.data.message,
                     severity: "error"
                 });
+                // If it's a conflict, refresh the data to show current state
+                if (res.data.conflict) {
+                    fetchMattresses(false);
+                }
             }
         })
         .catch((err) => {
+            let errorMessage = "API Error: " + (err.message || "Unknown error");
+
+            // Handle specific conflict responses
+            if (err.response && err.response.status === 409) {
+                const conflictData = err.response.data;
+                if (conflictData.message) {
+                    errorMessage = conflictData.message;
+                }
+                // Refresh data to show current state
+                fetchMattresses(false);
+            }
+
             setSnackbar({
                 open: true,
-                message: "API Error: " + (err.message || "Unknown error"),
+                message: errorMessage,
                 severity: "error"
             });
             console.error("API Error:", err);
@@ -295,6 +395,17 @@ const CutterView = () => {
         // Update activity time
         updateActivityTime();
 
+        // Find the mattress to get its current status for optimistic locking
+        const mattress = mattresses.find(m => m.id === mattressId);
+        if (!mattress) {
+            setSnackbar({
+                open: true,
+                message: "Mattress not found. Please refresh the page.",
+                severity: "error"
+            });
+            return;
+        }
+
         // Get the selected operator name
         const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
         const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
@@ -305,10 +416,14 @@ const CutterView = () => {
         axios.put(`/mattress/update_status/${mattressId}`, {
             status: "5 - COMPLETED",
             operator: operatorName,
-            device: cutterDevice // Explicitly set the device to ensure it's updated
+            device: cutterDevice, // Explicitly set the device to ensure it's updated
+            expected_current_status: mattress.status // Add optimistic locking
         })
         .then((res) => {
             if (res.data.success) {
+                // Notify other cutter tabs about this change
+                notifyOtherCutters(mattressId, "5 - COMPLETED", cutterDevice);
+
                 setSnackbar({
                     open: true,
                     message: "Cutting finished successfully",
@@ -323,12 +438,28 @@ const CutterView = () => {
                     message: "Error: " + res.data.message,
                     severity: "error"
                 });
+                // If it's a conflict, refresh the data to show current state
+                if (res.data.conflict) {
+                    fetchMattresses(false);
+                }
             }
         })
         .catch((err) => {
+            let errorMessage = "API Error: " + (err.message || "Unknown error");
+
+            // Handle specific conflict responses
+            if (err.response && err.response.status === 409) {
+                const conflictData = err.response.data;
+                if (conflictData.message) {
+                    errorMessage = conflictData.message;
+                }
+                // Refresh data to show current state
+                fetchMattresses(false);
+            }
+
             setSnackbar({
                 open: true,
-                message: "API Error: " + (err.message || "Unknown error"),
+                message: errorMessage,
                 severity: "error"
             });
             console.error("API Error:", err);
@@ -422,14 +553,37 @@ const CutterView = () => {
         // Get the source device
         const sourceDevice = mattress.device;
 
+        // Check if data might be stale (more than 1 minute since last refresh)
+        const isDataStale = (new Date() - lastRefreshTime) > 60000;
+
+        // Check if this mattress might have a conflict (TO CUT status but assigned to a cutter device)
+        const hasDeviceConflict = mattress.status === "3 - TO CUT" && sourceDevice && sourceDevice.startsWith('CT') && sourceDevice !== cutterDevice;
+
         return (
-            <Card key={mattress.id} sx={{ mb: 2, boxShadow: 2 }}>
+            <Card key={mattress.id} sx={{
+                mb: 2,
+                boxShadow: 2,
+                // Add visual indicator for potential conflicts
+                border: hasDeviceConflict ? '2px solid #ff9800' : (isDataStale ? '1px solid #ffc107' : 'none')
+            }}>
                 <Box sx={{ p: 1.5 }}>
+                    {/* Warning for potential conflicts */}
+                    {hasDeviceConflict && (
+                        <Alert severity="warning" sx={{ mb: 1, fontSize: '0.875rem' }}>
+                            This mattress may be assigned to {sourceDevice}. Please refresh to see current status.
+                        </Alert>
+                    )}
+
                     {/* Header with mattress ID and pills - matching spreader style */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Box>
                             <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
                                 {mattress.mattress}
+                                {isDataStale && (
+                                    <Typography component="span" variant="caption" color="warning.main" sx={{ ml: 1 }}>
+                                        (Data may be stale)
+                                    </Typography>
+                                )}
                             </Typography>
                             {sourceDevice && sourceDevice !== cutterDevice && (
                                 <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
@@ -535,13 +689,26 @@ const CutterView = () => {
 
                     {/* Action buttons */}
                     {mattress.status === "3 - TO CUT" && (
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                            {(isDataStale || hasDeviceConflict) && (
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={() => fetchMattresses(false)}
+                                    disabled={refreshing}
+                                >
+                                    Refresh Status
+                                </Button>
+                            )}
                             <Button
                                 variant="contained"
                                 color="primary"
-                                disabled={processingMattress === mattress.id || !selectedOperator || activeCuttingMattress !== null}
+                                disabled={processingMattress === mattress.id || !selectedOperator || activeCuttingMattress !== null || hasDeviceConflict}
                                 onClick={() => handleStartCutting(mattress.id)}
-                                title={activeCuttingMattress ? t('cutter.cannotStartCutting', { mattress: activeCuttingMattress.mattress, device: cutterDevice }) : ""}
+                                title={
+                                    activeCuttingMattress ? t('cutter.cannotStartCutting', { mattress: activeCuttingMattress.mattress, device: cutterDevice }) :
+                                    hasDeviceConflict ? "Please refresh to see current status before starting" : ""
+                                }
                             >
                                 {processingMattress === mattress.id ? t('cutter.processing') : t('cutter.startCutting')}
                             </Button>
@@ -612,7 +779,8 @@ const CutterView = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        minHeight: '56px'
+                        minHeight: '56px',
+                        gap: 2
                     }}>
                         <FormControl sx={{ minWidth: 200 }}>
                             <InputLabel id="operator-select-label">{t('cutter.selectOperator')}</InputLabel>
@@ -659,7 +827,19 @@ const CutterView = () => {
                                 )}
                             </Select>
                         </FormControl>
-                        <Typography variant="caption" color="textSecondary" sx={{ ml: 2 }}>
+
+                        {/* Manual refresh button */}
+                        <Tooltip title="Refresh data">
+                            <IconButton
+                                onClick={() => fetchMattresses(false)}
+                                disabled={refreshing}
+                                color="primary"
+                            >
+                                <RefreshIcon />
+                            </IconButton>
+                        </Tooltip>
+
+                        <Typography variant="caption" color="textSecondary">
                             {t('common.lastUpdated', 'Last updated')}: {lastRefreshTime.toLocaleTimeString()}
                         </Typography>
                     </Box>
