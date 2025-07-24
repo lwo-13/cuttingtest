@@ -193,7 +193,17 @@
     "na": "N/A",
     "numberOfPanels": "N° Panels",
     "totalCollaretto": "Total Collaretto [m]",
-    "sizes": "Sizes"
+    "sizes": "Sizes",
+    "theoreticalConsumption": "Theoretical Consumption [m]",
+    "rolls": "N° Rolls",
+    "panels": "N° Panels",
+    "pcsSeamtoSeam": "Pcs Seam to Seam",
+    "panelLength": "Panel Length [m]",
+    "rollWidth": "Roll Width [cm]",
+    "rollsPlanned": "Rolls Planned",
+    "consPlanned": "Cons Planned [m]",
+    "extra": "Extra",
+    "totals": "Totals"
   },
   "dashboard": {
     "workInProgress": "WORK IN PROGRESS",

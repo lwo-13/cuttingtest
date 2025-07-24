@@ -52,6 +52,9 @@ const CutterView = Loadable(lazy(() => import('../views/operators_view/cutterVie
 // subcontractor routing
 const SubcontractorView = Loadable(lazy(() => import('../views/subcontractor/subcontractorView')));
 
+// logistic routing
+const LogisticView = Loadable(lazy(() => import('../views/logistic/logisticView')));
+
 // operators routing
 const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
 const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
@@ -172,6 +175,17 @@ const MainRoutes = () => {
                     <AuthGuard>
                         <RoleGuard allowedRoles={['Subcontractor']}>
                             <SubcontractorView />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
+            </Route>
+
+            {/* Logistic route with MainLayout (full layout with sidebar) */}
+            <Route path="/logistic/view">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Logistic']}>
+                            <LogisticView />
                         </RoleGuard>
                     </AuthGuard>
                 </MainLayout>
