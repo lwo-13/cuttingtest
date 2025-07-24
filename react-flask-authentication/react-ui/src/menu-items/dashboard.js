@@ -1,5 +1,5 @@
 // assets
-import { IconDashboard, IconDeviceAnalytics, IconListCheck } from '@tabler/icons';
+import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| DASHBOARD MENU ITEMS ||-----------------------//
@@ -15,6 +15,14 @@ export const dashboard = {
             type: 'item',
             url: '/dashboard/default',
             icon: IconDashboard,
+            breadcrumbs: false
+        },
+        {
+            id: 'consumption-analytics',
+            title: i18n.t('sidebar.consumptionAnalytics'),
+            type: 'item',
+            url: '/dashboard/consumption-analytics',
+            icon: IconChartBar,
             breadcrumbs: false
         },
         {

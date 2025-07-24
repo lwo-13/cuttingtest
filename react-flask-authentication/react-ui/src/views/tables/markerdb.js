@@ -18,9 +18,11 @@ import {
     Typography,
     Button,
     Snackbar,
-    Alert
+    Alert,
+    Badge
   } from '@mui/material';
 import { Block, Delete } from '@mui/icons-material';
+import { IconTarget } from '@tabler/icons';
 import MainCard from '../../ui-component/cards/MainCard';
 import TablePagination from '@mui/material/TablePagination';
 
@@ -215,8 +217,24 @@ const MarkerDB = () => {
         { field: 'total_pcs', headerName: 'Total Pieces', width: 120 },
         { field: 'fabric_type', headerName: 'Fabric Type', width: 100 },
         { field: 'fabric_code', headerName: 'Fabric Code', width: 130 },
-        { field: 'model', headerName: 'MDL', width: 200 },
-        { field: 'variant', headerName: 'Variant', width: 200 },
+        { field: 'model', headerName: 'MDL', width: 150 },
+        { field: 'variant', headerName: 'Variant', width: 150 },
+        {
+            field: 'usage_count',
+            headerName: 'Usage',
+            width: 100,
+            align: 'center',
+            headerAlign: 'center',
+            renderCell: (params) => (
+                <Badge
+                    badgeContent={params.row.usage_count}
+                    color={params.row.usage_count > 0 ? 'success' : 'default'}
+                    showZero
+                >
+                    <IconTarget size={20} />
+                </Badge>
+            )
+        },
         {
             field: 'check_pcs',
             headerName: 'Check pcs',

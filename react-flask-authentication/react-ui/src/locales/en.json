@@ -17,6 +17,7 @@
   "sidebar": {
     "dashboard": "Dashboard",
     "kpiDashboard": "KPI Dashboard",
+    "consumptionAnalytics": "Consumption Analytics",
     "planning": "Planning",
     "board": "Board",
     "orderPlanning": "Order Planning",

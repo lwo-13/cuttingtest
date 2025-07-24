@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
-from api.models import db, MarkerHeader, MarkerLine, MarkerLineRotation
+from api.models import db, MarkerHeader, MarkerLine, MarkerLineRotation, MattressMarker
+from sqlalchemy import func
 import json
 import xml.etree.ElementTree as ET
 import os
@@ -16,19 +17,27 @@ class MarkerHeaders(Resource):
     def get(self):
         try:
             headers = MarkerHeader.query.filter_by(status='ACTIVE').all()
-            result = [{
-                "id": header.id,
-                "marker_name": header.marker_name,
-                "marker_width": header.marker_width,
-                "marker_length": header.marker_length,
-                "fabric_code": header.fabric_code,
-                "fabric_type": header.fabric_type,
-                "efficiency": header.efficiency,
-                "total_pcs": header.total_pcs,
-                "creation_type": header.creation_type,
-                "model": header.model,
-                "variant": header.variant
-            } for header in headers]
+            result = []
+            for header in headers:
+                # Check if marker is being used in any mattresses
+                usage_count = db.session.query(func.count(MattressMarker.id)).filter(
+                    MattressMarker.marker_id == header.id
+                ).scalar()
+
+                result.append({
+                    "id": header.id,
+                    "marker_name": header.marker_name,
+                    "marker_width": header.marker_width,
+                    "marker_length": header.marker_length,
+                    "fabric_code": header.fabric_code,
+                    "fabric_type": header.fabric_type,
+                    "efficiency": header.efficiency,
+                    "total_pcs": header.total_pcs,
+                    "creation_type": header.creation_type,
+                    "model": header.model,
+                    "variant": header.variant,
+                    "usage_count": usage_count
+                })
 
             return {"success": True, "data": result}, 200
         except Exception as e:

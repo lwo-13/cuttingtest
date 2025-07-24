@@ -22,6 +22,12 @@ import {
     IconRuler2
 } from '@tabler/icons';
 
+// project imports
+import MarkersImportedCard from '../MarkersImportedCard';
+import LongMattressCard from '../LongMattressCard';
+import TotalConsumptionCard from '../TotalConsumptionCard';
+import OrdersWorkedOnCard from '../OrdersWorkedOnCard';
+
 const StatisticsCards = ({ selectedPeriod }) => {
     const { t } = useTranslation();
     const theme = useTheme();
@@ -99,38 +105,33 @@ const StatisticsCards = ({ selectedPeriod }) => {
 
     return (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                    title={t('dashboard.ordersWorkedOn', 'Orders Worked On')}
-                    value={statistics?.orders_worked_on || 0}
-                    icon={<IconListCheck size={24} />}
-                    color="primary"
+            <Grid item xs={12} sm={6} md={4}>
+                <OrdersWorkedOnCard
+                    isLoading={loading}
+                    selectedPeriod={selectedPeriod}
                 />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                    title={t('dashboard.markersImported', 'Markers Imported')}
-                    value={statistics?.markers_imported || 0}
-                    icon={<IconFileImport size={24} />}
-                    color="secondary"
+            <Grid item xs={12} sm={6} md={4}>
+                <MarkersImportedCard
+                    isLoading={loading}
+                    selectedPeriod={selectedPeriod}
                 />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                    title={t('dashboard.mattressesCreated', 'Mattresses Created')}
-                    value={statistics?.mattresses_created || 0}
-                    icon={<IconStack2 size={24} />}
-                    color="success"
-                />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                    title={t('dashboard.totalConsumption', 'Total Consumption')}
-                    value={statistics?.total_consumption_planned || 0}
-                    icon={<IconRuler2 size={24} />}
-                    color="warning"
-                    suffix=" m"
-                />
+            <Grid item xs={12} sm={12} md={4}>
+                <Grid container spacing={2} sx={{ height: '100%' }}>
+                    <Grid item xs={12} sx={{ height: '50%' }}>
+                        <LongMattressCard
+                            isLoading={loading}
+                            selectedPeriod={selectedPeriod}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sx={{ height: '50%' }}>
+                        <TotalConsumptionCard
+                            isLoading={loading}
+                            selectedPeriod={selectedPeriod}
+                        />
+                    </Grid>
+                </Grid>
             </Grid>
         </Grid>
     );

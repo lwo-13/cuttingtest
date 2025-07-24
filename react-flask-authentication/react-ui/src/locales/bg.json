@@ -17,6 +17,7 @@
   "sidebar": {
     "dashboard": "Табло за управление",
     "kpiDashboard": "KPI Табло",
+    "consumptionAnalytics": "Аналитика на консумацията",
     "planning": "Планиране",
     "board": "Дъска",
     "orderPlanning": "Планиране на поръчки",

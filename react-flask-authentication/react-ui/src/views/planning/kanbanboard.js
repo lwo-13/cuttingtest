@@ -335,7 +335,14 @@ const KanbanBoard = () => {
                 device === "SP0"
                   ? mattresses
                       .filter((m) => m.status === "0 - NOT SET")
-                      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                      .sort((a, b) => {
+                        // First sort by order_commessa
+                        const orderComparison = (a.order_commessa || '').localeCompare(b.order_commessa || '');
+                        if (orderComparison !== 0) return orderComparison;
+
+                        // Then sort by bagno (dye_lot)
+                        return (a.dye_lot || '').localeCompare(b.dye_lot || '');
+                      })
                   : mattresses
                       .filter(
                         (m) =>
@@ -713,6 +720,23 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
 
       {mattress.mattress} <br />
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1 }}>
+        {mattress.dye_lot && mattress.dye_lot !== 'no bagno' && (
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: '#fff3e0',
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            minWidth: 60,
+            justifyContent: 'center'
+          }}>
+            <Typography sx={{ fontSize: '0.8rem', color: '#f57c00', fontWeight: 'bold' }}>
+              {mattress.dye_lot}
+            </Typography>
+          </Box>
+        )}
+
         {mattress.total_pcs > 0 && (
           <Box sx={{
             display: 'flex',
