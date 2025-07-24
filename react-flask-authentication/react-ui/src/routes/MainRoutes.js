@@ -44,10 +44,10 @@ const UtilsTablerIcons = Loadable(lazy(() => import('../views/utilities/TablerIc
 const SamplePage = Loadable(lazy(() => import('../views/sample-page')));
 
 // spreader routing
-const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView')));
+const SpreaderView = Loadable(lazy(() => import('../views/operators_view/spreaderView')));
 
 // cutter routing
-const CutterView = Loadable(lazy(() => import('../views/cutter/cutterView')));
+const CutterView = Loadable(lazy(() => import('../views/operators_view/cutterView')));
 
 // subcontractor routing
 const SubcontractorView = Loadable(lazy(() => import('../views/subcontractor/subcontractorView')));
