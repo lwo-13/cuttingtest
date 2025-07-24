@@ -17,6 +17,7 @@
   "sidebar": {
     "dashboard": "Табло за управление",
     "kpiDashboard": "KPI Табло",
+    "consumptionAnalytics": "Аналитика на консумацията",
     "planning": "Планиране",
     "board": "Дъска",
     "orderPlanning": "Планиране на поръчки",
@@ -192,7 +193,17 @@
     "na": "Н/П",
     "numberOfPanels": "Брой катове",
     "totalCollaretto": "Общо бие [м]",
-    "sizes": "Размери"
+    "sizes": "Размери",
+    "theoreticalConsumption": "Теоретична консумация [м]",
+    "rolls": "Брой ролки",
+    "panels": "Брой катове",
+    "pcsSeamtoSeam": "Бр. снадка до снадка",
+    "panelLength": "Дължина панел [м]",
+    "rollWidth": "Ширина ролка [см]",
+    "rollsPlanned": "Планирани ролки",
+    "consPlanned": "Планирана консумация [м]",
+    "extra": "Допълнително",
+    "totals": "Общо"
   },
   "dashboard": {
     "workInProgress": "В ПРОЦЕС НА РАЗРАБОТКА",

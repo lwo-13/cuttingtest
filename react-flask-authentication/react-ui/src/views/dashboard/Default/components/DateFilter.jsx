@@ -48,19 +48,16 @@ const DateFilter = ({ selectedPeriod, onPeriodChange, sx = {} }) => {
 
     return (
         <Paper
-            elevation={1}
+            elevation={0}
             sx={{
                 p: 2,
                 mb: 2,
                 backgroundColor: theme.palette.background.paper,
+                boxShadow: 'none',
                 ...sx
             }}
         >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="h6" sx={{ color: theme.palette.text.primary }}>
-                    {t('dashboard.timeFilter', 'Time Filter')}
-                </Typography>
-                
                 <ButtonGroup
                     variant="outlined"
                     size="small"
@@ -84,9 +81,13 @@ const DateFilter = ({ selectedPeriod, onPeriodChange, sx = {} }) => {
                             sx={{
                                 ...(selectedPeriod === period.value && {
                                     backgroundColor: theme.palette.primary.main,
-                                    color: theme.palette.primary.contrastText,
+                                    color: '#ffffff !important',
+                                    '& .MuiSvgIcon-root': {
+                                        color: '#ffffff !important'
+                                    },
                                     '&:hover': {
-                                        backgroundColor: theme.palette.primary.dark
+                                        backgroundColor: theme.palette.primary.dark,
+                                        color: '#ffffff !important'
                                     }
                                 })
                             }}

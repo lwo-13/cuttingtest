@@ -28,12 +28,15 @@ const MenuList = () => {
             case 'subcontractor':
                 return userRole === 'Subcontractor';
 
+            case 'logistic':
+                return userRole === 'Logistic';
+
             case 'operators':
                 return ['Manager', 'Project Admin'].includes(userRole);
 
             default:
-                // Hide everything for Spreader, Cutter, and Subcontractor except their own group
-                if (['Spreader', 'Cutter', 'Subcontractor'].includes(userRole)) return false;
+                // Hide everything for Spreader, Cutter, Subcontractor, and Logistic except their own group
+                if (['Spreader', 'Cutter', 'Subcontractor', 'Logistic'].includes(userRole)) return false;
                 // Shift Manager can see most items except operators
                 return true;
         }

@@ -13,8 +13,7 @@ from .mattress import mattress_bp, mattress_api
 from .items import zalli_bp, zalli_api  # Existing module
 from .padprint import padprint_bp, padprint_api
 from .collaretto import collaretto_bp, collaretto_api
-from .operators import operators_bp, operators_api  # Spreader operators module
-from .cutter_operators import cutter_operators_bp, cutter_operators_api  # Cutter operators module
+from .operators import operators_bp, operators_api  # Unified operators module
 from .marker_calculator import marker_calculator_bp, marker_calculator_api  # Marker calculator module
 from .width_change_requests import width_change_requests_bp, width_change_requests_api  # Width change requests module
 from .marker_requests import marker_requests_bp, marker_requests_api  # Marker requests module
@@ -47,7 +46,6 @@ def register_blueprints(app):
     app.register_blueprint(padprint_bp, url_prefix="/api/padprint")
     app.register_blueprint(collaretto_bp, url_prefix="/api/collaretto")
     app.register_blueprint(operators_bp, url_prefix="/api/operators")
-    app.register_blueprint(cutter_operators_bp, url_prefix="/api/cutter_operators")
     app.register_blueprint(marker_calculator_bp, url_prefix="/api/marker_calculator")
     app.register_blueprint(width_change_requests_bp, url_prefix="/api/width_change_requests")
     app.register_blueprint(marker_requests_bp, url_prefix="/api/marker_requests")
@@ -69,7 +67,6 @@ def register_blueprints(app):
     rest_api.add_namespace(padprint_api, path="/api/padprint")
     rest_api.add_namespace(collaretto_api, path="/api/collaretto")
     rest_api.add_namespace(operators_api, path="/api/operators")
-    rest_api.add_namespace(cutter_operators_api, path="/api/cutter_operators")
     rest_api.add_namespace(marker_calculator_api, path="/api/marker_calculator")
     rest_api.add_namespace(width_change_requests_api, path="/api/width_change_requests")
     rest_api.add_namespace(marker_requests_api, path="/api/marker_requests")

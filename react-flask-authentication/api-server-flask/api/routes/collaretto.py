@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDetail, MattressPhase, OrderLinesView
+from api.models import db, Collaretto, CollarettoDetail, Mattresses, MattressDetail, MattressPhase, OrderLinesView, MattressProductionCenter
 from flask_restx import Namespace, Resource
 from datetime import datetime
 import math
@@ -856,4 +856,300 @@ class GetBiasByOrder(Resource):
             print(f"❌ Error fetching bias by order: {e}")
             return jsonify({"success": False, "message": str(e)})
 
+
+# ===== LOGISTIC VIEW ENDPOINTS =====
+
+@collaretto_api.route('/logistic/orders_by_production_center/<string:production_center>', methods=['GET'])
+class GetOrdersByProductionCenter(Resource):
+    def get(self, production_center):
+        """Get all order IDs that have collaretto tables assigned to a specific production center (PXE3)"""
+        try:
+            # Query distinct order IDs that have collaretto tables assigned to this production center
+            orders = db.session.query(
+                Collaretto.order_commessa
+            ).join(
+                MattressProductionCenter, Collaretto.table_id == MattressProductionCenter.table_id
+            ).filter(
+                MattressProductionCenter.production_center == production_center,
+                MattressProductionCenter.table_type.in_(['ALONG', 'WEFT', 'BIAS'])
+            ).distinct().all()
+
+            result = [{"order_commessa": order.order_commessa} for order in orders]
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching orders by production center: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/along_by_order/<string:order_commessa>', methods=['GET'])
+class GetLogisticAlongByOrder(Resource):
+    def get(self, order_commessa):
+        """Get along collaretto tables for an order filtered by PXE3 production center"""
+        try:
+            print(f"🔍 Fetching along collaretto for order: {order_commessa}")
+
+            # First check if we have any along collaretto for this order (ordered by bagno, then sequence_number)
+            along_collaretto = Collaretto.query.filter_by(
+                order_commessa=order_commessa,
+                item_type='CA'
+            ).order_by(Collaretto.dye_lot, Collaretto.sequence_number).all()
+
+            print(f"🔍 Found {len(along_collaretto)} along collaretto records")
+
+            if not along_collaretto:
+                return {"success": True, "data": []}, 200
+
+            # Group by table_id and check for PXE3 production center
+            tables = {}
+            for collaretto in along_collaretto:
+                # Check if this table has PXE3 production center assignment
+                prod_center = MattressProductionCenter.query.filter_by(
+                    table_id=collaretto.table_id,
+                    production_center='PXE3',
+                    table_type='ALONG'
+                ).first()
+
+                if not prod_center:
+                    continue  # Skip if not assigned to PXE3
+
+                table_id = collaretto.table_id
+                print(f"🔍 Found PXE3 along table: {table_id}")
+
+                # Initialize table if not exists
+                if table_id not in tables:
+                    tables[table_id] = {
+                        "id": table_id,
+                        "fabricType": collaretto.fabric_type,
+                        "fabricCode": collaretto.fabric_code,
+                        "fabricColor": collaretto.fabric_color,
+                        "dyeLot": collaretto.dye_lot,
+                        "productionCenter": prod_center.production_center,
+                        "cuttingRoom": prod_center.cutting_room,
+                        "destination": prod_center.destination,
+                        "alongExtra": "3",  # Default value
+                        "rows": []
+                    }
+
+                # Get collaretto details for this specific collaretto record
+                details = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).all()
+
+                for detail in details:
+                    # Get bagno from collaretto dye_lot
+                    bagno = collaretto.dye_lot or ""
+
+                    # Extract collaretto ID suffix (e.g., "CA-02-001" from "Z12-378867-CA-02-001")
+                    collaretto_id_suffix = ""
+                    if collaretto.collaretto:
+                        parts = collaretto.collaretto.split('-')
+                        if len(parts) >= 3:
+                            # Take the last 3 parts (CA-02-001)
+                            collaretto_id_suffix = '-'.join(parts[-3:])
+
+                    tables[table_id]["rows"].append({
+                        "id": collaretto.row_id,
+                        "collarettoId": collaretto_id_suffix,
+                        "usableWidth": detail.usable_width,
+                        "collarettoWidth": detail.roll_width,
+                        "scrapRoll": detail.scrap_rolls,
+                        "rolls": detail.rolls_planned,
+                        "actualRolls": detail.rolls_actual or "",  # New field for actual rolls
+                        "totalCollaretto": detail.total_collaretto,
+                        "consPlanned": detail.cons_planned,
+                        "bagno": bagno,
+                        "sizes": detail.applicable_sizes
+                    })
+
+            result_tables = list(tables.values())
+
+            return {"success": True, "data": result_tables}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching logistic along by order: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/weft_by_order/<string:order_commessa>', methods=['GET'])
+class GetLogisticWeftByOrder(Resource):
+    def get(self, order_commessa):
+        """Get weft collaretto tables for an order filtered by PXE3 production center"""
+        try:
+            print(f"🔍 Fetching weft collaretto for order: {order_commessa}")
+
+            # First check if we have any weft collaretto for this order (ordered by bagno, then sequence_number)
+            weft_collaretto = Collaretto.query.filter_by(
+                order_commessa=order_commessa,
+                item_type='CW'
+            ).order_by(Collaretto.dye_lot, Collaretto.sequence_number).all()
+
+            print(f"🔍 Found {len(weft_collaretto)} weft collaretto records")
+
+            if not weft_collaretto:
+                return {"success": True, "data": []}, 200
+
+            # Group by table_id and check for PXE3 production center
+            tables = {}
+            for collaretto in weft_collaretto:
+                # Check if this table has PXE3 production center assignment
+                prod_center = MattressProductionCenter.query.filter_by(
+                    table_id=collaretto.table_id,
+                    production_center='PXE3',
+                    table_type='WEFT'
+                ).first()
+
+                if not prod_center:
+                    continue  # Skip if not assigned to PXE3
+
+                table_id = collaretto.table_id
+                print(f"🔍 Found PXE3 weft table: {table_id}")
+
+                # Initialize table if not exists
+                if table_id not in tables:
+                    tables[table_id] = {
+                        "id": table_id,
+                        "fabricType": collaretto.fabric_type,
+                        "fabricCode": collaretto.fabric_code,
+                        "fabricColor": collaretto.fabric_color,
+                        "dyeLot": collaretto.dye_lot,
+                        "productionCenter": prod_center.production_center,
+                        "cuttingRoom": prod_center.cutting_room,
+                        "destination": prod_center.destination,
+                        "spreading": "AUTOMATIC",  # Default value
+                        "weftExtra": "3",  # Default value
+                        "rows": []
+                    }
+
+                # Get collaretto details for this specific collaretto record
+                details = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).all()
+
+                for detail in details:
+                    # Get bagno from collaretto dye_lot
+                    bagno = collaretto.dye_lot or ""
+
+                    # Extract collaretto ID suffix (e.g., "CA-02-001" from "Z12-378867-CA-02-001")
+                    collaretto_id_suffix = ""
+                    if collaretto.collaretto:
+                        parts = collaretto.collaretto.split('-')
+                        if len(parts) >= 3:
+                            # Take the last 3 parts (CW-02-001)
+                            collaretto_id_suffix = '-'.join(parts[-3:])
+
+                    # Get panels from mattress_details.layers if available
+                    panels = detail.rolls_planned  # Default fallback
+                    if detail.mattress_id:
+                        mattress_detail = MattressDetail.query.filter_by(mattress_id=detail.mattress_id).first()
+                        if mattress_detail and mattress_detail.layers:
+                            panels = mattress_detail.layers
+
+                    tables[table_id]["rows"].append({
+                        "id": collaretto.row_id,
+                        "collarettoId": collaretto_id_suffix,
+                        "usableWidth": detail.usable_width,
+                        "pcsSeamtoSeam": detail.pcs_seam,
+                        "rewoundWidth": detail.gross_length,  # Use gross_length as rewound width
+                        "collarettoWidth": detail.roll_width,  # Use roll_width as collaretto width
+                        "scrapRoll": detail.scrap_rolls,
+                        "rolls": detail.rolls_planned,
+                        "actualRolls": detail.rolls_actual or "",  # New field for actual rolls
+                        "panels": panels,  # Use mattress_details.layers if available
+                        "consPlanned": detail.cons_planned,
+                        "bagno": bagno,
+                        "sizes": detail.applicable_sizes
+                    })
+
+            result_tables = list(tables.values())
+
+            return {"success": True, "data": result_tables}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching logistic weft by order: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/bias_by_order/<string:order_commessa>', methods=['GET'])
+class GetLogisticBiasByOrder(Resource):
+    def get(self, order_commessa):
+        """Get bias collaretto tables for an order filtered by PXE3 production center"""
+        try:
+            print(f"🔍 Fetching bias collaretto for order: {order_commessa}")
+
+            # First check if we have any bias collaretto for this order (ordered by bagno, then sequence_number)
+            bias_collaretto = Collaretto.query.filter_by(
+                order_commessa=order_commessa,
+                item_type='CB'
+            ).order_by(Collaretto.dye_lot, Collaretto.sequence_number).all()
+
+            print(f"🔍 Found {len(bias_collaretto)} bias collaretto records")
+
+            if not bias_collaretto:
+                return {"success": True, "data": []}, 200
+
+            # Group by table_id and check for PXE3 production center
+            tables = {}
+            for collaretto in bias_collaretto:
+                # Check if this table has PXE3 production center assignment
+                prod_center = MattressProductionCenter.query.filter_by(
+                    table_id=collaretto.table_id,
+                    production_center='PXE3',
+                    table_type='BIAS'
+                ).first()
+
+                if not prod_center:
+                    continue  # Skip if not assigned to PXE3
+
+                table_id = collaretto.table_id
+                print(f"🔍 Found PXE3 bias table: {table_id}")
+
+                # Initialize table if not exists
+                if table_id not in tables:
+                    tables[table_id] = {
+                        "id": table_id,
+                        "fabricType": collaretto.fabric_type,
+                        "fabricCode": collaretto.fabric_code,
+                        "fabricColor": collaretto.fabric_color,
+                        "dyeLot": collaretto.dye_lot,
+                        "productionCenter": prod_center.production_center,
+                        "cuttingRoom": prod_center.cutting_room,
+                        "destination": prod_center.destination,
+                        "biasExtra": "3",  # Default value
+                        "rows": []
+                    }
+
+                # Get collaretto details for this specific collaretto record
+                details = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).all()
+
+                for detail in details:
+                    # Get bagno from collaretto dye_lot
+                    bagno = collaretto.dye_lot or ""
+
+                    # Extract collaretto ID suffix (e.g., "CA-02-001" from "Z12-378867-CA-02-001")
+                    collaretto_id_suffix = ""
+                    if collaretto.collaretto:
+                        parts = collaretto.collaretto.split('-')
+                        if len(parts) >= 3:
+                            # Take the last 3 parts (CB-02-001)
+                            collaretto_id_suffix = '-'.join(parts[-3:])
+
+                    tables[table_id]["rows"].append({
+                        "id": collaretto.row_id,
+                        "collarettoId": collaretto_id_suffix,
+                        "usableWidth": detail.usable_width,
+                        "pcsSeam": detail.pcs_seam,
+                        "rollWidth": detail.roll_width,
+                        "scrapRolls": detail.scrap_rolls,
+                        "rolls": detail.rolls_planned,
+                        "rollsPlanned": detail.rolls_planned,
+                        "consPlanned": detail.cons_planned,
+                        "bagno": bagno,
+                        "sizes": detail.applicable_sizes
+                    })
+
+            result_tables = list(tables.values())
+
+            return {"success": True, "data": result_tables}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching logistic bias by order: {e}")
+            return {"success": False, "msg": str(e)}, 500
 

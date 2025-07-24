@@ -8,17 +8,17 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 // project imports
 import EarningCard from './EarningCard';
 import PopularCard from './PopularCard';
+import CryptoCard from './CryptoCard';
 import TotalOrderLineChartCard from './TotalOrderLineChartCard';
 import TotalIncomeDarkCard from './TotalIncomeDarkCard';
 import TotalIncomeLightCard from './TotalIncomeLightCard';
 import TotalGrowthBarChart from './TotalGrowthBarChart';
+import TotalMetersSpreadedChart from './TotalMetersSpreadedChart';
 import { gridSpacing } from './../../../store/constant';
 
 // dashboard components
 import DateFilter from './components/DateFilter';
 import StatisticsCards from './components/StatisticsCards';
-import OrdersWorkedOn from './components/OrdersWorkedOn';
-import MarkersImported from './components/MarkersImported';
 
 //-----------------------|| DEFAULT DASHBOARD ||-----------------------//
 
@@ -50,17 +50,7 @@ const Dashboard = () => {
                 <StatisticsCards selectedPeriod={selectedPeriod} />
             </Grid>
 
-            {/* Orders Worked On */}
-            <Grid item xs={12} lg={6}>
-                <OrdersWorkedOn selectedPeriod={selectedPeriod} />
-            </Grid>
-
-            {/* Markers Imported */}
-            <Grid item xs={12} lg={6}>
-                <MarkersImported selectedPeriod={selectedPeriod} />
-            </Grid>
-
-            {/* Future Components - Preserved for later use */}
+            {/* Additional Dashboard Components - Commented Out */}
             {/*<Grid item xs={12}>
                 <Grid container spacing={gridSpacing}>
                     <Grid item lg={4} md={6} sm={6} xs={12}>
@@ -80,8 +70,26 @@ const Dashboard = () => {
                         </Grid>
                     </Grid>
                 </Grid>
-            </Grid>
+            </Grid>*/}
+            {/* Total Meters Spreaded Chart */}
             <Grid item xs={12}>
+                <Grid container spacing={gridSpacing}>
+                    <Grid item xs={12} md={8}>
+                        <TotalMetersSpreadedChart isLoading={isLoading} selectedPeriod={selectedPeriod} />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <CryptoCard isLoading={isLoading} />
+                    </Grid>
+
+                    {/* Commented out Popular Stocks Card */}
+                    {/*<Grid item xs={12} md={4}>
+                        <PopularCard isLoading={isLoading} />
+                    </Grid>*/}
+                </Grid>
+            </Grid>
+
+            {/* Commented out Total Growth Bar Chart */}
+            {/*<Grid item xs={12}>
                 <Grid container spacing={gridSpacing}>
                     <Grid item xs={12} md={8}>
                         <TotalGrowthBarChart isLoading={isLoading} />
@@ -90,7 +98,7 @@ const Dashboard = () => {
                         <PopularCard isLoading={isLoading} />
                     </Grid>
                 </Grid>
-            </Grid> */}
+            </Grid>*/}
         </Grid>
     );
 };

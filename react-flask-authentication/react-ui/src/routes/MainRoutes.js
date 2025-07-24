@@ -11,6 +11,7 @@ import RoleGuard from './../utils/route-guard/RoleGuard';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
+const ConsumptionAnalytics = Loadable(lazy(() => import('../views/dashboard/ConsumptionAnalytics')));
 const OrderReport = Loadable(lazy(() => import('../views/dashboard/orderreport')));
 
 // planning routing
@@ -43,13 +44,16 @@ const UtilsTablerIcons = Loadable(lazy(() => import('../views/utilities/TablerIc
 const SamplePage = Loadable(lazy(() => import('../views/sample-page')));
 
 // spreader routing
-const SpreaderView = Loadable(lazy(() => import('../views/spreader/spreaderView')));
+const SpreaderView = Loadable(lazy(() => import('../views/operators_view/spreaderView')));
 
 // cutter routing
-const CutterView = Loadable(lazy(() => import('../views/cutter/cutterView')));
+const CutterView = Loadable(lazy(() => import('../views/operators_view/cutterView')));
 
 // subcontractor routing
 const SubcontractorView = Loadable(lazy(() => import('../views/subcontractor/subcontractorView')));
+
+// logistic routing
+const LogisticView = Loadable(lazy(() => import('../views/logistic/logisticView')));
 
 // operators routing
 const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
@@ -65,6 +69,7 @@ const MainRoutes = () => {
             <Route
                 path={[
                     '/dashboard/default',
+                    '/dashboard/consumption-analytics',
                     '/dashboard/orderreport',
 
                     '/planning/kanbanboard',
@@ -98,6 +103,7 @@ const MainRoutes = () => {
                     <Switch location={location} key={location.pathname}>
                         <AuthGuard>
                             <Route path="/dashboard/default" component={DashboardDefault} />
+                            <Route path="/dashboard/consumption-analytics" component={ConsumptionAnalytics} />
                             <Route path="/dashboard/orderreport" component={OrderReport} />
 
                             <Route path="/planning/kanbanboard" component={KanbanBoard} />
@@ -169,6 +175,17 @@ const MainRoutes = () => {
                     <AuthGuard>
                         <RoleGuard allowedRoles={['Subcontractor']}>
                             <SubcontractorView />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
+            </Route>
+
+            {/* Logistic route with MainLayout (full layout with sidebar) */}
+            <Route path="/logistic/view">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Logistic']}>
+                            <LogisticView />
                         </RoleGuard>
                     </AuthGuard>
                 </MainLayout>
