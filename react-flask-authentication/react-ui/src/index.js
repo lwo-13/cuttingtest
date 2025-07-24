@@ -1,3 +1,13 @@
+// Set webpack public path dynamically BEFORE any imports
+/* eslint-disable no-undef */
+if (typeof window !== 'undefined' && window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
+  __webpack_public_path__ = '/web_forward_CuttingApplication/';
+} else {
+  __webpack_public_path__ = '/';
+}
+/* eslint-enable no-undef */
+
+/* eslint-disable import/first */
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './i18n';
@@ -15,6 +25,7 @@ import config from './config';
 
 // style + assets
 import './assets/scss/style.scss';
+/* eslint-enable import/first */
 
 //-----------------------|| REACT DOM RENDER  ||-----------------------//
 

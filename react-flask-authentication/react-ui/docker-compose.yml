@@ -9,6 +9,7 @@ services:
       - "3000:3000"
     environment:
       - REACT_APP_API_URL=http://nginx:5000
+      - DANGEROUSLY_DISABLE_HOST_CHECK=true
     restart: always  # Talk to NGINX instead of Flask
     networks:
       - web_network  # Must match the API server's network

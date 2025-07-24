@@ -20,19 +20,25 @@ from .width_change_requests import width_change_requests_bp, width_change_reques
 from .marker_requests import marker_requests_bp, marker_requests_api  # Marker requests module
 from .navision import navision_bp, navision_api  # Navision integration module
 from .dashboard import dashboard_bp, dashboard_api  # Dashboard analytics module
+# VPN uses existing Flask-RESTX endpoints, no separate blueprint needed
 
 # Define the main RESTx API with Swagger documentation settings
+# CRITICAL FIX: Changed doc path from "/api/" to "/docs/" to prevent conflicts
+# The "/api/" path was intercepting all API requests and serving HTML documentation
+# instead of JSON responses, causing VPN authentication failures
 rest_api = Api(
     title="Cutting API",
     version="1.0",
     description="API Documentation",
-    doc="/api/"
+    doc="/docs/"
 )
 
 def register_blueprints(app):
     """Register all Blueprints (routes) and attach Namespaces for Swagger."""
     # Register Blueprints with URL prefixes where needed
     app.register_blueprint(root_bp)
+
+    # Register with /api prefix (for VM and local access)
     app.register_blueprint(auth_bp, url_prefix="/api/users")
     app.register_blueprint(markers_bp, url_prefix="/api/markers")
     app.register_blueprint(orders_bp, url_prefix="/api/orders")
@@ -46,8 +52,13 @@ def register_blueprints(app):
     app.register_blueprint(width_change_requests_bp, url_prefix="/api/width_change_requests")
     app.register_blueprint(marker_requests_bp, url_prefix="/api/marker_requests")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
-
     app.register_blueprint(navision_bp, url_prefix="/api/navision")
+
+    # VPN uses the same /api/users endpoints as VM access (Flask-RESTX)
+    print("=" * 50)
+    print("✅ VPN WILL USE EXISTING /api/users ENDPOINTS")
+    print("   - POST /api/users/login (Flask-RESTX)")
+    print("=" * 50)
 
     # Attach Namespaces so they appear in the Swagger docs
     rest_api.add_namespace(auth_api, path="/api/users")

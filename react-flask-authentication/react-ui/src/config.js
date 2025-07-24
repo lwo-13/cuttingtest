@@ -3,17 +3,16 @@ let BACKEND_SERVER = "/";
 
 // Set basename for VPN proxy routing
 const getBasename = () => {
-    // Only use proxy path if we're actually on the VPN domain
+    // Use VPN basename if we're on the actual VPN domain
     if (typeof window !== 'undefined' && window.location.hostname === 'sslvpn1.calzedonia.com') {
         return '/web_forward_CuttingApplication';
     }
-    // Or if we're explicitly testing the VPN path locally (localhost only)
+    // Or if we're testing the VPN path on ANY hostname (including VM)
     if (typeof window !== 'undefined' &&
-        window.location.hostname === 'localhost' &&
         window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
         return '/web_forward_CuttingApplication';
     }
-    // For Docker/VM access (172.27.57.210) or any other case, use no basename
+    // For all other cases, use no basename
     return '';
 };
 

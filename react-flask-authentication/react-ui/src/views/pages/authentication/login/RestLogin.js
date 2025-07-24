@@ -107,44 +107,51 @@ const RestLogin = (props, { ...others }) => {
                     username: Yup.string().max(255).required(t('login.usernameRequired')),
                     password: Yup.string().max(255).required(t('login.passwordRequired'))
                 })}
-                onSubmit={(values, { setErrors, setStatus, setSubmitting }) => {
+                onSubmit={async (values, { setErrors, setStatus, setSubmitting }) => {
+                    console.log('🔥 LOGIN FORM SUBMITTED:', values.username);
+
                     try {
-                        axios
-                            .post('/users/login', {
-                                password: values.password,
-                                username: values.username
-                            })
-                            .then(function (response) {
-                                if (response.data.success) {
-                                    localStorage.setItem("token", response.data.token);
-                                    dispatcher({
-                                        type: ACCOUNT_INITIALIZE,
-                                        payload: { isLoggedIn: true, user: response.data.user, token: response.data.token }
-                                    });
-                                    if (scriptedRef.current) {
-                                        setStatus({ success: true });
-                                        setSubmitting(false);
-                                    }
-                                } else {
-                                    setStatus({ success: false });
-                                    setErrors({ submit: response.data.msg });
-                                    setSubmitting(false);
-                                }
-                            })
-                            .catch(function (error) {
-                                setStatus({ success: false });
-                                const errorMsg =
-                                    error?.response?.data?.msg ||
-                                    error?.response?.statusText ||
-                                    "Unexpected error occurred. Please try again.";
-                                setErrors({ submit: errorMsg });
-                                setSubmitting(false);
+                        const response = await axios.post('/users/login', {
+                            password: values.password,
+                            username: values.username
+                        });
+
+                        console.log('🔥 LOGIN RESPONSE STATUS:', response.status);
+                        console.log('🔥 LOGIN RESPONSE HEADERS:', response.headers);
+                        console.log('🔥 LOGIN RESPONSE DATA TYPE:', typeof response.data);
+                        console.log('🔥 LOGIN RESPONSE DATA:', response.data);
+
+                        // Check if we got HTML instead of JSON
+                        if (typeof response.data === 'string' && response.data.includes('<html')) {
+                            console.error('🔥 RECEIVED HTML ERROR PAGE!');
+                            console.error('🔥 HTML CONTENT:', response.data.substring(0, 1000));
+                            throw new Error('VPN proxy error: The VPN proxy is not properly forwarding requests to the Flask API server. Please check the VPN proxy configuration for /web_forward_CuttingApplicationAPI/');
+                        }
+
+                        if (response.data.success) {
+                            localStorage.setItem("token", response.data.token);
+                            dispatcher({
+                                type: ACCOUNT_INITIALIZE,
+                                payload: { isLoggedIn: true, user: response.data.user, token: response.data.token }
                             });
-                    } catch (err) {
-                        console.error(err);
-                        if (scriptedRef.current) {
+                            if (scriptedRef.current) {
+                                setStatus({ success: true });
+                            }
+                        } else {
                             setStatus({ success: false });
-                            setErrors({ submit: err.message });
+                            setErrors({ submit: response.data.msg });
+                        }
+                    } catch (error) {
+                        console.error('🔥 LOGIN ERROR:', error);
+                        setStatus({ success: false });
+                        const errorMsg =
+                            error?.response?.data?.msg ||
+                            error?.response?.statusText ||
+                            "Unexpected error occurred. Please try again.";
+                        setErrors({ submit: errorMsg });
+                    } finally {
+                        // Always set submitting to false
+                        if (scriptedRef.current) {
                             setSubmitting(false);
                         }
                     }
