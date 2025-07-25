@@ -13,8 +13,8 @@ const getBackendURL = () => {
     return 'https://sslvpn1.calzedonia.com/web_forward_CuttingApplicationAPI/api/';
   }
   // For Docker deployment on VM, use the external nginx port
-  if (typeof window !== 'undefined' && window.location.hostname === '172.27.57.210') {
-    return 'http://172.27.57.210:5000/api/';
+  if (typeof window !== 'undefined' && (window.location.hostname === '172.27.57.210' || window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com')) {
+    return 'http://gab-navint01p.csg1.sys.calzedonia.com:5000/api/';
   }
   // For local development, use direct backend URL
   return 'http://localhost:5000/api/';

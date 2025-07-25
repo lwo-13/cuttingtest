@@ -30,10 +30,11 @@ def create_app():
 
     # Enable CORS - Updated to support VPN proxy access
     allowed_origins = [
-        "http://localhost:3000",           # Local development
-        "http://172.27.57.210:3000",       # Direct VM access
-        "http://127.0.0.1:3000",           # Local development alternative
-        "https://sslvpn1.calzedonia.com"   # VPN proxy access
+        "http://localhost:3000",                                    # Local development
+        "http://172.27.57.210:3000",                               # Direct VM access (IP)
+        "http://gab-navint01p.csg1.sys.calzedonia.com:3000",       # Direct VM access (DNS)
+        "http://127.0.0.1:3000",                                   # Local development alternative
+        "https://sslvpn1.calzedonia.com"                           # VPN proxy access
     ]
     CORS(app, resources={
         r"/api/*": {"origins": allowed_origins},
