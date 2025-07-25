@@ -11,7 +11,7 @@ export const BadgeCountProvider = ({ children }) => {
 
   const refreshOrderRatioCount = async () => {
     try {
-      const res = await axios.get('/orders/order_lines/without_ratios/count');
+      const res = await axios.get('orders/order_lines/without_ratios/count');
       setOrderRatioPendingCount(res.data.count);
     } catch (err) {
       console.error("❌ Failed to fetch order ratio count:", err);
@@ -20,7 +20,7 @@ export const BadgeCountProvider = ({ children }) => {
 
   const refreshWidthValidationCount = async () => {
     try {
-      const res = await axios.get('/navision/width_validation/count');
+      const res = await axios.get('navision/width_validation/count');
       setWidthValidationCount(res.data.count);
     } catch (err) {
       console.error("❌ Failed to fetch width validation count:", err);
@@ -29,7 +29,7 @@ export const BadgeCountProvider = ({ children }) => {
 
   const refreshWidthChangeApprovalsCount = async () => {
     try {
-      const res = await axios.get('/width_change_requests/pending/count');
+      const res = await axios.get('width_change_requests/pending/count');
       setWidthChangeApprovalsCount(res.data.count);
     } catch (err) {
       console.error("❌ Failed to fetch width change approvals count:", err);
@@ -38,7 +38,7 @@ export const BadgeCountProvider = ({ children }) => {
 
   const refreshMarkerRequestsCount = async () => {
     try {
-      const res = await axios.get('/marker_requests/pending/count');
+      const res = await axios.get('marker_requests/pending/count');
       setMarkerRequestsCount(res.data.count);
     } catch (err) {
       console.error("❌ Failed to fetch marker requests count:", err);

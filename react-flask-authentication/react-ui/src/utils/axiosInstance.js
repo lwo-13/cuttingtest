@@ -1,23 +1,43 @@
 import axios from 'axios';
 
-// Smart backend URL detection
+// SINGLE PORT SOLUTION: Smart backend URL detection
 const getBackendURL = () => {
-  // If we're on the actual VPN domain, use VPN API (with /api since Flask expects /api prefix)
+  console.log('🔥 DETECTING ENVIRONMENT FOR SINGLE PORT SOLUTION');
+  console.log('🔥 CURRENT HOSTNAME:', window.location.hostname);
+  console.log('🔥 CURRENT PORT:', window.location.port);
+  console.log('🔥 CURRENT ORIGIN:', window.location.origin);
+  console.log('🔥 CURRENT PATHNAME:', window.location.pathname);
+
+  // SINGLE PORT: If we're on VPN domain, use VPN proxy path
   if (typeof window !== 'undefined' && window.location.hostname === 'sslvpn1.calzedonia.com') {
-    return 'https://sslvpn1.calzedonia.com/web_forward_CuttingApplicationAPI/api/';
+    console.log('🔥 VPN ENVIRONMENT - USING VPN PROXY API PATHS (SINGLE PORT)');
+    return '/web_forward_CuttingApplicationAPI/api/';  // VPN proxy path + API
   }
-  // If we're testing VPN path locally, use VPN API
+
+  // SINGLE PORT: For VM deployment - ALWAYS use relative paths when on VM
+  // CRITICAL FIX: Check hostname first, ignore pathname to prevent VPN path detection on VM
   if (typeof window !== 'undefined' &&
-      window.location.hostname === 'localhost' &&
-      window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
-    return 'https://sslvpn1.calzedonia.com/web_forward_CuttingApplicationAPI/api/';
+      (window.location.hostname === '172.27.57.210' ||
+       window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com')) {
+    console.log('🔥 VM ENVIRONMENT - USING RELATIVE API PATHS (SINGLE PORT)');
+    console.log('🔥 VM DETECTED - IGNORING ANY VPN PATHS IN URL');
+    return '/api/';  // Always relative on VM since served from Flask
   }
-  // For Docker deployment on VM, use the external nginx port
-  if (typeof window !== 'undefined' && (window.location.hostname === '172.27.57.210' || window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com')) {
-    return 'http://gab-navint01p.csg1.sys.calzedonia.com:5000/api/';
+
+  // For local development, check if served from Flask or dev server
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    if (window.location.port === '5000') {
+      console.log('🔥 LOCAL FLASK SERVER - USING RELATIVE API PATHS (SINGLE PORT)');
+      return '/api/';
+    } else {
+      console.log('🔥 LOCAL DEV SERVER - USING CROSS-ORIGIN API');
+      return 'http://localhost:5000/api/';
+    }
   }
-  // For local development, use direct backend URL
-  return 'http://localhost:5000/api/';
+
+  // Default fallback - assume single port if we can't determine
+  console.log('🔥 DEFAULT - USING RELATIVE API PATHS');
+  return '/api/';
 };
 
 const axiosInstance = axios.create({
@@ -46,6 +66,8 @@ axiosInstance.interceptors.request.use(
     console.log('🔥 AXIOS REQUEST:', config.method?.toUpperCase(), config.url);
     console.log('🔥 AXIOS HEADERS:', config.headers);
     console.log('🔥 AXIOS BASE URL:', config.baseURL);
+    console.log('🔥 FINAL REQUEST URL:', config.baseURL + config.url);
+    console.log('🔥 CURRENT WINDOW LOCATION:', window.location.href);
 
     // Add authorization token if available
     const token = localStorage.getItem('token');

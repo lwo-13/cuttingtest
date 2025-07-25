@@ -11,8 +11,11 @@ from api.models import db
 from api.routes import register_blueprints, rest_api
 
 def create_app():
-    """Flask application factory function"""
-    app = Flask(__name__)
+    """Flask application factory function - SINGLE PORT SOLUTION"""
+    # Configure Flask to serve React build files (Docker container paths)
+    app = Flask(__name__,
+                static_folder='../react-ui/build/static',
+                template_folder='../react-ui/build')
 
     # Load configuration
     app.config.from_object('api.config.BaseConfig')
@@ -194,13 +197,60 @@ def create_app():
             traceback.print_exc()
             return jsonify({"success": False, "msg": f"Login error: {str(e)}"}), 500
 
-    # Register Blueprints and add namespaces FIRST
-    register_blueprints(app)
+    # SINGLE PORT SOLUTION: Register React routes BEFORE Flask-RESTX
+    # This ensures our React routes take precedence over Flask-RESTX routes
 
-    # Initialize REST API AFTER namespaces are added
+    # Register React serving routes FIRST
+    @app.route('/')
+    def serve_react_app():
+        """Serve the main React application"""
+        try:
+            print("🔥🔥🔥 SERVING REACT APP FROM ROOT")
+            from flask import send_from_directory
+            import os
+
+            # Docker container path: /app/react-ui/build
+            build_dir = '/app/react-ui/build'
+            print(f"🔥🔥🔥 USING ABSOLUTE DOCKER PATH: {build_dir}")
+
+            index_path = os.path.join(build_dir, 'index.html')
+            if os.path.exists(index_path):
+                return send_from_directory(build_dir, 'index.html')
+            else:
+                return {"error": "React build not found", "build_dir": build_dir}, 500
+
+        except Exception as e:
+            print(f"🔥🔥🔥 ERROR SERVING REACT APP: {e}")
+            return {"error": "React app serving error", "details": str(e)}, 500
+
+    # VPN PROXY ROUTE: Handle VPN proxy path
+    @app.route('/web_forward_CuttingApplicationAPI/')
+    def serve_react_app_vpn():
+        """Serve React app for VPN proxy access"""
+        try:
+            print("🔥🔥🔥 SERVING REACT APP FROM VPN PROXY PATH")
+            from flask import send_from_directory
+            import os
+
+            # Docker container path: /app/react-ui/build
+            build_dir = '/app/react-ui/build'
+            print(f"🔥🔥🔥 VPN PROXY - USING ABSOLUTE DOCKER PATH: {build_dir}")
+
+            index_path = os.path.join(build_dir, 'index.html')
+            if os.path.exists(index_path):
+                return send_from_directory(build_dir, 'index.html')
+            else:
+                return {"error": "React build not found", "build_dir": build_dir}, 500
+
+        except Exception as e:
+            print(f"🔥🔥🔥 ERROR SERVING VPN REACT APP: {e}")
+            return {"error": "VPN React app serving error", "details": str(e)}, 500
+
+    # Now register Flask-RESTX (it won't override our root route)
+    register_blueprints(app)
     try:
         rest_api.init_app(app)
-        print("✅ Flask-RESTX initialized successfully")
+        print("✅ Flask-RESTX initialized successfully (after React routes)")
     except Exception as e:
         print(f"❌ Flask-RESTX initialization failed: {e}")
         print("🔧 Continuing without Flask-RESTX...")
@@ -217,6 +267,68 @@ def create_app():
     @app.errorhandler(500)
     def internal_error(error):
         return {"success": False, "message": "Internal server error occurred."}, 500
+
+    # DUPLICATE REMOVED - React route is now registered before Flask-RESTX above
+
+    @app.route('/<path:path>')
+    def serve_react_routes(path):
+        """Handle React client-side routing and static files"""
+        print(f"🔥🔥🔥 SERVING PATH: {path}")
+
+        # If it's an API route, let Flask handle it normally (will return 404 if not found)
+        if path.startswith('api/') or path.startswith('users/'):
+            print(f"🔥🔥🔥 API ROUTE NOT FOUND: {path}")
+            return {"error": "API endpoint not found", "path": path}, 404
+
+        # If it's a static file request, try to serve it from the build directory
+        if '.' in path and not path.endswith('.html'):
+            try:
+                print(f"🔥🔥🔥 SERVING STATIC FILE: {path}")
+                from flask import send_from_directory
+                import os
+
+                # Docker container path: /app/react-ui/build
+                build_dir = '/app/react-ui/build'
+
+                # For static files, they're usually in build/static/ subdirectory
+                if path.startswith('static/'):
+                    file_path = os.path.join(build_dir, path)
+                    if os.path.exists(file_path):
+                        return send_from_directory(build_dir, path)
+
+                # Try serving from root build directory
+                file_path = os.path.join(build_dir, path)
+                if os.path.exists(file_path):
+                    return send_from_directory(build_dir, path)
+
+                print(f"🔥🔥🔥 STATIC FILE NOT FOUND: {path}")
+                return {"error": "Static file not found", "path": path}, 404
+
+            except Exception as e:
+                print(f"🔥🔥🔥 ERROR SERVING STATIC FILE: {e}")
+                return {"error": "Static file error", "path": path, "details": str(e)}, 404
+
+        # For all other routes (React client-side routing), serve the React app
+        try:
+            print(f"🔥🔥🔥 SERVING REACT ROUTE: {path}")
+            from flask import send_from_directory
+            import os
+
+            # Docker container path: /app/react-ui/build
+            build_dir = '/app/react-ui/build'
+
+            return send_from_directory(build_dir, 'index.html')
+
+        except Exception as e:
+            print(f"🔥🔥🔥 ERROR SERVING REACT ROUTE: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "error": "React route serving error",
+                "message": "Error serving React route",
+                "path": path,
+                "details": str(e)
+            }, 500
 
     # Add global request logging AFTER everything
     @app.before_request

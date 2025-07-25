@@ -1,12 +1,14 @@
 FROM python:3.9
 
-COPY . .
+# SINGLE PORT SOLUTION: Install Node.js to build React with updated axios config
+RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
+    && apt-get install -y nodejs
 
-# set environment variables
+# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# install python dependencies
+# Install system dependencies for SQL Server
 RUN apt-get update && apt-get install -y \
     unixodbc \
     unixodbc-dev \
@@ -21,8 +23,30 @@ RUN apt-get update && apt-get install -y \
     && ACCEPT_EULA=Y apt-get install -y msodbcsql18 \
     && rm -rf /var/lib/apt/lists/*
 
+# Create app directory
+WORKDIR /app
+
+# Copy React source code first (with updated axios config)
+COPY react-ui ./react-ui
+WORKDIR /app/react-ui
+
+# Install React dependencies and build with new axios configuration
+RUN npm install --production=false
+RUN npm run build
+
+# Copy Flask application
+WORKDIR /app
+COPY api-server-flask .
+
+# Verify React build files exist
+RUN ls -la ./react-ui/build/ && echo "✅ React build completed with updated axios config"
+
+# Install Python dependencies
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# gunicorn
+# Expose single port for both frontend and API
+EXPOSE 5005
+
+# Start Flask server (which now serves both frontend and API)
 CMD ["gunicorn", "--config", "gunicorn-cfg.py", "run:app"]

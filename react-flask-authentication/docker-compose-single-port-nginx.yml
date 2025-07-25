@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # SINGLE PORT SOLUTION: Flask serves both React frontend and API
+  cutting_app:
+    container_name: cutting_app_single_port
+    restart: always
+    build:
+      context: ./api-server-flask
+      dockerfile: Dockerfile
+    volumes:
+      # Mount uploads directory for file persistence
+      - ./api-server-flask/static/uploads:/app/static/uploads
+    environment:
+      # Flask configuration
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      # Database configuration
+      - DB_HOST=172.27.57.201
+      - DB_NAME=CuttingRoom
+      - DB_USERNAME=sa
+      - DB_PASS=sqladmin
+    networks:
+      - cutting_network
+    # Don't expose port directly - nginx will proxy
+    expose:
+      - "5005"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5005/api/test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # OPTIONAL: Nginx for SSL termination, caching, load balancing
+  nginx:
+    container_name: cutting_nginx_single_port
+    restart: always
+    image: "nginx:latest"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./api-server-flask/nginx/single-port.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - cutting_network
+    depends_on:
+      cutting_app:
+        condition: service_healthy
+
+networks:
+  cutting_network:
+    driver: bridge
+
+# NOTE: This configuration includes nginx for production features like:
+# - SSL termination
+# - Static file caching
+# - Load balancing (if multiple Flask instances needed)
+# - Request logging and monitoring
+# 
+# For simple deployments, use docker-compose-single-port.yml instead

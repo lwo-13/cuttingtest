@@ -1,0 +1,50 @@
+services:
+  # SINGLE PORT SOLUTION: Flask serves both React frontend and API
+  cutting_app:
+    container_name: cutting_app_single_port
+    restart: always
+    build:
+      context: .  # Use root directory as context to access both api-server-flask and react-ui
+      dockerfile: ./api-server-flask/Dockerfile
+    ports:
+      - "5000:5005"  # Expose Flask on port 5000 (same as current setup)
+    volumes:
+      # Mount uploads directory for file persistence
+      - ./api-server-flask/static/uploads:/app/static/uploads
+      # Optional: Mount React source for development (can be removed in production)
+      - ./react-ui:/app/react-ui
+    environment:
+      # Flask configuration
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      # Database configuration (same as current setup)
+      - DB_HOST=172.27.57.201
+      - DB_NAME=CuttingRoom
+      - DB_USERNAME=sa
+      - DB_PASS=sqladmin
+      # Additional environment variables
+      - PYTHONPATH=/app
+    networks:
+      - cutting_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5005/api/test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  cutting_network:
+    driver: bridge
+
+# REMOVED SERVICES (no longer needed in single port solution):
+# - react-ui container (now served by Flask)
+# - nginx container (Flask serves directly)
+# - separate web_network (single container, single network)
+
+# BENEFITS OF SINGLE PORT SOLUTION:
+# ✅ Eliminates VPN dual-port authentication issues
+# ✅ Simplified deployment (one container instead of three)
+# ✅ No cross-origin requests (better performance)
+# ✅ Easier maintenance and debugging
+# ✅ Single authentication context for VPN
