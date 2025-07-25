@@ -16,8 +16,8 @@ const getBackendURL = () => {
   if (typeof window !== 'undefined' && window.location.hostname === '172.27.57.210') {
     return 'http://172.27.57.210:5000/api/';
   }
-  // For local development, use relative path
-  return '/api/';
+  // For local development, use direct backend URL
+  return 'http://localhost:5000/api/';
 };
 
 const axiosInstance = axios.create({
