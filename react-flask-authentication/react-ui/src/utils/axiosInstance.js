@@ -36,6 +36,10 @@ const axiosInstance = axios.create({
   withCredentials: true
 });
 
+// NOTE: VPN uses token-based authentication with dual port rules
+// Frontend and backend have separate authentication contexts
+// Users must click "Cutting API" tile first to establish backend authentication
+
 // Add request interceptor for debugging VPN issues
 axiosInstance.interceptors.request.use(
   (config) => {

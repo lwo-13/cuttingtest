@@ -120,6 +120,8 @@ const RestLogin = (props, { ...others }) => {
                         console.log('🔥 LOGIN RESPONSE HEADERS:', response.headers);
                         console.log('🔥 LOGIN RESPONSE DATA TYPE:', typeof response.data);
                         console.log('🔥 LOGIN RESPONSE DATA:', response.data);
+                        console.log('🔥 LOGIN RESPONSE URL:', response.config.url);
+                        console.log('🔥 LOGIN RESPONSE FINAL URL:', response.request?.responseURL);
 
                         // Check if we got HTML instead of JSON
                         if (typeof response.data === 'string' && response.data.includes('<html')) {
