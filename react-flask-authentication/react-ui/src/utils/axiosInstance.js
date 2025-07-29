@@ -21,34 +21,28 @@ const getBackendURL = () => {
   console.log('🔥   - VM hostname check 1:', window.location.hostname === '172.27.57.210');
   console.log('🔥   - VM hostname check 2:', window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com');
 
-  // ENHANCED VPN DETECTION: Check multiple indicators for VPN environment
-  // CRITICAL FIX: VPN proxy might rewrite hostname, so check URL and referrer too
+  // ENHANCED VPN DETECTION: For VM + VPN Proxy setup
+  // React app runs on VM but accessed through VPN proxy
   const isVPNEnvironment = typeof window !== 'undefined' && (
-    // Primary check: VPN hostname (this is the main indicator)
+    // Primary check: Direct VPN hostname access
     window.location.hostname === 'sslvpn1.calzedonia.com' ||
-    // Secondary check: VPN path pattern (for cases where hostname detection fails)
-    window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI') ||
-    // Tertiary check: HTTPS with VPN-like path structure
-    (window.location.protocol === 'https:' &&
-     (window.location.pathname.includes('web_forward') ||
-      window.location.href.includes('sslvpn1.calzedonia.com'))) ||
-    // CRITICAL: Check if we're being served through VPN proxy (referrer or original URL)
+    // CRITICAL: Check if accessed through VPN proxy (referrer contains VPN URL)
     (document.referrer && document.referrer.includes('sslvpn1.calzedonia.com')) ||
-    // Check if we're on HTTPS and NOT on the known VM hostnames (likely VPN)
+    // Check current URL for VPN proxy path
+    window.location.href.includes('sslvpn1.calzedonia.com') ||
+    // Check if we're on VM but with HTTPS (likely VPN proxy forwarding)
     (window.location.protocol === 'https:' &&
-     window.location.hostname !== '172.27.57.210' &&
-     window.location.hostname !== 'gab-navint01p.csg1.sys.calzedonia.com' &&
-     window.location.hostname !== 'localhost')
+     (window.location.hostname === '172.27.57.210' ||
+      window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com'))
   );
 
   if (isVPNEnvironment) {
     console.log('🔥 VPN ENVIRONMENT DETECTED - USING VPN PROXY API PATHS (SINGLE PORT)');
     console.log('🔥 VPN DETECTION REASONS:');
-    console.log('🔥   - Hostname match:', window.location.hostname === 'sslvpn1.calzedonia.com');
-    console.log('🔥   - Path match:', window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI'));
-    console.log('🔥   - HTTPS + VPN pattern:', window.location.protocol === 'https:' && window.location.href.includes('sslvpn1.calzedonia.com'));
+    console.log('🔥   - Direct hostname match:', window.location.hostname === 'sslvpn1.calzedonia.com');
     console.log('🔥   - Referrer check:', document.referrer && document.referrer.includes('sslvpn1.calzedonia.com'));
-    console.log('🔥   - HTTPS non-VM check:', window.location.protocol === 'https:' && window.location.hostname !== '172.27.57.210' && window.location.hostname !== 'gab-navint01p.csg1.sys.calzedonia.com');
+    console.log('🔥   - URL contains VPN:', window.location.href.includes('sslvpn1.calzedonia.com'));
+    console.log('🔥   - HTTPS on VM (proxy):', window.location.protocol === 'https:' && (window.location.hostname === '172.27.57.210' || window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com'));
     return '/web_forward_CuttingApplicationAPI/api/';  // VPN proxy path + API
   }
 
