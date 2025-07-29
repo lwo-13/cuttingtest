@@ -239,13 +239,42 @@ def create_app():
             from flask import send_from_directory
             import os
 
-            # If it's an API request, let Flask handle it normally
-            if path.startswith('api/'):
-                print(f"🔥🔥🔥 API REQUEST DETECTED: {path}")
-                # This will be handled by Flask-RESTX routes
-                return {"error": "API endpoint not found", "path": path}, 404
+            # API requests are now handled by properly registered routes with VPN prefix
+            # No need to handle them here anymore
 
-            # For all other requests, serve React app
+            # CRITICAL FIX: Handle static assets (JS, CSS, images)
+            if path.startswith('static/'):
+                print(f"🔥🔥🔥 STATIC ASSET REQUEST: {path}")
+                build_dir = '/app/react-ui/build'
+                asset_path = os.path.join(build_dir, path)
+                if os.path.exists(asset_path):
+                    print(f"🔥🔥🔥 SERVING STATIC ASSET: {asset_path}")
+                    from flask import make_response
+                    response = make_response(send_from_directory(build_dir, path))
+                    # Add cache control headers to prevent 304 issues
+                    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                    response.headers['Pragma'] = 'no-cache'
+                    response.headers['Expires'] = '0'
+                    return response
+                else:
+                    print(f"🔥🔥🔥 STATIC ASSET NOT FOUND: {asset_path}")
+                    return {"error": "Static asset not found", "path": path}, 404
+
+            # Handle manifest.json and other root files
+            if path in ['manifest.json', 'favicon.ico', 'robots.txt', 'asset-manifest.json']:
+                print(f"🔥🔥🔥 ROOT ASSET REQUEST: {path}")
+                build_dir = '/app/react-ui/build'
+                asset_path = os.path.join(build_dir, path)
+                if os.path.exists(asset_path):
+                    print(f"🔥🔥🔥 SERVING ROOT ASSET: {asset_path}")
+                    from flask import make_response
+                    response = make_response(send_from_directory(build_dir, path))
+                    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                    response.headers['Pragma'] = 'no-cache'
+                    response.headers['Expires'] = '0'
+                    return response
+
+            # For all other requests (React routes), serve React app
             print("🔥🔥🔥 SERVING REACT APP FROM VPN PROXY PATH")
 
             # Docker container path: /app/react-ui/build
@@ -340,14 +369,30 @@ def create_app():
             "version": "single-port-enhanced"
         }
 
+    # SIMPLE TEST ROUTE - Add this before Flask-RESTX to test if routes work
+    @app.route('/simple-test')
+    @app.route('/web_forward_CuttingApplicationAPI/simple-test')
+    def simple_test():
+        import datetime
+        return {"status": "success", "message": "Simple test route works!", "timestamp": str(datetime.datetime.now())}
+
     # Now register Flask-RESTX (it won't override our root route)
+    print("🔥🔥🔥 REGISTERING BLUEPRINTS...")
     register_blueprints(app)
+
+    print("🔥🔥🔥 INITIALIZING FLASK-RESTX...")
     try:
         rest_api.init_app(app)
         print("✅ Flask-RESTX initialized successfully (after React routes)")
     except Exception as e:
         print(f"❌ Flask-RESTX initialization failed: {e}")
         print("🔧 Continuing without Flask-RESTX...")
+
+    # Print all registered routes for debugging
+    print("🔥🔥🔥 REGISTERED ROUTES:")
+    for rule in app.url_map.iter_rules():
+        print(f"🔥🔥🔥 Route: {rule.rule} -> {rule.endpoint}")
+    print("🔥🔥🔥 END ROUTES LIST")
 
     # CRITICAL FIX: Add custom error handlers to return JSON instead of HTML
     @app.errorhandler(404)
@@ -373,6 +418,16 @@ def create_app():
         if path.startswith('api/') or path.startswith('users/'):
             print(f"🔥🔥🔥 API ROUTE NOT FOUND: {path}")
             return {"error": "API endpoint not found", "path": path}, 404
+
+        # Handle static assets for non-VPN paths
+        if path.startswith('static/'):
+            print(f"🔥🔥🔥 DIRECT STATIC ASSET REQUEST: {path}")
+            build_dir = '/app/react-ui/build'
+            asset_path = os.path.join(build_dir, path)
+            if os.path.exists(asset_path):
+                return send_from_directory(build_dir, path)
+            else:
+                return {"error": "Static asset not found", "path": path}, 404
 
         # If it's a static file request, try to serve it from the build directory
         if '.' in path and not path.endswith('.html'):
@@ -474,5 +529,13 @@ def create_app():
 
             response.headers.add('Content-Type', 'application/json')
         return response
+
+    # CATCH-ALL ROUTE FOR DEBUGGING - Add this at the very end
+    @app.route('/<path:unmatched_path>')
+    def catch_all_debug(unmatched_path):
+        print(f"🔥🔥🔥 CATCH-ALL ROUTE HIT: {unmatched_path}")
+        print(f"🔥🔥🔥 Full URL: {request.url}")
+        print(f"🔥🔥🔥 Method: {request.method}")
+        return {"error": "Route not found", "path": unmatched_path, "url": request.url}, 404
 
     return app

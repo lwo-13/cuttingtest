@@ -55,13 +55,29 @@ def register_blueprints(app):
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(navision_bp, url_prefix="/api/navision")
 
+    # CRITICAL FIX: Also register with VPN prefix for VPN access
+    print("🔥🔥🔥 REGISTERING API ROUTES WITH VPN PREFIX...")
+    app.register_blueprint(auth_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/users")
+    app.register_blueprint(markers_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/markers")
+    app.register_blueprint(orders_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/orders")
+    app.register_blueprint(mattress_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/mattress")
+    app.register_blueprint(zalli_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/zalli")
+    app.register_blueprint(padprint_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/padprint")
+    app.register_blueprint(collaretto_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/collaretto")
+    app.register_blueprint(operators_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/operators")
+    app.register_blueprint(marker_calculator_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/marker_calculator")
+    app.register_blueprint(width_change_requests_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/width_change_requests")
+    app.register_blueprint(marker_requests_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/marker_requests")
+    app.register_blueprint(dashboard_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/dashboard")
+    app.register_blueprint(navision_bp, url_prefix="/web_forward_CuttingApplicationAPI/api/navision")
+
     # VPN uses the same /api/users endpoints as VM access (Flask-RESTX)
     print("=" * 50)
     print("✅ VPN WILL USE EXISTING /api/users ENDPOINTS")
     print("   - POST /api/users/login (Flask-RESTX)")
     print("=" * 50)
 
-    # Attach Namespaces so they appear in the Swagger docs
+    # Attach Namespaces so they appear in the Swagger docs (only for /api/ paths)
     rest_api.add_namespace(auth_api, path="/api/users")
     rest_api.add_namespace(markers_api, path="/api/markers")
     rest_api.add_namespace(orders_api, path="/api/orders")
@@ -74,5 +90,6 @@ def register_blueprints(app):
     rest_api.add_namespace(width_change_requests_api, path="/api/width_change_requests")
     rest_api.add_namespace(marker_requests_api, path="/api/marker_requests")
     rest_api.add_namespace(dashboard_api, path="/api/dashboard")
-
     rest_api.add_namespace(navision_api, path="/api/navision")
+
+    print("✅ API ROUTES REGISTERED FOR BOTH /api/ AND /web_forward_CuttingApplicationAPI/api/ PATHS")
