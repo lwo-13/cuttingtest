@@ -13,5 +13,5 @@ app.get('*', (req, res) => {
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
-  console.log(`Test VPN path at: http://localhost:${port}/web_forward_CuttingApplication/`);
+  console.log(`Test VPN path at: http://localhost:${port}/web_forward_CuttingApplicationAPI/`);
 });

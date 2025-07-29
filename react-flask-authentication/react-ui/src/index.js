@@ -1,7 +1,7 @@
 // Set webpack public path dynamically BEFORE any imports
 /* eslint-disable no-undef */
-if (typeof window !== 'undefined' && window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
-  __webpack_public_path__ = '/web_forward_CuttingApplication/';
+if (typeof window !== 'undefined' && window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI')) {
+  __webpack_public_path__ = '/web_forward_CuttingApplicationAPI/';
 } else {
   __webpack_public_path__ = '/';
 }

@@ -38,8 +38,8 @@
           // Set webpack public path dynamically based on current location
           // This must run BEFORE any webpack chunks are loaded
           (function() {
-            if (window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
-              window.__webpack_public_path__ = '/web_forward_CuttingApplication/';
+            if (window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI')) {
+              window.__webpack_public_path__ = '/web_forward_CuttingApplicationAPI/';
             } else {
               window.__webpack_public_path__ = '/';
             }

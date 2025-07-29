@@ -223,14 +223,30 @@ def create_app():
             print(f"🔥🔥🔥 ERROR SERVING REACT APP: {e}")
             return {"error": "React app serving error", "details": str(e)}, 500
 
-    # VPN PROXY ROUTE: Handle VPN proxy path
+    # ENHANCED VPN PROXY ROUTE: Handle VPN proxy path with better debugging
     @app.route('/web_forward_CuttingApplicationAPI/')
-    def serve_react_app_vpn():
-        """Serve React app for VPN proxy access"""
+    @app.route('/web_forward_CuttingApplicationAPI/<path:path>')
+    def serve_react_app_vpn(path=''):
+        """Serve React app for VPN proxy access with enhanced debugging"""
         try:
-            print("🔥🔥🔥 SERVING REACT APP FROM VPN PROXY PATH")
+            print("🔥🔥🔥 VPN PROXY REQUEST RECEIVED")
+            print(f"🔥🔥🔥 Request path: {path}")
+            print(f"🔥🔥🔥 Request method: {request.method}")
+            print(f"🔥🔥🔥 Request headers: {dict(request.headers)}")
+            print(f"🔥🔥🔥 Request remote addr: {request.remote_addr}")
+            print(f"🔥🔥🔥 Request user agent: {request.headers.get('User-Agent', 'Unknown')}")
+
             from flask import send_from_directory
             import os
+
+            # If it's an API request, let Flask handle it normally
+            if path.startswith('api/'):
+                print(f"🔥🔥🔥 API REQUEST DETECTED: {path}")
+                # This will be handled by Flask-RESTX routes
+                return {"error": "API endpoint not found", "path": path}, 404
+
+            # For all other requests, serve React app
+            print("🔥🔥🔥 SERVING REACT APP FROM VPN PROXY PATH")
 
             # Docker container path: /app/react-ui/build
             build_dir = '/app/react-ui/build'
@@ -238,13 +254,91 @@ def create_app():
 
             index_path = os.path.join(build_dir, 'index.html')
             if os.path.exists(index_path):
+                print("🔥🔥🔥 INDEX.HTML FOUND - SERVING REACT APP")
                 return send_from_directory(build_dir, 'index.html')
             else:
-                return {"error": "React build not found", "build_dir": build_dir}, 500
+                print(f"🔥🔥🔥 INDEX.HTML NOT FOUND AT: {index_path}")
+                return {"error": "React build not found", "build_dir": build_dir, "index_path": index_path}, 500
 
         except Exception as e:
             print(f"🔥🔥🔥 ERROR SERVING VPN REACT APP: {e}")
+            import traceback
+            print(f"🔥🔥🔥 TRACEBACK: {traceback.format_exc()}")
             return {"error": "VPN React app serving error", "details": str(e)}, 500
+
+    # NETWORK CONNECTIVITY TEST ENDPOINT
+    @app.route('/network-test')
+    @app.route('/web_forward_CuttingApplicationAPI/network-test')
+    def network_test():
+        """Test endpoint for network connectivity debugging"""
+        import datetime
+        import socket
+
+        try:
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+        except:
+            hostname = "unknown"
+            local_ip = "unknown"
+
+        return {
+            "status": "success",
+            "message": "Network connectivity test successful",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "server_info": {
+                "hostname": hostname,
+                "local_ip": local_ip,
+                "flask_env": os.environ.get('FLASK_ENV', 'unknown')
+            },
+            "request_info": {
+                "remote_addr": request.remote_addr,
+                "user_agent": request.headers.get('User-Agent', 'Unknown'),
+                "method": request.method,
+                "path": request.path,
+                "headers": dict(request.headers)
+            }
+        }
+
+    # HEALTH CHECK ENDPOINT
+    @app.route('/health')
+    @app.route('/web_forward_CuttingApplicationAPI/health')
+    def health_check():
+        """Health check endpoint for monitoring and load balancers"""
+        import datetime
+
+        # Test database connection
+        db_status = "unknown"
+        try:
+            db.session.execute('SELECT 1')
+            db_status = "connected"
+        except Exception as e:
+            db_status = f"error: {str(e)}"
+
+        # Check React build files
+        react_status = "unknown"
+        try:
+            import os
+            build_dir = '/app/react-ui/build'
+            index_path = os.path.join(build_dir, 'index.html')
+            if os.path.exists(index_path):
+                react_status = "available"
+            else:
+                react_status = "missing"
+        except Exception as e:
+            react_status = f"error: {str(e)}"
+
+        overall_status = "healthy" if db_status == "connected" and react_status == "available" else "unhealthy"
+
+        return {
+            "status": overall_status,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "components": {
+                "database": db_status,
+                "react_build": react_status,
+                "flask": "running"
+            },
+            "version": "single-port-enhanced"
+        }
 
     # Now register Flask-RESTX (it won't override our root route)
     register_blueprints(app)

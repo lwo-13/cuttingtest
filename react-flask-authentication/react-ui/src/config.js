@@ -1,18 +1,38 @@
 // Backend URL is now handled in axiosInstance.js
 let BACKEND_SERVER = "/";
 
-// Set basename for VPN proxy routing
+// ENHANCED VPN PROXY ROUTING: More robust detection for different network environments
 const getBasename = () => {
-    // Use VPN basename if we're on the actual VPN domain
-    if (typeof window !== 'undefined' && window.location.hostname === 'sslvpn1.calzedonia.com') {
-        return '/web_forward_CuttingApplication';
+    console.log('🔥 DETERMINING BASENAME FOR ROUTING');
+    console.log('🔥 Current hostname:', window.location.hostname);
+    console.log('🔥 Current pathname:', window.location.pathname);
+    console.log('🔥 Current protocol:', window.location.protocol);
+    console.log('🔥 Current href:', window.location.href);
+
+    // Enhanced VPN detection logic
+    const isVPNEnvironment = typeof window !== 'undefined' && (
+        // Primary: VPN hostname
+        window.location.hostname === 'sslvpn1.calzedonia.com' ||
+        // Secondary: VPN path pattern (more reliable for different networks)
+        window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI') ||
+        // Tertiary: HTTPS with VPN-like URL structure
+        (window.location.protocol === 'https:' &&
+         window.location.href.includes('web_forward_CuttingApplicationAPI')) ||
+        // Quaternary: Check for VPN proxy in referrer (for redirects)
+        (document.referrer && document.referrer.includes('sslvpn1.calzedonia.com'))
+    );
+
+    if (isVPNEnvironment) {
+        console.log('🔥 VPN ENVIRONMENT DETECTED - Using VPN basename');
+        console.log('🔥 VPN Detection reasons:');
+        console.log('🔥   - Hostname match:', window.location.hostname === 'sslvpn1.calzedonia.com');
+        console.log('🔥   - Path match:', window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI'));
+        console.log('🔥   - HTTPS + VPN pattern:', window.location.protocol === 'https:' && window.location.href.includes('web_forward_CuttingApplicationAPI'));
+        console.log('🔥   - Referrer match:', document.referrer && document.referrer.includes('sslvpn1.calzedonia.com'));
+        return '/web_forward_CuttingApplicationAPI';
     }
-    // Or if we're testing the VPN path on ANY hostname (including VM)
-    if (typeof window !== 'undefined' &&
-        window.location.pathname.startsWith('/web_forward_CuttingApplication')) {
-        return '/web_forward_CuttingApplication';
-    }
-    // For all other cases, use no basename
+
+    console.log('🔥 NON-VPN ENVIRONMENT - Using empty basename');
     return '';
 };
 
@@ -37,7 +57,7 @@ export const getDefaultPathByRole = (role) => {
 
 const config = {
     // basename: automatically detects environment
-    // VPN proxy: '/web_forward_CuttingApplication'
+    // VPN proxy: '/web_forward_CuttingApplicationAPI'
     // Local/direct: ''
     basename: getBasename(),
     defaultPath: '/dashboard/default', // Default path for non-authenticated users

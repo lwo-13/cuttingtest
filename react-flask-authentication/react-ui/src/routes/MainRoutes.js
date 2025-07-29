@@ -43,6 +43,9 @@ const UtilsTablerIcons = Loadable(lazy(() => import('../views/utilities/TablerIc
 // sample page routing
 const SamplePage = Loadable(lazy(() => import('../views/sample-page')));
 
+// network diagnostics
+const NetworkDiagnostics = Loadable(lazy(() => import('../components/NetworkDiagnostics')));
+
 // spreader routing
 const SpreaderView = Loadable(lazy(() => import('../views/operators_view/spreaderView')));
 
@@ -94,6 +97,7 @@ const MainRoutes = () => {
                     '/icons/material-icons',
 
                     '/sample-page',
+                    '/network-diagnostics',
 
                     '/operators/spreader-management',
                     '/operators/cutter-management'
@@ -128,6 +132,7 @@ const MainRoutes = () => {
                             <Route path="/icons/material-icons" component={UtilsMaterialIcons} />
 
                             <Route path="/sample-page" component={SamplePage} />
+                            <Route path="/network-diagnostics" component={NetworkDiagnostics} />
 
 
 
