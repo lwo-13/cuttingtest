@@ -239,8 +239,48 @@ def create_app():
             from flask import send_from_directory
             import os
 
-            # API requests are now handled by properly registered routes with VPN prefix
-            # No need to handle them here anymore
+            # CRITICAL FIX: Proxy API requests to regular API routes
+            if path.startswith('api/'):
+                print(f"🔥🔥🔥 VPN API REQUEST: {path} - PROXYING TO REGULAR API")
+                # Remove the VPN prefix and forward to regular API
+                api_path = '/' + path  # Convert 'api/count' to '/api/count'
+                print(f"🔥🔥🔥 FORWARDING TO: {api_path}")
+
+                # Import Flask's test client to make internal request
+                from flask import current_app
+                with current_app.test_client() as client:
+                    # Forward the request with all headers and data
+                    if request.method == 'GET':
+                        response = client.get(api_path,
+                                            headers=dict(request.headers),
+                                            query_string=request.query_string)
+                    elif request.method == 'POST':
+                        response = client.post(api_path,
+                                             headers=dict(request.headers),
+                                             data=request.get_data(),
+                                             query_string=request.query_string)
+                    elif request.method == 'PUT':
+                        response = client.put(api_path,
+                                            headers=dict(request.headers),
+                                            data=request.get_data(),
+                                            query_string=request.query_string)
+                    elif request.method == 'DELETE':
+                        response = client.delete(api_path,
+                                               headers=dict(request.headers),
+                                               query_string=request.query_string)
+                    else:
+                        return {"error": "Method not allowed"}, 405
+
+                    print(f"🔥🔥🔥 PROXY RESPONSE: {response.status_code}")
+
+                    # Return the response from the internal API call
+                    from flask import Response
+                    return Response(
+                        response.get_data(),
+                        status=response.status_code,
+                        headers=dict(response.headers),
+                        mimetype=response.mimetype
+                    )
 
             # CRITICAL FIX: Handle static assets (JS, CSS, images)
             if path.startswith('static/'):
