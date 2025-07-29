@@ -11,8 +11,8 @@ services:
     volumes:
       # Mount uploads directory for file persistence
       - ./api-server-flask/static/uploads:/app/static/uploads
-      # Optional: Mount React source for development (can be removed in production)
-      - ./react-ui:/app/react-ui
+      # REMOVED: React volume mount to use built version from Docker image
+      # - ./react-ui:/app/react-ui
     environment:
       # Flask configuration
       - FLASK_ENV=production
