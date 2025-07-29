@@ -139,7 +139,8 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
 
             if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
                 const pattern = padPrintData[0].pattern.toLowerCase();
-                const imageUrl = `http://172.27.57.210:5000/api/padprint/image/${pattern}.jpg`;
+                // Use axios instance to get correct base URL (works with VPN proxy)
+                const imageUrl = `${axios.defaults.baseURL}padprint/image/${pattern}.jpg`;
                 padPrintImage = await getImageBase64WithDimensions(imageUrl);
             }
 

@@ -3,6 +3,7 @@ import React from 'react';
 import { Grid, TextField, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
+import axios from 'utils/axiosInstance';
 
 const PadPrintInfo = ({ padPrintInfo }) => {
     const { t } = useTranslation();
@@ -39,8 +40,8 @@ const PadPrintInfo = ({ padPrintInfo }) => {
                     <Grid item xs={12} md={8}>
                         <Box
                             component="img"
-                            // Using the working API endpoint format
-                            src={`http://172.27.57.210:5000/api/padprint/image/${padPrintInfo.pattern.toLowerCase()}.jpg`}
+                            // Use axios instance to get correct base URL (works with VPN proxy)
+                            src={`${axios.defaults.baseURL}padprint/image/${padPrintInfo.pattern.toLowerCase()}.jpg`}
                             alt="Pad Print"
                             sx={{
                                 width: '100%',
