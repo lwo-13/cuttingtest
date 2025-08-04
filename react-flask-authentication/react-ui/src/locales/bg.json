@@ -91,6 +91,35 @@
     "noMattressesSecondShift": "Няма назначени настили за 2-ра смяна",
     "enterActualLayers": "Моля, въведете действителния брой заредени катове:"
   },
+  "subcontractor": {
+    "title": "Подизпълнител",
+    "orderMattressPlan": "План за настили на поръчка",
+    "saveActualLayers": "Запази действителни катове",
+    "actualLayersSavedSuccessfully": "Действителните катове са запазени успешно!",
+    "errorSavingActualLayers": "Грешка при запазване на действителните катове: {{message}}",
+    "errorSavingActualLayersTryAgain": "Грешка при запазване на действителните катове. Моля, опитайте отново.",
+    "noChangesToSave": "Няма промени за запазване",
+    "updatedAt": "Обновено на",
+    "quantityDetails": "Детайли за количествата",
+    "plannedQuantities": "Планирани количества",
+    "actualQuantities": "Действителни количества",
+    "noStyleComment": "Няма коментар за стила",
+    "readOnlyInfo": "Само за четене"
+  },
+  "table": {
+    "mattress": "Настил",
+    "adhesive": "Лепило",
+    "width": "Ширина [см]",
+    "markerName": "Име на маркер",
+    "length": "Дължина [м]",
+    "efficiency": "Ефективност %",
+    "na": "Н/П",
+    "bagno": "Багно",
+    "size": "Размер",
+    "quantity": "Количество",
+    "table": "Таблица",
+    "consumption": "Консумация [м]"
+  },
   "common": {
     "loading": "Зарежда се...",
     "error": "Грешка",

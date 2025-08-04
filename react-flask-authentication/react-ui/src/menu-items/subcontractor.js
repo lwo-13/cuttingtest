@@ -11,7 +11,7 @@ const subcontractor = {
   children: [
     {
       id: 'subcontractor-view',
-      title: 'Order Mattress Plan',
+      title: i18n.t('subcontractor.orderMattressPlan', 'Order Mattress Plan'),
       type: 'item',
       url: '/subcontractor/view',
       icon: IconClipboardList,

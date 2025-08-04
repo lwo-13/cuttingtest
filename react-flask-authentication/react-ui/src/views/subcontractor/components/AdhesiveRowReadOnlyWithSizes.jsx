@@ -3,11 +3,11 @@ import { TableRow, TableCell, TextField, Typography, IconButton, Tooltip } from 
 import { Print, Download, Edit } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 
-const MattressRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDownloadMattress, onChangeMattress, onActualLayersChange, editableActualLayers }) => {
+const AdhesiveRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDownloadMattress, onChangeMattress, onActualLayersChange, editableActualLayers }) => {
   const { t } = useTranslation();
   return (
     <TableRow>
-      {/* Mattress Name (short display) */}
+      {/* Adhesive Name (short display) */}
       <TableCell sx={{ minWidth: '120px', maxWidth: '150px', textAlign: 'center', padding: '9px' }}>
         <TextField
           variant="outlined"
@@ -87,7 +87,7 @@ const MattressRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDown
       {/* Actual Layers (KPI) - Editable for subcontractors */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         {row.layers_a && row.layers_updated_at ? (
-          <Tooltip
+          <Tooltip 
             title={`${t('subcontractor.updatedAt', 'Updated at')}: ${row.layers_updated_at}`}
             placement="top"
             arrow
@@ -180,4 +180,4 @@ const MattressRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDown
   );
 };
 
-export default MattressRowReadOnlyWithSizes;
+export default AdhesiveRowReadOnlyWithSizes;

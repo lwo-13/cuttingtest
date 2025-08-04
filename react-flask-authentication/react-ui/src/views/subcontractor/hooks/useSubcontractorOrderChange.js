@@ -37,7 +37,7 @@ const handleOrderChange = async (newValue, {
     setSelectedColorCode('');
     setSelectedProductionCenter('');
     setSelectedCuttingRoom('');
-    setSelectedDestination('');
+    setSelectedDestination(''); // Clear destination selection for DELICIA cutting room
     setProductionCenterCombinations([]);
     setShowProductionCenterFilter(false);
     setFilteredCuttingRoom('');
@@ -125,6 +125,10 @@ const handleOrderChange = async (newValue, {
       if (!tablesById[tableId]) {
         tablesById[tableId] = {
           id: tableId,
+          // Production center fields
+          productionCenter: mattress.production_center || "",
+          cuttingRoom: mattress.cutting_room || "",
+          destination: mattress.destination || "",
           fabricType: mattress.fabric_type,
           fabricCode: mattress.fabric_code,
           fabricColor: mattress.fabric_color,
@@ -146,6 +150,7 @@ const handleOrderChange = async (newValue, {
         layers: mattress.layers || "",
         expectedConsumption: mattress.cons_planned || "", // Planned consumption from DB
         layers_a: mattress.layers_a || "",
+        layers_updated_at: mattress.layers_updated_at || "", // Updated at timestamp for actual layers
         cons_actual: mattress.cons_actual || "",
         cons_real: mattress.cons_real || "",
         bagno: mattress.dye_lot,
@@ -164,6 +169,10 @@ const handleOrderChange = async (newValue, {
       if (!adhesiveTablesById[tableId]) {
         adhesiveTablesById[tableId] = {
           id: tableId,
+          // Production center fields
+          productionCenter: adhesive.production_center || "",
+          cuttingRoom: adhesive.cutting_room || "",
+          destination: adhesive.destination || "",
           fabricType: adhesive.fabric_type,
           fabricCode: adhesive.fabric_code,
           fabricColor: adhesive.fabric_color,
@@ -176,13 +185,18 @@ const handleOrderChange = async (newValue, {
       const marker = markersMap[adhesive.marker_name];
       adhesiveTablesById[tableId].rows.push({
         id: adhesive.row_id,
+        mattressName: adhesive.mattress, // Add mattress name for adhesive ID display
         width: marker?.marker_width || "",
         markerName: adhesive.marker_name,
         markerLength: marker?.marker_length || "",
         efficiency: marker?.efficiency || "",
         piecesPerSize: marker?.size_quantities || {},
         layers: adhesive.layers || "",
-        expectedConsumption: adhesive.cons_actual || "",
+        expectedConsumption: adhesive.cons_planned || "", // Planned consumption from DB
+        layers_a: adhesive.layers_a || "",
+        layers_updated_at: adhesive.layers_updated_at || "", // Updated at timestamp for actual layers
+        cons_actual: adhesive.cons_actual || "",
+        cons_real: adhesive.cons_real || "",
         bagno: adhesive.dye_lot,
         sequenceNumber: adhesive.sequence_number || 0
       });

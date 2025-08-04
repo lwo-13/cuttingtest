@@ -224,6 +224,15 @@ class GetMattressesByOrder(Resource):
             cutting_room = request.args.get('cutting_room')
             destination = request.args.get('destination')
 
+            # Subquery to get the updated_at from completed phase (status = "5 - COMPLETED" and active = TRUE)
+            completed_phase_subquery = db.session.query(
+                MattressPhase.mattress_id,
+                MattressPhase.updated_at.label('completed_phase_updated_at')
+            ).filter(
+                MattressPhase.status == "5 - COMPLETED",
+                MattressPhase.active == True
+            ).subquery()
+
             query = db.session.query(
                 Mattresses,
                 MattressDetail.layers,
@@ -233,6 +242,7 @@ class GetMattressesByOrder(Resource):
                 MattressDetail.cons_actual,
                 MattressDetail.cons_real,
                 MattressDetail.bagno_ready,  # Add bagno_ready field
+                completed_phase_subquery.c.completed_phase_updated_at.label('layers_updated_at'),  # Get timestamp from completed phase
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
                 MattressPhase.status.label('phase_status'),
                 # Add table-specific production center fields
@@ -241,6 +251,8 @@ class GetMattressesByOrder(Resource):
                 MattressProductionCenter.destination
             ).outerjoin(
                 MattressDetail, Mattresses.id == MattressDetail.mattress_id
+            ).outerjoin(
+                completed_phase_subquery, Mattresses.id == completed_phase_subquery.c.mattress_id
             ).outerjoin(
                 MattressMarker, Mattresses.id == MattressMarker.mattress_id
             ).outerjoin(
@@ -272,7 +284,7 @@ class GetMattressesByOrder(Resource):
                 pending_width_change_mattresses.add(req.mattress_id)
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
@@ -289,6 +301,7 @@ class GetMattressesByOrder(Resource):
                     "spreading_method": mattress.spreading_method,
                     "layers": layers if layers is not None else "",
                     "layers_a": layers_a if layers_a is not None else "",
+                    "layers_updated_at": layers_updated_at.strftime('%Y-%m-%d %H:%M:%S') if layers_updated_at is not None else "",
                     "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
                     "allowance": extra if extra is not None else 0,
                     "cons_planned": cons_planned if cons_planned is not None else "",
@@ -304,6 +317,86 @@ class GetMattressesByOrder(Resource):
             return {"success": True, "data": result}, 200
 
         except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/save_actual_layers', methods=['POST'])
+class SaveActualLayersResource(Resource):
+    def post(self):
+        """Save actual layers for subcontractors and update mattress phase to completed"""
+        try:
+            data = request.get_json()
+            updates = data.get('updates', [])
+
+            if not updates:
+                return {"success": False, "message": "No updates provided"}, 400
+
+            updated_count = 0
+
+            for update in updates:
+                row_id = update.get('row_id')
+                layers_a = update.get('layers_a')
+
+                if not row_id or layers_a is None:
+                    continue
+
+                # Find the mattress by row_id
+                mattress = Mattresses.query.filter_by(row_id=row_id).first()
+                if not mattress:
+                    continue
+
+                # Update mattress_details with actual layers
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress.id).first()
+                if mattress_detail:
+                    mattress_detail.layers_a = layers_a
+
+                    # Calculate actual consumption based on actual layers
+                    # Formula: (planned_consumption / planned_layers) * actual_layers
+                    if mattress_detail.layers and mattress_detail.layers > 0:
+                        consumption_per_layer = mattress_detail.cons_planned / mattress_detail.layers
+                        mattress_detail.cons_actual = consumption_per_layer * layers_a
+                    else:
+                        mattress_detail.cons_actual = 0
+
+                    mattress_detail.updated_at = db.func.current_timestamp()
+
+                # Update mattress phase: set current active phase to FALSE and create/update "5 - COMPLETED" to TRUE
+                # First, set all current active phases to FALSE
+                current_active_phases = MattressPhase.query.filter_by(mattress_id=mattress.id, active=True).all()
+                for phase in current_active_phases:
+                    phase.active = False
+                    phase.updated_at = db.func.current_timestamp()
+
+                # Check if "5 - COMPLETED" phase already exists
+                completed_phase = MattressPhase.query.filter_by(mattress_id=mattress.id, status="5 - COMPLETED").first()
+                if completed_phase:
+                    # Update existing completed phase to active
+                    completed_phase.active = True
+                    completed_phase.updated_at = db.func.current_timestamp()
+                else:
+                    # Create new completed phase
+                    new_completed_phase = MattressPhase(
+                        mattress_id=mattress.id,
+                        status="5 - COMPLETED",
+                        active=True,
+                        device="SUBCONTRACTOR",
+                        created_at=db.func.current_timestamp(),
+                        updated_at=db.func.current_timestamp()
+                    )
+                    db.session.add(new_completed_phase)
+
+                updated_count += 1
+
+            # Commit all changes
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Successfully updated {updated_count} mattresses",
+                "updated_count": updated_count
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
             return {"success": False, "message": str(e)}, 500
 
 @mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])

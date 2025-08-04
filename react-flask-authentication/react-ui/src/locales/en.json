@@ -91,6 +91,35 @@
     "noMattressesSecondShift": "No mattresses assigned for 2nd shift",
     "enterActualLayers": "Please enter the actual number of layers loaded:"
   },
+  "subcontractor": {
+    "title": "Subcontractor",
+    "orderMattressPlan": "Order Mattress Plan",
+    "saveActualLayers": "Save Actual Layers",
+    "actualLayersSavedSuccessfully": "Actual layers saved successfully!",
+    "errorSavingActualLayers": "Error saving actual layers: {{message}}",
+    "errorSavingActualLayersTryAgain": "Error saving actual layers. Please try again.",
+    "noChangesToSave": "No changes to save",
+    "updatedAt": "Updated at",
+    "quantityDetails": "Quantity Details",
+    "plannedQuantities": "Planned Quantities",
+    "actualQuantities": "Actual Quantities",
+    "noStyleComment": "No style comment available",
+    "readOnlyInfo": "Read-only view"
+  },
+  "table": {
+    "mattress": "Mattress",
+    "adhesive": "Adhesive",
+    "width": "Width [cm]",
+    "markerName": "Marker Name",
+    "length": "Length [m]",
+    "efficiency": "Eff %",
+    "na": "N/A",
+    "bagno": "Bagno",
+    "size": "Size",
+    "quantity": "Quantity",
+    "table": "Table",
+    "consumption": "Consumption [m]"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
