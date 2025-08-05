@@ -50,9 +50,32 @@ const CustomPagination = (props) => {
 const MattressTable = () => {
     const [mattresses, setMattresses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filterText, setFilterText] = useState("");
     const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
     const [selectedMattresses, setSelectedMattresses] = useState([]);
+
+    // ✅ Pagination state
+    const [pagination, setPagination] = useState({
+        page: 1,
+        per_page: 100,
+        total_count: 0,
+        total_pages: 0
+    });
+
+    // ✅ Separate state for current page size to avoid async issues
+    const [currentPageSize, setCurrentPageSize] = useState(100);
+
+    // ✅ Search state
+    const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+    // ✅ Debounce search term to avoid too many API calls
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500); // 500ms delay
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     // ✅ Adjust table height dynamically when the window resizes
     useEffect(() => {
@@ -78,9 +101,25 @@ const MattressTable = () => {
         setSelectedMattresses(selected); // ✅ Store selected objects
     };
 
-    const fetchMattresses = () => {
+    const fetchMattresses = (page = 1, search = "", pageSize = null) => {
         setLoading(true);
-        axios.get('/mattress/all_with_details')
+
+        // ✅ Use provided pageSize or current state
+        const effectivePageSize = pageSize || currentPageSize;
+
+        // ✅ Build query parameters
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: effectivePageSize.toString()
+        });
+
+        if (search.trim()) {
+            params.append('search', search.trim());
+        }
+
+        console.log(`🔍 Fetching page ${page} with ${effectivePageSize} items per page, search: "${search}"`);
+
+        axios.get(`/mattress/all_with_details?${params.toString()}`)
             .then((response) => {
                 console.log("API Response:", response.data);
                 if (response.data.success) {
@@ -101,6 +140,11 @@ const MattressTable = () => {
                     });
 
                     setMattresses(updatedMattresses);
+
+                    // ✅ Update pagination info
+                    if (response.data.pagination) {
+                        setPagination(response.data.pagination);
+                    }
                 } else {
                     console.error("Failed to fetch mattress data.");
                 }
@@ -109,35 +153,17 @@ const MattressTable = () => {
             .finally(() => setLoading(false));
     };
 
-    // Call fetchMattresses inside useEffect
+    // ✅ Fetch mattresses when component mounts or search term changes
+    useEffect(() => {
+        fetchMattresses(1, debouncedSearchTerm);
+    }, [debouncedSearchTerm]);
+
+    // ✅ Initial load
     useEffect(() => {
         fetchMattresses();
     }, []);
 
-    // Filter data locally
-    const filteredMattresses = mattresses.filter(mattress => {
-        // Define the specific fields to search through
-        const searchableFields = [
-            mattress.mattress,
-            mattress.order_commessa,
-            mattress.fabric_type,
-            mattress.fabric_code,
-            mattress.fabric_color,
-            mattress.dye_lot,
-            mattress.item_type,
-            mattress.spreading_method
-        ];
-
-        // Convert filter text to lowercase for case-insensitive search
-        const searchText = filterText.toLowerCase();
-
-        // Check if any of the fields contain the search text
-        return searchableFields.some(field =>
-            field !== null &&
-            field !== undefined &&
-            field.toString().toLowerCase().includes(searchText)
-        );
-    });
+    // ✅ No need for client-side filtering anymore - it's done server-side
 
 
     // Table Columns
@@ -166,15 +192,21 @@ const MattressTable = () => {
             title="Mattress Travel Document"
             secondary={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {/* Filter Input */}
+                    {/* Search Input */}
                     <TextField
-                        label="Filter"
+                        label="Search"
                         variant="outlined"
                         size="small"
-                        value={filterText}
-                        onChange={(e) => setFilterText(e.target.value)}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search mattresses..."
                         sx={{ '& input': { fontWeight: 'normal' } }}
                     />
+
+                    {/* Results Info */}
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {pagination.total_count} results
+                    </Typography>
 
                     {/* Print Button EN
                     <Button
@@ -215,17 +247,32 @@ const MattressTable = () => {
             ) : (
                 <Box style={{ height: tableHeight, width: '100%' }}>
                     <DataGrid
-                        rows={filteredMattresses} // Use filtered data
+                        key={`${pagination.page}-${currentPageSize}`} // ✅ Force re-render on pagination change
+                        rows={mattresses} // ✅ Use server-filtered data
                         columns={columns}
-                        pageSize={25}
-                        rowsPerPageOptions={[10, 25, 50, 100]}
+                        pageSize={currentPageSize}
+                        rowsPerPageOptions={[25, 50, 100, 200]}
                         pagination
+                        paginationMode="server" // ✅ Server-side pagination
+                        rowCount={pagination.total_count > 0 ? pagination.total_count : 100000} // ✅ Handle -1 case
+                        page={pagination.page - 1} // ✅ DataGrid uses 0-based indexing
+                        onPageChange={(newPage) => {
+                            console.log(`📄 Page changed to: ${newPage} (API page: ${newPage + 1})`);
+                            fetchMattresses(newPage + 1, debouncedSearchTerm);
+                        }}
+                        onPageSizeChange={(newPageSize) => {
+                            console.log(`📏 Page size changed to: ${newPageSize}`);
+                            setCurrentPageSize(newPageSize);
+                            setPagination(prev => ({ ...prev, per_page: newPageSize, page: 1 }));
+                            fetchMattresses(1, debouncedSearchTerm, newPageSize);
+                        }}
                         checkboxSelection
                         disableRowSelectionOnClick
                         onRowSelectionModelChange={handleSelectionChange} // ✅ Correct event listener
                         rowSelectionModel={selectedMattresses.map(m => m.mattress)}
                         getRowId={(row) => row.mattress}
                         disableSelectionOnClick
+                        loading={loading} // ✅ Show loading state
                         sx={{
                             '& .MuiTablePagination-root': {
                                 overflow: 'hidden',

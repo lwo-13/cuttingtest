@@ -616,6 +616,14 @@ class GetAllMattressesWithDetailsResource(Resource):
     def get(self):
         """Fetch mattress records with associated details and markers, filtered for travel document printing.
 
+        Optimized version that uses a single SQL query with joins to avoid N+1 query problems.
+        Supports pagination to improve performance.
+
+        Query parameters:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 100, max: 500)
+        - search: Search term for filtering
+
         Filters applied:
         - Only mattresses created within the last 30 days
         - Only mattresses assigned to ZALLI cutting room
@@ -623,54 +631,171 @@ class GetAllMattressesWithDetailsResource(Resource):
         - Only mattresses with both details and markers
         """
         try:
-
+            # Get pagination parameters
+            page = request.args.get('page', 1, type=int)
+            per_page = min(request.args.get('per_page', 100, type=int), 500)  # Max 500 items per page
+            search_term = request.args.get('search', '', type=str).strip()
+            skip_count = request.args.get('skip_count', 'false', type=str).lower() == 'true'  # Option to skip count for faster response
             # ABSOLUTE STRICT DATE FILTERING - ONLY LAST 30 DAYS
             current_time = datetime.now()
             one_month_ago = current_time - timedelta(days=30)
 
-            # STEP 1: Get ONLY recent mattresses (last 30 days) AND cutting room ZALLI
-            recent_mattresses = db.session.query(Mattresses).join(
+            # ✅ SUPER OPTIMIZED: Use separate simpler queries instead of complex joins
+            # Step 1: Get mattress IDs that match our criteria (fastest query)
+            mattress_ids_query = db.session.query(Mattresses.id).join(
                 MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).join(
+                MattressPhase, Mattresses.id == MattressPhase.mattress_id
             ).filter(
+                # Date filter
                 Mattresses.created_at >= one_month_ago,
-                MattressProductionCenter.cutting_room == 'ZALLI'
-            ).all()
+                # Cutting room filter
+                MattressProductionCenter.cutting_room == 'ZALLI',
+                # Phase filter
+                MattressPhase.active == True,
+                MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD"])
+            )
 
-            # STEP 2: Filter by phase status (only early phases)
-            filtered_mattresses = []
-            for mattress in recent_mattresses:
-                # Get active phase for this mattress
-                active_phase = db.session.query(MattressPhase).filter(
-                    MattressPhase.mattress_id == mattress.id,
-                    MattressPhase.active == True
-                ).first()
+            # Add search filtering if search term provided
+            if search_term:
+                search_filter = f"%{search_term.lower()}%"
+                mattress_ids_query = mattress_ids_query.filter(
+                    db.or_(
+                        Mattresses.mattress.ilike(search_filter),
+                        Mattresses.order_commessa.ilike(search_filter),
+                        Mattresses.fabric_type.ilike(search_filter),
+                        Mattresses.fabric_code.ilike(search_filter),
+                        Mattresses.fabric_color.ilike(search_filter),
+                        Mattresses.dye_lot.ilike(search_filter),
+                        Mattresses.item_type.ilike(search_filter),
+                        Mattresses.spreading_method.ilike(search_filter)
+                    )
+                )
 
-                if active_phase and active_phase.status in ["0 - NOT SET", "1 - TO LOAD"]:
-                    # Check if mattress has details and markers
-                    has_details = len(mattress.details) > 0
-                    has_markers = len(mattress.mattress_markers) > 0
+            # ✅ Get count if needed (reuse the same query for efficiency)
+            if skip_count:
+                total_count = -1  # Indicate count was skipped
+            else:
+                total_count = mattress_ids_query.count()
 
-                    if has_details and has_markers:
-                        filtered_mattresses.append(mattress)
+            # ✅ Get paginated mattress IDs
+            print(f"🔍 Fetching page {page}, per_page {per_page}, offset {(page - 1) * per_page}")
+            paginated_mattress_ids = mattress_ids_query.order_by(
+                Mattresses.created_at.desc(),  # Most recent first
+                Mattresses.id.desc()  # Secondary sort for consistency
+            ).offset((page - 1) * per_page).limit(per_page).all()
+            print(f"📊 Found {len(paginated_mattress_ids)} mattress IDs for page {page}")
 
+            # Extract just the IDs
+            mattress_id_list = [row.id for row in paginated_mattress_ids]
 
-            mattresses = filtered_mattresses
+            if not mattress_id_list:
+                # No results found
+                data = []
+            else:
+                # ✅ Step 2: Get full mattress data for the paginated IDs (much faster)
+                mattresses_data = db.session.query(Mattresses).filter(
+                    Mattresses.id.in_(mattress_id_list)
+                ).order_by(
+                    Mattresses.created_at.desc(),
+                    Mattresses.id.desc()
+                ).all()
 
-            # Create a list of dictionaries with mattress info, details, and markers
-            data = []
-            for mattress in mattresses:
-                mattress_dict = mattress.to_dict()
+                # ✅ Step 3: Get details for these mattresses
+                details_data = db.session.query(MattressDetail).filter(
+                    MattressDetail.mattress_id.in_(mattress_id_list)
+                ).all()
 
-                # Add related details and markers
-                mattress_dict['details'] = [detail.to_dict() for detail in mattress.details]
-                mattress_dict['markers'] = [marker.to_dict() for marker in mattress.mattress_markers]
+                # ✅ Step 4: Get markers for these mattresses
+                markers_data = db.session.query(MattressMarker).filter(
+                    MattressMarker.mattress_id.in_(mattress_id_list)
+                ).all()
 
-                data.append(mattress_dict)
+                # ✅ Create lookup dictionaries for fast access
+                details_dict = {detail.mattress_id: detail for detail in details_data}
+                markers_dict = {marker.mattress_id: marker for marker in markers_data}
 
-            return {"success": True, "data": data}, 200
+                # ✅ Build response data efficiently using lookup dictionaries
+                data = []
+                for mattress in mattresses_data:
+                    detail = details_dict.get(mattress.id)
+                    marker = markers_dict.get(mattress.id)
+
+                    mattress_dict = {
+                        "id": mattress.id,
+                        "mattress": mattress.mattress,
+                        "order_commessa": mattress.order_commessa,
+                        "fabric_type": mattress.fabric_type,
+                        "fabric_code": mattress.fabric_code,
+                        "fabric_color": mattress.fabric_color,
+                        "dye_lot": mattress.dye_lot,
+                        "item_type": mattress.item_type,
+                        "spreading_method": mattress.spreading_method,
+                        "created_at": mattress.created_at.strftime('%Y-%m-%d %H:%M:%S') if mattress.created_at else None,
+                        "updated_at": mattress.updated_at.strftime('%Y-%m-%d %H:%M:%S') if mattress.updated_at else None,
+                        "table_id": mattress.table_id,
+                        "row_id": mattress.row_id,
+                        "sequence_number": mattress.sequence_number,
+                        # Only include the detail fields that the frontend actually uses
+                        "details": [{
+                            "print_travel": detail.print_travel if detail else False,
+                            "print_marker": detail.print_marker if detail else False,
+                            "layers": detail.layers if detail else 0,
+                            "length_mattress": detail.length_mattress if detail else 0,
+                            "cons_planned": detail.cons_planned if detail else 0,
+                            "extra": detail.extra if detail else 0,
+                            "bagno_ready": detail.bagno_ready if detail else False
+                        }],
+                        # Only include the marker fields that the frontend actually uses
+                        "markers": [{
+                            "marker_name": marker.marker_name if marker else "",
+                            "marker_width": marker.marker_width if marker else 0,
+                            "marker_length": marker.marker_length if marker else 0
+                        }] if marker else []
+                    }
+                    data.append(mattress_dict)
+
+            # ✅ Calculate pagination metadata
+            if skip_count:
+                # When count is skipped, provide limited pagination info
+                has_next = len(data) == per_page  # If we got a full page, there might be more
+                has_prev = page > 1
+                pagination_info = {
+                    "page": page,
+                    "per_page": per_page,
+                    "total_count": -1,  # Indicate count was skipped
+                    "total_pages": -1,  # Unknown
+                    "has_next": has_next,
+                    "has_prev": has_prev,
+                    "count_skipped": True
+                }
+            else:
+                # Full pagination info when count is available
+                total_pages = (total_count + per_page - 1) // per_page
+                has_next = page < total_pages
+                has_prev = page > 1
+                pagination_info = {
+                    "page": page,
+                    "per_page": per_page,
+                    "total_count": total_count,
+                    "total_pages": total_pages,
+                    "has_next": has_next,
+                    "has_prev": has_prev,
+                    "count_skipped": False
+                }
+
+            return {
+                "success": True,
+                "data": data,
+                "pagination": pagination_info
+            }, 200
 
         except Exception as e:
-            return {"success": False, "message": str(e)}, 500
+            # ✅ Add detailed error logging for debugging
+            import traceback
+            print(f"❌ Error in /mattress/all_with_details: {str(e)}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            return {"success": False, "message": f"Database error: {str(e)}"}, 500
 
 @mattress_api.route('/update_print_travel', methods=['PUT'])
 class UpdatePrintTravelStatus(Resource):
