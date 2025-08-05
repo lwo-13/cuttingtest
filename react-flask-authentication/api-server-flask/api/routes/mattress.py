@@ -1725,6 +1725,105 @@ class UpdateMattressStatusResource(Resource):
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
 
+@mattress_api.route('/cutter_queue')
+class GetCutterQueueResource(Resource):
+    """Get mattresses for cutter view - shows mattresses with TO CUT or ON CUT status"""
+    def get(self):
+        try:
+            # Get cutter device from query parameter
+            cutter_device = request.args.get('device')
+            if not cutter_device:
+                return {"success": False, "message": "Cutter device parameter is required"}, 400
+
+            # Query mattresses with active TO CUT or ON CUT phases
+            query = db.session.query(
+                MattressPhase.mattress_id,
+                MattressPhase.status,
+                MattressPhase.device,
+                MattressPhase.operator,
+                Mattresses.mattress,
+                Mattresses.order_commessa,
+                Mattresses.fabric_code,
+                Mattresses.fabric_color,
+                Mattresses.dye_lot,
+                MattressMarker.marker_name,
+                MattressDetail.layers,
+                MattressDetail.layers_a,
+                MattressDetail.cons_planned,
+                MattressProductionCenter.destination
+            ).select_from(MattressPhase) \
+             .join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
+             .join(MattressDetail, Mattresses.id == MattressDetail.mattress_id) \
+             .outerjoin(MattressMarker, Mattresses.id == MattressMarker.mattress_id) \
+             .outerjoin(MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id) \
+             .filter(MattressPhase.active == True) \
+             .filter(MattressPhase.status.in_(["3 - TO CUT", "4 - ON CUT"])) \
+             .filter(MattressDetail.bagno_ready == True)
+
+            # Filter by cutter device assignment
+            # Show mattresses assigned to this cutter OR unassigned TO CUT mattresses
+            query = query.filter(
+                db.or_(
+                    # Mattresses assigned to this cutter
+                    MattressPhase.device == cutter_device,
+                    # Unassigned TO CUT mattresses (available for any cutter)
+                    db.and_(
+                        MattressPhase.status == "3 - TO CUT",
+                        db.or_(
+                            MattressPhase.device.is_(None),
+                            MattressPhase.device == ""
+                        )
+                    )
+                )
+            )
+
+            results = query.all()
+
+            # Get sizes for each mattress
+            mattress_ids = [row.mattress_id for row in results]
+            sizes_query = db.session.query(
+                MattressSize.mattress_id,
+                MattressSize.size
+            ).filter(MattressSize.mattress_id.in_(mattress_ids)).all()
+
+            # Group sizes by mattress_id
+            size_dict = {}
+            total_pcs_dict = {}
+            for size_row in sizes_query:
+                if size_row.mattress_id not in size_dict:
+                    size_dict[size_row.mattress_id] = []
+                    total_pcs_dict[size_row.mattress_id] = 0
+                size_dict[size_row.mattress_id].append(size_row.size)
+                total_pcs_dict[size_row.mattress_id] += 1
+
+            # Format results
+            result = []
+            for row in results:
+                result.append({
+                    "id": row.mattress_id,
+                    "mattress": row.mattress,
+                    "status": row.status,
+                    "device": row.device,
+                    "operator": row.operator,
+                    "order_commessa": row.order_commessa,
+                    "fabric_code": row.fabric_code,
+                    "fabric_color": row.fabric_color,
+                    "dye_lot": row.dye_lot,
+                    "marker": row.marker_name,
+                    "layers": row.layers,
+                    "layers_a": row.layers_a,
+                    "consumption": row.cons_planned,
+                    "destination": row.destination,
+                    "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
+                    "total_pcs": total_pcs_dict.get(row.mattress_id, 0)
+                })
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": str(e)}, 500
+
 @mattress_api.route('/update_status_and_layers/<int:mattress_id>', methods=['PUT'])
 class UpdateStatusAndLayersResource(Resource):
     """Update both status and actual layers of a mattress in a single call"""
