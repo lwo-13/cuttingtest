@@ -41,6 +41,10 @@ const MarkerRequests = () => {
     const { user } = account;
     const { refreshAllBadges } = useBadgeCount();
 
+    // Check if user has access to this page
+    const hasAccess = user && ['Manager', 'Project Admin', 'Subcontractor'].includes(user.role);
+    const isSubcontractor = user && user.role === 'Subcontractor';
+
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedRequest, setSelectedRequest] = useState(null);
@@ -60,8 +64,10 @@ const MarkerRequests = () => {
     const [selectedMarkers, setSelectedMarkers] = useState({});
 
     useEffect(() => {
-        fetchMarkerRequests();
-    }, []);
+        if (hasAccess) {
+            fetchMarkerRequests();
+        }
+    }, [hasAccess]);
 
     // Fetch markers for all pending requests when requests are loaded
     useEffect(() => {
@@ -181,7 +187,16 @@ const MarkerRequests = () => {
             setLoading(true);
             const response = await axios.get('/marker_requests/list');
             if (response.data.success) {
-                setRequests(response.data.data);
+                let filteredRequests = response.data.data;
+
+                // If user is a subcontractor, only show their own requests
+                if (isSubcontractor) {
+                    filteredRequests = response.data.data.filter(request =>
+                        request.requested_by === user.username
+                    );
+                }
+
+                setRequests(filteredRequests);
             } else {
                 console.error('Failed to fetch marker requests:', response.data.message);
             }
@@ -344,9 +359,20 @@ const MarkerRequests = () => {
         setSnackbar(prev => ({ ...prev, open: false }));
     };
 
+    // If user doesn't have access, show access denied message
+    if (!hasAccess) {
+        return (
+            <MainCard title="Access Denied">
+                <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
+                    You don't have permission to access this page.
+                </Typography>
+            </MainCard>
+        );
+    }
+
     if (loading) {
         return (
-            <MainCard title="Marker Requests">
+            <MainCard title={isSubcontractor ? t('subcontractor.markerRequests', 'Marker Requests') : 'Marker Requests'}>
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress />
                 </Box>
@@ -356,7 +382,7 @@ const MarkerRequests = () => {
 
     return (
         <>
-            <MainCard title="Marker Requests">
+            <MainCard title={isSubcontractor ? t('subcontractor.markerRequests', 'Marker Requests') : 'Marker Requests'}>
 
 
                 {requests.length === 0 ? (
@@ -367,20 +393,25 @@ const MarkerRequests = () => {
                     requests.map((request, index) => (
                         <Accordion key={request.id} sx={{ mb: 1 }}>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                    {getStatusIcon(request.status)}
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2, fontSize: '1.1rem' }}>
-                                        {request.style} - {request.requested_width}cm
-                                    </Typography>
-                                    <Chip
-                                        label={getStatusText(request.status)}
-                                        color={getStatusColor(request.status)}
-                                        size="small"
-                                        sx={{ mr: 2 }}
-                                    />
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        Order: {request.order_commessa}
-                                    </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        {getStatusIcon(request.status)}
+                                        <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2, fontSize: '1.1rem' }}>
+                                            {request.style} - {request.requested_width}cm
+                                        </Typography>
+                                        <Chip
+                                            label={getStatusText(request.status)}
+                                            color={getStatusColor(request.status)}
+                                            size="small"
+                                            sx={{ mr: 2 }}
+                                        />
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                            {request.requested_by}
+                                        </Typography>
+                                    </Box>
                                 </Box>
                             </AccordionSummary>
                             <AccordionDetails>
@@ -417,8 +448,8 @@ const MarkerRequests = () => {
                                         </Typography>
                                     </Grid>
                                     <Grid item xs={12} md={6}>
-                                        {/* Marker Selection Dropdown */}
-                                        {request.status === 'pending' && (
+                                        {/* Marker Selection Dropdown - Only for managers and project admins */}
+                                        {request.status === 'pending' && !isSubcontractor && (
                                             <Box sx={{ mb: 2 }}>
                                                 <FormControl fullWidth size="small">
                                                     <InputLabel>Select Marker</InputLabel>
@@ -468,8 +499,8 @@ const MarkerRequests = () => {
                                         {request.completed_at && (
                                             <Typography variant="body2"><strong>Completed:</strong> {new Date(request.completed_at).toLocaleString()}</Typography>
                                         )}
-                                        
-                                        {request.status === 'pending' && (
+
+                                        {request.status === 'pending' && !isSubcontractor && (
                                             <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
                                                 <Button
                                                     variant="contained"

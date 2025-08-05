@@ -124,7 +124,10 @@
   },
   "subcontractor": {
     "title": "Subcontractor",
+    "menu": "Subcontractor Menu",
     "orderMattressPlan": "Order Mattress Plan",
+    "markerRequests": "Marker Requests",
+    "widthChangeRequests": "Width Change Requests",
     "saveActualLayers": "Save Actual Layers",
     "actualLayersSavedSuccessfully": "Actual layers saved successfully!",
     "errorSavingActualLayers": "Error saving actual layers: {{message}}",

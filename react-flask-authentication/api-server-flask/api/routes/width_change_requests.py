@@ -30,29 +30,45 @@ class CreateWidthChangeRequest(Resource):
             
             # Validate data types
             try:
-                mattress_id = int(data['mattress_id'])
+                mattress_row_id = data['mattress_id']  # This is actually the row_id (UUID string)
                 current_width = float(data['current_width'])
                 requested_width = float(data['requested_width'])
             except (ValueError, TypeError) as e:
                 print(f"DEBUG: Data type validation error: {e}")
                 return {"success": False, "message": f"Invalid data types: {str(e)}"}, 400
 
-            # Validate mattress exists
-            mattress = Mattresses.query.get(mattress_id)
+            # Find mattress by row_id (UUID) and get the integer id
+            mattress = Mattresses.query.filter_by(row_id=mattress_row_id).first()
+            if not mattress:
+                return {"success": False, "message": f"Mattress not found with row_id: {mattress_row_id}"}, 404
+
+            mattress_id = mattress.id  # Get the integer ID
             if not mattress:
                 return {"success": False, "message": "Mattress not found"}, 404
             
-            # Resolve selected_marker_id if marker name is provided but ID is not
+            # Resolve selected_marker_id if marker name is provided
             selected_marker_id = data.get('selected_marker_id')
-            if data.get('selected_marker_name') and not selected_marker_id:
-                # Try to find the marker by name
-                from api.models.markers import MarkerHeader
-                marker = MarkerHeader.query.filter_by(marker_name=data['selected_marker_name']).first()
-                if marker:
-                    selected_marker_id = marker.id
-                    print(f"DEBUG: Resolved marker '{data['selected_marker_name']}' to ID: {selected_marker_id}")
+            selected_marker_name = data.get('selected_marker_name')
+            new_marker = None
+
+            print(f"DEBUG: Initial selected_marker_id: {selected_marker_id}")
+            print(f"DEBUG: Selected marker name: {selected_marker_name}")
+
+            if selected_marker_name:
+                # Find the marker by name in marker_headers table
+                print(f"DEBUG: Searching for marker with name: {selected_marker_name}")
+                new_marker = MarkerHeader.query.filter_by(marker_name=selected_marker_name).first()
+                if new_marker:
+                    selected_marker_id = new_marker.id
+                    print(f"DEBUG: Found marker '{selected_marker_name}' with ID: {selected_marker_id}")
+                    print(f"DEBUG: Marker details - width: {new_marker.marker_width}, length: {new_marker.marker_length}")
                 else:
-                    print(f"DEBUG: Could not find marker with name: {data['selected_marker_name']}")
+                    print(f"DEBUG: Could not find marker with name: {selected_marker_name}")
+                    # Let's check what markers exist for debugging
+                    similar_markers = MarkerHeader.query.filter(MarkerHeader.marker_name.like(f'%{selected_marker_name[:10]}%')).limit(5).all()
+                    print(f"DEBUG: Similar markers found: {[m.marker_name for m in similar_markers]}")
+
+            print(f"DEBUG: Final selected_marker_id: {selected_marker_id}")
 
             # Determine initial status - auto-approve for subcontractors
             initial_status = 'pending'
@@ -106,62 +122,69 @@ class CreateWidthChangeRequest(Resource):
                 db.session.commit()
 
             # If auto-approved and has a selected marker, apply the marker change immediately
-            if initial_status == 'approved' and selected_marker_id:
+            print(f"DEBUG: Checking auto-approval conditions - initial_status: {initial_status}, selected_marker_id: {selected_marker_id}, new_marker: {new_marker is not None}")
+            if initial_status == 'approved' and selected_marker_id and new_marker:
                 try:
                     print(f"DEBUG: Applying marker change for auto-approved subcontractor request")
+                    print(f"DEBUG: New marker details - name: {new_marker.marker_name}, width: {new_marker.marker_width}, length: {new_marker.marker_length}")
 
                     # Update the mattress_markers table
                     mattress_marker = MattressMarker.query.filter_by(mattress_id=mattress_id).first()
                     if mattress_marker:
-                        # Get the new marker details
-                        new_marker = MarkerHeader.query.get(selected_marker_id)
-                        if new_marker:
-                            print(f"DEBUG: Updating mattress_markers - old marker: {mattress_marker.marker_id}, new marker: {selected_marker_id}")
-                            mattress_marker.marker_id = selected_marker_id
-                            mattress_marker.marker_name = new_marker.marker_name
-                            mattress_marker.marker_width = new_marker.marker_width
-                            mattress_marker.marker_length = new_marker.marker_length
-                            db.session.add(mattress_marker)
+                        print(f"DEBUG: Found existing mattress_marker - old marker_id: {mattress_marker.marker_id}, old marker_name: {mattress_marker.marker_name}")
+                        print(f"DEBUG: Updating to new marker_id: {selected_marker_id}, new marker_name: {new_marker.marker_name}")
 
-                            # Update the mattress details with new marker length and consumption
-                            mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
-                            if mattress_detail:
-                                # Get current values
-                                layers = mattress_detail.layers or 0
-                                extra = mattress_detail.extra or 0
+                        # Update all marker fields in mattress_markers table
+                        mattress_marker.marker_id = selected_marker_id
+                        mattress_marker.marker_name = new_marker.marker_name
+                        mattress_marker.marker_width = new_marker.marker_width
+                        mattress_marker.marker_length = new_marker.marker_length
+                        db.session.add(mattress_marker)
 
-                                print(f"DEBUG: Current mattress_detail - length: {mattress_detail.length_mattress}, cons_planned: {mattress_detail.cons_planned}")
-                                print(f"DEBUG: Layers: {layers}, Extra: {extra}")
+                        # Update the mattress_details table with new length and consumption
+                        mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+                        if mattress_detail:
+                            # Get current values
+                            layers = mattress_detail.layers or 0
+                            extra = mattress_detail.extra or 0
 
-                                # Update length_mattress with marker length + extra
-                                old_length = mattress_detail.length_mattress
-                                old_cons = mattress_detail.cons_planned
+                            print(f"DEBUG: Current mattress_detail - length: {mattress_detail.length_mattress}, cons_planned: {mattress_detail.cons_planned}")
+                            print(f"DEBUG: Calculation inputs - layers: {layers}, extra: {extra}, new_marker_length: {new_marker.marker_length}")
 
-                                mattress_detail.length_mattress = new_marker.marker_length + extra
+                            # Update length_mattress with new marker length + extra
+                            old_length = mattress_detail.length_mattress
+                            old_cons = mattress_detail.cons_planned
 
-                                # Calculate new planned consumption: (marker_length + extra) * layers
-                                # Round to maximum 3 decimal places
-                                new_cons_planned = round((new_marker.marker_length + extra) * layers, 3)
-                                mattress_detail.cons_planned = new_cons_planned
-                                db.session.add(mattress_detail)
+                            mattress_detail.length_mattress = new_marker.marker_length + extra
 
-                                print(f"DEBUG: Updated mattress_detail - length: {old_length} -> {mattress_detail.length_mattress}")
-                                print(f"DEBUG: Updated mattress_detail - cons_planned: {old_cons} -> {mattress_detail.cons_planned}")
-                            else:
-                                print("DEBUG: No mattress_detail found!")
+                            # Calculate new planned consumption: (marker_length + extra) * layers
+                            # Round to maximum 3 decimal places
+                            new_cons_planned = round((new_marker.marker_length + extra) * layers, 3)
+                            mattress_detail.cons_planned = new_cons_planned
+                            db.session.add(mattress_detail)
 
-                            # Commit the marker changes
-                            db.session.commit()
-                            print("DEBUG: Marker change applied successfully")
+                            print(f"DEBUG: Updated mattress_detail - length: {old_length} -> {mattress_detail.length_mattress}")
+                            print(f"DEBUG: Updated mattress_detail - cons_planned: {old_cons} -> {mattress_detail.cons_planned}")
                         else:
-                            print(f"DEBUG: No marker found with ID: {selected_marker_id}")
+                            print("DEBUG: No mattress_detail found!")
+
+                        # Commit all changes to both tables
+                        db.session.commit()
+                        print("DEBUG: Marker change applied successfully to both mattress_markers and mattress_details tables")
                     else:
                         print(f"DEBUG: No mattress_marker found for mattress_id: {mattress_id}")
                 except Exception as marker_error:
                     print(f"DEBUG: Error applying marker change: {str(marker_error)}")
+                    import traceback
+                    traceback.print_exc()
                     db.session.rollback()
                     # Don't fail the entire request, just log the error
                     print("DEBUG: Continuing with width change request creation despite marker application error")
+            else:
+                print(f"DEBUG: Marker change not applied - conditions not met")
+                print(f"DEBUG: - initial_status == 'approved': {initial_status == 'approved'}")
+                print(f"DEBUG: - selected_marker_id exists: {selected_marker_id is not None}")
+                print(f"DEBUG: - new_marker found: {new_marker is not None}")
             
             return {
                 "success": True, 

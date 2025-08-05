@@ -200,7 +200,7 @@ const CutterView = () => {
     const fetchOperators = async () => {
         setLoadingOperators(true);
         try {
-            const response = await axios.get('/cutter_operators/active');
+            const response = await axios.get('/operators/active?type=cutter');
             if (response.data.success) {
                 setOperators(response.data.data);
                 // Don't auto-select any operator - leave it empty by default

@@ -30,6 +30,10 @@ const SubcontractorWidthChangeApprovals = () => {
     const { user } = account;
     const { refreshAllBadges } = useBadgeCount();
 
+    // Check if user has access to this page
+    const hasAccess = user && ['Manager', 'Project Admin', 'Subcontractor'].includes(user.role);
+    const isSubcontractor = user && user.role === 'Subcontractor';
+
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState({
@@ -39,15 +43,26 @@ const SubcontractorWidthChangeApprovals = () => {
     });
 
     useEffect(() => {
-        fetchSubcontractorWidthChangeRequests();
-    }, []);
+        if (hasAccess) {
+            fetchSubcontractorWidthChangeRequests();
+        }
+    }, [hasAccess]);
 
     const fetchSubcontractorWidthChangeRequests = async () => {
         try {
             setLoading(true);
             const response = await axios.get('/width_change_requests/subcontractor/list');
             if (response.data.success) {
-                setRequests(response.data.data);
+                let filteredRequests = response.data.data;
+
+                // If user is a subcontractor, only show their own requests
+                if (isSubcontractor) {
+                    filteredRequests = response.data.data.filter(request =>
+                        request.requested_by === user.username
+                    );
+                }
+
+                setRequests(filteredRequests);
             } else {
                 console.error('Failed to fetch subcontractor width change requests:', response.data.message);
             }
@@ -122,9 +137,20 @@ const SubcontractorWidthChangeApprovals = () => {
         return date.toLocaleString();
     };
 
+    // If user doesn't have access, show access denied message
+    if (!hasAccess) {
+        return (
+            <MainCard title="Access Denied">
+                <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
+                    You don't have permission to access this page.
+                </Typography>
+            </MainCard>
+        );
+    }
+
     if (loading) {
         return (
-            <MainCard title="Subcontractor Width Change Requests">
+            <MainCard title={isSubcontractor ? t('subcontractor.widthChangeRequests', 'Width Change Requests') : 'Subcontractor Width Change Requests'}>
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                     <CircularProgress />
                 </Box>
@@ -134,7 +160,7 @@ const SubcontractorWidthChangeApprovals = () => {
 
     return (
         <>
-            <MainCard title="Subcontractor Width Change Requests">
+            <MainCard title={isSubcontractor ? t('subcontractor.widthChangeRequests', 'Width Change Requests') : 'Subcontractor Width Change Requests'}>
                 {requests.length === 0 ? (
                     <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
                         No subcontractor width change requests available
@@ -158,12 +184,11 @@ const SubcontractorWidthChangeApprovals = () => {
                                         {/* Subcontractor name chip */}
                                         <Chip
                                             label={request.requested_by}
-                                            variant="outlined"
                                             size="small"
-                                            sx={{ 
+                                            sx={{
                                                 mr: 2,
-                                                backgroundColor: 'primary.light',
-                                                color: 'primary.contrastText',
+                                                backgroundColor: 'info.main',
+                                                color: 'white',
                                                 fontWeight: 'medium'
                                             }}
                                         />

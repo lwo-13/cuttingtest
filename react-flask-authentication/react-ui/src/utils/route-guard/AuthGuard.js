@@ -34,8 +34,19 @@ const AuthGuard = ({ children }) => {
     }
 
     if (user && user.role === 'Subcontractor') {
-        // If Subcontractor is trying to access a non-subcontractor page, redirect to subcontractor view
-        if (!location.pathname.startsWith('/subcontractor')) {
+        // Allow subcontractors to access their specific pages
+        const allowedSubcontractorPaths = [
+            '/subcontractor',
+            '/to-do-lists/marker-requests',
+            '/to-do-lists/subcontractor-width-change-approvals'
+        ];
+
+        const isAllowedPath = allowedSubcontractorPaths.some(path =>
+            location.pathname.startsWith(path)
+        );
+
+        // If Subcontractor is trying to access a non-allowed page, redirect to subcontractor view
+        if (!isAllowedPath) {
             return <Redirect to="/subcontractor/view" />;
         }
     }

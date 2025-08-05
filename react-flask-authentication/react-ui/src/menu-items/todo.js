@@ -1,5 +1,5 @@
 // assets
-import { IconChartPie3, IconRuler2, IconTool, IconClipboardCheck, IconUsers } from '@tabler/icons';
+import { IconChartPie3, IconRuler2, IconTool, IconUsers, IconClipboardCheck } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| TO DO MENU ITEMS ||-----------------------//
@@ -33,15 +33,6 @@ const todo = {
       type: 'item',
       url: '/to-do-lists/width-change-approvals',
       icon: IconTool,
-      breadcrumbs: false,
-      badgeContent: 0
-    },
-    {
-      id: 'subcontractor_width_change_approvals',
-      title: i18n.t('sidebar.subcontractorWidthChangeApprovals', 'Subcontractor Width Changes'),
-      type: 'item',
-      url: '/to-do-lists/subcontractor-width-change-approvals',
-      icon: IconUsers,
       breadcrumbs: false,
       badgeContent: 0
     },

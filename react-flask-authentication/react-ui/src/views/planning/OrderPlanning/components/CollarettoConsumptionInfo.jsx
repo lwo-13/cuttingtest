@@ -134,11 +134,17 @@ const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
                     gross_length: record.gross_length,
                     collarettoWidth: record.collarettoWidth,
                     records: [],
-                    allApplicableSizes: new Set()
+                    allApplicableSizes: new Set(),
+                    totalConsumption: 0,
+                    totalPieces: 0
                 };
             }
 
             groups[typeKey].records.push(record);
+
+            // Add to totals for this specific combination
+            groups[typeKey].totalConsumption += (record.cons_planned || 0);
+            groups[typeKey].totalPieces += (record.pieces || 0);
 
             // Collect all applicable sizes for this type
             const sizeInfo = getApplicableSizes(record);
@@ -147,6 +153,14 @@ const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
             } else {
                 sizeInfo.sizes.forEach(size => groups[typeKey].allApplicableSizes.add(size));
             }
+        });
+
+        // Calculate average consumption for each group
+        Object.keys(groups).forEach(typeKey => {
+            const group = groups[typeKey];
+            group.avgConsumption = group.totalPieces > 0
+                ? group.totalConsumption / group.totalPieces
+                : 0;
         });
 
         return groups;
@@ -240,6 +254,10 @@ const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
                                                     </Typography>
                                                     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                                         {t('table.grossLength', 'Gross Length')}: {formatNumberDynamic(typeData.gross_length)} {t('common.m', 'm')}
+                                                    </Typography>
+                                                    {/* Average Consumption for this specific combination */}
+                                                    <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'primary.main' }}>
+                                                        {t('orderPlanning.avgConsumption', 'Avg Consumption')}: {typeData.avgConsumption.toFixed(3).replace(/\.?0+$/, '')} {t('common.m', 'm')}
                                                     </Typography>
                                                 </Box>
                                                 <Box>

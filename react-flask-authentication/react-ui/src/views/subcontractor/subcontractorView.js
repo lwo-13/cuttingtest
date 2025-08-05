@@ -199,7 +199,6 @@ const SubcontractorView = () => {
     };
 
     const cuttingRoom = getCuttingRoomFromUsername(username);
-    console.log(`📊 Username: ${username}, Mapped to cutting room: ${cuttingRoom}`);
 
     // Check if current cutting room is DELICIA (has multiple destinations)
     const isDeliciaCuttingRoom = cuttingRoom === CUTTING_ROOMS.DELICIA;
@@ -229,7 +228,6 @@ const SubcontractorView = () => {
             }
         });
 
-        console.log("📊 Destinations with quantities:", Array.from(destinationsWithQuantities));
         return Array.from(destinationsWithQuantities);
     };
 
@@ -237,7 +235,6 @@ const SubcontractorView = () => {
     const getPlannedQuantitiesFromFabricType01 = () => {
         // For DELICIA cutting room, don't show quantities until destination is selected
         if (isDeliciaCuttingRoom && !selectedDestination) {
-            console.log("📊 DELICIA cutting room: No destination selected, returning empty quantities");
             return orderSizes.map(size => ({ size: size.size, qty: 0 }));
         }
 
@@ -247,19 +244,12 @@ const SubcontractorView = () => {
         // For DELICIA cutting room, also filter by selected destination
         if (isDeliciaCuttingRoom && selectedDestination) {
             fabricType01Tables = fabricType01Tables.filter(table => table.destination === selectedDestination);
-            console.log(`📊 DELICIA cutting room: Filtering by destination '${selectedDestination}'`);
         }
 
         if (fabricType01Tables.length === 0) {
-            console.log("📊 No fabric type '01' tables found for cutting room:", cuttingRoom,
-                       isDeliciaCuttingRoom ? `and destination: ${selectedDestination}` : "");
             // If no fabric type "01" tables, return empty quantities
             return orderSizes.map(size => ({ size: size.size, qty: 0 }));
         }
-
-        // Log the destinations being included
-        const destinations = [...new Set(fabricType01Tables.map(table => table.destination).filter(Boolean))];
-        console.log("📊 Including fabric type '01' tables from destinations:", destinations);
 
         // Calculate total planned quantities across all fabric type "01" tables
         const totalPlannedQuantities = {};
@@ -269,7 +259,6 @@ const SubcontractorView = () => {
 
         fabricType01Tables.forEach(table => {
             const tablePlanned = getTablePlannedQuantities(table);
-            console.log(`📊 Table ${table.id} (destination: ${table.destination}) planned quantities:`, tablePlanned);
             orderSizes.forEach(size => {
                 totalPlannedQuantities[size.size] += tablePlanned[size.size] || 0;
             });
@@ -281,7 +270,6 @@ const SubcontractorView = () => {
             qty: totalPlannedQuantities[size.size] || 0
         }));
 
-        console.log(`📊 Total planned quantities from fabric type '01' tables${isDeliciaCuttingRoom ? ` for destination '${selectedDestination}'` : ' (all destinations)'}:`, result);
         return result;
     };
 
@@ -290,7 +278,6 @@ const SubcontractorView = () => {
         if (isDeliciaCuttingRoom && selectedDestination && tables.length > 0) {
             const availableDestinations = getDestinationsWithQuantities();
             if (!availableDestinations.includes(selectedDestination)) {
-                console.log(`📊 Clearing selected destination '${selectedDestination}' as it no longer has quantities`);
                 setSelectedDestination('');
             }
         }
@@ -358,15 +345,12 @@ const SubcontractorView = () => {
 
     // Handle individual mattress download (placeholder for now)
     const handleDownloadMattress = async (row) => {
-        console.log('Download mattress:', row.mattressName);
         // TODO: Implement download functionality
         alert('Download functionality will be implemented soon');
     };
 
     // Handle individual mattress change - open width change dialog
     const handleChangeMattress = async (row) => {
-        console.log('Opening width change dialog for mattress:', row.mattressName);
-
         // Check if actual layers are already declared
         if (row.layers_a) {
             showSnackbar(t('subcontractor.cannotChangeWidthActualLayersDeclared', 'Cannot change width when actual layers are already declared'), 'warning');
@@ -448,8 +432,6 @@ const SubcontractorView = () => {
                 layers_a: parseFloat(actualLayers) || 0
             }));
 
-            console.log('Saving actual layers:', updates);
-
             const response = await axios.post('/mattress/save_actual_layers', {
                 updates: updates
             });
@@ -508,7 +490,6 @@ const SubcontractorView = () => {
             // Call the print function with the single mattress
             await printMattressBG([mattressData], () => {
                 // Refresh callback - could trigger a data refresh if needed
-                console.log('Print completed for mattress:', row.mattressName);
             });
         } catch (error) {
             console.error('Error printing mattress:', error);
@@ -565,9 +546,6 @@ const SubcontractorView = () => {
                 size_quantities: sizeQuantities
             };
 
-            console.log('Submitting width change request:', requestData);
-            console.log('Submission data received:', submissionData);
-
             const response = await axios.post('/width_change_requests/create', requestData);
 
             if (response.data.success) {
@@ -606,13 +584,9 @@ const SubcontractorView = () => {
             return;
         }
 
-        console.log("📊 Fetching orders for cutting room:", cuttingRoom);
-
         // Get orders assigned to this cutting room via mattress production center
         axios.get(`/mattress/production_center/orders_by_cutting_room/${cuttingRoom}`)
             .then(ordersRes => {
-                console.log("📊 Orders for cutting room response:", ordersRes.data);
-
                 if (!ordersRes.data.success) {
                     console.error("Failed to fetch orders for cutting room:", cuttingRoom);
                     return;
@@ -620,7 +594,6 @@ const SubcontractorView = () => {
 
                 // Convert order IDs to order objects for the dropdown
                 const assignedOrderIds = ordersRes.data.data || [];
-                console.log("📊 Assigned Order IDs:", assignedOrderIds);
 
                 // Create order objects with just the order ID for now
                 // We'll fetch the full order details when an order is selected
@@ -632,13 +605,11 @@ const SubcontractorView = () => {
                     sizes: [] // Will be populated when order is selected
                 }));
 
-                console.log("📊 Orders for dropdown:", ordersArray);
                 setOrders(ordersArray);
             })
             .catch(error => {
                 console.error("Error fetching orders for cutting room:", error);
                 // Fallback to all mattress orders if the specific endpoint fails
-                console.log("📊 Falling back to all mattress orders");
                 axios.get('/mattress/order_ids')
                     .then(mattressRes => {
                         if (mattressRes.data.success) {
@@ -712,10 +683,6 @@ const SubcontractorView = () => {
                         </Button>
                     </Box>
                 )}
-
-                {/* Debug: Show if selectedOrder and selectedStyle exist */}
-                {console.log("🔍 selectedOrder:", selectedOrder)}
-                {console.log("🎨 selectedStyle:", selectedStyle)}
 
                 {/* Order Toolbar - Direct order selection without style filtering */}
                 <OrderToolbar
@@ -813,7 +780,7 @@ const SubcontractorView = () => {
                 });
 
                 if (isDeliciaCuttingRoom && selectedDestination) {
-                    console.log(`📊 Showing ${filteredTables.length} mattress tables for destination '${selectedDestination}'`);
+                    // Show filtered tables for selected destination
                 }
 
                 return filteredTables.length > 0 && filteredTables.map((table, tableIndex) => (
@@ -842,27 +809,28 @@ const SubcontractorView = () => {
                                     <MattressTableHeaderWithSizes orderSizes={orderSizes} />
                                     <TableBody>
                                         {(() => {
-                                            // Group rows by bagno and sort by width within each group
+                                            // Group rows by bagno and sort by final part of mattress ID (001, 002, 003) within each group
                                             const sortedRows = [...table.rows].sort((a, b) => {
                                                 const bagnoA = a.bagno || '';
                                                 const bagnoB = b.bagno || '';
 
-                                                // If bagnos are different, maintain original order of first appearance
+                                                // If bagnos are different, sort by the sequence number of the first mattress in each bagno
                                                 if (bagnoA !== bagnoB) {
-                                                    // Find the first occurrence index of each bagno in the original array
-                                                    const firstIndexA = table.rows.findIndex(row => (row.bagno || '') === bagnoA);
-                                                    const firstIndexB = table.rows.findIndex(row => (row.bagno || '') === bagnoB);
-                                                    return firstIndexA - firstIndexB;
+                                                    // Find the first mattress in each bagno group and compare their sequence numbers
+                                                    const firstMattressA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstMattressB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstMattressA ? parseInt(firstMattressA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstMattressB ? parseInt(firstMattressB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
                                                 }
 
-                                                // If same bagno, sort by width
-                                                const widthA = parseFloat(a.width) || 0;
-                                                const widthB = parseFloat(b.width) || 0;
-                                                return widthA - widthB;
+                                                // If same bagno, sort by sequence number (final part of mattress ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
                                             });
-
-                                            console.log('📊 Sorted rows by bagno (first appearance) then width:',
-                                                sortedRows.map(row => ({ bagno: row.bagno || 'no bagno', width: row.width })));
 
                                             return sortedRows.map((row) => (
                                                 <MattressRowReadOnlyWithSizes
@@ -900,7 +868,7 @@ const SubcontractorView = () => {
                 });
 
                 if (isDeliciaCuttingRoom && selectedDestination) {
-                    console.log(`📊 Showing ${filteredAdhesiveTables.length} adhesive tables for destination '${selectedDestination}'`);
+                    // Show filtered adhesive tables for selected destination
                 }
 
                 return filteredAdhesiveTables.length > 0 && filteredAdhesiveTables.map((table, tableIndex) => (
@@ -929,27 +897,28 @@ const SubcontractorView = () => {
                                     <AdhesiveTableHeaderWithSizes orderSizes={orderSizes} />
                                     <TableBody>
                                         {(() => {
-                                            // Group rows by bagno and sort by width within each group
+                                            // Group rows by bagno and sort by final part of mattress ID (001, 002, 003) within each group
                                             const sortedRows = [...table.rows].sort((a, b) => {
                                                 const bagnoA = a.bagno || '';
                                                 const bagnoB = b.bagno || '';
 
-                                                // If bagnos are different, maintain original order of first appearance
+                                                // If bagnos are different, sort by the sequence number of the first mattress in each bagno
                                                 if (bagnoA !== bagnoB) {
-                                                    // Find the first occurrence index of each bagno in the original array
-                                                    const firstIndexA = table.rows.findIndex(row => (row.bagno || '') === bagnoA);
-                                                    const firstIndexB = table.rows.findIndex(row => (row.bagno || '') === bagnoB);
-                                                    return firstIndexA - firstIndexB;
+                                                    // Find the first mattress in each bagno group and compare their sequence numbers
+                                                    const firstMattressA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstMattressB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstMattressA ? parseInt(firstMattressA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstMattressB ? parseInt(firstMattressB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
                                                 }
 
-                                                // If same bagno, sort by width
-                                                const widthA = parseFloat(a.width) || 0;
-                                                const widthB = parseFloat(b.width) || 0;
-                                                return widthA - widthB;
+                                                // If same bagno, sort by sequence number (final part of mattress ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
                                             });
-
-                                            console.log('📊 Adhesive - Sorted rows by bagno (first appearance) then width:',
-                                                sortedRows.map(row => ({ bagno: row.bagno || 'no bagno', width: row.width })));
 
                                             return sortedRows.map((row) => (
                                                 <AdhesiveRowReadOnlyWithSizes
