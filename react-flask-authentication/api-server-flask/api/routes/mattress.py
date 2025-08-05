@@ -914,6 +914,129 @@ class UpdateDeviceResource(Resource):
         move_resource = MoveMattressResource()
         return move_resource.put(mattress_id)
 
+@mattress_api.route('/cleanup_kanban', methods=['POST'])
+class CleanupKanbanResource(Resource):
+    """Clean up orphaned kanban entries and reset positions"""
+    def post(self):
+        try:
+            # Step 1: Find all kanban entries
+            all_kanban = db.session.query(MattressKanban).all()
+            print(f"Found {len(all_kanban)} kanban entries")
+
+            # Step 2: Find orphaned entries (kanban entries for mattresses that should be in SP0)
+            orphaned_count = 0
+            valid_entries = []
+
+            for kanban in all_kanban:
+                # Get the active phase for this mattress
+                active_phase = db.session.query(MattressPhase).filter_by(
+                    mattress_id=kanban.mattress_id,
+                    active=True
+                ).first()
+
+                if not active_phase:
+                    print(f"Orphaned: Mattress {kanban.mattress_id} has no active phase")
+                    db.session.delete(kanban)
+                    orphaned_count += 1
+                elif active_phase.device == "SP0" or active_phase.status == "0 - NOT SET":
+                    print(f"Orphaned: Mattress {kanban.mattress_id} should be in SP0 (device: {active_phase.device}, status: {active_phase.status})")
+                    db.session.delete(kanban)
+                    orphaned_count += 1
+                elif active_phase.status not in ["1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                    print(f"Orphaned: Mattress {kanban.mattress_id} has inactive status: {active_phase.status}")
+                    db.session.delete(kanban)
+                    orphaned_count += 1
+                else:
+                    valid_entries.append(kanban)
+
+            print(f"Deleted {orphaned_count} orphaned kanban entries")
+            print(f"Kept {len(valid_entries)} valid entries")
+
+            # Step 3: Reset positions for remaining valid entries
+            # Group by day/shift
+            position_groups = {}
+            for kanban in valid_entries:
+                key = f"{kanban.day}_{kanban.shift}"
+                if key not in position_groups:
+                    position_groups[key] = []
+                position_groups[key].append(kanban)
+
+            reset_count = 0
+            for group_key, group_kanban in position_groups.items():
+                # Sort by current position to maintain relative order
+                group_kanban.sort(key=lambda k: k.position)
+
+                # Reset positions starting from 1
+                for i, kanban in enumerate(group_kanban):
+                    old_position = kanban.position
+                    kanban.position = i + 1
+                    if old_position != kanban.position:
+                        reset_count += 1
+                        print(f"Reset mattress {kanban.mattress_id} position: {old_position} → {kanban.position}")
+
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Cleanup complete: deleted {orphaned_count} orphaned entries, reset {reset_count} positions",
+                "orphaned_deleted": orphaned_count,
+                "positions_reset": reset_count,
+                "valid_entries": len(valid_entries)
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Cleanup failed: {str(e)}"}, 500
+
+@mattress_api.route('/cleanup_kanban', methods=['POST'])
+class CleanupKanbanResource(Resource):
+    """Remove kanban entries for mattresses that have advanced beyond kanban phases"""
+    def post(self):
+        try:
+            # Find all kanban entries for mattresses that shouldn't be in kanban anymore
+            kanban_entries = db.session.query(MattressKanban).join(
+                MattressPhase, MattressKanban.mattress_id == MattressPhase.mattress_id
+            ).filter(
+                MattressPhase.active == True,
+                ~MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"])
+            ).all()
+
+            deleted_count = 0
+            for kanban in kanban_entries:
+                print(f"Deleting kanban entry for mattress {kanban.mattress_id} (advanced beyond kanban phases)")
+                db.session.delete(kanban)
+                deleted_count += 1
+
+            # Also find kanban entries where mattress has no active phase or is SP0
+            orphaned_entries = db.session.query(MattressKanban).outerjoin(
+                MattressPhase, db.and_(
+                    MattressKanban.mattress_id == MattressPhase.mattress_id,
+                    MattressPhase.active == True
+                )
+            ).filter(
+                db.or_(
+                    MattressPhase.mattress_id.is_(None),  # No active phase
+                    MattressPhase.device == "SP0"  # Should be in SP0
+                )
+            ).all()
+
+            for kanban in orphaned_entries:
+                print(f"Deleting orphaned kanban entry for mattress {kanban.mattress_id}")
+                db.session.delete(kanban)
+                deleted_count += 1
+
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Deleted {deleted_count} invalid kanban entries",
+                "deleted_count": deleted_count
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Cleanup failed: {str(e)}"}, 500
+
 @mattress_api.route('/update_position/<int:mattress_id>', methods=['PUT'])
 class UpdateKanbanPositionResource(Resource):
     """Legacy endpoint - redirects to new unified move endpoint"""
@@ -1461,6 +1584,13 @@ class UpdateMattressStatusResource(Resource):
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
 
+            # AUTO-CLEANUP: Remove from kanban if advancing beyond kanban phases
+            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                kanban_entry = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+                if kanban_entry:
+                    print(f"Auto-removing mattress {mattress_id} from kanban (advanced to {new_status})")
+                    db.session.delete(kanban_entry)
+
             db.session.commit()
             return {"success": True, "message": f"Status updated to '{new_status}'"}, 200
 
@@ -1516,6 +1646,13 @@ class UpdateStatusAndLayersResource(Resource):
                         target_phase.device = current_device
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
+
+            # AUTO-CLEANUP: Remove from kanban if advancing beyond kanban phases
+            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                kanban_entry = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+                if kanban_entry:
+                    print(f"Auto-removing mattress {mattress_id} from kanban (advanced to {new_status})")
+                    db.session.delete(kanban_entry)
 
             # Update layers_a and calculate cons_actual
             mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
