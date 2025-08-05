@@ -58,20 +58,7 @@ const CumulativeQuantities = ({
           table.destination === combination.destination &&
           table.fabricType === '01'; // Only fabric type "01"
 
-        console.log(`🔍 Table ${table.id} match check:`, {
-          table: {
-            productionCenter: table.productionCenter,
-            cuttingRoom: table.cuttingRoom,
-            destination: table.destination,
-            fabricType: table.fabricType
-          },
-          combination: {
-            production_center: combination.production_center,
-            cutting_room: combination.cutting_room,
-            destination: combination.destination
-          },
-          matches
-        });
+
 
         return matches;
       });

@@ -698,20 +698,17 @@ const useHandleSave = ({
           axios.post('/collaretto/add_weft_row', payload)
             .then(response => {
               if (response.data.success) {
-                console.log(`✅ Weft Row ${payload.collaretto} saved successfully.`);
                 return true;
               } else {
-                console.warn(`⚠️ Failed to save weft row ${payload.collaretto}:`, response.data.message);
                 return false;
               }
             })
             .catch(error => {
-              console.error(`❌ Error saving weft row ${payload.collaretto}:`, error);
               return false;
             })
         )).then(results => {
           const allSucceeded = results.every(result => result === true);
-          if (!allSucceeded) throw new Error("❌ Some weft rows failed to save.");
+          if (!allSucceeded) throw new Error("Some weft rows failed to save.");
         });
       };
 
@@ -720,20 +717,17 @@ const useHandleSave = ({
           axios.post('/collaretto/add_bias_row', payload)
             .then(response => {
               if (response.data.success) {
-                console.log(`✅ Bias Row ${payload.collaretto} saved successfully.`);
                 return true;
               } else {
-                console.warn(`⚠️ Failed to save bias row ${payload.collaretto}:`, response.data.message);
                 return false;
               }
             })
             .catch(error => {
-              console.error(`❌ Error saving bias row ${payload.collaretto}:`, error);
               return false;
             })
         )).then(results => {
           const allSucceeded = results.every(result => result === true);
-          if (!allSucceeded) throw new Error("❌ Some bias rows failed to save.");
+          if (!allSucceeded) throw new Error("Some bias rows failed to save.");
         });
       };
 

@@ -606,10 +606,8 @@ export const markLargeTables = () => {
 
       if (isLargeTable) {
         card.setAttribute('data-large-table', 'true');
-        console.log(`📏 Marked table ${card.getAttribute('data-table-id')} as large for splitting (${rowCount} rows, ${actualHeight}px height, estimated row height: ${estimatedRowHeight.toFixed(1)}px)`);
       } else {
         card.removeAttribute('data-large-table');
-        console.log(`📏 Table ${card.getAttribute('data-table-id')} kept as normal size (${rowCount} rows, ${actualHeight}px height)`);
       }
     }
   });
@@ -634,7 +632,6 @@ export const addManualPageBreaks = () => {
 
     if (needsPageBreak) {
       card.classList.add('force-page-break');
-      console.log(`📄 Added manual page break for table ${card.getAttribute('data-table-id')} (${actualHeight}px height, ${remainingSpace.toFixed(0)}px remaining space)`);
     } else {
       card.classList.remove('force-page-break');
     }
@@ -643,23 +640,17 @@ export const addManualPageBreaks = () => {
 
 // Add mattress table classes for print styling
 export const addMattressTableClasses = (tables) => {
-  console.log('🔍 Adding mattress table classes...');
-
   // Method 1: Add class based on table data
   tables.forEach(table => {
     const tableElement = document.querySelector(`[data-table-id="${table.id}"]`);
     if (tableElement) {
       tableElement.classList.add('mattress-table');
-      console.log(`✅ Added mattress-table class to table ${table.id}`);
-    } else {
-      console.log(`❌ Could not find table element for ${table.id}`);
     }
   });
 
   // Method 2: Add class to ALL cards that contain mattress-like content
   setTimeout(() => {
     const allTableCards = document.querySelectorAll('.MuiCard-root[data-table-id]');
-    console.log(`🔍 Found ${allTableCards.length} table cards in DOM`);
 
     allTableCards.forEach((card, index) => {
       // Check if this card contains "Mattresses" in the title
@@ -672,13 +663,8 @@ export const addMattressTableClasses = (tables) => {
       const hasMarkerColumn = tableHeaders.some(text => text.includes('Marker'));
       const hasLayersColumn = tableHeaders.some(text => text.includes('Layers'));
 
-      console.log(`Card ${index}: Title="${cardTitle}", Headers=[${tableHeaders.join(', ')}]`);
-
       if (hasMattressTitle || (hasWidthColumn && hasMarkerColumn && hasLayersColumn)) {
         card.classList.add('mattress-table');
-        console.log(`✅ Added mattress-table class to card ${index} (${card.getAttribute('data-table-id')})`);
-      } else {
-        console.log(`❌ Skipped card ${index} - not a mattress table`);
       }
     });
 
@@ -699,7 +685,6 @@ export const addProductionCenterCardClass = () => {
       const titleElement = cardHeader.querySelector('.MuiCardHeader-title, .MuiTypography-root');
       if (titleElement && titleElement.textContent.includes('Production Center')) {
         card.classList.add('production-center-card');
-        console.log('✅ Added production-center-card class for print styling');
       }
     }
   });
@@ -791,7 +776,6 @@ export const addStyleCommentCardClass = () => {
       const titleElement = cardHeader.querySelector('.MuiCardHeader-title, .MuiTypography-root');
       if (titleElement && titleElement.textContent.includes('Style Comment')) {
         card.classList.add('style-comment-card');
-        console.log('✅ Added style-comment-card class for print styling');
       }
     }
   });
@@ -917,7 +901,6 @@ export const handleDestinationPrint = (selectedDestination, tables, adhesiveTabl
 
   // Switch to the correct tab for the selected destination BEFORE printing
   if (switchToDestinationTab && selectedDestination) {
-    console.log(`🔄 Switching to tab for destination: ${selectedDestination}`);
     switchToDestinationTab(selectedDestination);
   }
 

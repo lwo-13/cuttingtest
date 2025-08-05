@@ -20,7 +20,6 @@ export const safeClosest = (event, selector) => {
   try {
     return event.target.closest(selector);
   } catch (error) {
-    console.warn('Error in safeClosest:', error);
     return null;
   }
 };

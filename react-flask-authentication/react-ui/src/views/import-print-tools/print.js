@@ -73,8 +73,6 @@ const MattressTable = () => {
         // ✅ Find selected mattresses from `mattresses` array
         const selected = mattresses.filter(m => newSelection.includes(m.mattress));
 
-        console.log("New Selection:", selected); // 🔍 Debugging - shows selected objects
-
         setSelectedMattresses(selected); // ✅ Store selected objects
     };
 
@@ -82,7 +80,6 @@ const MattressTable = () => {
         setLoading(true);
         axios.get('/mattress/all_with_details')
             .then((response) => {
-                console.log("API Response:", response.data);
                 if (response.data.success) {
                     const updatedMattresses = response.data.data.map(mattress => {
                         const printTravelStatus = mattress.details.length > 0
@@ -101,11 +98,11 @@ const MattressTable = () => {
                     });
 
                     setMattresses(updatedMattresses);
-                } else {
-                    console.error("Failed to fetch mattress data.");
                 }
             })
-            .catch((error) => console.error("Error fetching mattresses:", error))
+            .catch(() => {
+                // Error fetching mattresses - handle silently
+            })
             .finally(() => setLoading(false));
     };
 

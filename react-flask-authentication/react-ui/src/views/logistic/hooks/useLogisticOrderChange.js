@@ -86,10 +86,7 @@ const handleOrderChange = async (newValue, {
 
     // Fetch brand info
     if (style) {
-      console.log("📊 Fetching brand for style:", style);
       fetchBrandForStyle(style);
-    } else {
-      console.log("📊 No style found, cannot fetch brand");
     }
 
     console.log("📊 Logistic Order Details:", {

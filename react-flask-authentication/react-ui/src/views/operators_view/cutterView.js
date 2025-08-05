@@ -180,7 +180,6 @@ const CutterView = () => {
             if (e.key === 'cutter_mattress_status_change') {
                 const changeData = JSON.parse(e.newValue || '{}');
                 if (changeData.timestamp && (Date.now() - changeData.timestamp) < 5000) { // Only process recent changes
-                    console.log('Received mattress status change notification:', changeData);
                     // Refresh data immediately when another cutter makes changes
                     fetchMattresses(false);
                 }
@@ -204,11 +203,9 @@ const CutterView = () => {
             if (response.data.success) {
                 setOperators(response.data.data);
                 // Don't auto-select any operator - leave it empty by default
-            } else {
-                console.error("Error fetching cutter operators:", response.data.message);
             }
         } catch (error) {
-            console.error("API Error fetching cutter operators:", error);
+            // Error fetching operators - handle silently
         } finally {
             setLoadingOperators(false);
         }
@@ -287,7 +284,6 @@ const CutterView = () => {
             })
             .catch((err) => {
                 setError("API Error: " + (err.message || "Unknown error"));
-                console.error("API Error:", err);
             })
             .finally(() => {
                 // Reset loading states
@@ -384,7 +380,7 @@ const CutterView = () => {
                 message: errorMessage,
                 severity: "error"
             });
-            console.error("API Error:", err);
+
         })
         .finally(() => {
             setProcessingMattress(null);
@@ -462,7 +458,7 @@ const CutterView = () => {
                 message: errorMessage,
                 severity: "error"
             });
-            console.error("API Error:", err);
+
         })
         .finally(() => {
             setProcessingMattress(null);
@@ -500,7 +496,6 @@ const CutterView = () => {
                 fallbackCopyToClipboard(text);
             }
         } catch (err) {
-            console.error('Failed to copy text: ', err);
             setSnackbar({
                 open: true,
                 message: t('cutter.copyFailed'),
@@ -540,7 +535,6 @@ const CutterView = () => {
                 throw new Error('Copy command was unsuccessful');
             }
         } catch (err) {
-            console.error('Fallback copy method failed: ', err);
             setSnackbar({
                 open: true,
                 message: t('cutter.copyFailed'),

@@ -114,7 +114,6 @@ const handleOrderChange = async (newValue, {
 
     // Separate mattress and adhesive data from the single API response
     const allData = allMattressRes.data?.data || [];
-    console.log(`📊 Received ${allData.length} mattress/adhesive records for cutting room ${cuttingRoom}`);
     const mattressData = allData.filter(item => ['AS', 'MS', 'CWAS', 'CWMS'].includes(item.item_type));
     const adhesiveData = allData.filter(item => ['ASA', 'MSA'].includes(item.item_type));
 

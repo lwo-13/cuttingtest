@@ -200,7 +200,6 @@ const CombinedImports = () => {
       const reader = new FileReader();
 
       reader.onload = (e) => {
-        console.log("File loaded");
         try {
           const xmlString = e.target.result;
           const parser = new DOMParser();
@@ -233,13 +232,11 @@ const CombinedImports = () => {
 
           resolve(extractedData);
         } catch (error) {
-          console.error("Error parsing XML:", error);
           resolve([]);
         }
       };
 
       reader.onerror = () => {
-        console.error("Error reading file");
         resolve([]);
       };
 

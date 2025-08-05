@@ -22,7 +22,6 @@ export const getTablePlannedByBagno = (table) => {
 
     // Safety check for invalid table
     if (!table || !table.rows) {
-        console.warn('Invalid table passed to getTablePlannedByBagno:', table);
         return { bagnoMap, bagnoOrder };
     }
 

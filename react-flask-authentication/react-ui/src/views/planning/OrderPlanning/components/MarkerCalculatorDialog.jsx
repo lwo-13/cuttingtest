@@ -434,7 +434,6 @@ const MarkerCalculatorDialog = ({
                                  error.message?.includes('deadlock');
 
                 if (isDeadlock && retryCount < maxRetries) {
-                    console.warn(`Deadlock detected, retrying in ${retryDelay * (retryCount + 1)}ms... (attempt ${retryCount + 1}/${maxRetries})`);
                     await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1))); // Exponential backoff
                     return saveWithRetry(payload, retryCount + 1);
                 }
@@ -486,7 +485,6 @@ const MarkerCalculatorDialog = ({
                 return false;
             }
         } catch (error) {
-            console.error('Error saving calculator data:', error);
             const errorMessage = error.response?.data?.message || error.message;
 
             if (errorMessage.includes('1205') || errorMessage.includes('deadlock')) {

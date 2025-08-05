@@ -34,7 +34,6 @@ const NetworkDiagnostics = () => {
 
         try {
             // Test 1: Basic network connectivity
-            console.log('🔥 RUNNING NETWORK CONNECTIVITY TEST');
             const networkResponse = await axiosInstance.get('/network-test');
             
             // Test 2: Gather browser information
@@ -81,7 +80,6 @@ const NetworkDiagnostics = () => {
             });
 
         } catch (error) {
-            console.error('🔥 NETWORK TEST FAILED:', error);
             setDiagnostics(prev => ({
                 ...prev,
                 loading: false,

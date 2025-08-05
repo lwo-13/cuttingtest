@@ -65,7 +65,7 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                     markerLines = response.data.marker_lines;
                 }
             } catch (error) {
-                console.error("Error fetching marker lines:", error);
+                // Error fetching marker lines - continue without them
             }
 
             // Variables to hold season, style, and color.
@@ -80,15 +80,12 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
             if (orderLinesResponse.data.success && orderLinesResponse.data.data.length > 0) {
                 // Use the first record from the order_lines.
                 const data = orderLinesResponse.data.data[0];
-                console.log('Order lines data:', data);
-                season = data.season;        
+                season = data.season;
                 style = data.style;
-                color = data.color_code;     
-            } else {
-                console.error("No order lines found for order_commessa:", orderCommessa);
+                color = data.color_code;
             }
             } catch (error) {
-            console.error("Error fetching order lines:", error);
+                // Error fetching order lines - continue without them
             }
 
             let padPrintData = [];
@@ -104,11 +101,9 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                         padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                     }
                 } else {
-                    console.error("Padprint API returned a non-success response.");
                     padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                 }
             } catch (error) {
-                console.error("Error fetching padprint data:", error);
                 padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
             }
 
@@ -136,7 +131,6 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                         height: img.height
                     };
                 } catch (err) {
-                    console.error("Error loading image with dimensions:", err);
                     return null;
                 }
             };
@@ -532,7 +526,7 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
             document.body.removeChild(barcodeCanvas);
 
         } catch (error) {
-            console.error("Error processing mattress", error);
+            // Error processing mattress - skip this one
         }
     }
 
@@ -553,7 +547,7 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
             });
         }
     } catch (error) {
-        console.error("Error updating print statuses", error);
+        // Error updating print statuses - continue anyway
     }
 
     // ✅ Refresh the table to reflect the new status after processing all

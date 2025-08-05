@@ -1,25 +1,7 @@
 import axios from 'axios';
 
-// SINGLE PORT SOLUTION: Smart backend URL detection with enhanced debugging
+// SINGLE PORT SOLUTION: Smart backend URL detection
 const getBackendURL = () => {
-  console.log('🔥 DETECTING ENVIRONMENT FOR SINGLE PORT SOLUTION');
-  console.log('🔥 CURRENT HOSTNAME:', window.location.hostname);
-  console.log('🔥 CURRENT PORT:', window.location.port);
-  console.log('🔥 CURRENT ORIGIN:', window.location.origin);
-  console.log('🔥 CURRENT PATHNAME:', window.location.pathname);
-  console.log('🔥 CURRENT PROTOCOL:', window.location.protocol);
-  console.log('🔥 CURRENT HREF:', window.location.href);
-  console.log('🔥 USER AGENT:', navigator.userAgent);
-  console.log('🔥 NETWORK CONNECTION:', navigator.connection ? navigator.connection.effectiveType : 'unknown');
-
-  // CRITICAL DEBUG: Check all possible VPN indicators
-  console.log('🔥 VPN DETECTION DEBUG:');
-  console.log('🔥   - hostname === sslvpn1.calzedonia.com:', window.location.hostname === 'sslvpn1.calzedonia.com');
-  console.log('🔥   - pathname starts with /web_forward:', window.location.pathname.startsWith('/web_forward_CuttingApplicationAPI'));
-  console.log('🔥   - href includes sslvpn1:', window.location.href.includes('sslvpn1.calzedonia.com'));
-  console.log('🔥   - protocol is https:', window.location.protocol === 'https:');
-  console.log('🔥   - VM hostname check 1:', window.location.hostname === '172.27.57.210');
-  console.log('🔥   - VM hostname check 2:', window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com');
 
   // ENHANCED VPN DETECTION: For VM + VPN Proxy setup
   // React app runs on VM but accessed through VPN proxy
@@ -37,12 +19,6 @@ const getBackendURL = () => {
   );
 
   if (isVPNEnvironment) {
-    console.log('🔥 VPN ENVIRONMENT DETECTED - USING VPN PROXY API PATHS (SINGLE PORT)');
-    console.log('🔥 VPN DETECTION REASONS:');
-    console.log('🔥   - Direct hostname match:', window.location.hostname === 'sslvpn1.calzedonia.com');
-    console.log('🔥   - Referrer check:', document.referrer && document.referrer.includes('sslvpn1.calzedonia.com'));
-    console.log('🔥   - URL contains VPN:', window.location.href.includes('sslvpn1.calzedonia.com'));
-    console.log('🔥   - HTTPS on VM (proxy):', window.location.protocol === 'https:' && (window.location.hostname === '172.27.57.210' || window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com'));
     return '/web_forward_CuttingApplicationAPI/api/';  // VPN proxy path + API
   }
 
@@ -51,24 +27,19 @@ const getBackendURL = () => {
   if (typeof window !== 'undefined' &&
       (window.location.hostname === '172.27.57.210' ||
        window.location.hostname === 'gab-navint01p.csg1.sys.calzedonia.com')) {
-    console.log('🔥 VM ENVIRONMENT - USING RELATIVE API PATHS (SINGLE PORT)');
-    console.log('🔥 VM DETECTED - IGNORING ANY VPN PATHS IN URL');
     return '/api/';  // Always relative on VM since served from Flask
   }
 
   // For local development, check if served from Flask or dev server
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     if (window.location.port === '5000') {
-      console.log('🔥 LOCAL FLASK SERVER - USING RELATIVE API PATHS (SINGLE PORT)');
       return '/api/';
     } else {
-      console.log('🔥 LOCAL DEV SERVER - USING CROSS-ORIGIN API');
       return 'http://localhost:5000/api/';
     }
   }
 
   // Default fallback - assume single port if we can't determine
-  console.log('🔥 DEFAULT - USING RELATIVE API PATHS');
   return '/api/';
 };
 
@@ -98,18 +69,13 @@ const axiosInstance = axios.create({
   retryDelay: 1000
 });
 
-// REQUEST INTERCEPTOR: Add debugging information to all requests
+// REQUEST INTERCEPTOR: Add request metadata and headers
 axiosInstance.interceptors.request.use(
   (config) => {
-    console.log('🔥 AXIOS REQUEST:', config.method?.toUpperCase(), config.url);
-    console.log('🔥 REQUEST BASE URL:', config.baseURL);
-    console.log('🔥 REQUEST HEADERS:', config.headers);
-    console.log('🔥 REQUEST TIMEOUT:', config.timeout);
-
     // Add timestamp for request tracking
     config.metadata = { startTime: new Date() };
 
-    // Add additional debugging headers
+    // Add additional headers for debugging
     config.headers['X-Request-ID'] = Math.random().toString(36).substring(2, 11);
     config.headers['X-Client-Timestamp'] = new Date().toISOString();
     config.headers['X-Client-URL'] = window.location.href;
@@ -117,7 +83,6 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('🔥 AXIOS REQUEST ERROR:', error);
     return Promise.reject(error);
   }
 );
@@ -126,15 +91,9 @@ axiosInstance.interceptors.request.use(
 // Frontend and backend have separate authentication contexts
 // Users must click "Cutting API" tile first to establish backend authentication
 
-// Add request interceptor for debugging VPN issues
+// Add request interceptor for authentication
 axiosInstance.interceptors.request.use(
   (config) => {
-    console.log('🔥 AXIOS REQUEST:', config.method?.toUpperCase(), config.url);
-    console.log('🔥 AXIOS HEADERS:', config.headers);
-    console.log('🔥 AXIOS BASE URL:', config.baseURL);
-    console.log('🔥 FINAL REQUEST URL:', config.baseURL + config.url);
-    console.log('🔥 CURRENT WINDOW LOCATION:', window.location.href);
-
     // Add authorization token if available
     const token = localStorage.getItem('token');
     if (token) {
@@ -144,35 +103,15 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('🔥 AXIOS REQUEST ERROR:', error);
     return Promise.reject(error);
   }
 );
 
-// ENHANCED RESPONSE INTERCEPTOR: Handle VPN redirects and network issues
+// RESPONSE INTERCEPTOR: Handle VPN redirects and network issues
 axiosInstance.interceptors.response.use(
   (response) => {
-    // Calculate request duration
-    const duration = response.config.metadata ?
-      new Date() - response.config.metadata.startTime : 'unknown';
-
-    console.log('🔥 AXIOS RESPONSE SUCCESS:', response.status, response.config.url);
-    console.log('🔥 RESPONSE TIME:', duration, 'ms');
-    console.log('🔥 RESPONSE HEADERS:', response.headers);
-    console.log('🔥 RESPONSE DATA TYPE:', typeof response.data);
-    console.log('🔥 RESPONSE SIZE:', JSON.stringify(response.data).length, 'bytes');
-
     // Check if response is HTML instead of JSON (VPN redirect issue)
     if (typeof response.data === 'string' && response.data.includes('<html')) {
-      console.error('🔥 RECEIVED HTML INSTEAD OF JSON - VPN REDIRECT DETECTED!');
-      console.error('🔥 HTML CONTENT:', response.data.substring(0, 500));
-      console.error('🔥 This indicates VPN proxy is not forwarding to Flask API correctly');
-      console.error('🔥 POSSIBLE CAUSES:');
-      console.error('🔥   1. VPN proxy configuration issue');
-      console.error('🔥   2. Backend server not responding');
-      console.error('🔥   3. Network routing problem');
-      console.error('🔥   4. Authentication required at VPN level');
-
       // Create a custom error for HTML responses
       const error = new Error('VPN Proxy returned HTML instead of JSON');
       error.response = response;
@@ -183,46 +122,9 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('🔥 AXIOS ERROR OCCURRED:', error.message);
-    console.error('🔥 ERROR CONFIG:', error.config);
-    console.error('🔥 ERROR RESPONSE:', error.response);
-    console.error('🔥 ERROR CODE:', error.code);
-
-    // Network-specific error analysis
-    if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-      console.error('🔥 NETWORK ERROR DETECTED - POSSIBLE CAUSES:');
-      console.error('🔥   1. VPN connection lost or unstable');
-      console.error('🔥   2. Firewall blocking requests');
-      console.error('🔥   3. DNS resolution failure');
-      console.error('🔥   4. Proxy server not responding');
-      console.error('🔥   5. Backend server down');
-
-      // Add network diagnostics
-      console.error('🔥 NETWORK DIAGNOSTICS:');
-      console.error('🔥   - Online status:', navigator.onLine);
-      console.error('🔥   - Connection type:', navigator.connection ? navigator.connection.effectiveType : 'unknown');
-      console.error('🔥   - Request URL:', error.config?.url);
-      console.error('🔥   - Base URL:', error.config?.baseURL);
-    }
-
     // Handle specific VPN proxy errors
     if (error.response?.status === 302) {
-      console.error('🔥 VPN PROXY 302 REDIRECT DETECTED!');
-      console.error('🔥 Location header:', error.response.headers?.location);
-      console.error('🔥 This indicates VPN proxy authentication is required');
-      console.error('🔥 SOLUTION: User must click "Cutting API" tile first');
-    }
-
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      console.error('🔥 REQUEST TIMEOUT - NETWORK TOO SLOW OR UNSTABLE');
-      console.error('🔥 Consider increasing timeout or checking network connection');
-    }
-
-    // Handle CORS errors
-    if (error.message.includes('CORS') || error.message.includes('Access-Control')) {
-      console.error('🔥 CORS ERROR - BACKEND NOT ALLOWING REQUESTS FROM THIS ORIGIN');
-      console.error('🔥 Check Flask CORS configuration');
+      // VPN proxy authentication required - user should click "Cutting API" tile first
     }
 
     return Promise.reject(error);

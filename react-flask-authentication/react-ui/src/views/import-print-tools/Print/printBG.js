@@ -71,7 +71,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                     markerLines = response.data.marker_lines;
                 }
             } catch (error) {
-                console.error("Error fetching marker lines:", error);
+                // Error fetching marker lines - continue without them
             }
 
             // Variables to hold season, style, and color.
@@ -86,11 +86,9 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 season = data.season;
                 style = data.style;
                 color = data.color_code;
-            } else {
-                console.error("No order lines found for order_commessa:", orderCommessa);
             }
             } catch (error) {
-            console.error("Error fetching order lines:", error);
+                // Error fetching order lines - continue without them
             }
 
             let padPrintData = [];
@@ -105,11 +103,9 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                     padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                 }
             } else {
-                console.error("Padprint API returned a non-success response.");
                 padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
             }
             } catch (error) {
-                console.error("Error fetching padprint data:", error);
                 padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
             }
 
@@ -137,7 +133,6 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                         height: img.height
                     };
                 } catch (err) {
-                    console.error("Error loading image with dimensions:", err);
                     return null;
                 }
             };
@@ -156,19 +151,11 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 try {
                     padPrintImage = await getImageBase64WithDimensions(imageUrl);
                 } catch (imageError) {
-                    console.error("Error loading padprint image:", imageError);
                     padPrintImage = null;
                 }
             }
 
-            // Log warning if padprint image is missing but continue with printing (only for non-TRANSFER patterns)
-            if (padPrintData.length > 0 &&
-                padPrintData[0].pattern !== "NO" &&
-                padPrintData[0].pattern.toUpperCase() !== "TRANSFER" &&
-                !padPrintImage) {
-                const pattern = padPrintData[0].pattern;
-                console.warn(`⚠️ PADPRINT WARNING: Padprint image "${pattern}" could not be loaded for mattress "${mattressName}". Continuing with printing without image.`);
-            }
+            // Continue with printing even if padprint image is missing
 
             // Fetch destination from mattress production center using table_id
             let destination = "";
@@ -180,7 +167,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                     }
                 }
             } catch (err) {
-                console.error("Error fetching mattress production center destination:", err);
+                // Error fetching destination - continue without it
             }
 
             const orderTable = [
@@ -481,7 +468,7 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             document.body.removeChild(barcodeCanvas);
 
         } catch (error) {
-            console.error("Error processing mattress", error);
+            // Error processing mattress - skip this one
         }
     }
 
@@ -502,14 +489,13 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
             });
         }
     } catch (error) {
-        console.error("Error updating print statuses", error);
+        // Error updating print statuses - continue anyway
     }
 
         // Refresh the table to reflect the new status
         fetchMattresses();
     } catch (error) {
-        console.error("Critical error in printMattressBG:", error);
-        alert(`Critical error in print function: ${error.message}`);
+        alert(`Error in print function: ${error.message}`);
     }
 };
 

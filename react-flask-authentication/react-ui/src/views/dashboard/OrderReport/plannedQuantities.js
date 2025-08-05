@@ -19,7 +19,6 @@ export const getTablePlannedByBagno = (table) => {
   const bagnoOrder = []; // Track the order of bagno appearance
 
   if (!table || !table.rows) {
-    console.warn('Invalid table passed to getTablePlannedByBagno:', table);
     return { bagnoMap, bagnoOrder };
   }
 

@@ -79,11 +79,9 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                 season = data.season;        // Should be "24CC" based on your database
                 style = data.style;
                 color = data.color_code;     // if needed, depending on your field naming
-            } else {
-                console.error("No order lines found for order_commessa:", orderCommessa);
             }
             } catch (error) {
-            console.error("Error fetching order lines:", error);
+                // Error fetching order lines - continue without them
             }
 
             let padPrintData = [];
@@ -98,11 +96,9 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
                         padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                     }
                 } else {
-                    console.error("Padprint API returned a non-success response.");
                     padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                 }
                 } catch (error) {
-                    console.error("Error fetching padprint data:", error);
                     padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                 }
 
@@ -453,7 +449,7 @@ const saveMattressBG = async (selectedMattresses, fetchMattresses) => {
             document.body.removeChild(barcodeCanvas);
 
         } catch (error) {
-            console.error("Error processing mattress", error);
+            // Error processing mattress - skip this one
         }
     }
 

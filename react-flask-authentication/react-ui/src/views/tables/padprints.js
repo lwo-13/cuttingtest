@@ -168,11 +168,9 @@ const CreatePadPrintModal = ({ open, handleClose, onCreated }) => {
     const handleSubmit = async () => {
       try {
         const response = await axios.post("/padprint/create", formData);
-        console.log("PadPrint created:", response.data);
         onCreated(response.data);
         handleClose();
       } catch (error) {
-        console.error("Error creating pad print:", error.response ? error.response.data : error.message);
         setSnackbar({
           open: true,
           message: `Error: ${error.response?.data?.error || error.message}`,
@@ -471,7 +469,6 @@ const BulkImageUploadModal = ({ open, handleClose, onSuccess }) => {
         setPadprintColors(uniquePadprintColors);
       }
     } catch (error) {
-      console.error("Failed to fetch patterns and colors:", error);
       setSnackbar({
         open: true,
         message: `Error: ${error.response?.data?.error || error.message}`,

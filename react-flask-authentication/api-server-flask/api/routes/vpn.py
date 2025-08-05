@@ -4,20 +4,15 @@ import traceback
 # Create VPN blueprint
 vpn_bp = Blueprint('vpn', __name__)
 
-# EXPLICIT TEST ROUTE
+# TEST ROUTE
 @vpn_bp.route('/test', methods=['GET'])
 def explicit_test():
-    print("🔥 EXPLICIT TEST ROUTE CALLED!")
-    return jsonify({"success": True, "message": "Explicit VPN test works!"})
+    return jsonify({"success": True, "message": "VPN test works!"})
 
 # CATCH-ALL ROUTE - handles ANY path
 @vpn_bp.route('/', defaults={'path': ''}, methods=['GET', 'POST'])
 @vpn_bp.route('/<path:path>', methods=['GET', 'POST'])
 def catch_all(path):
-    print(f"🔥 CATCH-ALL ROUTE CALLED: {request.method} /{path}")
-    print(f"🔥 Full URL: {request.url}")
-    print(f"🔥 Headers: {dict(request.headers)}")
-
     # Handle test routes
     if 'test' in path or request.path.endswith('/test'):
         return jsonify({"success": True, "message": f"VPN catch-all works! Path: {path}"})
@@ -29,10 +24,8 @@ def catch_all(path):
     return jsonify({"success": False, "message": f"Unknown path: {path}"}), 404
 
 def handle_vpn_login():
-    print("🔥 VPN Login via catch-all!")
     try:
         req_data = request.get_json()
-        print(f"🔥 Request data: {req_data}")
 
         if not req_data:
             return jsonify({"success": False, "msg": "No JSON data received"}), 400
@@ -44,7 +37,7 @@ def handle_vpn_login():
             return jsonify({"success": False, "msg": "Username and password required"}), 400
 
         from api.models import Users
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         import jwt
         from api.config import BaseConfig
 
@@ -56,7 +49,7 @@ def handle_vpn_login():
         if not user_exists.check_password(_password):
             return jsonify({"success": False, "msg": "Wrong credentials."}), 400
 
-        token = jwt.encode({'username': _username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
+        token = jwt.encode({'username': _username, 'exp': datetime.now(timezone.utc) + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
 
         user_exists.set_jwt_auth_active(True)
         user_exists.save()
@@ -67,12 +60,9 @@ def handle_vpn_login():
             "user": user_exists.toJSON()
         }
 
-        print(f"🔥 VPN Login successful!")
         return jsonify(result), 200
 
     except Exception as e:
-        print(f"🔥 VPN Login Error: {str(e)}")
-        print(traceback.format_exc())
         return jsonify({"success": False, "msg": str(e)}), 500
 
 

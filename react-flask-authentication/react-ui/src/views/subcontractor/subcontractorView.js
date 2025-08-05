@@ -232,10 +232,8 @@ const SubcontractorView = () => {
             // Call the print function with the single mattress
             await printMattressBG([mattressData], () => {
                 // Refresh callback - could trigger a data refresh if needed
-                console.log('Print completed for mattress:', row.mattressName);
             });
         } catch (error) {
-            console.error('Error printing mattress:', error);
             alert('Error printing mattress. Please try again.');
         }
     };
@@ -247,25 +245,18 @@ const SubcontractorView = () => {
     // Fetch orders assigned to this subcontractor's cutting room
     useEffect(() => {
         if (!cuttingRoom) {
-            console.error("No cutting room (username) found for subcontractor");
             return;
         }
-
-        console.log("📊 Fetching orders for cutting room:", cuttingRoom);
 
         // Get orders assigned to this cutting room via mattress production center
         axios.get(`/mattress/production_center/orders_by_cutting_room/${cuttingRoom}`)
             .then(ordersRes => {
-                console.log("📊 Orders for cutting room response:", ordersRes.data);
-
                 if (!ordersRes.data.success) {
-                    console.error("Failed to fetch orders for cutting room:", cuttingRoom);
                     return;
                 }
 
                 // Convert order IDs to order objects for the dropdown
                 const assignedOrderIds = ordersRes.data.data || [];
-                console.log("📊 Assigned Order IDs:", assignedOrderIds);
 
                 // Create order objects with just the order ID for now
                 // We'll fetch the full order details when an order is selected
@@ -277,13 +268,10 @@ const SubcontractorView = () => {
                     sizes: [] // Will be populated when order is selected
                 }));
 
-                console.log("📊 Orders for dropdown:", ordersArray);
                 setOrders(ordersArray);
             })
             .catch(error => {
-                console.error("Error fetching orders for cutting room:", error);
                 // Fallback to all mattress orders if the specific endpoint fails
-                console.log("📊 Falling back to all mattress orders");
                 axios.get('/mattress/order_ids')
                     .then(mattressRes => {
                         if (mattressRes.data.success) {
@@ -298,7 +286,9 @@ const SubcontractorView = () => {
                             setOrders(ordersArray);
                         }
                     })
-                    .catch(fallbackError => console.error("Fallback also failed:", fallbackError));
+                    .catch(fallbackError => {
+                        // Silent fallback failure
+                    });
             });
     }, [cuttingRoom]);
 
@@ -327,8 +317,7 @@ const SubcontractorView = () => {
                     </Box>
                 )}
 
-                {/* Debug: Show if selectedOrder exists */}
-                {console.log("🔍 selectedOrder:", selectedOrder)}
+
 
                 {/* Order Toolbar - Direct order selection without style filtering */}
                 <OrderToolbar

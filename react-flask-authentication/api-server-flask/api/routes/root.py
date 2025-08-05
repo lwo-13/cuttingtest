@@ -10,10 +10,6 @@ def home():
 # VPN TEST ENDPOINT - Simple GET request to test VPN connectivity
 @root_bp.route('/vpn-test', methods=['GET'])
 def vpn_test():
-    print("🔥 VPN TEST ENDPOINT CALLED!")
-    print(f"🔥 Request URL: {request.url}")
-    print(f"🔥 Request headers: {dict(request.headers)}")
-    print(f"🔥 Remote addr: {request.remote_addr}")
     return jsonify({
         "success": True,
         "msg": "VPN test endpoint works!",
