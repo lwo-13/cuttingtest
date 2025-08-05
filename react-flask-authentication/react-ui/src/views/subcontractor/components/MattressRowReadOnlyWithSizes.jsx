@@ -1,6 +1,7 @@
 import React from 'react';
 import { TableRow, TableCell, TextField, Typography, IconButton, Tooltip } from '@mui/material';
-import { Print, Download, Edit } from '@mui/icons-material';
+import { Print, Download } from '@mui/icons-material';
+import { IconTool } from '@tabler/icons';
 import { useTranslation } from 'react-i18next';
 
 const MattressRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDownloadMattress, onChangeMattress, onActualLayersChange, editableActualLayers }) => {
@@ -169,11 +170,16 @@ const MattressRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDown
       <TableCell sx={{ minWidth: '40px', textAlign: 'center', padding: '2px' }}>
         <IconButton
           onClick={() => onChangeMattress && onChangeMattress(row)}
-          color="primary"
+          color={row.layers_a ? "inherit" : "primary"}
           size="small"
-          sx={{ padding: '2px' }}
+          disabled={!!row.layers_a}
+          sx={{
+            padding: '2px',
+            opacity: row.layers_a ? 0.4 : 1,
+            cursor: row.layers_a ? 'not-allowed' : 'pointer'
+          }}
         >
-          <Edit fontSize="small" />
+          <IconTool size={20} />
         </IconButton>
       </TableCell>
     </TableRow>

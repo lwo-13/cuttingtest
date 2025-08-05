@@ -118,13 +118,6 @@ const StyleCommentCardReadOnly = ({ selectedStyle }) => {
                   }}
                   placeholder={maxPiecesInPackage ? '' : t('common.notSet', 'Not set')}
                 />
-
-                {/* Read-only indicator */}
-                <Box mt={2}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                    {t('subcontractor.readOnlyInfo', 'Read-only view')}
-                  </Typography>
-                </Box>
               </Box>
             </Grid>
           </Grid>

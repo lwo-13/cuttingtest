@@ -42,6 +42,10 @@ import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 // Print Utils
 import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
+
+// Width Change Dialog
+import SubcontractorWidthChangeDialog from './components/SubcontractorWidthChangeDialog';
+
 // Dynamic import to handle potential module resolution issues
 
 const SubcontractorView = () => {
@@ -79,6 +83,12 @@ const SubcontractorView = () => {
     // Print functionality
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState([]);
+
+    // Width change dialog state
+    const [widthChangeDialog, setWidthChangeDialog] = useState({
+        open: false,
+        mattressData: null
+    });
 
     // Hooks
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
@@ -353,11 +363,43 @@ const SubcontractorView = () => {
         alert('Download functionality will be implemented soon');
     };
 
-    // Handle individual mattress change (placeholder for now)
+    // Handle individual mattress change - open width change dialog
     const handleChangeMattress = async (row) => {
-        console.log('Change mattress:', row.mattressName);
-        // TODO: Implement change functionality
-        alert('Change functionality will be implemented soon');
+        console.log('Opening width change dialog for mattress:', row.mattressName);
+
+        // Check if actual layers are already declared
+        if (row.layers_a) {
+            showSnackbar(t('subcontractor.cannotChangeWidthActualLayersDeclared', 'Cannot change width when actual layers are already declared'), 'warning');
+            return;
+        }
+
+        // Find the table this row belongs to
+        const parentTable = tables.find(table => table.rows.some(r => r.id === row.id)) ||
+                           adhesiveTables.find(table => table.rows.some(r => r.id === row.id));
+
+        if (!parentTable) {
+            showSnackbar(t('subcontractor.errorFindingMattressTable', 'Error finding mattress table'), 'error');
+            return;
+        }
+
+        // Prepare mattress data for the dialog
+        const mattressData = {
+            id: row.id,
+            mattressName: row.mattressName,
+            width: row.width,
+            markerName: row.markerName,
+            style: selectedStyle,
+            orderCommessa: selectedOrder?.id,
+            piecesPerSize: row.piecesPerSize || {},
+            layers: row.layers,
+            markerLength: row.markerLength,
+            efficiency: row.efficiency
+        };
+
+        setWidthChangeDialog({
+            open: true,
+            mattressData: mattressData
+        });
     };
 
     // Snackbar helper functions
@@ -476,6 +518,85 @@ const SubcontractorView = () => {
 
     const handleCloseDestinationPrintDialog = () => {
         setOpenDestinationPrintDialog(false);
+    };
+
+    // Width change dialog handlers
+    const handleCloseWidthChangeDialog = () => {
+        setWidthChangeDialog({
+            open: false,
+            mattressData: null
+        });
+    };
+
+    const handleSubmitWidthChangeRequest = async (submissionData) => {
+        try {
+            // Parse mattress sizes to get size quantities (same as spreader)
+            const parseMattressSizes = (sizesString) => {
+                if (!sizesString) return {};
+                const sizeQuantities = {};
+                const sizeEntries = sizesString.split(';');
+                sizeEntries.forEach(entry => {
+                    const parts = entry.split(' - ');
+                    if (parts.length === 2) {
+                        const size = parts[0].trim();
+                        const quantity = parseInt(parts[1].trim());
+                        if (!isNaN(quantity)) {
+                            sizeQuantities[size] = quantity;
+                        }
+                    }
+                });
+                return sizeQuantities;
+            };
+
+            const sizeQuantities = parseMattressSizes(submissionData.mattressSizes);
+
+            const requestData = {
+                mattress_id: submissionData.mattressId,
+                requested_by: currentUser?.username || 'Unknown',
+                operator: null, // Subcontractors don't have operators
+                current_marker_name: widthChangeDialog.mattressData?.markerName || '',
+                current_width: parseFloat(submissionData.currentWidth),
+                requested_width: parseFloat(submissionData.newWidth),
+                selected_marker_name: submissionData.selectedMarker || null,
+                selected_marker_id: null, // Will be resolved by backend if marker name is provided
+                request_type: submissionData.requestType,
+                style: submissionData.style,
+                order_commessa: submissionData.orderCommessa,
+                size_quantities: sizeQuantities
+            };
+
+            console.log('Submitting width change request:', requestData);
+            console.log('Submission data received:', submissionData);
+
+            const response = await axios.post('/width_change_requests/create', requestData);
+
+            if (response.data.success) {
+                showSnackbar(
+                    t('subcontractor.widthChangeRequestSubmitted', 'Width change request submitted successfully. Awaiting approval.'),
+                    'success'
+                );
+
+                // Refresh the data to show any status changes
+                if (selectedOrder) {
+                    onOrderChange(selectedOrder);
+                }
+            } else {
+                showSnackbar(
+                    t('subcontractor.errorSubmittingWidthChangeRequest', 'Error submitting width change request: {{message}}', {
+                        message: response.data.message
+                    }),
+                    'error'
+                );
+            }
+        } catch (error) {
+            console.error('Error submitting width change request:', error);
+            showSnackbar(
+                t('subcontractor.errorSubmittingWidthChangeRequestTryAgain', 'Error submitting width change request. Please try again.'),
+                'error'
+            );
+        }
+
+        handleCloseWidthChangeDialog();
     };
 
     // Fetch orders assigned to this subcontractor's cutting room
@@ -861,6 +982,15 @@ const SubcontractorView = () => {
                 destinations={availableDestinations}
                 onPrintDestination={handlePrintDestination}
                 onPrintAll={handlePrintAll}
+            />
+
+            {/* Width Change Dialog */}
+            <SubcontractorWidthChangeDialog
+                open={widthChangeDialog.open}
+                onClose={handleCloseWidthChangeDialog}
+                mattressData={widthChangeDialog.mattressData}
+                onSubmit={handleSubmitWidthChangeRequest}
+                currentUser={currentUser}
             />
 
             {/* Success/Error Snackbar */}

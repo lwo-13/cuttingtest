@@ -22,6 +22,7 @@ const OrderPlanning = Loadable(lazy(() => import('../views/planning/orderplannin
 const ItalianRatio = Loadable(lazy(() => import('../views/to-do-lists/italian_ratio')));
 const WidthValidation = Loadable(lazy(() => import('../views/to-do-lists/width_validation')));
 const WidthChangeApprovals = Loadable(lazy(() => import('../views/to-do-lists/width_change_approvals')));
+const SubcontractorWidthChangeApprovals = Loadable(lazy(() => import('../views/to-do-lists/subcontractor_width_change_approvals')));
 const MarkerRequests = Loadable(lazy(() => import('../views/to-do-lists/marker_requests')));
 
 // tables routing
@@ -81,6 +82,7 @@ const MainRoutes = () => {
                     '/to-do-lists/italian-ratio',
                     '/to-do-lists/width-validation',
                     '/to-do-lists/width-change-approvals',
+                    '/to-do-lists/subcontractor-width-change-approvals',
                     '/to-do-lists/marker-requests',
 
                     '/tables/orders',
@@ -116,6 +118,7 @@ const MainRoutes = () => {
                             <Route path="/to-do-lists/italian-ratio" component={ItalianRatio} />
                             <Route path="/to-do-lists/width-validation" component={WidthValidation} />
                             <Route path="/to-do-lists/width-change-approvals" component={WidthChangeApprovals} />
+                            <Route path="/to-do-lists/subcontractor-width-change-approvals" component={SubcontractorWidthChangeApprovals} />
                             <Route path="/to-do-lists/marker-requests" component={MarkerRequests} />
 
                             <Route path="/tables/orders" component={Orders} />

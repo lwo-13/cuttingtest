@@ -40,6 +40,13 @@ const AuthGuard = ({ children }) => {
         }
     }
 
+    if (user && user.role === 'Logistic') {
+        // If Logistic is trying to access a non-logistic page, redirect to logistic view
+        if (!location.pathname.startsWith('/logistic')) {
+            return <Redirect to="/logistic/view" />;
+        }
+    }
+
     return children;
 };
 

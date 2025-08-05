@@ -15,47 +15,153 @@ class CreateWidthChangeRequest(Resource):
         """Create a new width change request"""
         try:
             data = request.get_json()
-            
+            print(f"DEBUG: Received width change request data: {data}")
+
+            if not data:
+                return {"success": False, "message": "No JSON data received"}, 400
+
             # Validate required fields
-            required_fields = ['mattress_id', 'requested_by', 'current_marker_name', 
+            required_fields = ['mattress_id', 'requested_by', 'current_marker_name',
                              'current_width', 'requested_width', 'request_type']
             for field in required_fields:
                 if field not in data:
+                    print(f"DEBUG: Missing required field: {field}")
                     return {"success": False, "message": f"Missing required field: {field}"}, 400
             
+            # Validate data types
+            try:
+                mattress_id = int(data['mattress_id'])
+                current_width = float(data['current_width'])
+                requested_width = float(data['requested_width'])
+            except (ValueError, TypeError) as e:
+                print(f"DEBUG: Data type validation error: {e}")
+                return {"success": False, "message": f"Invalid data types: {str(e)}"}, 400
+
             # Validate mattress exists
-            mattress = Mattresses.query.get(data['mattress_id'])
+            mattress = Mattresses.query.get(mattress_id)
             if not mattress:
                 return {"success": False, "message": "Mattress not found"}, 404
             
+            # Resolve selected_marker_id if marker name is provided but ID is not
+            selected_marker_id = data.get('selected_marker_id')
+            if data.get('selected_marker_name') and not selected_marker_id:
+                # Try to find the marker by name
+                from api.models.markers import MarkerHeader
+                marker = MarkerHeader.query.filter_by(marker_name=data['selected_marker_name']).first()
+                if marker:
+                    selected_marker_id = marker.id
+                    print(f"DEBUG: Resolved marker '{data['selected_marker_name']}' to ID: {selected_marker_id}")
+                else:
+                    print(f"DEBUG: Could not find marker with name: {data['selected_marker_name']}")
+
+            # Determine initial status - auto-approve for subcontractors
+            initial_status = 'pending'
+            approved_by = None
+            approved_at = None
+
+            # Check if request is from a subcontractor (no operator means subcontractor)
+            if not data.get('operator'):
+                if data['request_type'] == 'change_marker' or selected_marker_id:
+                    # For change_marker requests or when we have a selected marker, auto-approve
+                    initial_status = 'approved'
+                    approved_by = 'SYSTEM_AUTO_APPROVAL'
+                    approved_at = datetime.utcnow()
+                    print(f"DEBUG: Auto-approving subcontractor width change request (change_marker)")
+                elif data['request_type'] == 'new_marker':
+                    # For new_marker requests, set to waiting_for_marker (will be approved when marker is created)
+                    initial_status = 'waiting_for_marker'
+                    print(f"DEBUG: Setting subcontractor new_marker request to waiting_for_marker")
+
             # Create width change request
             width_request = WidthChangeRequest(
-                mattress_id=data['mattress_id'],
+                mattress_id=mattress_id,
                 requested_by=data['requested_by'],
                 operator=data.get('operator'),
                 current_marker_name=data['current_marker_name'],
-                current_width=float(data['current_width']),
-                requested_width=float(data['requested_width']),
+                current_width=current_width,
+                requested_width=requested_width,
                 selected_marker_name=data.get('selected_marker_name'),
-                selected_marker_id=data.get('selected_marker_id'),
+                selected_marker_id=selected_marker_id,
                 request_type=data['request_type'],
-                status='pending'
+                status=initial_status,
+                approved_by=approved_by,
+                approved_at=approved_at
             )
             
-            width_request.save()
-            
+            db.session.add(width_request)
+            db.session.commit()
+
             # If this is a new marker request, create the marker request record
             if data['request_type'] == 'new_marker':
                 marker_request = MarkerRequest(
                     width_change_request_id=width_request.id,
-                    requested_width=float(data['requested_width']),
+                    requested_width=requested_width,
                     style=data.get('style', ''),
                     order_commessa=data.get('order_commessa', ''),
                     size_quantities=json.dumps(data.get('size_quantities', {})),
                     requested_by=data['requested_by'],
                     status='pending'
                 )
-                marker_request.save()
+                db.session.add(marker_request)
+                db.session.commit()
+
+            # If auto-approved and has a selected marker, apply the marker change immediately
+            if initial_status == 'approved' and selected_marker_id:
+                try:
+                    print(f"DEBUG: Applying marker change for auto-approved subcontractor request")
+
+                    # Update the mattress_markers table
+                    mattress_marker = MattressMarker.query.filter_by(mattress_id=mattress_id).first()
+                    if mattress_marker:
+                        # Get the new marker details
+                        new_marker = MarkerHeader.query.get(selected_marker_id)
+                        if new_marker:
+                            print(f"DEBUG: Updating mattress_markers - old marker: {mattress_marker.marker_id}, new marker: {selected_marker_id}")
+                            mattress_marker.marker_id = selected_marker_id
+                            mattress_marker.marker_name = new_marker.marker_name
+                            mattress_marker.marker_width = new_marker.marker_width
+                            mattress_marker.marker_length = new_marker.marker_length
+                            db.session.add(mattress_marker)
+
+                            # Update the mattress details with new marker length and consumption
+                            mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()
+                            if mattress_detail:
+                                # Get current values
+                                layers = mattress_detail.layers or 0
+                                extra = mattress_detail.extra or 0
+
+                                print(f"DEBUG: Current mattress_detail - length: {mattress_detail.length_mattress}, cons_planned: {mattress_detail.cons_planned}")
+                                print(f"DEBUG: Layers: {layers}, Extra: {extra}")
+
+                                # Update length_mattress with marker length + extra
+                                old_length = mattress_detail.length_mattress
+                                old_cons = mattress_detail.cons_planned
+
+                                mattress_detail.length_mattress = new_marker.marker_length + extra
+
+                                # Calculate new planned consumption: (marker_length + extra) * layers
+                                # Round to maximum 3 decimal places
+                                new_cons_planned = round((new_marker.marker_length + extra) * layers, 3)
+                                mattress_detail.cons_planned = new_cons_planned
+                                db.session.add(mattress_detail)
+
+                                print(f"DEBUG: Updated mattress_detail - length: {old_length} -> {mattress_detail.length_mattress}")
+                                print(f"DEBUG: Updated mattress_detail - cons_planned: {old_cons} -> {mattress_detail.cons_planned}")
+                            else:
+                                print("DEBUG: No mattress_detail found!")
+
+                            # Commit the marker changes
+                            db.session.commit()
+                            print("DEBUG: Marker change applied successfully")
+                        else:
+                            print(f"DEBUG: No marker found with ID: {selected_marker_id}")
+                    else:
+                        print(f"DEBUG: No mattress_marker found for mattress_id: {mattress_id}")
+                except Exception as marker_error:
+                    print(f"DEBUG: Error applying marker change: {str(marker_error)}")
+                    db.session.rollback()
+                    # Don't fail the entire request, just log the error
+                    print("DEBUG: Continuing with width change request creation despite marker application error")
             
             return {
                 "success": True, 
@@ -64,6 +170,10 @@ class CreateWidthChangeRequest(Resource):
             }, 201
             
         except Exception as e:
+            db.session.rollback()
+            print(f"ERROR: Exception in width change request creation: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "message": f"Error creating width change request: {str(e)}"}, 500
 
 
@@ -90,6 +200,9 @@ class ListWidthChangeRequests(Resource):
                     WidthChangeRequest.created_at > forty_eight_hours_ago
                 )
             )
+
+            # Exclude subcontractor requests (requests without operator are from subcontractors)
+            query = query.filter(WidthChangeRequest.operator.isnot(None))
 
             # Apply additional filters if provided
             if status:
@@ -132,6 +245,76 @@ class ListWidthChangeRequests(Resource):
             
         except Exception as e:
             return {"success": False, "message": f"Error fetching width change requests: {str(e)}"}, 500
+
+
+@width_change_requests_api.route('/subcontractor/list')
+class ListSubcontractorWidthChangeRequests(Resource):
+    def get(self):
+        """List width change requests from subcontractors only"""
+        try:
+            status = request.args.get('status', None)
+            requested_by = request.args.get('requested_by', None)
+
+            query = WidthChangeRequest.query
+
+            # Apply filtering rules for approvals page:
+            # 1. Show everything that doesn't have status 'approved' OR 'rejected'
+            # 2. Show everything that is 'approved' or 'rejected' but was created less than 48 hours ago
+            from datetime import datetime, timedelta
+            forty_eight_hours_ago = datetime.utcnow() - timedelta(hours=48)
+
+            # Filter: (status != 'approved' AND status != 'rejected') OR (created_at > 48 hours ago)
+            query = query.filter(
+                db.or_(
+                    ~WidthChangeRequest.status.in_(['approved', 'rejected']),
+                    WidthChangeRequest.created_at > forty_eight_hours_ago
+                )
+            )
+
+            # Only include subcontractor requests (requests without operator are from subcontractors)
+            query = query.filter(WidthChangeRequest.operator.is_(None))
+
+            # Apply additional filters if provided
+            if status:
+                query = query.filter(WidthChangeRequest.status == status)
+            if requested_by:
+                query = query.filter(WidthChangeRequest.requested_by == requested_by)
+
+            requests = query.order_by(WidthChangeRequest.created_at.desc()).all()
+
+            # Enhance the data with marker length and consumption information
+            enhanced_data = []
+            for req in requests:
+                req_data = req.to_dict()
+
+                # Get current marker length from marker_headers using the current marker name
+                # This ensures we get the original marker length, not the updated one after approval
+                current_marker = MarkerHeader.query.filter_by(marker_name=req.current_marker_name).first()
+                if current_marker:
+                    req_data['current_marker_length'] = current_marker.marker_length
+
+                # Get selected marker length if it's a change_marker request
+                if req.request_type == 'change_marker' and req.selected_marker_id:
+                    selected_marker = MarkerHeader.query.get(req.selected_marker_id)
+                    if selected_marker:
+                        req_data['selected_marker_length'] = selected_marker.marker_length
+
+                # Get mattress layers, planned consumption and extra (allowance) from mattress_details
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=req.mattress_id).first()
+                if mattress_detail:
+                    req_data['mattress_layers'] = mattress_detail.layers
+                    req_data['planned_consumption'] = mattress_detail.cons_planned
+                    req_data['extra'] = mattress_detail.extra
+
+                enhanced_data.append(req_data)
+
+            return {
+                "success": True,
+                "data": enhanced_data
+            }, 200
+
+        except Exception as e:
+            return {"success": False, "message": f"Error fetching subcontractor width change requests: {str(e)}"}, 500
 
 
 @width_change_requests_api.route('/pending/count')

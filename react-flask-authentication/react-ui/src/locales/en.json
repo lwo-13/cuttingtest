@@ -33,7 +33,9 @@
     "fabricConsumptionTracking": "Fabric Consumption Tracking",
     "orderReport": "Order Report",
     "todoLists": "To Do Lists",
-    "italianRatios": "Italian Ratios"
+    "italianRatios": "Italian Ratios",
+    "widthChangeApprovals": "Width Change Approvals",
+    "subcontractorWidthChangeApprovals": "Subcontractor Width Changes"
   },
   "kanban": {
     "toAssign": "To Assign",
@@ -92,6 +94,35 @@
     "enterActualLayers": "Please enter the actual number of layers loaded:"
   },
   "subcontractor": {
+    "orderMattressPlan": "Order Mattress Plan",
+    "saveActualLayers": "Save Actual Layers",
+    "noChangesToSave": "No changes to save",
+    "actualLayersSavedSuccessfully": "Actual layers saved successfully!",
+    "errorSavingActualLayers": "Error saving actual layers: {{message}}",
+    "errorSavingActualLayersTryAgain": "Error saving actual layers. Please try again.",
+    "updatedAt": "Updated at",
+    "cannotChangeWidthActualLayersDeclared": "Cannot change width when actual layers are already declared",
+    "errorFindingMattressTable": "Error finding mattress table",
+    "widthChangeRequest": "Width Change Request",
+    "mattressInformation": "Mattress Information",
+    "mattressName": "Mattress Name",
+    "currentWidth": "Current Width (cm)",
+    "currentMarker": "Current Marker",
+    "style": "Style",
+    "widthChangeDetails": "Width Change Details",
+    "newWidth": "New Width (cm)",
+    "loadingMarkers": "Loading available markers...",
+    "availableMarkers": "Available Markers",
+    "selectMarker": "Select Existing Marker",
+    "requestNewMarker": "Request New Marker",
+    "changeMarkerInfo": "This will request to change to the selected existing marker.",
+    "newMarkerInfo": "This will request a new marker to be created for the specified width.",
+    "requestMarkerChange": "Request Marker Change",
+    "widthChangeRequestSubmitted": "Width change request submitted successfully. Awaiting approval.",
+    "errorSubmittingWidthChangeRequest": "Error submitting width change request: {{message}}",
+    "errorSubmittingWidthChangeRequestTryAgain": "Error submitting width change request. Please try again."
+  },
+  "subcontractor": {
     "title": "Subcontractor",
     "orderMattressPlan": "Order Mattress Plan",
     "saveActualLayers": "Save Actual Layers",
@@ -103,8 +134,7 @@
     "quantityDetails": "Quantity Details",
     "plannedQuantities": "Planned Quantities",
     "actualQuantities": "Actual Quantities",
-    "noStyleComment": "No style comment available",
-    "readOnlyInfo": "Read-only view"
+    "noStyleComment": "No style comment available"
   },
   "table": {
     "mattress": "Mattress",
