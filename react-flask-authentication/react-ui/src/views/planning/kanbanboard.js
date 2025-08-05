@@ -154,8 +154,17 @@ const KanbanBoard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const moveMattress = async (id, targetDevice, targetShift, targetPosition = null) => {
+  const moveMattress = async (id, targetDevice, targetShift, targetPosition = null, skipOptimisticUpdate = false) => {
     const prevMattresses = [...mattresses];
+
+    console.log(`🎯 MOVE MATTRESS DEBUG:`);
+    console.log(`   Mattress ID: ${id}`);
+    console.log(`   Target Device: ${targetDevice}`);
+    console.log(`   Target Shift: ${targetShift}`);
+    console.log(`   Target Position: ${targetPosition}`);
+    console.log(`   Selected Day: ${selectedDay} (will be sent as: ${selectedDay.toLowerCase()})`);
+    console.log(`   skipOptimisticUpdate: ${skipOptimisticUpdate}`);
+    console.log(`   CALL STACK:`, new Error().stack);
 
     // MS validation: Check if trying to move AS mattress to MS device
     const mattressToMove = mattresses.find(m => m.id === id);
@@ -172,8 +181,9 @@ const KanbanBoard = () => {
       return;
     }
 
-    // Immediate optimistic update for better UX
-    setMattresses((prev) => {
+    // Immediate optimistic update for better UX (skip for EndDropZone moves)
+    if (!skipOptimisticUpdate) {
+      setMattresses((prev) => {
       const mattressToMove = prev.find(m => m.id === id);
       if (!mattressToMove) return prev;
 
@@ -237,6 +247,9 @@ const KanbanBoard = () => {
         return result;
       }
     });
+    } else {
+      console.log(`⏭️ SKIPPING optimistic update for EndDropZone move`);
+    }
 
     // API call using axios instance (respects REACT_APP_BACKEND_SERVER)
     const payload = {
@@ -247,15 +260,21 @@ const KanbanBoard = () => {
       position: targetPosition
     };
 
+    console.log(`📤 SENDING TO API:`, payload);
+
     try {
       const response = await axios.put(`/mattress/move_mattress/${id}`, payload);
 
       if (response.data.success) {
+        console.log(`✅ API SUCCESS: ${response.data.message}`);
+        console.log(`   Refreshing mattresses in 300ms...`);
         // Refresh after short delay to show the movement
         setTimeout(() => {
+          console.log(`🔄 Fetching updated mattresses...`);
           fetchMattresses();
         }, 300);
       } else {
+        console.log(`❌ API FAILED: ${response.data.message}`);
         throw new Error(response.data.message || 'Move failed');
       }
     } catch (err) {
@@ -350,6 +369,7 @@ const KanbanBoard = () => {
                           (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL")
                       )
               }
+              allMattresses={mattresses}
               moveMattress={moveMattress}
               selectedDay={selectedDay}
             />
@@ -376,7 +396,7 @@ const KanbanBoard = () => {
   );
 };
 
-const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
+const KanbanColumn = ({ device, mattresses, allMattresses, moveMattress, selectedDay }) => {
   const { t } = useTranslation();
   const isSpreader = device !== "SP0" && device !== "MS"; // MS is treated like SP0 (single column)
   const [searchTerm, setSearchTerm] = useState("");
@@ -395,7 +415,8 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
         m.mattress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.order_commessa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.fabric_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.marker?.toLowerCase().includes(searchTerm.toLowerCase())
+        m.marker?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.dye_lot?.toLowerCase().includes(searchTerm.toLowerCase()) // Add bagno filtering
       )
     : sortedMattresses;
 
@@ -418,6 +439,14 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const [{ isOverFirst }, dropFirst] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
+      // Check if drop was already handled by a child (EndDropZone)
+      const dropResult = monitor.getDropResult();
+      if (dropResult && dropResult.handled) {
+        console.log(`🚫 Parent drop handler: Drop already handled by child`);
+        return;
+      }
+
+      console.log(`📍 Parent drop handler (1shift): Handling drop`);
       // Always use target position if available (from hover over specific cards)
       const targetPosition = item.targetPosition !== undefined ? item.targetPosition : null;
       moveMattress(item.id, device, '1shift', targetPosition);
@@ -428,6 +457,14 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   const [{ isOverSecond }, dropSecond] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
+      // Check if drop was already handled by a child (EndDropZone)
+      const dropResult = monitor.getDropResult();
+      if (dropResult && dropResult.handled) {
+        console.log(`🚫 Parent drop handler: Drop already handled by child`);
+        return;
+      }
+
+      console.log(`📍 Parent drop handler (2shift): Handling drop`);
       // Always use target position if available (from hover over specific cards)
       const targetPosition = item.targetPosition !== undefined ? item.targetPosition : null;
       moveMattress(item.id, device, '2shift', targetPosition);
@@ -454,7 +491,7 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
   });
 
   return (
-    <Box sx={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', minWidth: '300px', maxWidth: '300px' }}>
+    <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px' }}>
       <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2 }}>
         {device === "SP0" ? t('kanban.toAssign') : device === "MS" ? t('kanban.manualSpreading') : device}
         {device === "SP0" && (
@@ -481,10 +518,12 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
           <Paper ref={dropFirst} sx={{ p: 2, bgcolor: isOverFirst ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, mb: 2, border: isOverFirst ? "2px dashed #9c27b0" : "2px solid transparent" }}>
             <Box sx={{ fontWeight: 'bold', mb: 1 }}>{t('kanban.firstShift')}</Box>
             {firstShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift="1shift" device={device} />)}
+            <EndDropZone shift="1shift" device={device} mattressCount={firstShift.length} moveMattress={moveMattress} mattresses={allMattresses} selectedDay={selectedDay} />
           </Paper>
           <Paper ref={dropSecond} sx={{ p: 2, bgcolor: isOverSecond ? "#e1bee7" : "#f5f5f5", flexGrow: 1, borderRadius: 2, minHeight: 200, border: isOverSecond ? "2px dashed #9c27b0" : "2px solid transparent" }}>
             <Box sx={{ fontWeight: 'bold', mb: 1 }}>{t('kanban.secondShift')}</Box>
             {secondShift.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift="2shift" device={device} />)}
+            <EndDropZone shift="2shift" device={device} mattressCount={secondShift.length} moveMattress={moveMattress} mattresses={allMattresses} selectedDay={selectedDay} />
           </Paper>
         </>
       ) : (
@@ -500,6 +539,7 @@ const KanbanColumn = ({ device, mattresses, moveMattress, selectedDay }) => {
           }}
         >
           {visibleMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={null} device={device} />)}
+          {device !== "SP0" && device !== "MS" && <EndDropZone shift={null} device={device} mattressCount={visibleMattresses.length} moveMattress={moveMattress} mattresses={allMattresses} selectedDay={selectedDay} />}
           {hasMoreMattresses && (
             <Box
               onClick={handleShowMore}
@@ -605,6 +645,9 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           }
         }
 
+        // Convert from array index to database position (add 1)
+        targetPosition = targetPosition + 1;
+
         // Prevent unnecessary updates
         if (item.targetPosition === targetPosition) {
           return;
@@ -615,8 +658,8 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
         return;
       }
 
-      // For cross-column moves, always use hover index
-      item.targetPosition = hoverIndex;
+      // For cross-column moves, convert array index to database position
+      item.targetPosition = hoverIndex + 1;
     },
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
@@ -776,6 +819,93 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
   );
 
   return isDragging ? content : <Tooltip title={tooltipContent} arrow placement="right" enterDelay={300}>{content}</Tooltip>;
+};
+
+// Component to handle dropping at the end of a column
+const EndDropZone = ({ shift, device, mattressCount, moveMattress, mattresses, selectedDay }) => {
+  const [{ isOver }, drop] = useDrop({
+    accept: "MATTRESS",
+    drop: (item, monitor) => {
+      // STOP PROPAGATION to prevent parent drop handlers from firing
+      if (monitor.getDropResult()) {
+        return; // Already handled by a child drop zone
+      }
+
+      console.log(`\n🎯 END DROP ZONE ACTIVATED!`);
+      console.log(`   Dropping mattress ID: ${item.id}`);
+      console.log(`   Target: device=${device}, shift=${shift}`);
+
+      // Find the highest position in this specific column (device + shift + day)
+      const currentDay = selectedDay.toLowerCase();
+      console.log(`   Current day: ${currentDay}`);
+
+      // Show ALL mattresses first
+      console.log(`   Total mattresses available: ${mattresses.length}`);
+
+      const columnMattresses = mattresses.filter(m =>
+        m.device === device &&
+        m.shift === shift &&
+        m.day === currentDay &&
+        m.device !== "SP0" && // Exclude SP0 mattresses (they don't have positions)
+        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL") // Only include active kanban statuses
+      );
+
+      // Debug: Show all mattresses that match the basic filter first
+      const basicFilter = mattresses.filter(m =>
+        m.device === device &&
+        m.shift === shift &&
+        m.day === currentDay
+      );
+
+      console.log(`   Basic filter (device=${device}, shift=${shift}, day=${currentDay}): ${basicFilter.length} mattresses`);
+      basicFilter.forEach(m => {
+        console.log(`     ID: ${m.id}, pos: ${m.position}, device: ${m.device}, status: ${m.status}, name: ${m.mattress_name}`);
+      });
+
+      console.log(`   After excluding SP0/NOT SET: ${columnMattresses.length} mattresses:`,
+        columnMattresses.map(m => ({
+          id: m.id,
+          position: m.position,
+          device: m.device,
+          shift: m.shift,
+          day: m.day,
+          status: m.status,
+          name: m.mattress_name
+        }))
+      );
+
+      const positions = columnMattresses.map(m => m.position || 0);
+      const maxPosition = positions.length > 0 ? Math.max(...positions) : 0;
+      const targetPosition = maxPosition + 1;
+
+      console.log(`   Positions in column: [${positions.join(', ')}]`);
+      console.log(`   Max position: ${maxPosition}`);
+      console.log(`   🎯 CALCULATED TARGET POSITION: ${targetPosition}`);
+      console.log(`   Calling moveMattress with position: ${targetPosition} (skipOptimisticUpdate=true)\n`);
+
+      moveMattress(item.id, device, shift, targetPosition, true);
+
+      // Return a result to indicate this drop was handled
+      return { handled: true };
+    },
+    collect: (monitor) => ({ isOver: !!monitor.isOver() })
+  });
+
+  return (
+    <Box
+      ref={drop}
+      sx={{
+        minHeight: '20px',
+        width: '100%',
+        backgroundColor: isOver ? 'rgba(156, 39, 176, 0.1)' : 'transparent',
+        border: isOver ? '2px dashed #9c27b0' : '2px solid transparent',
+        borderRadius: 1,
+        mt: 1,
+        transition: 'all 0.2s ease',
+        cursor: 'pointer'
+      }}
+    />
+  );
 };
 
 export default KanbanBoard;

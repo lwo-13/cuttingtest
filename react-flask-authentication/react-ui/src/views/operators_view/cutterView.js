@@ -98,7 +98,6 @@ const CutterView = () => {
     const [activeCuttingMattress, setActiveCuttingMattress] = useState(null); // Track active cutting mattress
     const [lastActivityTime, setLastActivityTime] = useState(new Date());
     const [operatorSessionDate, setOperatorSessionDate] = useState(null);
-    const [conflictDetected, setConflictDetected] = useState(false);
     const account = useSelector((state) => state.account);
     const { user, token, isLoggedIn } = account;
 
@@ -139,20 +138,7 @@ const CutterView = () => {
         }
     }, [user?.username, token, isLoggedIn]);
 
-    // Get corresponding spreader devices based on cutter device
-    const getAssociatedSpreaderDevices = (cutterDevice) => {
-        if (!cutterDevice) return [];
 
-        // Mapping of cutter devices to spreader devices
-        const mapping = {
-            'CT1': ['SP1'],             // Cutter1 receives from Spreader1
-            'CT2': ['SP2', 'SP3', 'MS'] // Cutter2 receives from Spreader2, Spreader3, and Manual Spreading (MS)
-        };
-
-        return mapping[cutterDevice] || [];
-    };
-
-    const associatedSpreaderDevices = getAssociatedSpreaderDevices(cutterDevice);
 
     useEffect(() => {
         if (!cutterDevice) {
@@ -199,7 +185,7 @@ const CutterView = () => {
     const fetchOperators = async () => {
         setLoadingOperators(true);
         try {
-            const response = await axios.get('/cutter_operators/active');
+            const response = await axios.get('/operators/active?type=cutter');
             if (response.data.success) {
                 setOperators(response.data.data);
                 // Don't auto-select any operator - leave it empty by default
@@ -219,62 +205,20 @@ const CutterView = () => {
             setRefreshing(true);
         }
 
-        // Add day=today parameter to only show mattresses for today
-        axios.get(`/mattress/kanban?day=today`)
+        // Use the new cutter queue endpoint that directly queries mattress_phases
+        axios.get(`/mattress/cutter_queue?device=${cutterDevice}`)
             .then((res) => {
                 if (res.data.success) {
-                    // Filter mattresses based on status and device assignment
-                    const filteredMattresses = res.data.data.filter(m => {
-                        // Show mattresses assigned to this cutter (TO CUT or ON CUT)
-                        if (m.device === cutterDevice) {
-                            return m.status === "3 - TO CUT" || m.status === "4 - ON CUT";
-                        }
+                    const mattressData = res.data.data;
 
-                        // Show available "TO CUT" mattresses that are NOT assigned to any cutter
-                        // This prevents showing mattresses that other cutters have started
-                        if (m.status === "3 - TO CUT") {
-                            // Only show if no device assigned OR device is not a cutter (CT1, CT2, etc.)
-                            return !m.device || !m.device.startsWith('CT');
-                        }
-
-                        // Don't show mattresses in other statuses or assigned to other cutters
-                        return false;
-                    });
-
-                    // Sort all mattresses by position (more efficient with pre-sorted data)
-                    filteredMattresses.sort((a, b) => (a.position || 0) - (b.position || 0));
-
-                    // More efficient: find active cutting mattress during filtering
-                    let onCutMattress = null;
-                    for (const m of filteredMattresses) {
-                        if (m.status === "4 - ON CUT" && m.device === cutterDevice) {
-                            onCutMattress = m;
-                            break; // Early exit once found
-                        }
-                    }
-                    setActiveCuttingMattress(onCutMattress);
-
-                    // Check for potential conflicts (TO CUT mattresses assigned to other cutters)
-                    const conflicts = filteredMattresses.filter(m =>
-                        m.status === "3 - TO CUT" &&
-                        m.device &&
-                        m.device.startsWith('CT') &&
-                        m.device !== cutterDevice
+                    // Find active cutting mattress
+                    const onCutMattress = mattressData.find(m =>
+                        m.status === "4 - ON CUT" && m.device === cutterDevice
                     );
+                    setActiveCuttingMattress(onCutMattress || null);
 
-                    if (conflicts.length > 0 && !conflictDetected) {
-                        setConflictDetected(true);
-                        setSnackbar({
-                            open: true,
-                            message: `${conflicts.length} mattress(es) may have been assigned to other cutters. Data refreshed.`,
-                            severity: "warning"
-                        });
-                    } else if (conflicts.length === 0 && conflictDetected) {
-                        setConflictDetected(false);
-                    }
-
-                    // Set all mattresses in a single list
-                    setMattresses(filteredMattresses);
+                    // Set all mattresses
+                    setMattresses(mattressData);
 
                     // Update last refresh time
                     setLastRefreshTime(new Date());
@@ -387,7 +331,7 @@ const CutterView = () => {
         });
     };
 
-    const handleFinishCutting = (mattressId, layers) => {
+    const handleFinishCutting = (mattressId) => {
         // Update activity time
         updateActivityTime();
 
@@ -547,37 +491,18 @@ const CutterView = () => {
         // Get the source device
         const sourceDevice = mattress.device;
 
-        // Check if data might be stale (more than 1 minute since last refresh)
-        const isDataStale = (new Date() - lastRefreshTime) > 60000;
-
-        // Check if this mattress might have a conflict (TO CUT status but assigned to a cutter device)
-        const hasDeviceConflict = mattress.status === "3 - TO CUT" && sourceDevice && sourceDevice.startsWith('CT') && sourceDevice !== cutterDevice;
-
         return (
             <Card key={mattress.id} sx={{
                 mb: 2,
-                boxShadow: 2,
-                // Add visual indicator for potential conflicts
-                border: hasDeviceConflict ? '2px solid #ff9800' : (isDataStale ? '1px solid #ffc107' : 'none')
+                boxShadow: 2
             }}>
                 <Box sx={{ p: 1.5 }}>
-                    {/* Warning for potential conflicts */}
-                    {hasDeviceConflict && (
-                        <Alert severity="warning" sx={{ mb: 1, fontSize: '0.875rem' }}>
-                            This mattress may be assigned to {sourceDevice}. Please refresh to see current status.
-                        </Alert>
-                    )}
 
                     {/* Header with mattress ID and pills - matching spreader style */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Box>
                             <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
                                 {mattress.mattress}
-                                {isDataStale && (
-                                    <Typography component="span" variant="caption" color="warning.main" sx={{ ml: 1 }}>
-                                        (Data may be stale)
-                                    </Typography>
-                                )}
                             </Typography>
                             {sourceDevice && sourceDevice !== cutterDevice && (
                                 <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
@@ -683,25 +608,14 @@ const CutterView = () => {
 
                     {/* Action buttons */}
                     {mattress.status === "3 - TO CUT" && (
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                            {(isDataStale || hasDeviceConflict) && (
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={() => fetchMattresses(false)}
-                                    disabled={refreshing}
-                                >
-                                    Refresh Status
-                                </Button>
-                            )}
+                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                             <Button
                                 variant="contained"
                                 color="primary"
-                                disabled={processingMattress === mattress.id || !selectedOperator || activeCuttingMattress !== null || hasDeviceConflict}
+                                disabled={processingMattress === mattress.id || !selectedOperator || activeCuttingMattress !== null}
                                 onClick={() => handleStartCutting(mattress.id)}
                                 title={
-                                    activeCuttingMattress ? t('cutter.cannotStartCutting', { mattress: activeCuttingMattress.mattress, device: cutterDevice }) :
-                                    hasDeviceConflict ? "Please refresh to see current status before starting" : ""
+                                    activeCuttingMattress ? t('cutter.cannotStartCutting', { mattress: activeCuttingMattress.mattress, device: cutterDevice }) : ""
                                 }
                             >
                                 {processingMattress === mattress.id ? t('cutter.processing') : t('cutter.startCutting')}
@@ -714,7 +628,7 @@ const CutterView = () => {
                                 variant="contained"
                                 color="secondary"
                                 disabled={processingMattress === mattress.id || !selectedOperator}
-                                onClick={() => handleFinishCutting(mattress.id, mattress.layers_a || mattress.layers)}
+                                onClick={() => handleFinishCutting(mattress.id)}
                             >
                                 {processingMattress === mattress.id ? t('cutter.processing') : t('cutter.finishCutting')}
                             </Button>

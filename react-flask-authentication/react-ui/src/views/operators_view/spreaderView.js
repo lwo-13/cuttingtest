@@ -190,7 +190,7 @@ const SpreaderView = () => {
     const fetchOperators = async () => {
         setLoadingOperators(true);
         try {
-            const response = await axios.get('/operators/active');
+            const response = await axios.get('/operators/active?type=spreader');
             if (response.data.success) {
                 setOperators(response.data.data);
                 // Don't auto-select any operator - leave it empty by default
@@ -1307,6 +1307,13 @@ const SpreaderView = () => {
                                                     });
                                                 }
                                             }
+
+                                            // Sort markers by width (smallest to largest)
+                                            filteredMarkers.sort((a, b) => {
+                                                const widthA = parseFloat(a.marker_width) || 0;
+                                                const widthB = parseFloat(b.marker_width) || 0;
+                                                return widthA - widthB;
+                                            });
 
                                             return filteredMarkers.length > 0 ? (
                                                 filteredMarkers.map((marker) => (

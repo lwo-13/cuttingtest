@@ -26,7 +26,7 @@ const MenuList = () => {
                 return userRole === 'Cutter';
 
             case 'subcontractor':
-                return userRole === 'Subcontractor';
+                return ['Subcontractor', 'Manager', 'Project Admin'].includes(userRole);
 
             case 'logistic':
                 return userRole === 'Logistic';
@@ -51,6 +51,14 @@ const MenuList = () => {
             }
             // Hide width_change_approvals page from users other than Shift Manager, Manager, and Project Admin
             if (item.id === 'width_change_approvals' && !['Shift Manager', 'Manager', 'Project Admin'].includes(userRole)) {
+                return false;
+            }
+            // Hide Order Planning page from Manager and Shift Manager
+            if (item.id === 'orderplanning' && ['Manager', 'Shift Manager'].includes(userRole)) {
+                return false;
+            }
+            // Hide Italian Ratios page from Shift Manager
+            if (item.id === 'italian_ratio' && userRole === 'Shift Manager') {
                 return false;
             }
             return true;

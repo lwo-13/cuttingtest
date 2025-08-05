@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Paper, Table, TableBody, TableContainer, Button } from '@mui/material';
+import { Box, Paper, Table, TableBody, TableContainer, Button, Tabs, Tab, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { Print } from '@mui/icons-material';
+import { Print, Save } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
+import { useTranslation } from 'react-i18next';
+
+// Production center configuration
+import { CUTTING_ROOMS } from 'utils/productionCenterConfig';
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
@@ -13,19 +17,22 @@ import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuanti
 
 // Mattress Components
 import MattressGroupCardReadOnly from 'views/dashboard/OrderReport/MattressGroupCardReadOnly';
-import PlannedQuantityBar from 'views/planning/OrderPlanning/components/PlannedQuantityBar';
+import SubcontractorPlannedQuantityBar from './components/SubcontractorPlannedQuantityBar';
 import MattressTableHeaderWithSizes from './components/MattressTableHeaderWithSizes';
 import MattressRowReadOnlyWithSizes from './components/MattressRowReadOnlyWithSizes';
 import MattressActionRowReadOnly from 'views/dashboard/OrderReport/MattressActionRowReadOnly';
 
 // Adhesive Components
 import AdhesiveGroupCardReadOnly from 'views/dashboard/OrderReport/AdhesiveGroupCardReadOnly';
-import AdhesiveTableHeaderReadOnly from 'views/dashboard/OrderReport/AdhesiveTableHeaderReadOnly';
-import AdhesiveRowReadOnly from 'views/dashboard/OrderReport/AdhesiveRowReadOnly';
+import AdhesiveTableHeaderWithSizes from './components/AdhesiveTableHeaderWithSizes';
+import AdhesiveRowReadOnlyWithSizes from './components/AdhesiveRowReadOnlyWithSizes';
 import AdhesiveActionRowReadOnly from 'views/dashboard/OrderReport/AdhesiveActionRowReadOnly';
 
 // PadPrint Component
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
+
+// Style Comment Component (Read-only for subcontractors)
+import StyleCommentCardReadOnly from './components/StyleCommentCardReadOnly';
 
 // Hooks
 import useSubcontractorOrderChange from './hooks/useSubcontractorOrderChange';
@@ -35,15 +42,36 @@ import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 // Print Utils
 import { usePrintStyles, handlePrint, getAllDestinations, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import DestinationPrintDialog from 'views/planning/OrderPlanning/components/DestinationPrintDialog';
+
+// Width Change Dialog
+import SubcontractorWidthChangeDialog from './components/SubcontractorWidthChangeDialog';
+
 // Dynamic import to handle potential module resolution issues
 
 const SubcontractorView = () => {
+    const { t } = useTranslation();
+
     // State for orders and selection
     const [orders, setOrders] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [selectedStyle, setSelectedStyle] = useState('');
     const [selectedSeason, setSelectedSeason] = useState('');
     const [selectedColorCode, setSelectedColorCode] = useState('');
+
+    // State for destination selection (DELICIA cutting room only)
+    const [selectedDestination, setSelectedDestination] = useState('');
+
+    // State for editable actual layers
+    const [editableActualLayers, setEditableActualLayers] = useState({});
+    const [unsavedChanges, setUnsavedChanges] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // Snackbar state
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success'
+    });
 
     // Order sizes
     const [orderSizes, setOrderSizes] = useState([]);
@@ -55,6 +83,12 @@ const SubcontractorView = () => {
     // Print functionality
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState([]);
+
+    // Width change dialog state
+    const [widthChangeDialog, setWidthChangeDialog] = useState({
+        open: false,
+        mattressData: null
+    });
 
     // Hooks
     const { padPrintInfo, fetchPadPrintInfo, clearPadPrintInfo } = usePadPrintInfo();
@@ -87,6 +121,8 @@ const SubcontractorView = () => {
         });
         return result;
     };
+
+
 
     const getTablePlannedByBagno = (table) => {
         const bagnoMap = {};
@@ -144,7 +180,114 @@ const SubcontractorView = () => {
     // Get current user info
     const account = useSelector((state) => state.account);
     const currentUser = account?.user;
-    const cuttingRoom = currentUser?.username; // Username = cutting room name
+    const username = currentUser?.username; // Username might be like "DELICIA2"
+
+    // Extract the base cutting room from username (handle cases like "DELICIA2" -> "DELICIA")
+    const getCuttingRoomFromUsername = (username) => {
+        if (!username) return null;
+
+        // Check if username starts with any known cutting room name
+        const cuttingRoomNames = Object.values(CUTTING_ROOMS);
+        for (const roomName of cuttingRoomNames) {
+            if (username.toUpperCase().startsWith(roomName.toUpperCase())) {
+                return roomName;
+            }
+        }
+
+        // If no match found, return the username as-is (backward compatibility)
+        return username;
+    };
+
+    const cuttingRoom = getCuttingRoomFromUsername(username);
+
+    // Check if current cutting room is DELICIA (has multiple destinations)
+    const isDeliciaCuttingRoom = cuttingRoom === CUTTING_ROOMS.DELICIA;
+
+    // Get destinations that have actual quantities assigned (fabric type "01" only)
+    const getDestinationsWithQuantities = () => {
+        if (!isDeliciaCuttingRoom || !tables.length) return [];
+
+        const destinationsWithQuantities = new Set();
+
+        // Check each fabric type "01" table for quantities
+        tables.filter(table => table.fabricType === "01").forEach(table => {
+            if (table.destination && table.rows && table.rows.length > 0) {
+                // Check if this table has any actual quantities
+                const hasQuantities = table.rows.some(row => {
+                    if (!row.piecesPerSize) return false;
+                    const layers = parseFloat(row.layers_a || row.layers) || 0;
+                    return Object.values(row.piecesPerSize).some(pcs => {
+                        const pieces = parseFloat(pcs) || 0;
+                        return pieces > 0 && layers > 0;
+                    });
+                });
+
+                if (hasQuantities) {
+                    destinationsWithQuantities.add(table.destination);
+                }
+            }
+        });
+
+        return Array.from(destinationsWithQuantities);
+    };
+
+    // Calculate planned quantities from fabric type "01" tables for order toolbar
+    const getPlannedQuantitiesFromFabricType01 = () => {
+        // For DELICIA cutting room, don't show quantities until destination is selected
+        if (isDeliciaCuttingRoom && !selectedDestination) {
+            return orderSizes.map(size => ({ size: size.size, qty: 0 }));
+        }
+
+        // Filter tables to only include fabric type "01"
+        let fabricType01Tables = tables.filter(table => table.fabricType === "01");
+
+        // For DELICIA cutting room, also filter by selected destination
+        if (isDeliciaCuttingRoom && selectedDestination) {
+            fabricType01Tables = fabricType01Tables.filter(table => table.destination === selectedDestination);
+        }
+
+        if (fabricType01Tables.length === 0) {
+            // If no fabric type "01" tables, return empty quantities
+            return orderSizes.map(size => ({ size: size.size, qty: 0 }));
+        }
+
+        // Calculate total planned quantities across all fabric type "01" tables
+        const totalPlannedQuantities = {};
+        orderSizes.forEach(size => {
+            totalPlannedQuantities[size.size] = 0;
+        });
+
+        fabricType01Tables.forEach(table => {
+            const tablePlanned = getTablePlannedQuantities(table);
+            orderSizes.forEach(size => {
+                totalPlannedQuantities[size.size] += tablePlanned[size.size] || 0;
+            });
+        });
+
+        // Convert to the format expected by OrderQuantities component
+        const result = orderSizes.map(size => ({
+            size: size.size,
+            qty: totalPlannedQuantities[size.size] || 0
+        }));
+
+        return result;
+    };
+
+    // Clear selected destination if it's no longer available (doesn't have quantities)
+    useEffect(() => {
+        if (isDeliciaCuttingRoom && selectedDestination && tables.length > 0) {
+            const availableDestinations = getDestinationsWithQuantities();
+            if (!availableDestinations.includes(selectedDestination)) {
+                setSelectedDestination('');
+            }
+        }
+    }, [tables, selectedDestination, isDeliciaCuttingRoom]);
+
+    // Clear editable actual layers when order changes
+    useEffect(() => {
+        setEditableActualLayers({});
+        setUnsavedChanges(false);
+    }, [selectedOrder]);
 
     // Order Change Handler
     const { onOrderChange } = useSubcontractorOrderChange({
@@ -156,7 +299,7 @@ const SubcontractorView = () => {
         setSelectedColorCode,
         setSelectedProductionCenter: () => {}, // Not needed for subcontractor
         setSelectedCuttingRoom: () => {}, // Not needed for subcontractor
-        setSelectedDestination: () => {}, // Not needed for subcontractor
+        setSelectedDestination: setSelectedDestination, // Clear destination when order changes
         setProductionCenterCombinations: () => {}, // Not needed for subcontractor
         setShowProductionCenterFilter: () => {}, // Not needed for subcontractor
         setFilteredCuttingRoom: () => {}, // Not needed for subcontractor
@@ -173,7 +316,7 @@ const SubcontractorView = () => {
         sortSizes,
         clearBrand,
         clearPadPrintInfo,
-        cuttingRoom // Pass the cutting room to filter mattresses
+        cuttingRoom // Pass the mapped cutting room to filter mattresses
     });
 
     // Print handlers
@@ -198,6 +341,121 @@ const SubcontractorView = () => {
     const handlePrintAll = () => {
         setOpenDestinationPrintDialog(false);
         handlePrint(tables, adhesiveTables, [], [], [], {}, () => {});
+    };
+
+    // Handle individual mattress download (placeholder for now)
+    const handleDownloadMattress = async (row) => {
+        // TODO: Implement download functionality
+        alert('Download functionality will be implemented soon');
+    };
+
+    // Handle individual mattress change - open width change dialog
+    const handleChangeMattress = async (row) => {
+        // Check if actual layers are already declared
+        if (row.layers_a) {
+            showSnackbar(t('subcontractor.cannotChangeWidthActualLayersDeclared', 'Cannot change width when actual layers are already declared'), 'warning');
+            return;
+        }
+
+        // Find the table this row belongs to
+        const parentTable = tables.find(table => table.rows.some(r => r.id === row.id)) ||
+                           adhesiveTables.find(table => table.rows.some(r => r.id === row.id));
+
+        if (!parentTable) {
+            showSnackbar(t('subcontractor.errorFindingMattressTable', 'Error finding mattress table'), 'error');
+            return;
+        }
+
+        // Prepare mattress data for the dialog
+        const mattressData = {
+            id: row.id,
+            mattressName: row.mattressName,
+            width: row.width,
+            markerName: row.markerName,
+            style: selectedStyle,
+            orderCommessa: selectedOrder?.id,
+            piecesPerSize: row.piecesPerSize || {},
+            layers: row.layers,
+            markerLength: row.markerLength,
+            efficiency: row.efficiency
+        };
+
+        setWidthChangeDialog({
+            open: true,
+            mattressData: mattressData
+        });
+    };
+
+    // Snackbar helper functions
+    const showSnackbar = (message, severity = 'success') => {
+        setSnackbar({
+            open: true,
+            message,
+            severity
+        });
+    };
+
+    const handleCloseSnackbar = (_, reason) => {
+        if (reason === 'clickaway') return;
+        setSnackbar({ ...snackbar, open: false });
+    };
+
+    // Handle actual layers change
+    const handleActualLayersChange = (rowId, value) => {
+        setEditableActualLayers(prev => ({
+            ...prev,
+            [rowId]: value
+        }));
+        setUnsavedChanges(true);
+    };
+
+    // Save actual layers changes
+    const handleSaveActualLayers = async () => {
+        try {
+            setSaving(true);
+
+            const changedRows = Object.entries(editableActualLayers).filter(([rowId, value]) => {
+                // Find the original row to compare
+                const originalRow = tables.flatMap(table => table.rows).find(row => row.id === rowId);
+                return originalRow && value !== (originalRow.layers_a || '');
+            });
+
+            if (changedRows.length === 0) {
+                showSnackbar(t('subcontractor.noChangesToSave', 'No changes to save'), 'info');
+                setSaving(false);
+                return;
+            }
+
+            // Prepare data for API
+            const updates = changedRows.map(([rowId, actualLayers]) => ({
+                row_id: rowId,
+                layers_a: parseFloat(actualLayers) || 0
+            }));
+
+            const response = await axios.post('/mattress/save_actual_layers', {
+                updates: updates
+            });
+
+            if (response.data.success) {
+                // Clear unsaved changes
+                setUnsavedChanges(false);
+                setEditableActualLayers({});
+
+                // Refresh the data
+                if (selectedOrder) {
+                    onOrderChange(selectedOrder);
+                }
+
+                showSnackbar(t('subcontractor.actualLayersSavedSuccessfully', 'Actual layers saved successfully!'), 'success');
+            } else {
+                showSnackbar(t('subcontractor.errorSavingActualLayers', 'Error saving actual layers: {{message}}', { message: response.data.message }), 'error');
+            }
+        } catch (error) {
+            console.error('Error saving actual layers:', error);
+            showSnackbar(t('subcontractor.errorSavingActualLayersTryAgain', 'Error saving actual layers. Please try again.'), 'error');
+        } finally {
+            setSaving(false);
+        }
     };
 
     // Handle individual mattress print
@@ -240,6 +498,82 @@ const SubcontractorView = () => {
 
     const handleCloseDestinationPrintDialog = () => {
         setOpenDestinationPrintDialog(false);
+    };
+
+    // Width change dialog handlers
+    const handleCloseWidthChangeDialog = () => {
+        setWidthChangeDialog({
+            open: false,
+            mattressData: null
+        });
+    };
+
+    const handleSubmitWidthChangeRequest = async (submissionData) => {
+        try {
+            // Parse mattress sizes to get size quantities (same as spreader)
+            const parseMattressSizes = (sizesString) => {
+                if (!sizesString) return {};
+                const sizeQuantities = {};
+                const sizeEntries = sizesString.split(';');
+                sizeEntries.forEach(entry => {
+                    const parts = entry.split(' - ');
+                    if (parts.length === 2) {
+                        const size = parts[0].trim();
+                        const quantity = parseInt(parts[1].trim());
+                        if (!isNaN(quantity)) {
+                            sizeQuantities[size] = quantity;
+                        }
+                    }
+                });
+                return sizeQuantities;
+            };
+
+            const sizeQuantities = parseMattressSizes(submissionData.mattressSizes);
+
+            const requestData = {
+                mattress_id: submissionData.mattressId,
+                requested_by: currentUser?.username || 'Unknown',
+                operator: null, // Subcontractors don't have operators
+                current_marker_name: widthChangeDialog.mattressData?.markerName || '',
+                current_width: parseFloat(submissionData.currentWidth),
+                requested_width: parseFloat(submissionData.newWidth),
+                selected_marker_name: submissionData.selectedMarker || null,
+                selected_marker_id: null, // Will be resolved by backend if marker name is provided
+                request_type: submissionData.requestType,
+                style: submissionData.style,
+                order_commessa: submissionData.orderCommessa,
+                size_quantities: sizeQuantities
+            };
+
+            const response = await axios.post('/width_change_requests/create', requestData);
+
+            if (response.data.success) {
+                showSnackbar(
+                    t('subcontractor.widthChangeRequestSubmitted', 'Width change request submitted successfully. Awaiting approval.'),
+                    'success'
+                );
+
+                // Refresh the data to show any status changes
+                if (selectedOrder) {
+                    onOrderChange(selectedOrder);
+                }
+            } else {
+                showSnackbar(
+                    t('subcontractor.errorSubmittingWidthChangeRequest', 'Error submitting width change request: {{message}}', {
+                        message: response.data.message
+                    }),
+                    'error'
+                );
+            }
+        } catch (error) {
+            console.error('Error submitting width change request:', error);
+            showSnackbar(
+                t('subcontractor.errorSubmittingWidthChangeRequestTryAgain', 'Error submitting width change request. Please try again.'),
+                'error'
+            );
+        }
+
+        handleCloseWidthChangeDialog();
     };
 
     // Fetch orders assigned to this subcontractor's cutting room
@@ -296,23 +630,54 @@ const SubcontractorView = () => {
         <>
             {/* Order Bar */}
             <MainCard
-                title="Order Mattress Plan"
+                title={t('subcontractor.orderMattressPlan', 'Order Mattress Plan')}
                 sx={{ position: 'relative' }}
             >
-                {/* Print Button */}
+                {/* Action Buttons */}
                 {selectedOrder && (
-                    <Box sx={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1 }}>
+                    <Box sx={{
+                        position: 'absolute',
+                        top: '16px',
+                        right: '16px',
+                        zIndex: 1,
+                        display: 'flex',
+                        gap: 1
+                    }}>
+                        {/* Save Button */}
+                        <Button
+                            variant="contained"
+                            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />}
+                            onClick={handleSaveActualLayers}
+                            disabled={!unsavedChanges || saving}
+                            sx={{
+                                backgroundColor: unsavedChanges ? 'primary.main' : 'grey.400',
+                                color: 'white',
+                                height: '36px',
+                                fontSize: '0.875rem',
+                                '&:hover': {
+                                    backgroundColor: unsavedChanges ? 'primary.dark' : 'grey.500'
+                                },
+                                '&:disabled': {
+                                    backgroundColor: 'grey.300',
+                                    color: 'grey.500'
+                                }
+                            }}
+                        >
+                            {saving ? t('common.saving', 'Saving...') : t('subcontractor.saveActualLayers', 'Save Actual Layers')}
+                        </Button>
+
+                        {/* Print Button */}
                         <Button
                             variant="contained"
                             color="primary"
                             onClick={handleEnhancedPrint}
                             startIcon={<Print />}
                             sx={{
-                                height: '36px', // Smaller button height
+                                height: '36px',
                                 fontSize: '0.875rem'
                             }}
                         >
-                            Print
+                            {t('common.print', 'Print')}
                         </Button>
                     </Box>
                 )}
@@ -330,21 +695,95 @@ const SubcontractorView = () => {
                     selectedSeason={selectedSeason}
                     selectedBrand={brand}
                     selectedColorCode={selectedColorCode}
+                    hideAuditInfo={true} // Hide audit information for subcontractors
                 />
 
-                {/* Order Quantities Section */}
-                <OrderQuantities orderSizes={orderSizes} italianRatios={{}} />
+                {/* Order Quantities Section - Show planned quantities from fabric type "01" tables */}
+                {/* For DELICIA cutting room, hide quantities until destination is selected */}
+                {!isDeliciaCuttingRoom && (
+                    <OrderQuantities orderSizes={getPlannedQuantitiesFromFabricType01()} italianRatios={{}} />
+                )}
             </MainCard>
 
-            {/* Pad Print Info */}
-            {padPrintInfo && (
-                <Box mt={2}>
-                    <PadPrintInfo padPrintInfo={padPrintInfo} />
+            {/* Pad Print and Style Comment Section - Side by Side */}
+            {(selectedOrder || selectedStyle) && (
+                <Box display="flex" gap={2} mt={2} alignItems="stretch">
+                    {/* Pad Print Section - Left Half */}
+                    <Box flex={1} display="flex">
+                        {padPrintInfo && (
+                            <PadPrintInfo padPrintInfo={padPrintInfo} />
+                        )}
+                    </Box>
+
+                    {/* Style Comment Section - Right Half */}
+                    <Box flex={1} display="flex">
+                        {selectedStyle && (
+                            <StyleCommentCardReadOnly
+                                selectedStyle={selectedStyle}
+                            />
+                        )}
+                    </Box>
                 </Box>
             )}
 
+            {/* Destination Selector - Only for DELICIA cutting room */}
+            {isDeliciaCuttingRoom && selectedOrder && (() => {
+                const availableDestinations = getDestinationsWithQuantities();
+
+                // If no destinations have quantities, don't show the selector
+                if (availableDestinations.length === 0) {
+                    return null;
+                }
+
+                return (
+                    <Box mt={2}>
+                        <MainCard title="Destination Selection">
+                            {/* Tab-style destination selector */}
+                            <Tabs
+                                value={selectedDestination || false}
+                                onChange={(event, newValue) => {
+                                    setSelectedDestination(newValue);
+                                }}
+                                variant="scrollable"
+                                scrollButtons="auto"
+                                sx={{ mb: 3 }}
+                            >
+                                {availableDestinations.map((destination) => (
+                                    <Tab
+                                        key={destination}
+                                        label={destination}
+                                        value={destination}
+                                    />
+                                ))}
+                            </Tabs>
+
+                            {/* Show order quantities after destination is selected */}
+                            {selectedDestination && (
+                                <Box mt={2}>
+                                    <OrderQuantities orderSizes={getPlannedQuantitiesFromFabricType01()} italianRatios={{}} />
+                                </Box>
+                            )}
+                        </MainCard>
+                    </Box>
+                );
+            })()}
+
             {/* Mattress Tables Section */}
-            {tables.length > 0 && tables.map((table, tableIndex) => (
+            {(() => {
+                const filteredTables = tables.filter(table => {
+                    // For DELICIA cutting room, filter by selected destination
+                    if (isDeliciaCuttingRoom && selectedDestination) {
+                        return table.destination === selectedDestination;
+                    }
+                    // For other cutting rooms, show all tables
+                    return true;
+                });
+
+                if (isDeliciaCuttingRoom && selectedDestination) {
+                    // Show filtered tables for selected destination
+                }
+
+                return filteredTables.length > 0 && filteredTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    <Box mt={2} />
                     <MainCard
@@ -352,13 +791,12 @@ const SubcontractorView = () => {
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 {`Mattresses`}
-                                <PlannedQuantityBar
+                                <SubcontractorPlannedQuantityBar
                                     table={table}
                                     orderSizes={orderSizes}
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
-                                    showHelpers={false}
                                 />
                             </Box>
                         }
@@ -370,14 +808,43 @@ const SubcontractorView = () => {
                                 <Table>
                                     <MattressTableHeaderWithSizes orderSizes={orderSizes} />
                                     <TableBody>
-                                        {table.rows.map((row) => (
-                                            <MattressRowReadOnlyWithSizes
-                                            key={row.id}
-                                            row={row}
-                                            orderSizes={orderSizes}
-                                            onPrintMattress={handlePrintMattress}
-                                            />
-                                        ))}
+                                        {(() => {
+                                            // Group rows by bagno and sort by final part of mattress ID (001, 002, 003) within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, sort by the sequence number of the first mattress in each bagno
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first mattress in each bagno group and compare their sequence numbers
+                                                    const firstMattressA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstMattressB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstMattressA ? parseInt(firstMattressA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstMattressB ? parseInt(firstMattressB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
+                                                }
+
+                                                // If same bagno, sort by sequence number (final part of mattress ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
+                                            });
+
+                                            return sortedRows.map((row) => (
+                                                <MattressRowReadOnlyWithSizes
+                                                key={row.id}
+                                                row={row}
+                                                orderSizes={orderSizes}
+                                                onPrintMattress={handlePrintMattress}
+                                                onDownloadMattress={handleDownloadMattress}
+                                                onChangeMattress={handleChangeMattress}
+                                                onActualLayersChange={handleActualLayersChange}
+                                                editableActualLayers={editableActualLayers}
+                                                />
+                                            ));
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -386,10 +853,25 @@ const SubcontractorView = () => {
                         </Box>
                     </MainCard>
                     </React.Fragment>
-            ))}
+                ));
+            })()}
 
             {/* Adhesive Tables Section */}
-            {adhesiveTables.length > 0 && adhesiveTables.map((table, tableIndex) => (
+            {(() => {
+                const filteredAdhesiveTables = adhesiveTables.filter(table => {
+                    // For DELICIA cutting room, filter by selected destination
+                    if (isDeliciaCuttingRoom && selectedDestination) {
+                        return table.destination === selectedDestination;
+                    }
+                    // For other cutting rooms, show all tables
+                    return true;
+                });
+
+                if (isDeliciaCuttingRoom && selectedDestination) {
+                    // Show filtered adhesive tables for selected destination
+                }
+
+                return filteredAdhesiveTables.length > 0 && filteredAdhesiveTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    <Box mt={2} />
                     <MainCard
@@ -397,13 +879,12 @@ const SubcontractorView = () => {
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 {`Adhesives`}
-                                <PlannedQuantityBar
+                                <SubcontractorPlannedQuantityBar
                                     table={table}
                                     orderSizes={orderSizes}
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
-                                    showHelpers={false}
                                 />
                             </Box>
                         }
@@ -413,15 +894,45 @@ const SubcontractorView = () => {
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
-                                    <AdhesiveTableHeaderReadOnly orderSizes={orderSizes} />
+                                    <AdhesiveTableHeaderWithSizes orderSizes={orderSizes} />
                                     <TableBody>
-                                        {table.rows.map((row) => (
-                                            <AdhesiveRowReadOnly
-                                            key={row.id}
-                                            row={row}
-                                            orderSizes={orderSizes}
-                                            />
-                                        ))}
+                                        {(() => {
+                                            // Group rows by bagno and sort by final part of mattress ID (001, 002, 003) within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, sort by the sequence number of the first mattress in each bagno
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first mattress in each bagno group and compare their sequence numbers
+                                                    const firstMattressA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstMattressB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstMattressA ? parseInt(firstMattressA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstMattressB ? parseInt(firstMattressB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
+                                                }
+
+                                                // If same bagno, sort by sequence number (final part of mattress ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
+                                            });
+
+                                            return sortedRows.map((row) => (
+                                                <AdhesiveRowReadOnlyWithSizes
+                                                key={row.id}
+                                                row={row}
+                                                orderSizes={orderSizes}
+                                                onPrintMattress={handlePrintMattress}
+                                                onDownloadMattress={handleDownloadMattress}
+                                                onChangeMattress={handleChangeMattress}
+                                                onActualLayersChange={handleActualLayersChange}
+                                                editableActualLayers={editableActualLayers}
+                                                />
+                                            ));
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -430,7 +941,8 @@ const SubcontractorView = () => {
                         </Box>
                     </MainCard>
                     </React.Fragment>
-            ))}
+                ));
+            })()}
 
             {/* Destination Print Dialog */}
             <DestinationPrintDialog
@@ -440,6 +952,37 @@ const SubcontractorView = () => {
                 onPrintDestination={handlePrintDestination}
                 onPrintAll={handlePrintAll}
             />
+
+            {/* Width Change Dialog */}
+            <SubcontractorWidthChangeDialog
+                open={widthChangeDialog.open}
+                onClose={handleCloseWidthChangeDialog}
+                mattressData={widthChangeDialog.mattressData}
+                onSubmit={handleSubmitWidthChangeRequest}
+                currentUser={currentUser}
+            />
+
+            {/* Success/Error Snackbar */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={5000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={handleCloseSnackbar}
+                    severity={snackbar.severity}
+                    sx={{
+                        width: '100%',
+                        padding: "12px 16px",
+                        fontSize: "1.1rem",
+                        lineHeight: "1.5",
+                        borderRadius: "8px"
+                    }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </>
     );
 };

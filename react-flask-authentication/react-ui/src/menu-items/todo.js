@@ -1,5 +1,5 @@
 // assets
-import { IconChartPie3, IconRuler2, IconTool, IconClipboardCheck } from '@tabler/icons';
+import { IconChartPie3, IconRuler2, IconTool, IconUsers, IconClipboardCheck } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| TO DO MENU ITEMS ||-----------------------//

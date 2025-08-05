@@ -53,7 +53,7 @@ const SpreaderOperatorManagement = () => {
   const fetchOperators = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/operators/');
+      const response = await axios.get('/operators/?type=spreader');
       if (response.data.success) {
         setOperators(response.data.data);
       } else {
@@ -87,6 +87,7 @@ const SpreaderOperatorManagement = () => {
     try {
       const response = await axios.post('/operators/', {
         name: newOperatorName,
+        operator_type: 'SPREADER',
         active: true
       });
 

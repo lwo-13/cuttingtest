@@ -371,13 +371,37 @@ const OrderReport = () => {
                                 <Table>
                                     <MattressTableHeader orderSizes={orderSizes} />
                                     <TableBody>
-                                        {table.rows.map((row) => (
-                                            <MattressRowReadOnly
-                                            key={row.id}
-                                            row={row}
-                                            orderSizes={orderSizes}
-                                            />
-                                        ))}
+                                        {(() => {
+                                            // Group rows by bagno and sort by width within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, maintain original order of first appearance
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first occurrence index of each bagno in the original array
+                                                    const firstIndexA = table.rows.findIndex(row => (row.bagno || '') === bagnoA);
+                                                    const firstIndexB = table.rows.findIndex(row => (row.bagno || '') === bagnoB);
+                                                    return firstIndexA - firstIndexB;
+                                                }
+
+                                                // If same bagno, sort by width
+                                                const widthA = parseFloat(a.width) || 0;
+                                                const widthB = parseFloat(b.width) || 0;
+                                                return widthA - widthB;
+                                            });
+
+                                            console.log('📊 Order Report - Sorted rows by bagno (first appearance) then width:',
+                                                sortedRows.map(row => ({ bagno: row.bagno || 'no bagno', width: row.width })));
+
+                                            return sortedRows.map((row) => (
+                                                <MattressRowReadOnly
+                                                key={row.id}
+                                                row={row}
+                                                orderSizes={orderSizes}
+                                                />
+                                            ));
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </TableContainer>

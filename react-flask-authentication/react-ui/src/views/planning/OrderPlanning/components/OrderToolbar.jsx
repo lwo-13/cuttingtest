@@ -14,7 +14,8 @@ const OrderToolbar = ({
   selectedBrand,
   selectedColorCode,
   onOrderChange,
-  onAuditRefetchReady
+  onAuditRefetchReady,
+  hideAuditInfo = false // New prop to hide audit information for subcontractors
 }) => {
   const { t } = useTranslation();
 
@@ -108,8 +109,8 @@ const OrderToolbar = ({
         />
       </Grid>
 
-      {/* Order Audit Information */}
-      {selectedOrder && (
+      {/* Order Audit Information - Hidden for subcontractors */}
+      {selectedOrder && !hideAuditInfo && (
         <>
           <Grid item xs={3} sm={2} md={1.5}>
             {auditInfo.createdBy}

@@ -224,6 +224,15 @@ class GetMattressesByOrder(Resource):
             cutting_room = request.args.get('cutting_room')
             destination = request.args.get('destination')
 
+            # Subquery to get the updated_at from completed phase (status = "5 - COMPLETED" and active = TRUE)
+            completed_phase_subquery = db.session.query(
+                MattressPhase.mattress_id,
+                MattressPhase.updated_at.label('completed_phase_updated_at')
+            ).filter(
+                MattressPhase.status == "5 - COMPLETED",
+                MattressPhase.active == True
+            ).subquery()
+
             query = db.session.query(
                 Mattresses,
                 MattressDetail.layers,
@@ -233,6 +242,7 @@ class GetMattressesByOrder(Resource):
                 MattressDetail.cons_actual,
                 MattressDetail.cons_real,
                 MattressDetail.bagno_ready,  # Add bagno_ready field
+                completed_phase_subquery.c.completed_phase_updated_at.label('layers_updated_at'),  # Get timestamp from completed phase
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
                 MattressPhase.status.label('phase_status'),
                 # Add table-specific production center fields
@@ -241,6 +251,8 @@ class GetMattressesByOrder(Resource):
                 MattressProductionCenter.destination
             ).outerjoin(
                 MattressDetail, Mattresses.id == MattressDetail.mattress_id
+            ).outerjoin(
+                completed_phase_subquery, Mattresses.id == completed_phase_subquery.c.mattress_id
             ).outerjoin(
                 MattressMarker, Mattresses.id == MattressMarker.mattress_id
             ).outerjoin(
@@ -272,7 +284,7 @@ class GetMattressesByOrder(Resource):
                 pending_width_change_mattresses.add(req.mattress_id)
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
@@ -289,6 +301,7 @@ class GetMattressesByOrder(Resource):
                     "spreading_method": mattress.spreading_method,
                     "layers": layers if layers is not None else "",
                     "layers_a": layers_a if layers_a is not None else "",
+                    "layers_updated_at": layers_updated_at.strftime('%Y-%m-%d %H:%M:%S') if layers_updated_at is not None else "",
                     "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
                     "allowance": extra if extra is not None else 0,
                     "cons_planned": cons_planned if cons_planned is not None else "",
@@ -304,6 +317,86 @@ class GetMattressesByOrder(Resource):
             return {"success": True, "data": result}, 200
 
         except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/save_actual_layers', methods=['POST'])
+class SaveActualLayersResource(Resource):
+    def post(self):
+        """Save actual layers for subcontractors and update mattress phase to completed"""
+        try:
+            data = request.get_json()
+            updates = data.get('updates', [])
+
+            if not updates:
+                return {"success": False, "message": "No updates provided"}, 400
+
+            updated_count = 0
+
+            for update in updates:
+                row_id = update.get('row_id')
+                layers_a = update.get('layers_a')
+
+                if not row_id or layers_a is None:
+                    continue
+
+                # Find the mattress by row_id
+                mattress = Mattresses.query.filter_by(row_id=row_id).first()
+                if not mattress:
+                    continue
+
+                # Update mattress_details with actual layers
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress.id).first()
+                if mattress_detail:
+                    mattress_detail.layers_a = layers_a
+
+                    # Calculate actual consumption based on actual layers
+                    # Formula: (planned_consumption / planned_layers) * actual_layers
+                    if mattress_detail.layers and mattress_detail.layers > 0:
+                        consumption_per_layer = mattress_detail.cons_planned / mattress_detail.layers
+                        mattress_detail.cons_actual = consumption_per_layer * layers_a
+                    else:
+                        mattress_detail.cons_actual = 0
+
+                    mattress_detail.updated_at = db.func.current_timestamp()
+
+                # Update mattress phase: set current active phase to FALSE and create/update "5 - COMPLETED" to TRUE
+                # First, set all current active phases to FALSE
+                current_active_phases = MattressPhase.query.filter_by(mattress_id=mattress.id, active=True).all()
+                for phase in current_active_phases:
+                    phase.active = False
+                    phase.updated_at = db.func.current_timestamp()
+
+                # Check if "5 - COMPLETED" phase already exists
+                completed_phase = MattressPhase.query.filter_by(mattress_id=mattress.id, status="5 - COMPLETED").first()
+                if completed_phase:
+                    # Update existing completed phase to active
+                    completed_phase.active = True
+                    completed_phase.updated_at = db.func.current_timestamp()
+                else:
+                    # Create new completed phase
+                    new_completed_phase = MattressPhase(
+                        mattress_id=mattress.id,
+                        status="5 - COMPLETED",
+                        active=True,
+                        device="SUBCONTRACTOR",
+                        created_at=db.func.current_timestamp(),
+                        updated_at=db.func.current_timestamp()
+                    )
+                    db.session.add(new_completed_phase)
+
+                updated_count += 1
+
+            # Commit all changes
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Successfully updated {updated_count} mattresses",
+                "updated_count": updated_count
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
             return {"success": False, "message": str(e)}, 500
 
 @mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])
@@ -523,6 +616,14 @@ class GetAllMattressesWithDetailsResource(Resource):
     def get(self):
         """Fetch mattress records with associated details and markers, filtered for travel document printing.
 
+        Optimized version that uses a single SQL query with joins to avoid N+1 query problems.
+        Supports pagination to improve performance.
+
+        Query parameters:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 100, max: 500)
+        - search: Search term for filtering
+
         Filters applied:
         - Only mattresses created within the last 30 days
         - Only mattresses assigned to ZALLI cutting room
@@ -530,54 +631,171 @@ class GetAllMattressesWithDetailsResource(Resource):
         - Only mattresses with both details and markers
         """
         try:
-
+            # Get pagination parameters
+            page = request.args.get('page', 1, type=int)
+            per_page = min(request.args.get('per_page', 100, type=int), 500)  # Max 500 items per page
+            search_term = request.args.get('search', '', type=str).strip()
+            skip_count = request.args.get('skip_count', 'false', type=str).lower() == 'true'  # Option to skip count for faster response
             # ABSOLUTE STRICT DATE FILTERING - ONLY LAST 30 DAYS
             current_time = datetime.now()
             one_month_ago = current_time - timedelta(days=30)
 
-            # STEP 1: Get ONLY recent mattresses (last 30 days) AND cutting room ZALLI
-            recent_mattresses = db.session.query(Mattresses).join(
+            # ✅ SUPER OPTIMIZED: Use separate simpler queries instead of complex joins
+            # Step 1: Get mattress IDs that match our criteria (fastest query)
+            mattress_ids_query = db.session.query(Mattresses.id).join(
                 MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).join(
+                MattressPhase, Mattresses.id == MattressPhase.mattress_id
             ).filter(
+                # Date filter
                 Mattresses.created_at >= one_month_ago,
-                MattressProductionCenter.cutting_room == 'ZALLI'
-            ).all()
+                # Cutting room filter
+                MattressProductionCenter.cutting_room == 'ZALLI',
+                # Phase filter
+                MattressPhase.active == True,
+                MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD"])
+            )
 
-            # STEP 2: Filter by phase status (only early phases)
-            filtered_mattresses = []
-            for mattress in recent_mattresses:
-                # Get active phase for this mattress
-                active_phase = db.session.query(MattressPhase).filter(
-                    MattressPhase.mattress_id == mattress.id,
-                    MattressPhase.active == True
-                ).first()
+            # Add search filtering if search term provided
+            if search_term:
+                search_filter = f"%{search_term.lower()}%"
+                mattress_ids_query = mattress_ids_query.filter(
+                    db.or_(
+                        Mattresses.mattress.ilike(search_filter),
+                        Mattresses.order_commessa.ilike(search_filter),
+                        Mattresses.fabric_type.ilike(search_filter),
+                        Mattresses.fabric_code.ilike(search_filter),
+                        Mattresses.fabric_color.ilike(search_filter),
+                        Mattresses.dye_lot.ilike(search_filter),
+                        Mattresses.item_type.ilike(search_filter),
+                        Mattresses.spreading_method.ilike(search_filter)
+                    )
+                )
 
-                if active_phase and active_phase.status in ["0 - NOT SET", "1 - TO LOAD"]:
-                    # Check if mattress has details and markers
-                    has_details = len(mattress.details) > 0
-                    has_markers = len(mattress.mattress_markers) > 0
+            # ✅ Get count if needed (reuse the same query for efficiency)
+            if skip_count:
+                total_count = -1  # Indicate count was skipped
+            else:
+                total_count = mattress_ids_query.count()
 
-                    if has_details and has_markers:
-                        filtered_mattresses.append(mattress)
+            # ✅ Get paginated mattress IDs
+            print(f"🔍 Fetching page {page}, per_page {per_page}, offset {(page - 1) * per_page}")
+            paginated_mattress_ids = mattress_ids_query.order_by(
+                Mattresses.created_at.desc(),  # Most recent first
+                Mattresses.id.desc()  # Secondary sort for consistency
+            ).offset((page - 1) * per_page).limit(per_page).all()
+            print(f"📊 Found {len(paginated_mattress_ids)} mattress IDs for page {page}")
 
+            # Extract just the IDs
+            mattress_id_list = [row.id for row in paginated_mattress_ids]
 
-            mattresses = filtered_mattresses
+            if not mattress_id_list:
+                # No results found
+                data = []
+            else:
+                # ✅ Step 2: Get full mattress data for the paginated IDs (much faster)
+                mattresses_data = db.session.query(Mattresses).filter(
+                    Mattresses.id.in_(mattress_id_list)
+                ).order_by(
+                    Mattresses.created_at.desc(),
+                    Mattresses.id.desc()
+                ).all()
 
-            # Create a list of dictionaries with mattress info, details, and markers
-            data = []
-            for mattress in mattresses:
-                mattress_dict = mattress.to_dict()
+                # ✅ Step 3: Get details for these mattresses
+                details_data = db.session.query(MattressDetail).filter(
+                    MattressDetail.mattress_id.in_(mattress_id_list)
+                ).all()
 
-                # Add related details and markers
-                mattress_dict['details'] = [detail.to_dict() for detail in mattress.details]
-                mattress_dict['markers'] = [marker.to_dict() for marker in mattress.mattress_markers]
+                # ✅ Step 4: Get markers for these mattresses
+                markers_data = db.session.query(MattressMarker).filter(
+                    MattressMarker.mattress_id.in_(mattress_id_list)
+                ).all()
 
-                data.append(mattress_dict)
+                # ✅ Create lookup dictionaries for fast access
+                details_dict = {detail.mattress_id: detail for detail in details_data}
+                markers_dict = {marker.mattress_id: marker for marker in markers_data}
 
-            return {"success": True, "data": data}, 200
+                # ✅ Build response data efficiently using lookup dictionaries
+                data = []
+                for mattress in mattresses_data:
+                    detail = details_dict.get(mattress.id)
+                    marker = markers_dict.get(mattress.id)
+
+                    mattress_dict = {
+                        "id": mattress.id,
+                        "mattress": mattress.mattress,
+                        "order_commessa": mattress.order_commessa,
+                        "fabric_type": mattress.fabric_type,
+                        "fabric_code": mattress.fabric_code,
+                        "fabric_color": mattress.fabric_color,
+                        "dye_lot": mattress.dye_lot,
+                        "item_type": mattress.item_type,
+                        "spreading_method": mattress.spreading_method,
+                        "created_at": mattress.created_at.strftime('%Y-%m-%d %H:%M:%S') if mattress.created_at else None,
+                        "updated_at": mattress.updated_at.strftime('%Y-%m-%d %H:%M:%S') if mattress.updated_at else None,
+                        "table_id": mattress.table_id,
+                        "row_id": mattress.row_id,
+                        "sequence_number": mattress.sequence_number,
+                        # Only include the detail fields that the frontend actually uses
+                        "details": [{
+                            "print_travel": detail.print_travel if detail else False,
+                            "print_marker": detail.print_marker if detail else False,
+                            "layers": detail.layers if detail else 0,
+                            "length_mattress": detail.length_mattress if detail else 0,
+                            "cons_planned": detail.cons_planned if detail else 0,
+                            "extra": detail.extra if detail else 0,
+                            "bagno_ready": detail.bagno_ready if detail else False
+                        }],
+                        # Only include the marker fields that the frontend actually uses
+                        "markers": [{
+                            "marker_name": marker.marker_name if marker else "",
+                            "marker_width": marker.marker_width if marker else 0,
+                            "marker_length": marker.marker_length if marker else 0
+                        }] if marker else []
+                    }
+                    data.append(mattress_dict)
+
+            # ✅ Calculate pagination metadata
+            if skip_count:
+                # When count is skipped, provide limited pagination info
+                has_next = len(data) == per_page  # If we got a full page, there might be more
+                has_prev = page > 1
+                pagination_info = {
+                    "page": page,
+                    "per_page": per_page,
+                    "total_count": -1,  # Indicate count was skipped
+                    "total_pages": -1,  # Unknown
+                    "has_next": has_next,
+                    "has_prev": has_prev,
+                    "count_skipped": True
+                }
+            else:
+                # Full pagination info when count is available
+                total_pages = (total_count + per_page - 1) // per_page
+                has_next = page < total_pages
+                has_prev = page > 1
+                pagination_info = {
+                    "page": page,
+                    "per_page": per_page,
+                    "total_count": total_count,
+                    "total_pages": total_pages,
+                    "has_next": has_next,
+                    "has_prev": has_prev,
+                    "count_skipped": False
+                }
+
+            return {
+                "success": True,
+                "data": data,
+                "pagination": pagination_info
+            }, 200
 
         except Exception as e:
-            return {"success": False, "message": str(e)}, 500
+            # ✅ Add detailed error logging for debugging
+            import traceback
+            print(f"❌ Error in /mattress/all_with_details: {str(e)}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            return {"success": False, "message": f"Database error: {str(e)}"}, 500
 
 @mattress_api.route('/update_print_travel', methods=['PUT'])
 class UpdatePrintTravelStatus(Resource):
@@ -820,6 +1038,129 @@ class UpdateDeviceResource(Resource):
         # Redirect to new unified endpoint
         move_resource = MoveMattressResource()
         return move_resource.put(mattress_id)
+
+@mattress_api.route('/cleanup_kanban', methods=['POST'])
+class CleanupKanbanResource(Resource):
+    """Clean up orphaned kanban entries and reset positions"""
+    def post(self):
+        try:
+            # Step 1: Find all kanban entries
+            all_kanban = db.session.query(MattressKanban).all()
+            print(f"Found {len(all_kanban)} kanban entries")
+
+            # Step 2: Find orphaned entries (kanban entries for mattresses that should be in SP0)
+            orphaned_count = 0
+            valid_entries = []
+
+            for kanban in all_kanban:
+                # Get the active phase for this mattress
+                active_phase = db.session.query(MattressPhase).filter_by(
+                    mattress_id=kanban.mattress_id,
+                    active=True
+                ).first()
+
+                if not active_phase:
+                    print(f"Orphaned: Mattress {kanban.mattress_id} has no active phase")
+                    db.session.delete(kanban)
+                    orphaned_count += 1
+                elif active_phase.device == "SP0" or active_phase.status == "0 - NOT SET":
+                    print(f"Orphaned: Mattress {kanban.mattress_id} should be in SP0 (device: {active_phase.device}, status: {active_phase.status})")
+                    db.session.delete(kanban)
+                    orphaned_count += 1
+                elif active_phase.status not in ["1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                    print(f"Orphaned: Mattress {kanban.mattress_id} has inactive status: {active_phase.status}")
+                    db.session.delete(kanban)
+                    orphaned_count += 1
+                else:
+                    valid_entries.append(kanban)
+
+            print(f"Deleted {orphaned_count} orphaned kanban entries")
+            print(f"Kept {len(valid_entries)} valid entries")
+
+            # Step 3: Reset positions for remaining valid entries
+            # Group by day/shift
+            position_groups = {}
+            for kanban in valid_entries:
+                key = f"{kanban.day}_{kanban.shift}"
+                if key not in position_groups:
+                    position_groups[key] = []
+                position_groups[key].append(kanban)
+
+            reset_count = 0
+            for group_key, group_kanban in position_groups.items():
+                # Sort by current position to maintain relative order
+                group_kanban.sort(key=lambda k: k.position)
+
+                # Reset positions starting from 1
+                for i, kanban in enumerate(group_kanban):
+                    old_position = kanban.position
+                    kanban.position = i + 1
+                    if old_position != kanban.position:
+                        reset_count += 1
+                        print(f"Reset mattress {kanban.mattress_id} position: {old_position} → {kanban.position}")
+
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Cleanup complete: deleted {orphaned_count} orphaned entries, reset {reset_count} positions",
+                "orphaned_deleted": orphaned_count,
+                "positions_reset": reset_count,
+                "valid_entries": len(valid_entries)
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Cleanup failed: {str(e)}"}, 500
+
+@mattress_api.route('/cleanup_kanban', methods=['POST'])
+class CleanupKanbanResource(Resource):
+    """Remove kanban entries for mattresses that have advanced beyond kanban phases"""
+    def post(self):
+        try:
+            # Find all kanban entries for mattresses that shouldn't be in kanban anymore
+            kanban_entries = db.session.query(MattressKanban).join(
+                MattressPhase, MattressKanban.mattress_id == MattressPhase.mattress_id
+            ).filter(
+                MattressPhase.active == True,
+                ~MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"])
+            ).all()
+
+            deleted_count = 0
+            for kanban in kanban_entries:
+                print(f"Deleting kanban entry for mattress {kanban.mattress_id} (advanced beyond kanban phases)")
+                db.session.delete(kanban)
+                deleted_count += 1
+
+            # Also find kanban entries where mattress has no active phase or is SP0
+            orphaned_entries = db.session.query(MattressKanban).outerjoin(
+                MattressPhase, db.and_(
+                    MattressKanban.mattress_id == MattressPhase.mattress_id,
+                    MattressPhase.active == True
+                )
+            ).filter(
+                db.or_(
+                    MattressPhase.mattress_id.is_(None),  # No active phase
+                    MattressPhase.device == "SP0"  # Should be in SP0
+                )
+            ).all()
+
+            for kanban in orphaned_entries:
+                print(f"Deleting orphaned kanban entry for mattress {kanban.mattress_id}")
+                db.session.delete(kanban)
+                deleted_count += 1
+
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Deleted {deleted_count} invalid kanban entries",
+                "deleted_count": deleted_count
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "message": f"Cleanup failed: {str(e)}"}, 500
 
 @mattress_api.route('/update_position/<int:mattress_id>', methods=['PUT'])
 class UpdateKanbanPositionResource(Resource):
@@ -1368,6 +1709,13 @@ class UpdateMattressStatusResource(Resource):
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
 
+            # AUTO-CLEANUP: Remove from kanban if advancing beyond kanban phases
+            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                kanban_entry = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+                if kanban_entry:
+                    print(f"Auto-removing mattress {mattress_id} from kanban (advanced to {new_status})")
+                    db.session.delete(kanban_entry)
+
             db.session.commit()
             return {"success": True, "message": f"Status updated to '{new_status}'"}, 200
 
@@ -1375,6 +1723,105 @@ class UpdateMattressStatusResource(Resource):
             db.session.rollback()
             import traceback
             traceback.print_exc()
+            return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/cutter_queue')
+class GetCutterQueueResource(Resource):
+    """Get mattresses for cutter view - shows mattresses with TO CUT or ON CUT status"""
+    def get(self):
+        try:
+            # Get cutter device from query parameter
+            cutter_device = request.args.get('device')
+            if not cutter_device:
+                return {"success": False, "message": "Cutter device parameter is required"}, 400
+
+            # Query mattresses with active TO CUT or ON CUT phases
+            query = db.session.query(
+                MattressPhase.mattress_id,
+                MattressPhase.status,
+                MattressPhase.device,
+                MattressPhase.operator,
+                Mattresses.mattress,
+                Mattresses.order_commessa,
+                Mattresses.fabric_code,
+                Mattresses.fabric_color,
+                Mattresses.dye_lot,
+                MattressMarker.marker_name,
+                MattressDetail.layers,
+                MattressDetail.layers_a,
+                MattressDetail.cons_planned,
+                MattressProductionCenter.destination
+            ).select_from(MattressPhase) \
+             .join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
+             .join(MattressDetail, Mattresses.id == MattressDetail.mattress_id) \
+             .outerjoin(MattressMarker, Mattresses.id == MattressMarker.mattress_id) \
+             .outerjoin(MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id) \
+             .filter(MattressPhase.active == True) \
+             .filter(MattressPhase.status.in_(["3 - TO CUT", "4 - ON CUT"])) \
+             .filter(MattressDetail.bagno_ready == True)
+
+            # Filter by cutter device assignment
+            # Show mattresses assigned to this cutter OR unassigned TO CUT mattresses
+            query = query.filter(
+                db.or_(
+                    # Mattresses assigned to this cutter
+                    MattressPhase.device == cutter_device,
+                    # Unassigned TO CUT mattresses (available for any cutter)
+                    db.and_(
+                        MattressPhase.status == "3 - TO CUT",
+                        db.or_(
+                            MattressPhase.device.is_(None),
+                            MattressPhase.device == ""
+                        )
+                    )
+                )
+            )
+
+            results = query.all()
+
+            # Get sizes for each mattress
+            mattress_ids = [row.mattress_id for row in results]
+            sizes_query = db.session.query(
+                MattressSize.mattress_id,
+                MattressSize.size
+            ).filter(MattressSize.mattress_id.in_(mattress_ids)).all()
+
+            # Group sizes by mattress_id
+            size_dict = {}
+            total_pcs_dict = {}
+            for size_row in sizes_query:
+                if size_row.mattress_id not in size_dict:
+                    size_dict[size_row.mattress_id] = []
+                    total_pcs_dict[size_row.mattress_id] = 0
+                size_dict[size_row.mattress_id].append(size_row.size)
+                total_pcs_dict[size_row.mattress_id] += 1
+
+            # Format results
+            result = []
+            for row in results:
+                result.append({
+                    "id": row.mattress_id,
+                    "mattress": row.mattress,
+                    "status": row.status,
+                    "device": row.device,
+                    "operator": row.operator,
+                    "order_commessa": row.order_commessa,
+                    "fabric_code": row.fabric_code,
+                    "fabric_color": row.fabric_color,
+                    "dye_lot": row.dye_lot,
+                    "marker": row.marker_name,
+                    "layers": row.layers,
+                    "layers_a": row.layers_a,
+                    "consumption": row.cons_planned,
+                    "destination": row.destination,
+                    "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
+                    "total_pcs": total_pcs_dict.get(row.mattress_id, 0)
+                })
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            db.session.rollback()
             return {"success": False, "message": str(e)}, 500
 
 @mattress_api.route('/update_status_and_layers/<int:mattress_id>', methods=['PUT'])
@@ -1423,6 +1870,13 @@ class UpdateStatusAndLayersResource(Resource):
                         target_phase.device = current_device
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
+
+            # AUTO-CLEANUP: Remove from kanban if advancing beyond kanban phases
+            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                kanban_entry = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+                if kanban_entry:
+                    print(f"Auto-removing mattress {mattress_id} from kanban (advanced to {new_status})")
+                    db.session.delete(kanban_entry)
 
             # Update layers_a and calculate cons_actual
             mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress_id).first()

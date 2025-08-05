@@ -92,11 +92,60 @@ class CompleteMarkerRequest(Resource):
                 width_request.selected_marker_name = created_marker.marker_name
                 width_request.selected_marker_id = created_marker.id
 
-                # If the width change request is waiting for marker, change it back to pending for shift manager approval
-                if width_request.status == 'waiting_for_marker':
+                # Check if this is a subcontractor request (no operator means subcontractor)
+                if not width_request.operator and width_request.status == 'waiting_for_marker':
+                    # Auto-approve subcontractor requests when marker is created
+                    width_request.status = 'approved'
+                    width_request.approved_by = 'SYSTEM_AUTO_APPROVAL'
+                    width_request.approved_at = datetime.utcnow()
+                    print(f"DEBUG: Auto-approving subcontractor width change request after marker creation")
+
+                    # Apply the marker change immediately for subcontractors
+
+                    print(f"DEBUG: Applying marker change for auto-approved subcontractor request")
+
+                    # Update the mattress_markers table
+                    mattress_marker = MattressMarker.query.filter_by(mattress_id=width_request.mattress_id).first()
+                    if mattress_marker:
+                        print(f"DEBUG: Updating mattress_markers - old marker: {mattress_marker.marker_id}, new marker: {created_marker.id}")
+                        mattress_marker.marker_id = created_marker.id
+                        mattress_marker.marker_name = created_marker.marker_name
+                        mattress_marker.marker_width = created_marker.marker_width
+                        mattress_marker.marker_length = created_marker.marker_length
+
+                        # Update the mattress details with new marker length and consumption
+                        mattress_detail = MattressDetail.query.filter_by(mattress_id=width_request.mattress_id).first()
+                        if mattress_detail:
+                            # Get current values
+                            layers = mattress_detail.layers
+                            extra = mattress_detail.extra
+
+                            print(f"DEBUG: Current mattress_detail - length: {mattress_detail.length_mattress}, cons_planned: {mattress_detail.cons_planned}")
+                            print(f"DEBUG: Layers: {layers}, Extra: {extra}")
+
+                            # Update length_mattress with marker length + extra
+                            old_length = mattress_detail.length_mattress
+                            old_cons = mattress_detail.cons_planned
+
+                            mattress_detail.length_mattress = created_marker.marker_length + extra
+
+                            # Calculate new planned consumption: (marker_length + extra) * layers
+                            # Round to maximum 3 decimal places
+                            new_cons_planned = round((created_marker.marker_length + extra) * layers, 3)
+                            mattress_detail.cons_planned = new_cons_planned
+
+                            print(f"DEBUG: Updated mattress_detail - length: {old_length} -> {mattress_detail.length_mattress}")
+                            print(f"DEBUG: Updated mattress_detail - cons_planned: {old_cons} -> {mattress_detail.cons_planned}")
+                        else:
+                            print("DEBUG: No mattress_detail found!")
+                    else:
+                        print(f"DEBUG: No mattress_marker found for mattress_id: {width_request.mattress_id}")
+
+                elif width_request.status == 'waiting_for_marker':
+                    # For spreader requests, change back to pending for shift manager approval
                     width_request.status = 'pending'
 
-                # Note: We don't update the mattress marker here - that happens when the shift manager approves the request
+                # Note: For spreader requests, we don't update the mattress marker here - that happens when the shift manager approves the request
 
             db.session.commit()
 

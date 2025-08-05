@@ -46,7 +46,7 @@ const CutterOperatorManagement = () => {
   const fetchOperators = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/cutter_operators/');
+      const response = await axios.get('/operators/?type=cutter');
       if (response.data.success) {
         setOperators(response.data.data);
       } else {
@@ -79,8 +79,9 @@ const CutterOperatorManagement = () => {
     }
 
     try {
-      const response = await axios.post('/cutter_operators/', {
+      const response = await axios.post('/operators/', {
         name: newOperatorName,
+        operator_type: 'CUTTER',
         active: true
       });
 
@@ -121,7 +122,7 @@ const CutterOperatorManagement = () => {
     }
 
     try {
-      const response = await axios.put(`/cutter_operators/${currentOperator.id}`, {
+      const response = await axios.put(`/operators/${currentOperator.id}`, {
         name: editOperatorName,
         active: editOperatorActive
       });
@@ -153,7 +154,7 @@ const CutterOperatorManagement = () => {
 
   const handleDeleteOperator = async () => {
     try {
-      const response = await axios.delete(`/cutter_operators/${currentOperator.id}`);
+      const response = await axios.delete(`/operators/${currentOperator.id}`);
 
       if (response.data.success) {
         setSnackbar({
