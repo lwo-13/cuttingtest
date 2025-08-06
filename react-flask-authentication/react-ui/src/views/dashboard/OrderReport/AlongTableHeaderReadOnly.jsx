@@ -12,8 +12,7 @@ const AlongTableHeaderReadOnly = () => {
         <TableCell align="center" sx={{ minWidth: '100px' }}>Usable Width [cm]</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>Collaretto Width [mm]</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>Scrap Rolls</TableCell>
-        <TableCell align="center" sx={{ minWidth: '80px' }}>Planned N° Rolls</TableCell>
-        <TableCell align="center" sx={{ minWidth: '100px' }}>Actual N° Rolls</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>N° Rolls</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>Total Collaretto [m]</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>Cons [m]</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>Bagno</TableCell>

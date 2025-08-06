@@ -261,7 +261,7 @@ class GetMattressesByOrder(Resource):
                 MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
             ).filter(
                 Mattresses.order_commessa == order_commessa,
-                Mattresses.item_type.in_(['AS', 'MS', 'ASA', 'MSA'])
+                Mattresses.item_type.in_(['AS', 'MS'])  # Exclude adhesive types (ASA, MSA)
             )
 
             # Apply production center filtering if provided
@@ -312,6 +312,113 @@ class GetMattressesByOrder(Resource):
                     "table_id": mattress.table_id,
                     "row_id": mattress.row_id,
                     "sequence_number": mattress.sequence_number
+                })
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+
+@mattress_api.route('/get_adhesive_by_order/<string:order_commessa>', methods=['GET'])
+class GetAdhesivesByOrder(Resource):
+    def get(self, order_commessa):
+        try:
+            # Get optional filtering parameters
+            cutting_room = request.args.get('cutting_room')
+            destination = request.args.get('destination')
+
+            # Subquery to get the updated_at from completed phase (status = "5 - COMPLETED" and active = TRUE)
+            completed_phase_subquery = db.session.query(
+                MattressPhase.mattress_id,
+                MattressPhase.updated_at.label('completed_phase_updated_at')
+            ).filter(
+                MattressPhase.status == "5 - COMPLETED",
+                MattressPhase.active == True
+            ).subquery()
+
+            query = db.session.query(
+                Mattresses,
+                MattressDetail.layers,
+                MattressDetail.layers_a,
+                MattressDetail.extra,
+                MattressDetail.cons_planned,
+                MattressDetail.cons_actual,
+                MattressDetail.cons_real,
+                MattressDetail.bagno_ready,  # Add bagno_ready field
+                completed_phase_subquery.c.completed_phase_updated_at.label('layers_updated_at'),  # Get timestamp from completed phase
+                MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
+                MattressPhase.status.label('phase_status'),
+                # Add table-specific production center fields
+                MattressProductionCenter.production_center,
+                MattressProductionCenter.cutting_room,
+                MattressProductionCenter.destination
+            ).outerjoin(
+                MattressDetail, Mattresses.id == MattressDetail.mattress_id
+            ).outerjoin(
+                completed_phase_subquery, Mattresses.id == completed_phase_subquery.c.mattress_id
+            ).outerjoin(
+                MattressMarker, Mattresses.id == MattressMarker.mattress_id
+            ).outerjoin(
+                MattressPhase, db.and_(Mattresses.id == MattressPhase.mattress_id, MattressPhase.active == True)
+            ).outerjoin(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).filter(
+                Mattresses.order_commessa == order_commessa,
+                Mattresses.item_type.in_(['ASA', 'MSA'])  # Only adhesive types
+            )
+
+            # Apply production center filtering if provided
+            if cutting_room:
+                query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+            if destination:
+                query = query.filter(MattressProductionCenter.destination == destination)
+
+            mattresses = query.order_by(
+                Mattresses.fabric_type, Mattresses.sequence_number
+            ).all()
+
+            if not mattresses:
+                return {"success": True, "data": []}, 200  # Return empty array instead of error
+
+            # Get all mattress IDs that have pending width change requests
+            pending_width_change_mattresses = set()
+            pending_requests = WidthChangeRequest.query.filter_by(status='pending').all()
+            for req in pending_requests:
+                pending_width_change_mattresses.add(req.mattress_id)
+
+            result = []
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
+                result.append({
+                    "id": mattress.id,
+                    "mattress": mattress.mattress,
+                    "order_commessa": mattress.order_commessa,
+                    "fabric_type": mattress.fabric_type,
+                    "fabric_code": mattress.fabric_code,
+                    "fabric_color": mattress.fabric_color,
+                    "dye_lot": mattress.dye_lot,
+                    "item_type": mattress.item_type,
+                    "spreading_method": mattress.spreading_method,
+                    "created_at": mattress.created_at.strftime('%Y-%m-%d %H:%M:%S') if mattress.created_at else None,
+                    "updated_at": mattress.updated_at.strftime('%Y-%m-%d %H:%M:%S') if mattress.updated_at else None,
+                    "layers": layers if layers is not None else "",
+                    "layers_a": layers_a if layers_a is not None else "",
+                    "layers_updated_at": layers_updated_at.strftime('%Y-%m-%d %H:%M:%S') if layers_updated_at is not None else "",
+                    "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
+                    "allowance": extra if extra is not None else 0,
+                    "cons_planned": cons_planned if cons_planned is not None else "",
+                    "cons_actual": cons_actual if cons_actual is not None else "",
+                    "cons_real": cons_real if cons_real is not None else "",
+                    "bagno_ready": bagno_ready if bagno_ready is not None else False,  # Add bagno_ready field
+
+                    "table_id": mattress.table_id,
+                    "row_id": mattress.row_id,
+                    "sequence_number": mattress.sequence_number,
+                    "phase_status": phase_status if phase_status is not None else "0 - NOT SET",
+                    "has_pending_width_change": mattress.id in pending_width_change_mattresses,
+                    # Production center fields
+                    "production_center": production_center,
+                    "cutting_room": cutting_room,
+                    "destination": destination
                 })
 
             return {"success": True, "data": result}, 200
@@ -1761,44 +1868,50 @@ class GetCutterQueueResource(Resource):
              .filter(MattressDetail.bagno_ready == True)
 
             # Filter by cutter device assignment
-            # Show mattresses assigned to this cutter OR unassigned TO CUT mattresses
+            # Show ALL "TO CUT" mattresses to all cutters, but only "ON CUT" mattresses assigned to this cutter
             query = query.filter(
                 db.or_(
-                    # Mattresses assigned to this cutter
-                    MattressPhase.device == cutter_device,
-                    # Unassigned TO CUT mattresses (available for any cutter)
+                    # All TO CUT mattresses (available to any cutter)
+                    MattressPhase.status == "3 - TO CUT",
+                    # Only ON CUT mattresses assigned to this specific cutter
                     db.and_(
-                        MattressPhase.status == "3 - TO CUT",
-                        db.or_(
-                            MattressPhase.device.is_(None),
-                            MattressPhase.device == ""
-                        )
+                        MattressPhase.status == "4 - ON CUT",
+                        MattressPhase.device == cutter_device
                     )
                 )
             )
 
             results = query.all()
 
-            # Get sizes for each mattress
+            # Get sizes and piece quantities for each mattress
             mattress_ids = [row.mattress_id for row in results]
             sizes_query = db.session.query(
                 MattressSize.mattress_id,
-                MattressSize.size
+                MattressSize.size,
+                MattressSize.pcs_layer
             ).filter(MattressSize.mattress_id.in_(mattress_ids)).all()
 
-            # Group sizes by mattress_id
+            # Group sizes by mattress_id and calculate total pieces per layer
             size_dict = {}
-            total_pcs_dict = {}
+            pcs_sum_dict = {}
             for size_row in sizes_query:
                 if size_row.mattress_id not in size_dict:
                     size_dict[size_row.mattress_id] = []
-                    total_pcs_dict[size_row.mattress_id] = 0
-                size_dict[size_row.mattress_id].append(size_row.size)
-                total_pcs_dict[size_row.mattress_id] += 1
+                    pcs_sum_dict[size_row.mattress_id] = 0
+
+                # Format pieces as integer if it's a whole number, otherwise as float
+                pcs = int(size_row.pcs_layer) if size_row.pcs_layer.is_integer() else size_row.pcs_layer
+                size_dict[size_row.mattress_id].append(f"{size_row.size} - {pcs}")
+                pcs_sum_dict[size_row.mattress_id] += pcs
 
             # Format results
             result = []
             for row in results:
+                # Calculate total pieces: pieces per layer * effective layers
+                pcs_per_layer = pcs_sum_dict.get(row.mattress_id, 0)
+                effective_layers = row.layers_a if row.layers_a is not None else row.layers
+                total_pcs = pcs_per_layer * effective_layers if pcs_per_layer else 0
+
                 result.append({
                     "id": row.mattress_id,
                     "mattress": row.mattress,
@@ -1815,7 +1928,7 @@ class GetCutterQueueResource(Resource):
                     "consumption": row.cons_planned,
                     "destination": row.destination,
                     "sizes": "; ".join(size_dict.get(row.mattress_id, [])),
-                    "total_pcs": total_pcs_dict.get(row.mattress_id, 0)
+                    "total_pcs": total_pcs
                 })
 
             return {"success": True, "data": result}, 200

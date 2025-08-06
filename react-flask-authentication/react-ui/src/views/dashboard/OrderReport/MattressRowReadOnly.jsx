@@ -123,10 +123,22 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
 
       {/* Progress Bar */}
       <TableCell sx={{ minWidth: '150px', textAlign: 'center', padding: '4px' }}>
-        <MattressProgressBar
-          currentPhase={row.phase_status}
-          hasPendingWidthChange={row.has_pending_width_change}
-        />
+        {(row.bagno_ready === true || row.bagno_ready === 1 || row.bagno_ready === '1') ? (
+          <MattressProgressBar
+            currentPhase={row.phase_status}
+            hasPendingWidthChange={row.has_pending_width_change}
+          />
+        ) : (
+          <Typography
+            sx={{
+              fontWeight: 'bold',
+              color: 'error.main',
+              fontSize: '0.875rem'
+            }}
+          >
+            Bagno not ready!
+          </Typography>
+        )}
       </TableCell>
 
       {/* Empty Cell (icon placeholder) */}

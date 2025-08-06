@@ -19,8 +19,10 @@ const handleOrderChange = async (newValue, context) => {
     fetchPadPrintInfo,
     fetchBrandForStyle,
     setTables,
+    setAdhesiveTables,
     setAlongTables,
     setWeftTables,
+    setBiasTables,
     setMarkerOptions,
     sortSizes,
     clearBrand,
@@ -33,8 +35,10 @@ const handleOrderChange = async (newValue, context) => {
     setOrderSizeNames([]);
     setMarkerOptions([]);
     setTables([]);
+    setAdhesiveTables([]);
     setWeftTables([]);
     setAlongTables([]);
+    setBiasTables([]);
     setSelectedStyle("");
     setSelectedSeason("");
     setSelectedColorCode("");
@@ -96,8 +100,10 @@ const handleOrderChange = async (newValue, context) => {
           setProductionCenterLoading(false);
           // Clear tables until user selects destination
           setTables([]);
+          setAdhesiveTables([]);
           setAlongTables([]);
           setWeftTables([]);
+          setBiasTables([]);
         } else {
           // Single cutting room, auto-select and fetch data
           const combo = combinations[0];
@@ -114,8 +120,10 @@ const handleOrderChange = async (newValue, context) => {
         setProductionCenterLoading(false);
         // Clear tables until user selects
         setTables([]);
+        setAdhesiveTables([]);
         setAlongTables([]);
         setWeftTables([]);
+        setBiasTables([]);
       }
     }
   } catch (err) {
@@ -130,8 +138,10 @@ const handleOrderChange = async (newValue, context) => {
 const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, context) => {
   const {
     setTables,
+    setAdhesiveTables,
     setAlongTables,
     setWeftTables,
+    setBiasTables,
     setSelectedProductionCenter,
     setSelectedCuttingRoom,
     setSelectedDestination,
@@ -144,13 +154,15 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     if (cuttingRoom) mattressParams.cutting_room = cuttingRoom;
     if (destination) mattressParams.destination = destination;
 
-    const [mattressRes, markerRes, alongRes, weftRes] = await Promise.all([
+    const [mattressRes, adhesiveRes, markerRes, alongRes, weftRes, biasRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${order.id}`, { params: mattressParams }),
+      axios.get(`/mattress/get_adhesive_by_order/${order.id}`, { params: mattressParams }),
       axios.get(`/markers/marker_headers_planning`, {
         params: { style: order.style, sizes: sizesSorted.map(s => s.size).join(',') }
       }),
-      axios.get(`/collaretto/get_by_order/${order.id}`),
-      axios.get(`/collaretto/get_weft_by_order/${order.id}`)
+      axios.get(`/collaretto/get_by_order/${order.id}`, { params: mattressParams }),
+      axios.get(`/collaretto/get_weft_by_order/${order.id}`, { params: mattressParams }),
+      axios.get(`/collaretto/get_bias_by_order/${order.id}`, { params: mattressParams })
     ]);
 
     const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
@@ -187,6 +199,7 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
         cons_actual: mattress.cons_actual || "",
         cons_real: mattress.cons_real || "",
         bagno: mattress.dye_lot,
+        bagno_ready: mattress.bagno_ready || false, // Add bagno_ready field
         phase_status: mattress.phase_status || "0 - NOT SET",
         has_pending_width_change: mattress.has_pending_width_change || false,
         sequenceNumber: mattress.sequence_number || 0
@@ -196,6 +209,50 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
     setTables(Object.values(tablesById));
+
+    // Process adhesive tables
+    const adhesiveTablesById = {};
+    for (const adhesive of adhesiveRes.data?.data || []) {
+      const tableId = adhesive.table_id;
+      if (!adhesiveTablesById[tableId]) {
+        adhesiveTablesById[tableId] = {
+          id: tableId,
+          // Production center fields
+          productionCenter: adhesive.production_center || "",
+          cuttingRoom: adhesive.cutting_room || "",
+          destination: adhesive.destination || "",
+          fabricType: adhesive.fabric_type,
+          fabricCode: adhesive.fabric_code,
+          fabricColor: adhesive.fabric_color,
+          spreadingMethod: adhesive.spreading_method,
+          allowance: parseFloat(adhesive.allowance) || 0,
+          spreading: adhesive.item_type === "MSA" ? "MANUAL" : "AUTOMATIC",
+          rows: []
+        };
+      }
+      const marker = markersMap[adhesive.marker_name];
+      adhesiveTablesById[tableId].rows.push({
+        id: adhesive.row_id,
+        mattressName: adhesive.mattress, // Add mattress name for adhesive ID display
+        width: marker?.marker_width || "",
+        markerName: adhesive.marker_name,
+        markerLength: marker?.marker_length || "",
+        efficiency: marker?.efficiency || "",
+        piecesPerSize: marker?.size_quantities || {},
+        layers: adhesive.layers || "",
+        expectedConsumption: adhesive.cons_planned || "", // Planned consumption from DB
+        layers_a: adhesive.layers_a || "",
+        layers_updated_at: adhesive.layers_updated_at || "", // Updated at timestamp for actual layers
+        cons_actual: adhesive.cons_actual || "",
+        cons_real: adhesive.cons_real || "",
+        bagno: adhesive.dye_lot,
+        sequenceNumber: adhesive.sequence_number || 0
+      });
+    }
+    Object.values(adhesiveTablesById).forEach(table =>
+      table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+    );
+    setAdhesiveTables(Object.values(adhesiveTablesById));
 
     // Set the selected production center, cutting room and destination for display
     if (cuttingRoom && destination) {
@@ -225,6 +282,7 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
       }
       alongTablesById[tableId].rows.push({
         id: along.row_id,
+        collarettoId: along.collaretto?.match(/[A-Z]{2,3}-\d{2}-\d{2,3}$/)?.[0] || along.collaretto, // Extract short ID like mattresses
         collarettoName: along.collaretto,
         pieces: along.details.pieces,
         usableWidth: along.details.usable_width,
@@ -232,9 +290,13 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
         collarettoWidth: along.details.roll_width,
         scrapRoll: along.details.scrap_rolls,
         rolls: along.details.rolls_planned,
+        actualRolls: along.details.rolls_actual || "", // Add actual rolls field
+        totalCollaretto: along.details.total_collaretto, // Map to expected field name
         metersCollaretto: along.details.total_collaretto,
+        consPlanned: along.details.cons_planned, // Map to expected field name
         consumption: along.details.cons_planned,
         bagno: along.dye_lot,
+        sizes: along.details.applicable_sizes || "ALL", // Add sizes field
         sequenceNumber: along.sequence_number || 0
       });
     }
@@ -252,12 +314,14 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
           fabricType: weft.fabric_type,
           fabricCode: weft.fabric_code,
           fabricColor: weft.fabric_color,
+          spreading: weft.spreading || 'AUTOMATIC', // Add spreading field
           weftExtra: weft.details.extra,
           rows: []
         };
       }
       weftTablesById[tableId].rows.push({
         id: weft.row_id,
+        collarettoId: weft.collaretto?.match(/[A-Z]{2,3}-\d{2}-\d{2,3}$/)?.[0] || weft.collaretto, // Extract short ID like mattresses
         sequenceNumber: weft.sequence_number || 0,
         collarettoName: weft.collaretto,
         pieces: weft.details.pieces,
@@ -268,7 +332,9 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
         collarettoWidth: weft.details.roll_width,
         scrapRoll: weft.details.scrap_rolls,
         rolls: weft.details.rolls_planned,
+        actualRolls: weft.details.rolls_actual || "", // Add actual rolls field
         panels: weft.details.panels_planned,
+        consPlanned: weft.details.cons_planned, // Map to expected field name
         consumption: weft.details.cons_planned,
         bagno: weft.dye_lot,
         sizes: weft.details.applicable_sizes || "ALL"  // ✅ Load applicable_sizes
@@ -279,11 +345,58 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     );
     setWeftTables(Object.values(weftTablesById));
 
+    // Process bias tables
+    const biasTablesById = {};
+    for (const bias of biasRes.data?.data || []) {
+      const tableId = bias.table_id;
+      if (!biasTablesById[tableId]) {
+        biasTablesById[tableId] = {
+          id: tableId,
+          fabricType: bias.fabric_type,
+          fabricCode: bias.fabric_code,
+          fabricColor: bias.fabric_color,
+          biasExtra: bias.details.extra,
+          rows: []
+        };
+      }
+      biasTablesById[tableId].rows.push({
+        id: bias.row_id,
+        collarettoId: bias.collaretto?.match(/[A-Z]{2,3}-\d{2}-\d{2,3}$/)?.[0] || bias.collaretto, // Extract short ID like mattresses
+        collarettoName: bias.collaretto,
+        pieces: bias.details.pieces,
+        usableWidth: bias.details.total_width || bias.details.usable_width,
+        pcsSeam: bias.details.pcs_seam, // Map to expected field name
+        theoreticalConsumption: bias.details.gross_length,
+        rollWidth: bias.details.roll_width, // Map to expected field name
+        collarettoWidth: bias.details.roll_width, // Keep both for compatibility
+        scrapRolls: bias.details.scrap_rolls, // Map to expected field name
+        scrapRoll: bias.details.scrap_rolls, // Keep both for compatibility
+        rolls: bias.details.rolls_planned,
+        panels: bias.details.panels_planned, // Add panels field for N° Panels column
+        rollsPlanned: bias.details.rolls_actual || "", // Map to expected field name
+        actualRolls: bias.details.rolls_actual || "", // Keep both for compatibility
+        panelLength: bias.details.panel_length, // Panel length for bias
+        totalCollaretto: bias.details.total_collaretto, // Map to expected field name
+        metersCollaretto: bias.details.total_collaretto,
+        consPlanned: bias.details.cons_planned, // Map to expected field name
+        consumption: bias.details.cons_planned,
+        bagno: bias.dye_lot,
+        sizes: bias.details.applicable_sizes || "ALL", // Add sizes field
+        sequenceNumber: bias.sequence_number || 0
+      });
+    }
+    Object.values(biasTablesById).forEach(table =>
+      table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+    );
+    setBiasTables(Object.values(biasTablesById));
+
   } catch (error) {
     console.error("❌ Error in parallel fetch:", error);
     setTables([]);
+    setAdhesiveTables([]);
     setAlongTables([]);
     setWeftTables([]);
+    setBiasTables([]);
   }
 };
 

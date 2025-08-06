@@ -14,8 +14,7 @@ const WeftTableHeaderReadOnly = () => {
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.panelLength')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.collarettoWidth')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.scrapRolls')}</TableCell>
-        <TableCell align="center" sx={{ minWidth: '80px' }}>Planned N° Rolls</TableCell>
-        <TableCell align="center" sx={{ minWidth: '100px' }}>Actual N° Rolls</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>N° Rolls</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.panels')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>Cons [m]</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.bagno')}</TableCell>

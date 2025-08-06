@@ -17,6 +17,12 @@ import ProductionCenterFilter from 'views/dashboard/OrderReport/ProductionCenter
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
 
+// Style Comment Component (Read-only)
+import StyleCommentCardReadOnly from 'views/subcontractor/components/StyleCommentCardReadOnly';
+
+// Print Utils
+import { useOrderReportPrintStyles, handleOrderReportPrint } from 'views/dashboard/OrderReport/printUtils';
+
 // Mattress Components
 import MattressGroupCardReadOnly from 'views/dashboard/OrderReport/MattressGroupCardReadOnly';
 import PlannedQuantityBar from 'views/planning/OrderPlanning/components/PlannedQuantityBar';
@@ -24,11 +30,29 @@ import MattressTableHeader from 'views/dashboard/OrderReport/MattressTableHeader
 import MattressRowReadOnly from 'views/dashboard/OrderReport/MattressRowReadOnly';
 import MattressActionRowReadOnly from 'views/dashboard/OrderReport/MattressActionRowReadOnly';
 
-// Along Components
-import AlongGroupCard from 'views/planning/OrderPlanning/components/AlongGroupCard';
-import AlongRow from 'views/planning/OrderPlanning/components/AlongRow';
-import AlongTableHeader from 'views/planning/OrderPlanning/components/AlongTableHeader';
-import AlongActionRow from 'views/planning/OrderPlanning/components/AlongActionRow';
+// Adhesive Components
+import AdhesiveGroupCardReadOnly from 'views/dashboard/OrderReport/AdhesiveGroupCardReadOnly';
+import AdhesiveTableHeaderReadOnly from 'views/dashboard/OrderReport/AdhesiveTableHeaderReadOnly';
+import AdhesiveRowReadOnly from 'views/dashboard/OrderReport/AdhesiveRowReadOnly';
+import AdhesiveActionRowReadOnly from 'views/dashboard/OrderReport/AdhesiveActionRowReadOnly';
+
+// Along Components (Read-Only)
+import AlongGroupCardReadOnly from 'views/dashboard/OrderReport/AlongGroupCardReadOnly';
+import AlongTableHeaderReadOnly from 'views/dashboard/OrderReport/AlongTableHeaderReadOnly';
+import AlongRowReadOnly from 'views/dashboard/OrderReport/AlongRowReadOnly';
+import AlongActionRowReadOnly from 'views/dashboard/OrderReport/AlongActionRowReadOnly';
+
+// Weft Components (Read-Only)
+import WeftGroupCardReadOnly from 'views/dashboard/OrderReport/WeftGroupCardReadOnly';
+import WeftTableHeaderReadOnly from 'views/dashboard/OrderReport/WeftTableHeaderReadOnly';
+import WeftRowReadOnly from 'views/dashboard/OrderReport/WeftRowReadOnly';
+import WeftActionRowReadOnly from 'views/dashboard/OrderReport/WeftActionRowReadOnly';
+
+// Bias Components (Read-Only)
+import BiasGroupCardReadOnly from 'views/dashboard/OrderReport/BiasGroupCardReadOnly';
+import BiasTableHeaderReadOnly from 'views/dashboard/OrderReport/BiasTableHeaderReadOnly';
+import BiasRowReadOnly from 'views/dashboard/OrderReport/BiasRowReadOnly';
+import BiasActionRowReadOnly from 'views/dashboard/OrderReport/BiasActionRowReadOnly';
 
 // Weft Components
 import WeftGroupCard from 'views/planning/OrderPlanning/components/WeftGroupCard';
@@ -97,8 +121,10 @@ const OrderReport = () => {
 
     // Tables
     const [tables, setTables] = useState([]);
+    const [adhesiveTables, setAdhesiveTables] = useState([]);
     const [alongTables, setAlongTables] = useState([]);
     const [weftTables, setWeftTables] = useState([]);
+    const [biasTables, setBiasTables] = useState([]);
 
     // Order Change
     const { onOrderChange, fetchMattressData } = useHandleOrderChange({
@@ -120,8 +146,10 @@ const OrderReport = () => {
         fetchPadPrintInfo,
         fetchBrandForStyle,
         setTables,
+        setAdhesiveTables,
         setAlongTables,
         setWeftTables,
+        setBiasTables,
         setMarkerOptions,
         sortSizes,
         clearBrand,
@@ -131,6 +159,9 @@ const OrderReport = () => {
 
     // Average Consumption per table
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
+
+    // Print Styles
+    useOrderReportPrintStyles();
 
     // Fetch order data
     useEffect(() => {
@@ -197,7 +228,7 @@ const OrderReport = () => {
     useEffect(() => {
         if (!selectedOrder) return;  // ✅ Do nothing if no order is selected
 
-        console.log("Fetching marker headers...");  // ✅ Debugging
+
 
         axios.get(`/markers/marker_headers_planning`, {
             params: {
@@ -206,7 +237,7 @@ const OrderReport = () => {
             }
           })  // ✅ Fetch only when order changes
             .then((response) => {
-                console.log("API Response:", response.data);  // ✅ Debugging
+
                 if (response.data.success) {
                     setMarkerOptions(response.data.data);  // ✅ Update markers only when order changes
                 } else {
@@ -267,8 +298,10 @@ const OrderReport = () => {
 
         // Clear tables
         setTables([]);
+        setAdhesiveTables([]);
         setAlongTables([]);
         setWeftTables([]);
+        setBiasTables([]);
 
         // Show filter again
         setShowProductionCenterFilter(true);
@@ -284,7 +317,29 @@ const OrderReport = () => {
                     zIndex: isPinned ? 1000 : 'auto',
                 }}
             >
-                <MainCard title="Order Details">
+                <MainCard
+                    title={
+                        <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                            Order Details
+                            {selectedOrder && (
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => handleOrderReportPrint(tables, adhesiveTables, alongTables, weftTables, biasTables)}
+                                    startIcon={<Print />}
+                                    sx={{
+                                        fontSize: '0.875rem',
+                                        py: 0.75,
+                                        px: 2,
+                                        minHeight: '36px'
+                                    }}
+                                >
+                                    Print
+                                </Button>
+                            )}
+                        </Box>
+                    }
+                >
 
                     {/* Order Toolbar */}
                     <OrderToolbar
@@ -299,11 +354,34 @@ const OrderReport = () => {
                         selectedColorCode={selectedColorCode}
                     />
 
-                    {/* Order Quantities Section */}
-                    <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} />
+                    {/* Order Quantities Section - Hide during printing if multiple destinations */}
+                    <Box className={productionCenterCombinations.length > 1 ? 'hide-order-quantities-print' : ''}>
+                        <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} />
+                    </Box>
 
                 </MainCard>
             </Box>
+
+            {/* Pad Print and Style Comment Section - Side by Side */}
+            {(selectedOrder || selectedStyle) && (
+                <Box display="flex" gap={2} mt={2} alignItems="stretch">
+                    {/* Pad Print Section - Left Half */}
+                    <Box flex={1} display="flex">
+                        {padPrintInfo && (
+                            <PadPrintInfo padPrintInfo={padPrintInfo} />
+                        )}
+                    </Box>
+
+                    {/* Style Comment Section - Right Half */}
+                    <Box flex={1} display="flex">
+                        {selectedStyle && (
+                            <StyleCommentCardReadOnly
+                                selectedStyle={selectedStyle}
+                            />
+                        )}
+                    </Box>
+                </Box>
+            )}
 
             <Box mt={2} />
 
@@ -331,6 +409,8 @@ const OrderReport = () => {
                         cuttingRoom={selectedCuttingRoom}
                         destination={selectedDestination}
                         onChangeSelection={productionCenterCombinations.length > 1 ? handleChangeSelection : null}
+                        orderSizes={orderSizes}
+                        tables={tables}
                     />
                     <Box mt={2} />
                 </>
@@ -343,6 +423,7 @@ const OrderReport = () => {
                    {tableIndex > 0 && <Box mt={2} />}
                     <MainCard
                         key={table.id}
+                        data-table-id={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
                                 {`Mattresses`}
@@ -372,27 +453,28 @@ const OrderReport = () => {
                                     <MattressTableHeader orderSizes={orderSizes} />
                                     <TableBody>
                                         {(() => {
-                                            // Group rows by bagno and sort by width within each group
+                                            // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
                                             const sortedRows = [...table.rows].sort((a, b) => {
                                                 const bagnoA = a.bagno || '';
                                                 const bagnoB = b.bagno || '';
 
-                                                // If bagnos are different, maintain original order of first appearance
+                                                // If bagnos are different, sort by the sequence number of the first mattress in each bagno
                                                 if (bagnoA !== bagnoB) {
-                                                    // Find the first occurrence index of each bagno in the original array
-                                                    const firstIndexA = table.rows.findIndex(row => (row.bagno || '') === bagnoA);
-                                                    const firstIndexB = table.rows.findIndex(row => (row.bagno || '') === bagnoB);
-                                                    return firstIndexA - firstIndexB;
+                                                    // Find the first mattress in each bagno group and compare their sequence numbers
+                                                    const firstMattressA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstMattressB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstMattressA ? parseInt(firstMattressA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstMattressB ? parseInt(firstMattressB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
                                                 }
 
-                                                // If same bagno, sort by width
-                                                const widthA = parseFloat(a.width) || 0;
-                                                const widthB = parseFloat(b.width) || 0;
-                                                return widthA - widthB;
+                                                // If same bagno, sort by sequence number (final part of mattress ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
                                             });
-
-                                            console.log('📊 Order Report - Sorted rows by bagno (first appearance) then width:',
-                                                sortedRows.map(row => ({ bagno: row.bagno || 'no bagno', width: row.width })));
 
                                             return sortedRows.map((row) => (
                                                 <MattressRowReadOnly
@@ -416,119 +498,261 @@ const OrderReport = () => {
                     </React.Fragment>
             ))}
 
-            {/* Along Tables Section */}
-            {/* {alongTables.length > 0 && alongTables.map((table) => (
+            {/* Adhesive Tables Section */}
+            {adhesiveTables.length > 0 && adhesiveTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
+                   <Box mt={2} />
+                    <MainCard
+                        key={table.id}
+                        data-table-id={table.id}
+                        title={
+                            <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                                {`Adhesives`}
 
-                    <Box mt={2} />
-                    
-                    <MainCard title={`Collaretto Along the Grain`}>
-                        <AlongGroupCard
-                            table={table}
-                            tables={alongTables}
-                            fabricTypeOptions={fabricTypeOptions}
-                            isTableEditable={isTableEditable}
-                            setTables={setAlongTables}
-                            setUnsavedChanges={setUnsavedChanges}
-                            handleAlongExtraChange={handleAlongExtraChange}
-                            mattressTables={tables}
-                            orderSizes={orderSizes}
-                            handleAddRowAlong={handleAddRowAlong}
-                        />
+                                {/* Table-Specific Planned Quantities - Hide if Empty */}
+                                <PlannedQuantityBar
+                                    table={table}
+                                    orderSizes={orderSizes}
+                                    getTablePlannedQuantities={getTablePlannedQuantities}
+                                    getTablePlannedByBagno={getTablePlannedByBagno}
+                                    getMetersByBagno={getMetersByBagno}
+                                    showHelpers={false}
+                                />
+                            </Box>
 
-                        {/* Table Section
+                        }
+                    >
+
+                    <AdhesiveGroupCardReadOnly
+                        table={table}
+                    />
+
+                        {/* Table Section */}
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
-                                    <AlongTableHeader />
+                                    <AdhesiveTableHeaderReadOnly orderSizes={orderSizes} />
                                     <TableBody>
-                                        {table.rows.map((row) => (
-                                            <AlongRow
+                                        {(() => {
+                                            // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, sort by the sequence number of the first mattress in each bagno
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first mattress in each bagno group and compare their sequence numbers
+                                                    const firstMattressA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstMattressB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstMattressA ? parseInt(firstMattressA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstMattressB ? parseInt(firstMattressB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
+                                                }
+
+                                                // If same bagno, sort by sequence number (final part of mattress ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
+                                            });
+
+                                            return sortedRows.map((row) => (
+                                                <AdhesiveRowReadOnly
                                                 key={row.id}
                                                 row={row}
-                                                rowId={row.id}
-                                                table={table}
-                                                tableId={table.id}
-                                                handleInputChange={handleAlongRowChange}
-                                                handleRemoveRow={handleRemoveAlongRow}
-                                                setUnsavedChanges={setUnsavedChanges}
-                                            />
-                                        ))}
+                                                orderSizes={orderSizes}
+                                                />
+                                            ));
+                                        })()}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
 
-                            {/* Button Container
-                           <AlongActionRow
-                                tableId={table.id}
+                            {/* Action Row: Avg Consumption + Buttons aligned horizontally */}
+                            <AdhesiveActionRowReadOnly
                                 table={table}
-                                isTableEditable={isTableEditable}
-                                handleAddRowAlong={handleAddRowAlong}
-                                handleRemoveAlongTable={handleRemoveAlong}
-                                setUnsavedChanges={setUnsavedChanges}
                             />
+
+                        </Box>
+                    </MainCard>
+                    </React.Fragment>
+            ))}
+
+            {/* Along Tables Section */}
+            {alongTables.length > 0 && alongTables.map((table, tableIndex) => (
+                <React.Fragment key={table.id}>
+
+                    <Box mt={2} />
+                    
+                    <MainCard data-table-id={table.id} title="Collaretto Along the Grain">
+                        <AlongGroupCardReadOnly table={table} />
+
+                        {/* Table Section */}
+                        <Box>
+                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <Table>
+                                    <AlongTableHeaderReadOnly />
+                                    <TableBody>
+                                        {(() => {
+                                            // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, sort by the sequence number of the first collaretto in each bagno
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first collaretto in each bagno group and compare their sequence numbers
+                                                    const firstCollarettoA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstCollarettoB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstCollarettoA ? parseInt(firstCollarettoA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstCollarettoB ? parseInt(firstCollarettoB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
+                                                }
+
+                                                // If same bagno, sort by sequence number (final part of collaretto ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
+                                            });
+
+                                            return sortedRows.map((row) => (
+                                                <AlongRowReadOnly
+                                                key={row.id}
+                                                row={row}
+                                                />
+                                            ));
+                                        })()}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            <AlongActionRowReadOnly table={table} />
 
                         </Box>
                     </MainCard>
                 </React.Fragment>
             ))}
 
-            {/* Weft Tables Section
-            {weftTables.length > 0 && weftTables.map((table) => (
-
+            {/* Weft Tables Section */}
+            {weftTables.length > 0 && weftTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
-                    <Box mt={2} />
+                   <Box mt={2} />
+                    <MainCard
+                        key={table.id}
+                        data-table-id={table.id}
+                        title="Collaretto in Weft"
+                    >
+                    <WeftGroupCardReadOnly table={table} />
 
-                    <MainCard title={`Collaretto in Weft`}>
-                        <WeftGroupCard
-                            table={table}
-                            tables={weftTables}
-                            fabricTypeOptions={fabricTypeOptions}
-                            isTableEditable={isTableEditable}
-                            setTables={setWeftTables}
-                            setUnsavedChanges={setUnsavedChanges}
-                            handleWeftExtraChange={handleWeftExtraChange}
-                            mattressTables={tables}
-                            orderSizes={orderSizes}
-                            handleAddRowWeft={handleAddRowWeft}
-                            />
-
-                        {/* Table Section
+                        {/* Table Section */}
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                    <Table>
-                                        <WeftTableHeader />
-                                        <TableBody>
-                                        {table.rows.map((row) => (
-                                            <WeftRow
-                                            key={row.id}
-                                            row={row}
-                                            rowId={row.id}
-                                            table={table}
-                                            tableId={table.id}
-                                            handleInputChange={handleWeftRowChange}
-                                            handleRemoveRow={handleRemoveWeftRow}
-                                            setUnsavedChanges={setUnsavedChanges}
-                                            />
-                                        ))}
-                                        </TableBody>
-                                    </Table>
+                                <Table>
+                                    <WeftTableHeaderReadOnly />
+                                    <TableBody>
+                                        {(() => {
+                                            // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, sort by the sequence number of the first collaretto in each bagno
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first collaretto in each bagno group and compare their sequence numbers
+                                                    const firstCollarettoA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstCollarettoB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstCollarettoA ? parseInt(firstCollarettoA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstCollarettoB ? parseInt(firstCollarettoB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
+                                                }
+
+                                                // If same bagno, sort by sequence number (final part of collaretto ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
+                                            });
+
+                                            return sortedRows.map((row) => (
+                                                <WeftRowReadOnly
+                                                key={row.id}
+                                                row={row}
+                                                />
+                                            ));
+                                        })()}
+                                    </TableBody>
+                                </Table>
                             </TableContainer>
 
-                            {/* Button Container
-                            <WeftActionRow
-                                tableId={table.id}
-                                table={table}
-                                isTableEditable={isTableEditable}
-                                handleAddRowWeft={handleAddRowWeft}
-                                handleRemoveWeft={handleRemoveWeft}
-                                setUnsavedChanges={setUnsavedChanges}
-                            />
-                            
+                            <WeftActionRowReadOnly table={table} />
+
                         </Box>
                     </MainCard>
                 </React.Fragment>
-            ))}*/}
+            ))}
+
+            {/* Bias Tables Section */}
+            {biasTables.length > 0 && biasTables.map((table, tableIndex) => (
+                <React.Fragment key={table.id}>
+                   <Box mt={2} />
+                    <MainCard
+                        key={table.id}
+                        data-table-id={table.id}
+                        title="Collaretto Bias"
+                    >
+                    <BiasGroupCardReadOnly table={table} />
+
+                        {/* Table Section */}
+                        <Box>
+                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <Table>
+                                    <BiasTableHeaderReadOnly />
+                                    <TableBody>
+                                        {(() => {
+                                            // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
+                                            const sortedRows = [...table.rows].sort((a, b) => {
+                                                const bagnoA = a.bagno || '';
+                                                const bagnoB = b.bagno || '';
+
+                                                // If bagnos are different, sort by the sequence number of the first collaretto in each bagno
+                                                if (bagnoA !== bagnoB) {
+                                                    // Find the first collaretto in each bagno group and compare their sequence numbers
+                                                    const firstCollarettoA = table.rows.find(row => (row.bagno || '') === bagnoA);
+                                                    const firstCollarettoB = table.rows.find(row => (row.bagno || '') === bagnoB);
+
+                                                    const sequenceA = firstCollarettoA ? parseInt(firstCollarettoA.sequenceNumber) || 0 : 0;
+                                                    const sequenceB = firstCollarettoB ? parseInt(firstCollarettoB.sequenceNumber) || 0 : 0;
+
+                                                    return sequenceA - sequenceB;
+                                                }
+
+                                                // If same bagno, sort by sequence number (final part of collaretto ID: 001, 002, 003)
+                                                const sequenceA = parseInt(a.sequenceNumber) || 0;
+                                                const sequenceB = parseInt(b.sequenceNumber) || 0;
+                                                return sequenceA - sequenceB;
+                                            });
+
+                                            return sortedRows.map((row) => (
+                                                <BiasRowReadOnly
+                                                key={row.id}
+                                                row={row}
+                                                />
+                                            ));
+                                        })()}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            <BiasActionRowReadOnly table={table} />
+
+                        </Box>
+                    </MainCard>
+                </React.Fragment>
+            ))}
 
             {/* Error Snackbar
             <Snackbar

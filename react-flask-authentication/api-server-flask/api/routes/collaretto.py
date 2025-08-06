@@ -196,8 +196,24 @@ class DeleteCollaretto(Resource):
 class GetCollarettoByOrder(Resource):
     def get(self, order_commessa):
         try:
-            # ✅ Fetch collaretto rows linked to this order
-            collaretto_rows = Collaretto.query.filter_by(order_commessa=order_commessa, item_type='CA').all()
+            # Get optional filtering parameters
+            cutting_room = request.args.get('cutting_room')
+            destination = request.args.get('destination')
+
+            # Base query for collaretto rows linked to this order
+            query = Collaretto.query.filter_by(order_commessa=order_commessa, item_type='CA')
+
+            # Apply production center filtering if provided
+            if cutting_room or destination:
+                query = query.join(
+                    MattressProductionCenter, Collaretto.table_id == MattressProductionCenter.table_id
+                )
+                if cutting_room:
+                    query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+                if destination:
+                    query = query.filter(MattressProductionCenter.destination == destination)
+
+            collaretto_rows = query.all()
 
             if not collaretto_rows:
                 return jsonify({"success": True, "data": []})  # ✅ No collaretto, still return success
@@ -528,8 +544,24 @@ class DeleteCollarettoByRowId(Resource):
 class GetWeftByOrder(Resource):
     def get(self, order_id):
         try:
-            # ✅ Fetch all Collaretto Weft rows (item_type = 'CW') for the order
-            wefts = Collaretto.query.filter_by(order_commessa=order_id, item_type='CW').all()
+            # Get optional filtering parameters
+            cutting_room = request.args.get('cutting_room')
+            destination = request.args.get('destination')
+
+            # Base query for weft collaretto rows linked to this order
+            query = Collaretto.query.filter_by(order_commessa=order_id, item_type='CW')
+
+            # Apply production center filtering if provided
+            if cutting_room or destination:
+                query = query.join(
+                    MattressProductionCenter, Collaretto.table_id == MattressProductionCenter.table_id
+                )
+                if cutting_room:
+                    query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+                if destination:
+                    query = query.filter(MattressProductionCenter.destination == destination)
+
+            wefts = query.all()
 
             if not wefts:
                 return jsonify({"success": False, "message": "No Collaretto Weft found for this order", "data": []})
@@ -793,8 +825,24 @@ class CollarettoBias(Resource):
 class GetBiasByOrder(Resource):
     def get(self, order_id):
         try:
-            # ✅ Fetch all Collaretto Bias rows (item_type = 'CB') for the order
-            biases = Collaretto.query.filter_by(order_commessa=order_id, item_type='CB').all()
+            # Get optional filtering parameters
+            cutting_room = request.args.get('cutting_room')
+            destination = request.args.get('destination')
+
+            # Base query for bias collaretto rows linked to this order
+            query = Collaretto.query.filter_by(order_commessa=order_id, item_type='CB')
+
+            # Apply production center filtering if provided
+            if cutting_room or destination:
+                query = query.join(
+                    MattressProductionCenter, Collaretto.table_id == MattressProductionCenter.table_id
+                )
+                if cutting_room:
+                    query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+                if destination:
+                    query = query.filter(MattressProductionCenter.destination == destination)
+
+            biases = query.all()
 
             if not biases:
                 return jsonify({"success": False, "message": "No Collaretto Bias found for this order", "data": []})

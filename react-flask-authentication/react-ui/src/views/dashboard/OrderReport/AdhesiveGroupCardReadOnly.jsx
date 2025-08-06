@@ -59,11 +59,11 @@ const AdhesiveGroupCardReadOnly = ({ table }) => {
           />
         </Grid>
 
-        {/* Spreading Method */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        {/* Allowance */}
+        <Grid item xs={3} sm={2} md={1}>
           <TextField
-            label="Spreading Method"
-            value={table.spreadingMethod || ''}
+            label="Allowance"
+            value={table.allowance || ''}
             fullWidth
             variant="outlined"
             InputProps={{
@@ -77,11 +77,11 @@ const AdhesiveGroupCardReadOnly = ({ table }) => {
           />
         </Grid>
 
-        {/* Allowance */}
-        <Grid item xs={3} sm={2} md={1}>
+        {/* Spreading Method */}
+        <Grid item xs={3} sm={2} md={1.5}>
           <TextField
-            label="Allowance"
-            value={table.allowance || ''}
+            label="Spreading Method"
+            value={table.spreadingMethod || ''}
             fullWidth
             variant="outlined"
             InputProps={{

@@ -31,6 +31,7 @@ const MattressActionRowReadOnly = ({ table }) => {
 
   return (
     <Box
+      className="consumption-summary"
       mt={2}
       display="flex"
       justifyContent="flex-start"

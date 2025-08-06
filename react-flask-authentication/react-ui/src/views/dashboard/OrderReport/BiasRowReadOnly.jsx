@@ -6,7 +6,7 @@ const BiasRowReadOnly = ({ row }) => {
   return (
     <TableRow>
       {/* Collaretto ID */}
-      <TableCell sx={{ minWidth: '100px', maxWidth: '120px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '100px', maxWidth: '120px', textAlign: 'center', padding: '9px' }}>
         <TextField
           variant="outlined"
           value={row.collarettoId || ""}
@@ -45,56 +45,29 @@ const BiasRowReadOnly = ({ row }) => {
         />
       </TableCell>
 
-      {/* Pcs Seam to Seam */}
-      <TableCell align="center">
-        <Typography sx={{ fontWeight: 'normal' }}>{row.pcsSeam || ""}</Typography>
-      </TableCell>
-
-      {/* Roll Width */}
-      <TableCell align="center">
+      {/* Collaretto Width [mm] */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.rollWidth || ""}</Typography>
       </TableCell>
 
       {/* Scrap Rolls */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.scrapRolls || ""}</Typography>
       </TableCell>
 
       {/* N° Rolls */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.rolls || ""}</Typography>
       </TableCell>
 
-      {/* Rolls Planned */}
-      <TableCell sx={{ minWidth: '80px', maxWidth: '100px', textAlign: 'center', padding: '4px' }}>
-        <TextField
-          variant="outlined"
-          value={row.rollsPlanned || ""}
-          InputProps={{ readOnly: true }}
-          sx={{
-            width: '100%',
-            minWidth: '80px',
-            maxWidth: '100px',
-            textAlign: 'center',
-            "& input": { textAlign: 'center', fontWeight: 'normal' }
-          }}
-        />
+      {/* N° Panels */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
       </TableCell>
 
-      {/* Cons Planned */}
-      <TableCell sx={{ minWidth: '80px', maxWidth: '100px', textAlign: 'center', padding: '4px' }}>
-        <TextField
-          variant="outlined"
-          value={row.consPlanned || ""}
-          InputProps={{ readOnly: true }}
-          sx={{
-            width: '100%',
-            minWidth: '80px',
-            maxWidth: '100px',
-            textAlign: 'center',
-            "& input": { textAlign: 'center', fontWeight: 'normal' }
-          }}
-        />
+      {/* Cons [m] */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal' }}>{row.consPlanned || ""}</Typography>
       </TableCell>
 
 

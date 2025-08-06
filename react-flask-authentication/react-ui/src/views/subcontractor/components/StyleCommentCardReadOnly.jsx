@@ -46,6 +46,7 @@ const StyleCommentCardReadOnly = ({ selectedStyle }) => {
 
   return (
     <MainCard
+      data-testid="style-comment-card"
       sx={{ width: '100%', height: '100%' }}
       title={
         <Box display="flex" alignItems="center" gap={1}>

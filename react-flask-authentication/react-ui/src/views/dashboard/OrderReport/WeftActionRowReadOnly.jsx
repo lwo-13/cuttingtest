@@ -12,6 +12,7 @@ const WeftActionRowReadOnly = ({ table }) => {
 
   return (
     <Box
+      className="consumption-summary"
       sx={{
         display: 'flex',
         justifyContent: 'flex-start',

@@ -11,6 +11,7 @@ const AlongActionRowReadOnly = ({ table }) => {
 
   return (
     <Box
+      className="consumption-summary"
       sx={{
         display: 'flex',
         justifyContent: 'flex-start',

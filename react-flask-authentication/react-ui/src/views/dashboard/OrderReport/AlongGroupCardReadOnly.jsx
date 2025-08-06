@@ -63,23 +63,7 @@ const AlongGroupCardReadOnly = ({ table }) => {
 
 
 
-        {/* Destination */}
-        <Grid item xs={3} sm={2} md={2}>
-          <TextField
-            label="Destination"
-            value={table.destination || ''}
-            fullWidth
-            variant="outlined"
-            InputProps={{
-              readOnly: true,
-              sx: {
-                '& .MuiInputBase-input': {
-                  fontWeight: 'normal',
-                }
-              }
-            }}
-          />
-        </Grid>
+
       </Grid>
     </Box>
   );

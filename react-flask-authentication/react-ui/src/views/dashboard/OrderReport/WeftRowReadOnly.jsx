@@ -6,7 +6,7 @@ const WeftRowReadOnly = ({ row }) => {
   return (
     <TableRow>
       {/* Collaretto ID */}
-      <TableCell sx={{ minWidth: '100px', maxWidth: '120px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '100px', maxWidth: '120px', textAlign: 'center', padding: '9px' }}>
         <TextField
           variant="outlined"
           value={row.collarettoId || ""}
@@ -46,57 +46,37 @@ const WeftRowReadOnly = ({ row }) => {
       </TableCell>
 
       {/* Pcs Seam to Seam */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.pcsSeamtoSeam || ""}</Typography>
       </TableCell>
 
       {/* Panel Length (Rewound Width) */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.rewoundWidth || ""}</Typography>
       </TableCell>
 
       {/* Collaretto Width */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.collarettoWidth || ""}</Typography>
       </TableCell>
 
       {/* Scrap Rolls */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.scrapRoll || ""}</Typography>
       </TableCell>
 
-      {/* Planned N° Rolls */}
-      <TableCell align="center">
+      {/* N° Rolls */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.rolls || ""}</Typography>
       </TableCell>
 
-      {/* Actual N° Rolls */}
-      <TableCell sx={{ minWidth: '80px', maxWidth: '100px', textAlign: 'center', padding: '4px' }}>
-        <TextField
-          variant="outlined"
-          value={row.actualRolls || ""}
-          InputProps={{ readOnly: true }}
-          sx={{
-            width: '100%',
-            minWidth: '80px',
-            maxWidth: '100px',
-            textAlign: 'center',
-            "& input": { textAlign: 'center', fontWeight: 'normal' },
-            "& .MuiOutlinedInput-root": {
-              borderRadius: '8px',
-              backgroundColor: '#f5f5f5'
-            }
-          }}
-        />
-      </TableCell>
-
       {/* N° Panels */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
       </TableCell>
 
       {/* Cons */}
-      <TableCell align="center">
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.consPlanned || ""}</Typography>
       </TableCell>
 
