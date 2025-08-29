@@ -9,6 +9,9 @@ const PadPrintInfo = ({ padPrintInfo }) => {
     const { t } = useTranslation();
     if (!padPrintInfo) return null;
 
+    // Check if pattern is "TRANSFER" to hide color field and image
+    const isTransferPattern = padPrintInfo.pattern?.toUpperCase() === "TRANSFER";
+
     return (
         <MainCard title={t('orderPlanning.padPrint', 'Pad Print')} sx={{ width: '100%', height: '100%' }}>
             <Grid container spacing={2}>
@@ -24,19 +27,21 @@ const PadPrintInfo = ({ padPrintInfo }) => {
                             sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
                         />
 
-                        {/* Pad Print Color Field - Below Pattern */}
-                        <TextField
-                            label={t('orderPlanning.padPrintColor', 'Pad Print Color')}
-                            variant="outlined"
-                            value={padPrintInfo.padprint_color || ""}
-                            InputProps={{ readOnly: true }}
-                            sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
-                        />
+                        {/* Pad Print Color Field - Only show if not TRANSFER pattern */}
+                        {!isTransferPattern && (
+                            <TextField
+                                label={t('orderPlanning.padPrintColor', 'Pad Print Color')}
+                                variant="outlined"
+                                value={padPrintInfo.padprint_color || ""}
+                                InputProps={{ readOnly: true }}
+                                sx={{ width: '100%', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+                            />
+                        )}
                     </Box>
                 </Grid>
 
-                {/* Image Column - 2/3 width */}
-                {padPrintInfo.image_url && (
+                {/* Image Column - 2/3 width - Only show if not TRANSFER pattern and image exists */}
+                {!isTransferPattern && padPrintInfo.image_url && (
                     <Grid item xs={12} md={8}>
                         <Box
                             component="img"

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 
@@ -110,6 +110,7 @@ const OrderPlanning = () => {
 
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [orderLoading, setOrderLoading] = useState(false); // Add loading state for order changes
     const [styleOptions, setStyleOptions] = useState([]);
     const [selectedStyle, setSelectedStyle] = useState("");
     const [selectedSeason, setSelectedSeason] = useState("");
@@ -124,6 +125,7 @@ const OrderPlanning = () => {
     const [deletedBias, setDeletedBias] = useState([]);
     const [deletedTableIds, setDeletedTableIds] = useState([]); // Track deleted table IDs for production center cleanup
     const [deletedCombinations, setDeletedCombinations] = useState([]); // Track deleted production center combinations
+    const [styleCommentData, setStyleCommentData] = useState(null); // Track style comment data for main save
 
     // Basic unsaved changes tracking (temporary fallback)
     const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -301,7 +303,8 @@ const OrderPlanning = () => {
         setOpenSuccess,
         setUnsavedChanges,
         commentData,
-        auditRefetchFunctionRef
+        auditRefetchFunctionRef,
+        styleCommentData
     });
 
     // Order Change
@@ -330,6 +333,7 @@ const OrderPlanning = () => {
         clearPadPrintInfo,
         styleTouched,
         setShowCommentCard,
+        setOrderLoading, // Add loading state setter
         // Deletion tracking setters
         setDeletedMattresses,
         setDeletedAdhesive,
@@ -337,7 +341,8 @@ const OrderPlanning = () => {
         setDeletedWeft,
         setDeletedBias,
         setDeletedTableIds,
-        setDeletedCombinations
+        setDeletedCombinations,
+        styleCommentData
     });
 
     // Print Styles
@@ -779,17 +784,6 @@ const OrderPlanning = () => {
                 return;
             }
 
-
-
-            // Show brief notification about automatic update
-            setInfoMessage(`🔄 Automatically updating collaretto pieces for bagno ${bagno}`);
-            setOpenInfo(true);
-
-            // Auto-close the notification after 2 seconds
-            setTimeout(() => {
-                setOpenInfo(false);
-            }, 2000);
-
             // Calculate total pieces for this bagno from all mattress tables
             let totalPiecesForBagno = 0;
             let piecesPerSizeForBagno = {};
@@ -832,6 +826,55 @@ const OrderPlanning = () => {
                     }
                 });
             });
+
+            // Check if there are any collaretto tables that will actually be updated
+            let hasMatchingCollarettoTables = false;
+
+            // Check weft tables
+            const hasMatchingWeftTables = weftTables.some(table => {
+                const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                const hasMatchingConfig = table.destination === mattressDestination &&
+                                       table.productionCenter === mattressProductionCenter &&
+                                       table.cuttingRoom === mattressCuttingRoom &&
+                                       table.fabricCode === mattressFabricCode &&
+                                       table.fabricColor === mattressFabricColor;
+                return hasMatchingBagno && hasMatchingConfig;
+            });
+
+            // Check bias tables
+            const hasMatchingBiasTables = biasTables.some(table => {
+                const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                const hasMatchingConfig = table.destination === mattressDestination &&
+                                       table.productionCenter === mattressProductionCenter &&
+                                       table.cuttingRoom === mattressCuttingRoom &&
+                                       table.fabricCode === mattressFabricCode &&
+                                       table.fabricColor === mattressFabricColor;
+                return hasMatchingBagno && hasMatchingConfig;
+            });
+
+            // Check along tables
+            const hasMatchingAlongTables = alongTables.some(table => {
+                const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+                const hasMatchingConfig = table.destination === mattressDestination &&
+                                       table.productionCenter === mattressProductionCenter &&
+                                       table.cuttingRoom === mattressCuttingRoom &&
+                                       table.fabricCode === mattressFabricCode &&
+                                       table.fabricColor === mattressFabricColor;
+                return hasMatchingBagno && hasMatchingConfig;
+            });
+
+            hasMatchingCollarettoTables = hasMatchingWeftTables || hasMatchingBiasTables || hasMatchingAlongTables;
+
+            // Only show notification if there are actually matching collaretto tables to update
+            if (hasMatchingCollarettoTables) {
+                setInfoMessage(`🔄 Automatically updating collaretto pieces for bagno ${bagno}`);
+                setOpenInfo(true);
+
+                // Auto-close the notification after 2 seconds
+                setTimeout(() => {
+                    setOpenInfo(false);
+                }, 2000);
+            }
 
             // Update weft tables that match both bagno AND configuration AND fabric
             setWeftTables(prevTables => {
@@ -1459,6 +1502,42 @@ const OrderPlanning = () => {
 
     return (
         <>
+            {/* Loading Overlay for Order Changes */}
+            <Backdrop
+                sx={{
+                    color: '#fff',
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)' // More opaque white screen
+                }}
+                open={orderLoading}
+            >
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress color="primary" />
+                    <Box sx={{ color: 'primary.main', fontWeight: 'medium' }}>
+                        Loading order data...
+                    </Box>
+                </Box>
+            </Backdrop>
+
+            {/* Loading Overlay for Save Operations */}
+            <Backdrop
+                sx={{
+                    color: '#fff',
+                    zIndex: 9999, // Very high z-index to ensure it's on top
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)' // Same opaque white screen as order loading
+                }}
+                open={saving}
+            >
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress color="primary" />
+                    <Box sx={{ color: 'primary.main', fontWeight: 'medium' }}>
+                        Saving changes...
+                    </Box>
+                </Box>
+            </Backdrop>
+
+
+
             {/* Order Bar */}
             <Box
                 sx={{
@@ -1559,9 +1638,10 @@ const OrderPlanning = () => {
 
                     {/* Style Comment Section - Right Half */}
                     <Box flex={1} display="flex">
-                        {selectedStyle && (
+                        {selectedStyle && selectedOrder && (
                             <StyleCommentCard
                                 selectedStyle={selectedStyle}
+                                onDataChange={setStyleCommentData}
                             />
                         )}
                     </Box>

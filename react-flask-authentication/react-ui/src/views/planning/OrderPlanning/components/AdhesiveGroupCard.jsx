@@ -1,6 +1,7 @@
 import React from 'react';
 import { Grid, Autocomplete, TextField, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import ColorFieldWithDescription from 'components/ColorFieldWithDescription';
 
 const AdhesiveGroupCard = ({
   table,
@@ -20,7 +21,7 @@ const AdhesiveGroupCard = ({
       <Grid container spacing={2}>
 
         {/* Fabric Type (Dropdown) */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        <Grid item xs={3} sm={2} md={1.2}>
           <Autocomplete
             options={fabricTypeOptions}
             getOptionLabel={(option) => option}
@@ -44,7 +45,7 @@ const AdhesiveGroupCard = ({
         </Grid>
 
         {/* Fabric Code */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        <Grid item xs={3} sm={2} md={1.8}>
           <TextField
             label={t('orderPlanning.fabricCode', 'Fabric Code')}
             value={table.fabricCode || ''}
@@ -68,10 +69,10 @@ const AdhesiveGroupCard = ({
 
         {/* Fabric Color */}
         <Grid item xs={3} sm={2} md={1.5}>
-          <TextField
+          <ColorFieldWithDescription
             label={t('orderPlanning.fabricColor', 'Fabric Color')}
             value={table.fabricColor || ''}
-            disabled={!isTableEditable(table)}
+            readOnly={!isTableEditable(table)}
             onChange={(e) => {
               setTables(prev =>
                 prev.map(t =>
@@ -80,17 +81,17 @@ const AdhesiveGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
-            fullWidth
-            variant="outlined"
+            debounceMs={400}
+            minCharsForSearch={3}
             sx={{
-              minWidth: '60px',
-              "& .MuiInputBase-input": { fontWeight: 'normal' }
+              width: '100%',
+              minWidth: '60px'
             }}
           />
         </Grid>
 
         {/* Spreading Method (Dropdown) */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        <Grid item xs={3} sm={2} md={1.8}>
           <Autocomplete
             options={spreadingMethods}
             getOptionLabel={(option) => option}
@@ -114,7 +115,7 @@ const AdhesiveGroupCard = ({
         </Grid>
 
         {/* Allowance */}
-        <Grid item xs={3} sm={2} md={1}>
+        <Grid item xs={2} sm={1.5} md={1.2}>
           <TextField
             label="Allowance"
             value={table.allowance || ''}
@@ -149,7 +150,7 @@ const AdhesiveGroupCard = ({
         </Grid>
 
         {/* Spreading (Dropdown) */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        <Grid item xs={3} sm={2} md={1.8}>
           <Autocomplete
             options={spreadingOptions}
             getOptionLabel={(option) => {

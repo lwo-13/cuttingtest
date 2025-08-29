@@ -3,31 +3,21 @@ import {
   Box,
   TextField,
   Typography,
-  Snackbar,
-  Alert,
   CircularProgress,
-  Button,
   Grid
 } from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
-const StyleCommentCard = ({ selectedStyle }) => {
+const StyleCommentCard = ({ selectedStyle, onDataChange }) => {
   const { t } = useTranslation();
   const [comment, setComment] = useState('');
   const [originalComment, setOriginalComment] = useState('');
   const [maxPiecesInPackage, setMaxPiecesInPackage] = useState('');
   const [originalMaxPieces, setOriginalMaxPieces] = useState('');
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
 
   // Load existing comment and settings when style changes
   useEffect(() => {
@@ -42,11 +32,21 @@ const StyleCommentCard = ({ selectedStyle }) => {
     }
   }, [selectedStyle]);
 
-  // Track changes for internal state management
+  // Track changes and notify parent component
   useEffect(() => {
     const hasChanges = comment !== originalComment || maxPiecesInPackage !== originalMaxPieces;
     setHasUnsavedChanges(hasChanges);
-  }, [comment, originalComment, maxPiecesInPackage, originalMaxPieces]);
+
+    // Notify parent component about data changes
+    if (onDataChange) {
+      onDataChange({
+        comment: comment.trim(),
+        maxPiecesInPackage: maxPiecesInPackage ? parseInt(maxPiecesInPackage) : null,
+        hasUnsavedChanges: hasChanges,
+        selectedStyle
+      });
+    }
+  }, [comment, originalComment, maxPiecesInPackage, originalMaxPieces, selectedStyle, onDataChange]);
 
   const loadStyleData = async () => {
     setLoading(true);
@@ -69,14 +69,13 @@ const StyleCommentCard = ({ selectedStyle }) => {
       }
     } catch (error) {
       console.error('Error loading style data:', error);
-      showSnackbar('Error loading style data', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  // Expose save function to parent component
+  const saveStyleData = async () => {
     try {
       const [commentResponse, settingsResponse] = await Promise.all([
         axios.post('/orders/style_comments/save', {
@@ -93,30 +92,30 @@ const StyleCommentCard = ({ selectedStyle }) => {
         setOriginalComment(comment);
         setOriginalMaxPieces(maxPiecesInPackage);
         setHasUnsavedChanges(false);
-        showSnackbar('Style data saved successfully', 'success');
+        return { success: true };
       } else {
-        showSnackbar('Error saving style data', 'error');
+        return { success: false, error: 'Error saving style data' };
       }
     } catch (error) {
       console.error('Error saving style data:', error);
-      showSnackbar('Error saving style data', 'error');
-    } finally {
-      setSaving(false);
+      return { success: false, error: error.message || 'Error saving style data' };
     }
   };
 
-  const showSnackbar = (message, severity) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity
-    });
-  };
+  // Expose save function to parent via callback
+  useEffect(() => {
+    if (onDataChange) {
+      onDataChange({
+        comment: comment.trim(),
+        maxPiecesInPackage: maxPiecesInPackage ? parseInt(maxPiecesInPackage) : null,
+        hasUnsavedChanges,
+        selectedStyle,
+        saveFunction: saveStyleData
+      });
+    }
+  }, [comment, maxPiecesInPackage, hasUnsavedChanges, selectedStyle]);
 
-  const handleCloseSnackbar = (_, reason) => {
-    if (reason === 'clickaway') return;
-    setSnackbar({ ...snackbar, open: false });
-  };
+
 
   const handleMaxPiecesChange = (e) => {
     const value = e.target.value;
@@ -127,8 +126,7 @@ const StyleCommentCard = ({ selectedStyle }) => {
   };
 
   return (
-    <>
-      <MainCard
+    <MainCard
         sx={{ width: '100%', height: '100%' }}
         title={
           <Box display="flex" alignItems="center" gap={1}>
@@ -160,13 +158,16 @@ const StyleCommentCard = ({ selectedStyle }) => {
                   placeholder={t('orderPlanning.styleCommentPlaceholder', 'Add a comment for style {{style}}...', { style: selectedStyle })}
                   value={comment || ''}
                   onChange={(e) => setComment(e.target.value)}
-                  disabled={loading || saving}
+                  disabled={loading}
                   InputLabelProps={{
                     style: { fontWeight: 'normal' }
                   }}
                   sx={{
                     '& .MuiInputBase-root': {
                       minHeight: '120px'
+                    },
+                    '& .MuiInputBase-input': {
+                      fontWeight: 'normal'
                     }
                   }}
                 />
@@ -182,51 +183,25 @@ const StyleCommentCard = ({ selectedStyle }) => {
                     variant="outlined"
                     value={maxPiecesInPackage}
                     onChange={handleMaxPiecesChange}
-                    disabled={loading || saving}
+                    disabled={loading}
                     type="number"
                     inputProps={{ min: 1 }}
                     InputLabelProps={{
                       style: { fontWeight: 'normal' }
                     }}
                     sx={{
-                      marginTop: '2mm'
+                      marginTop: '2mm',
+                      '& .MuiInputBase-input': {
+                        fontWeight: 'normal'
+                      }
                     }}
                   />
-
-                  {/* Save Button */}
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSave}
-                    disabled={!hasUnsavedChanges || saving || !selectedStyle}
-                    sx={{ mt: 'auto', alignSelf: 'flex-start' }}
-                  >
-                    {saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
-                  </Button>
                 </Box>
               </Grid>
             </Grid>
           </Box>
         )}
-      </MainCard>
-
-      {/* Success/Error Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </>
+    </MainCard>
   );
 };
 

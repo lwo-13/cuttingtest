@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import CloseIcon from '@mui/icons-material/Close';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
-const backendBaseUrl = axios.defaults.baseURL.replace('/api', '');
+// Remove the problematic backendBaseUrl calculation - use axios.defaults.baseURL directly like in OrderPlanning
 
 // Available brands
 const brands = ["CALZEDONIA", "INTIMISSIMI", "FALCONERI", "TEZENIS"];
@@ -401,7 +401,7 @@ const EditPadPrintModal = ({ open, handleClose, padPrint, onUpdated, onImageUplo
             <img
               src={formData.image_url.startsWith('http')
                 ? formData.image_url
-                : `${backendBaseUrl}/api/padprint/image/${formData.image_url}`
+                : `${axios.defaults.baseURL}padprint/image/${formData.image_url}`
               }
               alt="Current Pad Print"
               style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', marginTop: '8px' }}
@@ -744,9 +744,10 @@ const PadPrints = () => {
       renderCell: (params) => {
         if (params.row.padprint_color === 'NO') return "";
         if (!params.value) return "Missing Image";
+        // Use the same pattern as OrderPlanning - axios.defaults.baseURL directly
         const imageUrl = params.value.startsWith("http")
           ? params.value
-          : `${backendBaseUrl}/api/padprint/image/${params.value}`;
+          : `${axios.defaults.baseURL}padprint/image/${params.value}`;
         return (
           <img
             src={imageUrl}
@@ -756,7 +757,8 @@ const PadPrints = () => {
             onError={(e) => {
               if (!e.target.dataset.retry) {
                 e.target.dataset.retry = "true";
-                e.target.src = `${backendBaseUrl}/static/placeholder.png`; // fallback image
+                // Use axios.defaults.baseURL for fallback image too
+                e.target.src = `${axios.defaults.baseURL.replace('/api/', '/')}/static/placeholder.png`;
               }
             }}
           />

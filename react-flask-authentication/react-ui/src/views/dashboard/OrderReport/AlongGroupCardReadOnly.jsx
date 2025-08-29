@@ -1,5 +1,6 @@
 import React from 'react';
 import { Grid, TextField, Box } from '@mui/material';
+import ColorFieldWithDescription from 'components/ColorFieldWithDescription';
 
 const AlongGroupCardReadOnly = ({ table }) => {
   return (
@@ -43,19 +44,11 @@ const AlongGroupCardReadOnly = ({ table }) => {
 
         {/* Fabric Color */}
         <Grid item xs={3} sm={2} md={2}>
-          <TextField
+          <ColorFieldWithDescription
             label="Fabric Color"
             value={table.fabricColor || ''}
-            fullWidth
-            variant="outlined"
-            InputProps={{
-              readOnly: true,
-              sx: {
-                '& .MuiInputBase-input': {
-                  fontWeight: 'normal',
-                }
-              }
-            }}
+            readOnly={true}
+            sx={{ width: '100%' }}
           />
         </Grid>
 

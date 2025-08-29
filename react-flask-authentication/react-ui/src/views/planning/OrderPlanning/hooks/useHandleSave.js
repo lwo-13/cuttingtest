@@ -39,7 +39,8 @@ const useHandleSave = ({
   setOpenSuccess,
   setUnsavedChanges,
   commentData,
-  auditRefetchFunctionRef
+  auditRefetchFunctionRef,
+  styleCommentData
 }) => {
   const [saving, setSaving] = useState(false);
 
@@ -1005,6 +1006,23 @@ const useHandleSave = ({
           }
         })
         .then(async () => {
+          // ✅ Save style comment data if available
+          if (styleCommentData?.saveFunction && styleCommentData?.hasUnsavedChanges) {
+            try {
+              console.log("📝 Saving style comment data...");
+              const styleResult = await styleCommentData.saveFunction();
+              if (styleResult.success) {
+                console.log("✅ Style comment data saved successfully");
+              } else {
+                console.warn("⚠️ Failed to save style comment data:", styleResult.error);
+                // Don't fail the entire save operation for style comment issues
+              }
+            } catch (error) {
+              console.warn("⚠️ Failed to save style comment data:", error.message);
+              // Don't fail the entire save operation for style comment issues
+            }
+          }
+
           // ✅ Update audit tracking for the order
           if (selectedOrder?.id && username) {
             try {
@@ -1037,18 +1055,19 @@ const useHandleSave = ({
 
           setSuccessMessage("Saving completed successfully!");
           setOpenSuccess(true);
+          setSaving(false);
         })
         .catch((error) => {
           console.error("🚨 Final Save Error:", error);
           setErrorMessage("⚠️ An error occurred while saving. Please try again.");
           setOpenError(true);
+          setSaving(false);
         });
 
     } catch (error) {
       console.error("\uD83D\uDEA8 Final Save Error:", error);
       setErrorMessage("\u26A0\uFE0F An error occurred while saving. Please try again.");
       setOpenError(true);
-    } finally {
       setSaving(false);
     }
   };

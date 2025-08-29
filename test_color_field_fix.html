@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Field Truncation Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .field-test {
+            position: relative;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .field-test input {
+            width: 100%;
+            padding: 12px 130px 12px 14px; /* Fixed padding like our React component */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .field-test .description {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: #666;
+            font-style: italic;
+            width: 110px; /* Fixed width like our React component */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            pointer-events: none;
+            text-align: right;
+            background: rgba(255,255,255,0.8); /* Slight background for visibility */
+        }
+        .width-test {
+            display: inline-block;
+            margin: 10px;
+            vertical-align: top;
+        }
+        h1 { color: #333; }
+        h2 { color: #555; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Color Field Truncation Fix Test</h1>
+    
+    <div class="status success">
+        <strong>✅ Fix Applied:</strong> Using fixed pixel-based padding (130px) and width (110px) instead of percentages
+    </div>
+
+    <div class="test-container">
+        <h2>📏 Different Field Widths Test</h2>
+        
+        <div class="width-test" style="width: 200px;">
+            <h3>Narrow (200px)</h3>
+            <div class="field-test">
+                <label>Color Code:</label>
+                <input type="text" value="I8916" readonly>
+                <span class="description">METALIC</span>
+            </div>
+        </div>
+        
+        <div class="width-test" style="width: 250px;">
+            <h3>Medium (250px)</h3>
+            <div class="field-test">
+                <label>Color Code:</label>
+                <input type="text" value="872I" readonly>
+                <span class="description">SUGARPAPER BLUE/AZZURRO</span>
+            </div>
+        </div>
+        
+        <div class="width-test" style="width: 300px;">
+            <h3>Wide (300px)</h3>
+            <div class="field-test">
+                <label>Color Code:</label>
+                <input type="text" value="842U" readonly>
+                <span class="description">ST.MAXI BANDANA</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>📝 Various Description Lengths</h2>
+        
+        <div class="field-test">
+            <label>Short Description:</label>
+            <input type="text" value="I8916" readonly>
+            <span class="description">METALIC</span>
+        </div>
+        
+        <div class="field-test">
+            <label>Medium Description:</label>
+            <input type="text" value="439C" readonly>
+            <span class="description">VERDE SALVIA</span>
+        </div>
+        
+        <div class="field-test">
+            <label>Long Description:</label>
+            <input type="text" value="872I" readonly>
+            <span class="description">SUGARPAPER BLUE/AZZURRO</span>
+        </div>
+        
+        <div class="field-test">
+            <label>Very Long Description:</label>
+            <input type="text" value="K332" readonly>
+            <span class="description">LATTE ST.BISCOTTI</span>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>🎯 Expected Results</h2>
+        <ul>
+            <li>✅ All description text should be fully visible (no cut-off letters)</li>
+            <li>✅ Text should be right-aligned within the description area</li>
+            <li>✅ Long descriptions should show ellipsis (...) if they exceed 110px width</li>
+            <li>✅ No overlap between color code and description text</li>
+            <li>✅ Consistent behavior across different field widths</li>
+        </ul>
+    </div>
+
+    <div class="test-container">
+        <h2>🔍 Debugging Info</h2>
+        <div class="status warning">
+            <strong>Note:</strong> If you still see truncation in the React app:
+            <ol>
+                <li>Check browser console for "ColorField Debug" logs</li>
+                <li>Verify API endpoint /api/zalli/item-descriptions is working</li>
+                <li>Ensure ColorFieldWithDescription component is being used (not regular TextField)</li>
+                <li>Check for CSS conflicts or Material-UI theme overrides</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Simple test to verify the layout
+        document.addEventListener('DOMContentLoaded', function() {
+            const descriptions = document.querySelectorAll('.description');
+            descriptions.forEach(desc => {
+                const rect = desc.getBoundingClientRect();
+                const parent = desc.parentElement.getBoundingClientRect();
+                
+                if (rect.right > parent.right) {
+                    console.warn('Description overflow detected:', desc.textContent);
+                    desc.style.backgroundColor = 'rgba(255,0,0,0.2)';
+                } else {
+                    console.log('Description fits properly:', desc.textContent);
+                    desc.style.backgroundColor = 'rgba(0,255,0,0.1)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -3,6 +3,7 @@ import { Grid, Autocomplete, TextField, Box, IconButton, CircularProgress } from
 import { Refresh, AutoFixHigh } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import MattressBulkAddDialog from './MattressBulkAddDialog';
+import ColorFieldWithDescription from 'components/ColorFieldWithDescription';
 
 const MattressGroupCard = ({
   table,
@@ -29,7 +30,7 @@ const MattressGroupCard = ({
       <Grid container spacing={2}>
 
         {/* Fabric Type (Dropdown) */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        <Grid item xs={3} sm={2} md={1.2}>
           <Autocomplete
             options={fabricTypeOptions}
             getOptionLabel={(option) => option}
@@ -53,7 +54,7 @@ const MattressGroupCard = ({
         </Grid>
 
         {/* Fabric Code (Text Input) */}
-        <Grid item xs={3} sm={2} md={2}>
+        <Grid item xs={3} sm={2} md={1.8}>
           <TextField
             label={t('orderPlanning.fabricCode', 'Fabric Code')}
             variant="outlined"
@@ -76,13 +77,12 @@ const MattressGroupCard = ({
           />
         </Grid>
 
-        {/* Fabric Color (Text Input) */}
+        {/* Fabric Color (Text Input with Description) */}
         <Grid item xs={3} sm={2} md={1.5}>
-          <TextField
+          <ColorFieldWithDescription
             label={t('orderPlanning.fabricColor', 'Fabric Color')}
-            variant="outlined"
             value={table.fabricColor || ""}
-            disabled={!isTableEditable(table)}
+            readOnly={!isTableEditable(table)}
             onChange={(e) => {
               const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
               setTables(prev =>
@@ -92,16 +92,17 @@ const MattressGroupCard = ({
               );
               setUnsavedChanges(true);
             }}
+            debounceMs={400}
+            minCharsForSearch={3}
             sx={{
               width: '100%',
-              minWidth: '60px',
-              "& input": { fontWeight: "normal" }
+              minWidth: '60px'
             }}
           />
         </Grid>
 
         {/* Allowance */}
-        <Grid item xs={1.5} sm={1.5} md={1.5}>
+        <Grid item xs={2} sm={1.5} md={1.2}>
           <TextField
             label={t('orderPlanning.allowance', 'Allowance') + ' [m]'}
             variant="outlined"
@@ -142,7 +143,7 @@ const MattressGroupCard = ({
         </Grid>
 
         {/* Spreading Method (Dropdown) */}
-        <Grid item xs={3} sm={2} md={2}>
+        <Grid item xs={3} sm={2} md={1.8}>
           <Autocomplete
             options={spreadingMethods}
             getOptionLabel={(option) => option}
@@ -168,7 +169,7 @@ const MattressGroupCard = ({
         </Grid>
 
         {/* Spreading */}
-        <Grid item xs={3} sm={2} md={2}>
+        <Grid item xs={3} sm={2} md={1.8}>
           <Autocomplete
             options={spreadingOptions}
             getOptionLabel={(option) => {

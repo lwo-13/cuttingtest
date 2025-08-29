@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Color Descriptions API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .color-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .color-code {
+            font-weight: bold;
+            color: #333;
+        }
+        .color-description {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: red;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .loading {
+            color: #666;
+            text-align: center;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .field-test {
+            position: relative;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        .field-test input {
+            width: 100%;
+            padding: 8px 50% 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .field-test .description {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: #666;
+            font-style: italic;
+            max-width: 44%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Color Descriptions API Test</h1>
+    
+    <div class="test-section">
+        <h2>API Response</h2>
+        <div id="status" class="loading">Loading...</div>
+        <div id="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Color Lookup</h2>
+        <input type="text" id="colorInput" placeholder="Enter color code (e.g., I8916)" style="padding: 8px; margin-right: 10px;">
+        <button onclick="testColorLookup()" style="padding: 8px 15px;">Lookup</button>
+        <div id="lookupResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Visual Field Tests (Simulating React Component)</h2>
+        <div class="field-test" style="width: 200px;">
+            <label>Narrow Field (200px):</label>
+            <input type="text" value="I8916" readonly>
+            <span class="description">METALIC</span>
+        </div>
+        <div class="field-test" style="width: 250px;">
+            <label>Medium Field (250px):</label>
+            <input type="text" value="872I" readonly>
+            <span class="description">SUGARPAPER BLUE/AZZURRO</span>
+        </div>
+        <div class="field-test" style="width: 300px;">
+            <label>Wide Field (300px):</label>
+            <input type="text" value="842U" readonly>
+            <span class="description">ST.MAXI BANDANA</span>
+        </div>
+        <div class="field-test" style="width: 180px;">
+            <label>Very Narrow (180px):</label>
+            <input type="text" value="K332" readonly>
+            <span class="description">LATTE ST.BISCOTTI</span>
+        </div>
+    </div>
+
+    <script>
+        let colorDescriptions = new Map();
+
+        // Fetch color descriptions from API
+        async function fetchColorDescriptions() {
+            try {
+                const response = await fetch('/api/zalli/item-descriptions');
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    // Convert to Map for fast lookups
+                    data.data.forEach(item => {
+                        if (item.Code && item.Description) {
+                            colorDescriptions.set(item.Code, item.Description);
+                        }
+                    });
+                    
+                    displayResults(data.data);
+                    document.getElementById('status').innerHTML = `✅ Loaded ${data.data.length} color descriptions`;
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = `❌ Error: ${error.message}`;
+                document.getElementById('status').className = 'error';
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (data.length === 0) {
+                resultsDiv.innerHTML = '<p>No color descriptions found.</p>';
+                return;
+            }
+            
+            let html = '<h3>First 10 Color Descriptions:</h3>';
+            data.slice(0, 10).forEach(item => {
+                html += `
+                    <div class="color-item">
+                        <span class="color-code">${item.Code}</span>
+                        <span class="color-description">${item.Description}</span>
+                    </div>
+                `;
+            });
+            
+            if (data.length > 10) {
+                html += `<p><em>... and ${data.length - 10} more items</em></p>`;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        // Test color lookup function
+        function testColorLookup() {
+            const colorCode = document.getElementById('colorInput').value.trim();
+            const resultDiv = document.getElementById('lookupResult');
+            
+            if (!colorCode) {
+                resultDiv.innerHTML = '<span style="color: orange;">Please enter a color code</span>';
+                return;
+            }
+            
+            const description = colorDescriptions.get(colorCode);
+            
+            if (description) {
+                resultDiv.innerHTML = `
+                    <div style="color: green;">
+                        <strong>${colorCode}</strong> → <em>${description}</em>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div style="color: red;">
+                        Color code <strong>${colorCode}</strong> not found in dictionary
+                    </div>
+                `;
+            }
+        }
+
+        // Load data on page load
+        fetchColorDescriptions();
+        
+        // Allow Enter key in input field
+        document.getElementById('colorInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testColorLookup();
+            }
+        });
+    </script>
+</body>
+</html>

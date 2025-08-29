@@ -2,6 +2,7 @@ import React from 'react';
 import { Grid, TextField, Autocomplete, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import useOrderAuditInfo from './OrderAuditInfo';
+import ColorFieldWithDescription from 'components/ColorFieldWithDescription';
 
 const OrderToolbar = ({
   styleOptions = [],
@@ -78,12 +79,11 @@ const OrderToolbar = ({
 
       {/* Color */}
       <Grid item xs={3} sm={2} md={1.5}>
-        <TextField
+        <ColorFieldWithDescription
           label={t('orderPlanning.color', 'Color')}
-          variant="outlined"
           value={selectedColorCode || ""}
-          slotProps={{ input: { readOnly: true } }}
-          sx={{ width: '100%', minWidth: '60px', "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+          readOnly={true}
+          sx={{ width: '100%', minWidth: '60px' }}
         />
       </Grid>
 

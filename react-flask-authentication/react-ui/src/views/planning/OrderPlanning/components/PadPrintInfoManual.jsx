@@ -1,5 +1,5 @@
 // src/views/orderPlanning/PadPrintInfoManual.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Grid, MenuItem, Select, InputLabel, FormControl, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
@@ -39,6 +39,16 @@ const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => 
         }
     }, [brand]);
 
+    // Check if pattern is "TRANSFER" to hide color field
+    const isTransferPattern = pattern?.toUpperCase() === "TRANSFER";
+
+    // Auto-set color to "NO" when TRANSFER pattern is selected
+    useEffect(() => {
+        if (isTransferPattern && color !== "NO") {
+            setColor("NO");
+        }
+    }, [isTransferPattern, color, setColor]);
+
     return (
         <MainCard title={t('orderPlanning.padPrint', 'Pad Print')} sx={{ width: '100%', height: '100%' }}>
             <Grid container spacing={2}>
@@ -52,6 +62,7 @@ const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => 
                                 value={pattern}
                                 label={t('orderPlanning.pattern', 'Pattern')}
                                 onChange={(e) => setPattern(e.target.value)}
+                                sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}
                             >
                                 {patternOptions.map((opt) => (
                                     <MenuItem key={opt} value={opt}>
@@ -61,21 +72,24 @@ const PadPrintInfoManual = ({ brand, pattern, setPattern, color, setColor }) => 
                             </Select>
                         </FormControl>
 
-                        {/* Pad Print Color Field - Below Pattern */}
-                        <FormControl fullWidth>
-                            <InputLabel>Pad Print Color</InputLabel>
-                            <Select
-                                value={color}
-                                label="Pad Print Color"
-                                onChange={(e) => setColor(e.target.value)}
-                            >
-                                {colorOptions.map((opt) => (
-                                    <MenuItem key={opt} value={opt}>
-                                        {opt}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        {/* Pad Print Color Field - Only show if not TRANSFER pattern */}
+                        {!isTransferPattern && (
+                            <FormControl fullWidth>
+                                <InputLabel>Pad Print Color</InputLabel>
+                                <Select
+                                    value={color}
+                                    label="Pad Print Color"
+                                    onChange={(e) => setColor(e.target.value)}
+                                    sx={{ "& .MuiInputBase-input": { fontWeight: 'normal' } }}
+                                >
+                                    {colorOptions.map((opt) => (
+                                        <MenuItem key={opt} value={opt}>
+                                            {opt}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        )}
                     </Box>
                 </Grid>
 

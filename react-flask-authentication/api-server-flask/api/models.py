@@ -920,3 +920,21 @@ class MarkerRequest(db.Model):
         db.session.add(self)
         db.session.commit()
 
+
+class ItemDescriptions(db.Model):
+    __tablename__ = 'vw_ItemDescriptions'
+    __table_args__ = {'info': {'read_only': True}}  # Read-only view
+
+    # Using Code as primary key since we're selecting distinct values
+    Code = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)
+    Description = db.Column(db.String(500, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+
+    def to_dict(self):
+        return {
+            'Code': self.Code,
+            'Description': self.Description
+        }
+
+    def __repr__(self):
+        return f"<ItemDescriptions(Code='{self.Code}', Description='{self.Description}')>"
+

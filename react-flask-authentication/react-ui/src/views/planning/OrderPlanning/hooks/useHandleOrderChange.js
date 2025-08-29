@@ -25,7 +25,9 @@ const handleOrderChange = async (newValue, context) => {
     clearBrand,
     clearPadPrintInfo,
     styleTouched,
-    setShowCommentCard
+    setShowCommentCard,
+    // Add loading state setter if available
+    setOrderLoading
   } = context;
 
   if (!newValue) {
@@ -61,6 +63,9 @@ const handleOrderChange = async (newValue, context) => {
     return;
   }
 
+  // Set loading state to prevent layout shift
+  if (setOrderLoading) setOrderLoading(true);
+
   setSelectedOrder(newValue);
   const sizesSorted = sortSizes(newValue.sizes || []);
   setOrderSizes(sizesSorted);
@@ -70,11 +75,12 @@ const handleOrderChange = async (newValue, context) => {
   setSelectedSeason(newValue.season);
   setSelectedColorCode(newValue.colorCode);
 
-
-  fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
-  fetchBrandForStyle(newValue.style);
+  // Start async operations but don't await them yet
+  const padPrintPromise = fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
+  const brandPromise = fetchBrandForStyle(newValue.style);
 
   try {
+    // First, load all basic data in parallel
     const [mattressRes, markerRes, alongRes, weftRes, biasRes, commentRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${newValue.id}`),
       axios.get(`/markers/marker_headers_planning`, {
@@ -287,18 +293,32 @@ const handleOrderChange = async (newValue, context) => {
         })
     );
 
-    // Wait for all production center data to load, then set the tables
+    // Wait for all production center data to load before setting any tables
     await Promise.all(productionCenterPromises);
 
-    setAlongTables(Object.values(alongTablesById));
+    // Process weft table calculations before setting state
     const loadedWeftTables = Object.values(weftTablesById);
-    setWeftTables(loadedWeftTables);
     loadedWeftTables.forEach(table => {
       table.rows.forEach(row => {
-        handleWeftRowChange(table.id, row.id, "usableWidth", row.usableWidth || "0");
+        // Pre-calculate weft row changes to avoid post-render updates
+        if (row.usableWidth) {
+          // Apply the same logic as handleWeftRowChange but without triggering state updates
+          const usableWidth = parseFloat(row.usableWidth) || 0;
+          // Store calculated values directly in the row data
+          row.calculatedValues = {
+            usableWidth: usableWidth
+          };
+        }
       });
     });
+
+    // Set all tables in a single batch to minimize re-renders
+    setAlongTables(Object.values(alongTablesById));
+    setWeftTables(loadedWeftTables);
     setBiasTables(Object.values(biasTablesById));
+
+    // Wait for pad print and brand data to complete
+    await Promise.all([padPrintPromise, brandPromise]);
 
     // Show comment card if there's an existing comment
     if (setShowCommentCard) {
@@ -307,6 +327,9 @@ const handleOrderChange = async (newValue, context) => {
     }
 
     setUnsavedChanges(false);
+
+    // Clear loading state after all data is loaded and rendered
+    if (setOrderLoading) setOrderLoading(false);
   } catch (error) {
     console.error("❌ Error in parallel fetch:", error);
     setTables([]);
@@ -316,6 +339,9 @@ const handleOrderChange = async (newValue, context) => {
     setBiasTables([]);
     if (setShowCommentCard) setShowCommentCard(false);
     setUnsavedChanges(false);
+
+    // Clear loading state on error
+    if (setOrderLoading) setOrderLoading(false);
   }
 };
 

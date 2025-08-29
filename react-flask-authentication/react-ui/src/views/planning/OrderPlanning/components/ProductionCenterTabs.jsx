@@ -98,16 +98,12 @@ const ProductionCenterTabs = forwardRef(({
 
 
 
-                // If no combinations exist, create a default one
-                if (combos.length === 0) {
-                    handleAddCombination();
-                } else {
-                    // Auto-select first combination if none selected
-                    if (!selectedCombinationId && combos.length > 0) {
-                        onCombinationChange(combos[0]);
-                        setActiveTab(0);
-                    }
+                // Auto-select first combination if none selected and combinations exist
+                if (!selectedCombinationId && combos.length > 0) {
+                    onCombinationChange(combos[0]);
+                    setActiveTab(0);
                 }
+                // Note: Removed automatic dialog opening when no combinations exist
             }
         } catch (error) {
             console.error('Error fetching production center combinations:', error);
