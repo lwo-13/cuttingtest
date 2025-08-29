@@ -574,6 +574,59 @@ class GetAllMattressesResource(Resource):
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
 
+@ mattress_api.route('/orders_completion_status')
+class GetOrdersCompletionStatusResource(Resource):
+    def get(self):
+        """Get the minimum (lowest) phase status for each order to determine completion.
+
+        Returns completion status based on the lowest phase number:
+        - If min_phase_number = 5 (COMPLETED), all mattresses are completed -> Order is finished
+        - If min_phase_number < 5, at least one mattress is not completed -> Order is not finished
+        """
+        try:
+            # Get all active mattress phases with their order info
+            query = db.session.query(
+                Mattresses.order_commessa,
+                MattressPhase.status
+            ).join(
+                MattressPhase, Mattresses.id == MattressPhase.mattress_id
+            ).filter(
+                MattressPhase.active == True
+            ).all()
+
+            # Process in Python to avoid database-specific function issues
+            order_phases = {}
+            for order_commessa, status in query:
+                # Extract numeric part from status (e.g., "5 - COMPLETED" -> 5)
+                try:
+                    phase_number = int(status.split(' - ')[0])
+                except (ValueError, IndexError):
+                    phase_number = 0  # Default to 0 if parsing fails
+
+                if order_commessa not in order_phases:
+                    order_phases[order_commessa] = []
+                order_phases[order_commessa].append(phase_number)
+
+            # Calculate minimum phase for each order
+            result = []
+            for order_commessa, phases in order_phases.items():
+                min_phase_number = min(phases)
+                result.append({
+                    "order_commessa": order_commessa,
+                    "min_phase_number": min_phase_number,
+                    "is_completed": min_phase_number == 5  # Only completed if ALL mattresses are at phase 5
+                })
+
+            return {"success": True, "data": result}, 200
+        except Exception as e:
+            # Add detailed error logging
+            import traceback
+            print(f"❌ Error in orders_completion_status: {str(e)}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            return {"success": False, "message": str(e)}, 500
+
+
+
 @ mattress_api.route('/kanban')
 class GetKanbanMattressesResource(Resource):
     def get(self):

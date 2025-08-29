@@ -59,12 +59,8 @@ const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
         }
     }, [open, style, fabricCode]);
 
-    const handleTooltipOpen = () => {
-        setOpen(true);
-    };
-
-    const handleTooltipClose = () => {
-        setOpen(false);
+    const handleTooltipToggle = () => {
+        setOpen(!open);
     };
 
     const formatNumber = (num) => {
@@ -338,8 +334,9 @@ const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
                 placement="left"
                 arrow
                 open={open}
-                onClose={handleTooltipClose}
-                onOpen={handleTooltipOpen}
+                disableHoverListener
+                disableFocusListener
+                disableTouchListener
                 slotProps={{
                     tooltip: {
                         sx: {
@@ -356,6 +353,7 @@ const CollarettoConsumptionInfo = ({ style, fabricCode }) => {
             >
                 <IconButton
                     size="medium"
+                    onClick={handleTooltipToggle}
                     sx={{
                         color: 'info.main',
                         m: 0.5,

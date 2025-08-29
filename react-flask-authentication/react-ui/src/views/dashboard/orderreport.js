@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Backdrop, CircularProgress } from '@mui/material';
 import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { useLocation } from 'react-router-dom';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import { useSelector } from "react-redux";
@@ -10,9 +11,8 @@ import { useSelector } from "react-redux";
 import OrderToolbar from 'views/planning/OrderPlanning/components/OrderToolbar';
 import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuantities';
 
-// Cutting Room Info
-import CuttingRoomInfo from 'views/dashboard/OrderReport/CuttingRoomInfo';
-import ProductionCenterFilter from 'views/dashboard/OrderReport/ProductionCenterFilter';
+// Production Center Components
+import ProductionCenterTabs from 'views/dashboard/OrderReport/ProductionCenterTabs';
 
 // Pad Print Components
 import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
@@ -72,6 +72,7 @@ import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } f
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 const OrderReport = () => {
+    const location = useLocation();
 
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -105,21 +106,63 @@ const OrderReport = () => {
     const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('');
     const [selectedDestination, setSelectedDestination] = useState('');
 
-    // Production Center Filter state
+    // Production Center Configuration state
     const [productionCenterCombinations, setProductionCenterCombinations] = useState([]);
-    const [showProductionCenterFilter, setShowProductionCenterFilter] = useState(false);
-    const [filteredCuttingRoom, setFilteredCuttingRoom] = useState(null);
-    const [filteredDestination, setFilteredDestination] = useState(null);
-    const [filterLoading, setFilterLoading] = useState(false);
+    const [showProductionCenterTabs, setShowProductionCenterTabs] = useState(false);
+    const [selectedCombination, setSelectedCombination] = useState(null);
     const [productionCenterLoading, setProductionCenterLoading] = useState(false);
 
     // Pin Order Planning Card
     const [isPinned, setIsPinned] = useState(false);
 
+    // Breadcrumb navigation state - initialize from URL parameter
+    const [selectedBreadcrumb, setSelectedBreadcrumb] = useState(() => {
+        const urlParams = new URLSearchParams(location.search);
+        const typeParam = urlParams.get('type');
+        return typeParam === 'closed' ? 'closed' : 'open';
+    });
+    const [orderListLoading, setOrderListLoading] = useState(false); // For loading order list (no backdrop)
+    const [orderDataLoading, setOrderDataLoading] = useState(false); // For loading specific order data (with backdrop)
+
     // User
     const username = useSelector((state) => state.account?.user?.username) || "Unknown";
 
-    // Tables
+
+
+    // Listen for URL parameter changes (when navigating via sidebar)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(location.search);
+        const typeParam = urlParams.get('type');
+        const newBreadcrumb = typeParam === 'closed' ? 'closed' : 'open';
+        if (newBreadcrumb !== selectedBreadcrumb) {
+            setSelectedBreadcrumb(newBreadcrumb);
+
+            // Stop any loading when switching order types
+            setOrderDataLoading(false);
+
+            // Clear all state when switching between order types
+            setSelectedOrder(null);
+            setSelectedStyle("");
+            setSelectedSeason("");
+            setSelectedColorCode("");
+            setOrderSizes([]);
+            setOrderSizeNames([]);
+            setMarkerOptions([]);
+            setTables([]);
+            setAdhesiveTables([]);
+            setAlongTables([]);
+            setWeftTables([]);
+            setBiasTables([]);
+
+            // Clear other related state
+            clearPadPrintInfo();
+            clearBrand();
+
+            console.log(`🔄 Switched to ${newBreadcrumb} orders - state cleared`);
+        }
+    }, [location.search, selectedBreadcrumb, clearPadPrintInfo, clearBrand]);
+
+    // Tables (all loaded, visibility controlled by selectedCombination)
     const [tables, setTables] = useState([]);
     const [adhesiveTables, setAdhesiveTables] = useState([]);
     const [alongTables, setAlongTables] = useState([]);
@@ -127,7 +170,7 @@ const OrderReport = () => {
     const [biasTables, setBiasTables] = useState([]);
 
     // Order Change
-    const { onOrderChange, fetchMattressData } = useHandleOrderChange({
+    const { onOrderChange, cancelPendingRequests } = useHandleOrderChange({
         setSelectedOrder,
         setOrderSizes,
         setOrderSizeNames,
@@ -138,10 +181,9 @@ const OrderReport = () => {
         setSelectedCuttingRoom,
         setSelectedDestination,
         setProductionCenterCombinations,
-        setShowProductionCenterFilter,
-        setFilteredCuttingRoom,
-        setFilteredDestination,
+        setShowProductionCenterTabs,
         setProductionCenterLoading,
+        setOrderDataLoading, // Add order data loading state
         productionCenterCombinations,
         fetchPadPrintInfo,
         fetchBrandForStyle,
@@ -156,6 +198,14 @@ const OrderReport = () => {
         clearPadPrintInfo
     });
 
+    // Cleanup effect - only on component unmount
+    useEffect(() => {
+        return () => {
+            console.log('🧹 Component unmount - cancelling pending requests');
+            cancelPendingRequests();
+            setOrderDataLoading(false);
+        };
+    }, []); // Empty dependency array - only run on unmount
 
     // Average Consumption per table
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
@@ -163,13 +213,69 @@ const OrderReport = () => {
     // Print Styles
     useOrderReportPrintStyles();
 
-    // Fetch order data
+    // Enhanced classification using order lines status + mattress completion
+    const classifyOrders = (allOrderLines, mattressCompletionData) => {
+        const openOrders = [];
+        const closedOrders = [];
+
+        // Group by order_commessa and determine status
+        const ordersMap = new Map();
+
+        allOrderLines.forEach(row => {
+            const orderId = row.order_commessa;
+
+            if (!ordersMap.has(orderId)) {
+                ordersMap.set(orderId, {
+                    id: orderId,
+                    style: row.style,
+                    season: row.season,
+                    colorCode: row.color_code,
+                    status: row.status,
+                    sizes: []
+                });
+            }
+
+            ordersMap.get(orderId).sizes.push({
+                size: row.size,
+                qty: parseFloat(row.quantity.toString().replace(",", "")) || 0
+            });
+        });
+
+        // Create mattress completion map
+        const completionMap = new Map();
+        (mattressCompletionData || []).forEach(item => {
+            completionMap.set(item.order_commessa, item.is_completed);
+        });
+
+        // Convert to array and sort sizes
+        const allOrders = Array.from(ordersMap.values()).map(order => ({
+            ...order,
+            sizes: sortSizes(order.sizes || []),
+            // Add completion status for open orders
+            isFinished: order.status === 3 ? (completionMap.get(order.id) === true) : false
+        }));
+
+        // Classify based on status
+        allOrders.forEach(order => {
+            if (order.status === 3) {
+                openOrders.push(order); // Status 3 = Open orders (may have isFinished flag)
+            } else {
+                closedOrders.push(order); // Other statuses = Closed orders
+            }
+        });
+
+        return { openOrders, closedOrders, allOrders };
+    };
+
+    // Fetch order data with mattress completion status
     useEffect(() => {
+        setOrderListLoading(true);
         Promise.all([
-            axios.get('/orders/order_lines'),
-            axios.get('/mattress/order_ids')
+            axios.get('/orders/order_lines'), // Get all order lines with status
+            axios.get('/mattress/order_ids'),  // Get orders that have mattresses
+            axios.get('/mattress/orders_completion_status') // Get mattress completion status
         ])
-            .then(([ordersRes, mattressRes]) => {
+            .then(([ordersRes, mattressRes, completionRes]) => {
             if (!ordersRes.data.success || !mattressRes.data.success) {
                 console.error("Failed to fetch order or mattress data");
                 return;
@@ -179,50 +285,58 @@ const OrderReport = () => {
                 (mattressRes.data.data || []).map(item => item.order_commessa)
             );
 
-            const ordersMap = new Map();
+            // Filter order lines to only include orders that have mattresses
+            const filteredOrderLines = ordersRes.data.data.filter(row =>
+                mattressOrderIds.has(row.order_commessa)
+            );
 
-            ordersRes.data.data.forEach(row => {
-                const orderId = row.order_commessa;
+            // Get completion data (handle case where endpoint might not exist yet)
+            const completionData = completionRes?.data?.success ? completionRes.data.data : [];
 
-                if (mattressOrderIds.has(orderId)) {
-                if (!ordersMap.has(orderId)) {
-                    ordersMap.set(orderId, {
-                    id: orderId,
-                    style: row.style,
-                    season: row.season,
-                    colorCode: row.color_code,
-                    sizes: []
-                    });
-                }
+            // Classify orders based on status + mattress completion
+            const { openOrders, closedOrders, allOrders } = classifyOrders(filteredOrderLines, completionData);
 
-                ordersMap.get(orderId).sizes.push({
-                    size: row.size,
-                    qty: parseFloat(row.quantity.toString().replace(",", "")) || 0
-                });
-                }
-            });
+            // Debug logging
+            console.log('📊 Order Classification Debug:');
+            console.log('Total orders with mattresses:', allOrders.length);
+            console.log('Open orders (status=3):', openOrders.length);
+            console.log('- Open orders that are finished:', openOrders.filter(o => o.isFinished).length);
+            console.log('Closed orders (status≠3):', closedOrders.length);
 
-            const sortedOrders = Array.from(ordersMap.values()).map(order => ({
-                ...order,
-                sizes: sortSizes(order.sizes || [])
-            }));
-
-            setOrderOptions(sortedOrders);
+            // Store both classifications
+            setOrderOptions({ open: openOrders, closed: closedOrders, all: allOrders });
 
             const uniqueStyles = [
-                ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
+                ...new Set(allOrders.map(order => order.style).filter(Boolean))
             ];
             setStyleOptions(uniqueStyles);
         })
         .catch(error => {
             console.error("Error fetching filtered order data:", error);
+        })
+        .finally(() => {
+            setOrderListLoading(false);
         });
-    }, []);
+    }, []); // Run only once on component mount
 
 
-    const filteredOrders = selectedStyle
-        ? orderOptions.filter(order => order.style === selectedStyle)
-        : orderOptions;
+    // Get orders based on breadcrumb selection
+    const getOrdersByBreadcrumb = () => {
+        if (!orderOptions || typeof orderOptions !== 'object') return [];
+
+        let orders = [];
+        if (selectedBreadcrumb === 'open') {
+            orders = orderOptions.open || [];
+        } else if (selectedBreadcrumb === 'closed') {
+            orders = orderOptions.closed || [];
+        } else {
+            orders = orderOptions.all || [];
+        }
+
+        return selectedStyle ? orders.filter(order => order.style === selectedStyle) : orders;
+    };
+
+    const filteredOrders = getOrdersByBreadcrumb();
 
     // Fetch marker data from Flask API
     useEffect(() => {
@@ -261,40 +375,61 @@ const OrderReport = () => {
         }
       };
 
-    // Production Center Filter Handlers
-    const handleApplyFilter = async () => {
-        if (!selectedOrder) return;
 
-        // Use filtered values
-        const cuttingRoom = filteredCuttingRoom;
-        const destination = filteredDestination;
+    // Filter tables based on selected production center combination (like Order Planning)
+    const getFilteredTables = (allTables, selectedCombination) => {
+        if (!selectedCombination) return allTables; // Show all if no combination selected
 
-        // Validate required fields
-        if (!cuttingRoom) return;
-        if ((cuttingRoom === 'ZALLI' || cuttingRoom === 'DELICIA') && !destination) return;
+        return allTables.filter(table => {
+            // Show tables that match the selected combination
+            const matchesSelectedCombination = (
+                table.productionCenter === selectedCombination.production_center &&
+                table.cuttingRoom === selectedCombination.cutting_room &&
+                table.destination === selectedCombination.destination
+            );
 
-        setFilterLoading(true);
-        try {
-            const sizesSorted = sortSizes(selectedOrder.sizes || []);
-            await fetchMattressData(selectedOrder, sizesSorted, cuttingRoom, destination);
-            setShowProductionCenterFilter(false);
-        } catch (error) {
-            console.error("❌ Error applying production center filter:", error);
-        } finally {
-            setFilterLoading(false);
-        }
+            // Show tables that don't have production center data yet
+            const hasNoProductionCenter = (
+                !table.productionCenter &&
+                !table.cuttingRoom &&
+                !table.destination
+            );
+
+
+
+            return matchesSelectedCombination || hasNoProductionCenter;
+        });
     };
 
-    // Handle changing production center selection
+    // Create filtered arrays based on selected combination
+    const filteredTables = getFilteredTables(tables, selectedCombination);
+    const filteredAdhesiveTables = getFilteredTables(adhesiveTables, selectedCombination);
+    const filteredAlongTables = getFilteredTables(alongTables, selectedCombination);
+    const filteredWeftTables = getFilteredTables(weftTables, selectedCombination);
+    const filteredBiasTables = getFilteredTables(biasTables, selectedCombination);
+
+
+
+    // Production Center Configuration Handler (for tabs)
+    const handleCombinationChange = (combination) => {
+        if (!combination) return;
+
+        console.log('🔄 Production center combination changed:', combination);
+        setSelectedCombination(combination);
+
+        // Update production center display info
+        setSelectedProductionCenter(combination.production_center || '');
+        setSelectedCuttingRoom(combination.cutting_room);
+        setSelectedDestination(combination.destination);
+    };
+
+    // Handle changing production center selection (now just shows tabs again)
     const handleChangeSelection = () => {
         // Reset production center info
         setSelectedProductionCenter('');
         setSelectedCuttingRoom('');
         setSelectedDestination('');
-
-        // Reset filter values
-        setFilteredCuttingRoom(null);
-        setFilteredDestination(null);
+        setSelectedCombination(null);
 
         // Clear tables
         setTables([]);
@@ -303,13 +438,31 @@ const OrderReport = () => {
         setWeftTables([]);
         setBiasTables([]);
 
-        // Show filter again
-        setShowProductionCenterFilter(true);
+        // Show tabs again
+        setShowProductionCenterTabs(true);
     };
 
     return (
         <>
-            {/* Order Bar */}
+            {/* Loading Overlay - Only for order data loading */}
+            <Backdrop
+                sx={{
+                    color: '#fff',
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)'
+                }}
+                open={orderDataLoading}
+            >
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress color="primary" />
+                    <Box sx={{ color: 'primary.main', fontWeight: 'medium' }}>
+                        Loading order data...
+                    </Box>
+                </Box>
+            </Backdrop>
+
+
+                {/* Order Bar */}
             <Box
                 sx={{
                     position: isPinned ? 'sticky' : 'relative',
@@ -362,6 +515,8 @@ const OrderReport = () => {
                 </MainCard>
             </Box>
 
+
+
             {/* Pad Print and Style Comment Section - Side by Side */}
             {(selectedOrder || selectedStyle) && (
                 <Box display="flex" gap={2} mt={2} alignItems="stretch">
@@ -385,39 +540,23 @@ const OrderReport = () => {
 
             <Box mt={2} />
 
-            {/* Production Center Filter */}
-            {selectedOrder && showProductionCenterFilter && (
+            {/* Production Center Configuration */}
+            {selectedOrder && showProductionCenterTabs && (
                 <>
-                    <ProductionCenterFilter
+                    <ProductionCenterTabs
                         combinations={productionCenterCombinations}
-                        selectedCuttingRoom={filteredCuttingRoom}
-                        selectedDestination={filteredDestination}
-                        onCuttingRoomChange={setFilteredCuttingRoom}
-                        onDestinationChange={setFilteredDestination}
-                        onApplyFilter={handleApplyFilter}
-                        loading={filterLoading}
+                        selectedCombination={selectedCombination}
+                        onCombinationChange={handleCombinationChange}
+                        loading={orderDataLoading}
                     />
                     <Box mt={2} />
                 </>
             )}
 
-            {/* Production Center Info */}
-            {selectedOrder && !showProductionCenterFilter && !productionCenterLoading && (selectedProductionCenter || selectedCuttingRoom) && (
-                <>
-                    <CuttingRoomInfo
-                        productionCenter={selectedProductionCenter}
-                        cuttingRoom={selectedCuttingRoom}
-                        destination={selectedDestination}
-                        onChangeSelection={productionCenterCombinations.length > 1 ? handleChangeSelection : null}
-                        orderSizes={orderSizes}
-                        tables={tables}
-                    />
-                    <Box mt={2} />
-                </>
-            )}
+
 
             {/* Mattress Group Section */}
-            {tables.length > 0 && tables.map((table, tableIndex) => (
+            {filteredTables.length > 0 && filteredTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    {/* ✅ Add spacing before every table except the first one */}
                    {tableIndex > 0 && <Box mt={2} />}
@@ -499,7 +638,7 @@ const OrderReport = () => {
             ))}
 
             {/* Adhesive Tables Section */}
-            {adhesiveTables.length > 0 && adhesiveTables.map((table, tableIndex) => (
+            {filteredAdhesiveTables.length > 0 && filteredAdhesiveTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    <Box mt={2} />
                     <MainCard
@@ -580,7 +719,7 @@ const OrderReport = () => {
             ))}
 
             {/* Along Tables Section */}
-            {alongTables.length > 0 && alongTables.map((table, tableIndex) => (
+            {filteredAlongTables.length > 0 && filteredAlongTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
 
                     <Box mt={2} />
@@ -637,7 +776,7 @@ const OrderReport = () => {
             ))}
 
             {/* Weft Tables Section */}
-            {weftTables.length > 0 && weftTables.map((table, tableIndex) => (
+            {filteredWeftTables.length > 0 && filteredWeftTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    <Box mt={2} />
                     <MainCard
@@ -696,7 +835,7 @@ const OrderReport = () => {
             ))}
 
             {/* Bias Tables Section */}
-            {biasTables.length > 0 && biasTables.map((table, tableIndex) => (
+            {filteredBiasTables.length > 0 && filteredBiasTables.map((table, tableIndex) => (
                 <React.Fragment key={table.id}>
                    <Box mt={2} />
                     <MainCard

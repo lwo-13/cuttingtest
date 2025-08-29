@@ -1,5 +1,5 @@
 // assets
-import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar } from '@tabler/icons';
+import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar, IconClipboardList, IconClipboardCheck } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| DASHBOARD MENU ITEMS ||-----------------------//
@@ -28,10 +28,28 @@ export const dashboard = {
         {
             id: 'orderreport',
             title: i18n.t('sidebar.orderReport', 'Order Report'),
-            type: 'item',
-            url: '/dashboard/orderreport',
+            type: 'collapse',
             icon: IconListCheck,
-            breadcrumbs: false
+            disabled: false, // Allow clicking to expand/collapse
+            url: null, // No URL - prevents navigation
+            children: [
+                {
+                    id: 'orderreport-open',
+                    title: i18n.t('sidebar.openOrders', 'Open Orders'),
+                    type: 'item',
+                    url: '/dashboard/orderreport?type=open',
+                    icon: IconClipboardList,
+                    breadcrumbs: false
+                },
+                {
+                    id: 'orderreport-closed',
+                    title: i18n.t('sidebar.closedOrders', 'Closed Orders'),
+                    type: 'item',
+                    url: '/dashboard/orderreport?type=closed',
+                    icon: IconClipboardCheck,
+                    breadcrumbs: false
+                }
+            ]
         }
 
     ]

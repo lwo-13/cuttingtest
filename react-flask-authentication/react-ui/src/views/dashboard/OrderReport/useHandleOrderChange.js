@@ -1,6 +1,19 @@
 import axios from 'utils/axiosInstance';
 
+// Global variable to track the current request
+let currentRequestController = null;
+
 const handleOrderChange = async (newValue, context) => {
+  // Cancel any previous request
+  if (currentRequestController) {
+    console.log('🚫 Cancelling previous request');
+    currentRequestController.abort();
+  }
+
+  // Create new AbortController for this request
+  currentRequestController = new AbortController();
+  const signal = currentRequestController.signal;
+
   const {
     setSelectedOrder,
     setOrderSizes,
@@ -12,10 +25,9 @@ const handleOrderChange = async (newValue, context) => {
     setSelectedCuttingRoom,
     setSelectedDestination,
     setProductionCenterCombinations,
-    setShowProductionCenterFilter,
-    setFilteredCuttingRoom,
-    setFilteredDestination,
+    setShowProductionCenterTabs,
     setProductionCenterLoading,
+    setOrderDataLoading,
     fetchPadPrintInfo,
     fetchBrandForStyle,
     setTables,
@@ -43,9 +55,7 @@ const handleOrderChange = async (newValue, context) => {
     setSelectedSeason("");
     setSelectedColorCode("");
     setProductionCenterCombinations([]);
-    setShowProductionCenterFilter(false);
-    setFilteredCuttingRoom(null);
-    setFilteredDestination(null);
+    setShowProductionCenterTabs(false);
     clearBrand();
     clearPadPrintInfo();
     return;
@@ -59,10 +69,11 @@ const handleOrderChange = async (newValue, context) => {
   setSelectedSeason(newValue.season);
   setSelectedColorCode(newValue.colorCode);
 
-  // Reset production center filter state
-  setFilteredCuttingRoom(null);
-  setFilteredDestination(null);
-  setShowProductionCenterFilter(false);
+  // Start loading order data
+  setOrderDataLoading(true);
+
+  // Reset production center state
+  setShowProductionCenterTabs(false);
   setProductionCenterLoading(true);
 
   fetchPadPrintInfo(newValue.season, newValue.style, newValue.colorCode);
@@ -70,100 +81,92 @@ const handleOrderChange = async (newValue, context) => {
 
   // First, check if there are production center combinations for this order
   try {
-    const combinationsRes = await axios.get(`/mattress/production_center/combinations/${newValue.id}`);
+    const combinationsRes = await axios.get(`/mattress/production_center/combinations/${newValue.id}`, { signal });
+
+    // Check if request was cancelled
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled');
+      return;
+    }
+
     const combinations = combinationsRes.data?.data || [];
     setProductionCenterCombinations(combinations);
 
     if (combinations.length === 0) {
       // No production center data, proceed with normal fetch
-      await fetchMattressData(newValue, sizesSorted, null, null, context);
-      setProductionCenterLoading(false);
-    } else if (combinations.length === 1) {
-      // Only one combination, auto-select it and fetch data
-      const combo = combinations[0];
-      // Set the production center info immediately
-      setSelectedProductionCenter(combo.production_center || '');
-      setSelectedCuttingRoom(combo.cutting_room);
-      setSelectedDestination(combo.destination);
-      await fetchMattressData(newValue, sizesSorted, combo.cutting_room, combo.destination, context);
-      setProductionCenterLoading(false);
-    } else {
-      // Multiple combinations exist
-      // Check if they differ only by destination for ZALLI/DELICIA
-      const uniqueCuttingRooms = [...new Set(combinations.map(c => c.cutting_room))];
-
-      if (uniqueCuttingRooms.length === 1) {
-        const cuttingRoom = uniqueCuttingRooms[0];
-        // If it's ZALLI or DELICIA with multiple destinations, show filter
-        if ((cuttingRoom === 'ZALLI' || cuttingRoom === 'DELICIA') && combinations.length > 1) {
-          setShowProductionCenterFilter(true);
-          setProductionCenterLoading(false);
-          // Clear tables until user selects destination
-          setTables([]);
-          setAdhesiveTables([]);
-          setAlongTables([]);
-          setWeftTables([]);
-          setBiasTables([]);
-        } else {
-          // Single cutting room, auto-select and fetch data
-          const combo = combinations[0];
-          // Set the production center info immediately
-          setSelectedProductionCenter(combo.production_center || '');
-          setSelectedCuttingRoom(combo.cutting_room);
-          setSelectedDestination(combo.destination);
-          await fetchMattressData(newValue, sizesSorted, combo.cutting_room, combo.destination, context);
-          setProductionCenterLoading(false);
-        }
-      } else {
-        // Multiple cutting rooms, show filter
-        setShowProductionCenterFilter(true);
+      await fetchAllMattressData(newValue, sizesSorted, context, signal);
+      if (!signal.aborted) {
         setProductionCenterLoading(false);
-        // Clear tables until user selects
-        setTables([]);
-        setAdhesiveTables([]);
-        setAlongTables([]);
-        setWeftTables([]);
-        setBiasTables([]);
+        setOrderDataLoading(false); // Stop order data loading
+      }
+    } else {
+      // Always show tabs for any production center combinations
+      setShowProductionCenterTabs(true);
+
+      // Load ALL data for ALL combinations upfront
+      await fetchAllMattressData(newValue, sizesSorted, context, signal);
+
+      // Set the first combination as selected (but data is already loaded)
+      const firstCombo = combinations[0];
+      setSelectedProductionCenter(firstCombo.production_center || '');
+      setSelectedCuttingRoom(firstCombo.cutting_room);
+      setSelectedDestination(firstCombo.destination);
+
+      if (!signal.aborted) {
+        setProductionCenterLoading(false);
+        setOrderDataLoading(false); // Stop order data loading
       }
     }
   } catch (err) {
+    if (err.name === 'AbortError') {
+      console.log('🚫 Request was cancelled');
+      return;
+    }
     console.error("❌ Failed to fetch production center combinations:", err);
     // Fallback to normal fetch without filtering
-    await fetchMattressData(newValue, sizesSorted, null, null, context);
-    setProductionCenterLoading(false);
+    await fetchAllMattressData(newValue, sizesSorted, context, signal);
+    if (!signal.aborted) {
+      setProductionCenterLoading(false);
+      setOrderDataLoading(false); // Stop order data loading
+    }
   }
 };
 
-// Separate function to fetch mattress data with optional filtering
-const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, context) => {
+// Function to fetch ALL mattress data without filtering (loads everything upfront)
+const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
   const {
     setTables,
     setAdhesiveTables,
     setAlongTables,
     setWeftTables,
     setBiasTables,
-    setSelectedProductionCenter,
-    setSelectedCuttingRoom,
-    setSelectedDestination,
+    setAllTables,
+    setAllAdhesiveTables,
+    setAllAlongTables,
+    setAllWeftTables,
+    setAllBiasTables,
     productionCenterCombinations
   } = context;
 
   try {
-    // Build mattress request with optional filtering
-    const mattressParams = {};
-    if (cuttingRoom) mattressParams.cutting_room = cuttingRoom;
-    if (destination) mattressParams.destination = destination;
-
+    // Fetch ALL data without any production center filtering
     const [mattressRes, adhesiveRes, markerRes, alongRes, weftRes, biasRes] = await Promise.all([
-      axios.get(`/mattress/get_by_order/${order.id}`, { params: mattressParams }),
-      axios.get(`/mattress/get_adhesive_by_order/${order.id}`, { params: mattressParams }),
+      axios.get(`/mattress/get_by_order/${order.id}`, { signal }),
+      axios.get(`/mattress/get_adhesive_by_order/${order.id}`, { signal }),
       axios.get(`/markers/marker_headers_planning`, {
-        params: { style: order.style, sizes: sizesSorted.map(s => s.size).join(',') }
+        params: { style: order.style, sizes: sizesSorted.map(s => s.size).join(',') },
+        signal
       }),
-      axios.get(`/collaretto/get_by_order/${order.id}`, { params: mattressParams }),
-      axios.get(`/collaretto/get_weft_by_order/${order.id}`, { params: mattressParams }),
-      axios.get(`/collaretto/get_bias_by_order/${order.id}`, { params: mattressParams })
+      axios.get(`/collaretto/get_by_order/${order.id}`, { signal }),
+      axios.get(`/collaretto/get_weft_by_order/${order.id}`, { signal }),
+      axios.get(`/collaretto/get_bias_by_order/${order.id}`, { signal })
     ]);
+
+    // Check if request was cancelled after Promise.all
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled after data fetch');
+      return;
+    }
 
     const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
       acc[m.marker_name] = m;
@@ -176,6 +179,10 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
       if (!tablesById[tableId]) {
         tablesById[tableId] = {
           id: tableId,
+          // Production center fields from API response
+          productionCenter: mattress.production_center || "",
+          cuttingRoom: mattress.cutting_room || "",
+          destination: mattress.destination || "",
           fabricType: mattress.fabric_type,
           fabricCode: mattress.fabric_code,
           fabricColor: mattress.fabric_color,
@@ -195,6 +202,7 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
         efficiency: marker?.efficiency || "",
         piecesPerSize: marker?.size_quantities || {},
         layers: mattress.layers || "",
+        expectedConsumption: mattress.cons_planned || "", // Planned consumption from DB
         layers_a: mattress.layers_a || "",
         cons_actual: mattress.cons_actual || "",
         cons_real: mattress.cons_real || "",
@@ -208,6 +216,14 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     Object.values(tablesById).forEach(table =>
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
+
+    // Check if request was cancelled before setting state
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled before setting tables');
+      return;
+    }
+
+    // Store tables data
     setTables(Object.values(tablesById));
 
     // Process adhesive tables
@@ -252,20 +268,17 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     Object.values(adhesiveTablesById).forEach(table =>
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
+
+    // Check if request was cancelled before setting state
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled before setting adhesive tables');
+      return;
+    }
+
+    // Store adhesive tables data
     setAdhesiveTables(Object.values(adhesiveTablesById));
 
-    // Set the selected production center, cutting room and destination for display
-    if (cuttingRoom && destination) {
-      // Find the production center from combinations
-      const combo = productionCenterCombinations.find(c =>
-        c.cutting_room === cuttingRoom && c.destination === destination
-      );
-      if (combo) {
-        setSelectedProductionCenter(combo.production_center || '');
-      }
-      setSelectedCuttingRoom(cuttingRoom);
-      setSelectedDestination(destination);
-    }
+
 
     const alongTablesById = {};
     for (const along of alongRes.data?.data || []) {
@@ -273,6 +286,10 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
       if (!alongTablesById[tableId]) {
         alongTablesById[tableId] = {
           id: tableId,
+          // Production center fields (will be loaded separately)
+          productionCenter: "",
+          cuttingRoom: "",
+          destination: "",
           fabricType: along.fabric_type,
           fabricCode: along.fabric_code,
           fabricColor: along.fabric_color,
@@ -303,6 +320,14 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     Object.values(alongTablesById).forEach(table =>
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
+
+    // Check if request was cancelled before setting state
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled before setting along tables');
+      return;
+    }
+
+    // Store along tables data
     setAlongTables(Object.values(alongTablesById));
 
     const weftTablesById = {};
@@ -311,6 +336,10 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
       if (!weftTablesById[tableId]) {
         weftTablesById[tableId] = {
           id: tableId,
+          // Production center fields (will be loaded separately)
+          productionCenter: "",
+          cuttingRoom: "",
+          destination: "",
           fabricType: weft.fabric_type,
           fabricCode: weft.fabric_code,
           fabricColor: weft.fabric_color,
@@ -343,6 +372,14 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     Object.values(weftTablesById).forEach(table =>
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
+
+    // Check if request was cancelled before setting state
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled before setting weft tables');
+      return;
+    }
+
+    // Store weft tables data
     setWeftTables(Object.values(weftTablesById));
 
     // Process bias tables
@@ -352,6 +389,10 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
       if (!biasTablesById[tableId]) {
         biasTablesById[tableId] = {
           id: tableId,
+          // Production center fields (will be loaded separately)
+          productionCenter: "",
+          cuttingRoom: "",
+          destination: "",
           fabricType: bias.fabric_type,
           fabricCode: bias.fabric_code,
           fabricColor: bias.fabric_color,
@@ -388,23 +429,91 @@ const fetchMattressData = async (order, sizesSorted, cuttingRoom, destination, c
     Object.values(biasTablesById).forEach(table =>
       table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
+
+    // Check if request was cancelled before setting state
+    if (signal.aborted) {
+      console.log('🚫 Request was cancelled before setting bias tables');
+      return;
+    }
+
+    // Store bias tables data
     setBiasTables(Object.values(biasTablesById));
 
+    // Fetch production center data for all collaretto tables
+    const allCollarettoTables = [
+      ...Object.values(alongTablesById),
+      ...Object.values(weftTablesById),
+      ...Object.values(biasTablesById)
+    ];
+
+    // Fetch production center data for each collaretto table
+    const productionCenterPromises = allCollarettoTables.map(table =>
+      axios.get(`/mattress/production_center/get/${table.id}`)
+        .then(response => {
+          if (response.data.success && response.data.data) {
+            table.productionCenter = response.data.data.production_center || "";
+            table.cuttingRoom = response.data.data.cutting_room || "";
+            table.destination = response.data.data.destination || "";
+          }
+          return table;
+        })
+        .catch(error => {
+          console.warn(`Failed to load production center data for table ${table.id}:`, error);
+          return table;
+        })
+    );
+
+    // Wait for all production center data to load
+    await Promise.all(productionCenterPromises);
+
+    // Update the state with production center data
+    setAlongTables(Object.values(alongTablesById));
+    setWeftTables(Object.values(weftTablesById));
+    setBiasTables(Object.values(biasTablesById));
+
+    // Stop order data loading after all data is successfully loaded
+    if (!signal.aborted && context.setOrderDataLoading) {
+      console.log('✅ Data loaded successfully, stopping loading');
+      context.setOrderDataLoading(false);
+    }
+
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('🚫 Request was cancelled during data processing');
+      return;
+    }
     console.error("❌ Error in parallel fetch:", error);
-    setTables([]);
-    setAdhesiveTables([]);
-    setAlongTables([]);
-    setWeftTables([]);
-    setBiasTables([]);
+
+    // Only clear state if request wasn't cancelled
+    if (!signal.aborted) {
+      setTables([]);
+      setAdhesiveTables([]);
+      setAlongTables([]);
+      setWeftTables([]);
+      setBiasTables([]);
+
+      // Stop loading even on error
+      if (context.setOrderDataLoading) {
+        console.log('🛑 Error occurred, stopping loading');
+        context.setOrderDataLoading(false);
+      }
+    }
   }
 };
 
 const useHandleOrderChange = (dependencies) => {
+  // Cleanup function to cancel any pending requests
+  const cancelPendingRequests = () => {
+    if (currentRequestController) {
+      console.log('🧹 Cleaning up pending requests');
+      currentRequestController.abort();
+      currentRequestController = null;
+    }
+  };
+
   return {
     onOrderChange: (value) => handleOrderChange(value, dependencies),
-    fetchMattressData: (order, sizesSorted, cuttingRoom, destination) =>
-      fetchMattressData(order, sizesSorted, cuttingRoom, destination, dependencies)
+    cancelPendingRequests
   };
 };
 

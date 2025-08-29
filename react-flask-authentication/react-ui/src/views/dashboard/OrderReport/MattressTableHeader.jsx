@@ -7,7 +7,7 @@ const MattressTableHeader = ({ orderSizes }) => {
       <TableRow>
         <TableCell align="center" sx={{ minWidth: '120px' }}>Mattress</TableCell>
         <TableCell align="center" sx={{ minWidth: '70px' }}>Width [cm]</TableCell>
-        <TableCell align="center" sx={{ minWidth: '400px' }}>Marker Name</TableCell>
+        <TableCell align="center" sx={{ minWidth: '150px', maxWidth: '400px', width: 'auto' }}>Marker Name</TableCell>
 
         {/* Dynamic Sizes 
         {orderSizes.length > 0 &&
@@ -23,9 +23,12 @@ const MattressTableHeader = ({ orderSizes }) => {
 
         <TableCell align="center">Planned Layers</TableCell>
         <TableCell align="center">Actual Layers</TableCell>
+        <TableCell align="center">Planned Pcs</TableCell>
+        <TableCell align="center">Actual Pcs</TableCell>
 
+        <TableCell align="center">Planned Cons [m]</TableCell>
         <TableCell align="center">Actual Cons [m]</TableCell>
-        <TableCell align="center">Real Cons [m]</TableCell>
+        {/* <TableCell align="center">Real Cons [m]</TableCell> */}
 
         <TableCell align="center">Bagno</TableCell>
         <TableCell align="center" sx={{ minWidth: '150px' }}>Progress</TableCell>

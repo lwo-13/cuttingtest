@@ -121,14 +121,26 @@ const NavCollapse = ({ menu, level }) => {
             <ListItemButton
                 className={level > 1 ? classes.listItemNoBack : classes.listItem}
                 sx={{ borderRadius: customization.borderRadius + 'px' }}
-                selected={menu.children?.some((child) => location.pathname === child.url)}
+                selected={menu.children?.some((child) => {
+                    // Handle URLs with query parameters
+                    const childUrl = new URL(child.url, window.location.origin);
+                    const currentUrl = new URL(location.pathname + location.search, window.location.origin);
+                    return currentUrl.pathname === childUrl.pathname &&
+                           currentUrl.search === childUrl.search;
+                })}
                 onClick={handleClick}
                 style={{ paddingLeft: level * 23 + 'px' }}
             >
                 <ListItemIcon className={menuIconClass}>{menuIcon}</ListItemIcon>
                 <ListItemText
                     primary={
-                        <Typography variant="body1" sx={{ fontWeight: menu.children?.some((child) => location.pathname === child.url) ? 600 : 400 }}>
+                        <Typography variant="body1" sx={{ fontWeight: menu.children?.some((child) => {
+                            // Handle URLs with query parameters
+                            const childUrl = new URL(child.url, window.location.origin);
+                            const currentUrl = new URL(location.pathname + location.search, window.location.origin);
+                            return currentUrl.pathname === childUrl.pathname &&
+                                   currentUrl.search === childUrl.search;
+                        }) ? 600 : 400 }}>
                             {menu.title}
                         </Typography>
                     }

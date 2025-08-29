@@ -240,7 +240,7 @@ const useHandleSave = ({
         }
 
         return table.rows.some((row, rowIndex) => {
-          if (!row.pieces || !row.usableWidth || !row.theoreticalConsumption || !row.collarettoWidth || !row.scrapRoll) {
+          if (!row.pieces || !row.usableWidth || !row.theoreticalConsumption || !row.collarettoWidth || row.scrapRoll === null || row.scrapRoll === undefined || row.scrapRoll === '') {
             invalidAlongRow = `Collaretto Along ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields)`;
             return true;
           }
@@ -252,6 +252,7 @@ const useHandleSave = ({
       if (hasInvalidAlongData) {
         setErrorMessage(invalidAlongRow);
         setOpenError(true);
+        setSaving(false);
         return;
       }
 
@@ -268,7 +269,7 @@ const useHandleSave = ({
         }
 
         return table.rows.some((row, rowIndex) => {
-          if (!row.pieces || !row.usableWidth || !row.grossLength || !row.rewoundWidth || !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam) {
+          if (!row.pieces || !row.usableWidth || !row.grossLength || !row.rewoundWidth || !row.collarettoWidth || row.scrapRoll === null || row.scrapRoll === undefined || row.scrapRoll === '' || !row.pcsSeamtoSeam) {
             invalidWeftRow = `Collaretto Weft ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
             return true;
           }
@@ -280,6 +281,7 @@ const useHandleSave = ({
       if (hasInvalidWeftData) {
         setErrorMessage(invalidWeftRow);
         setOpenError(true);
+        setSaving(false);
         return;
       }
 
@@ -298,7 +300,7 @@ const useHandleSave = ({
         return table.rows.some((row, rowIndex) => {
           if (
             !row.pieces || !row.usableWidth || !row.grossLength ||
-            !row.collarettoWidth || !row.scrapRoll || !row.pcsSeamtoSeam
+            !row.collarettoWidth || row.scrapRoll === null || row.scrapRoll === undefined || row.scrapRoll === '' || !row.pcsSeamtoSeam
           ) {
             invalidBiasRow = `Collaretto Bias ${tableIndex + 1}, Row ${rowIndex + 1} is missing required fields`;
             return true;
@@ -311,6 +313,7 @@ const useHandleSave = ({
       if (hasInvalidBiasData) {
         setErrorMessage(invalidBiasRow);
         setOpenError(true);
+        setSaving(false);
         return;
       }
 

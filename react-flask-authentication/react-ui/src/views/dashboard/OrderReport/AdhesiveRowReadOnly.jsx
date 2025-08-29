@@ -34,13 +34,18 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
       {/* Marker Name */}
       <TableCell sx={{
         padding: '4px',
-        minWidth: '250px',
+        minWidth: '150px',
         maxWidth: '400px',
+        width: 'auto',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }}>
-        <Typography sx={{ textAlign: 'center', fontWeight: 'normal' }}>
+        <Typography sx={{
+          textAlign: 'center',
+          fontWeight: 'normal',
+          fontSize: '0.875rem'
+        }}>
           {row.markerName || '-'}
         </Typography>
       </TableCell>
@@ -82,6 +87,46 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
         />
       </TableCell>
 
+      {/* Planned Pcs */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {(() => {
+            if (!row.piecesPerSize || !row.layers) return '-';
+            const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
+            const plannedLayers = parseInt(row.layers) || 0;
+            return totalPieces * plannedLayers;
+          })()}
+        </Typography>
+      </TableCell>
+
+      {/* Actual Pcs */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <TextField
+          variant="outlined"
+          value={(() => {
+            if (!row.piecesPerSize || !row.layers_a) return '';
+            const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
+            const actualLayers = parseInt(row.layers_a) || 0;
+            return totalPieces * actualLayers;
+          })()}
+          InputProps={{ readOnly: true }}
+          sx={{
+            width: '100%',
+            minWidth: '65px',
+            maxWidth: '80px',
+            textAlign: 'center',
+            "& input": { textAlign: 'center', fontWeight: 'normal' }
+          }}
+        />
+      </TableCell>
+
+      {/* Planned Consumption */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.expectedConsumption ? parseFloat(row.expectedConsumption).toFixed(1) : '-'}
+        </Typography>
+      </TableCell>
+
       {/* Actual Consumption */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
@@ -90,7 +135,7 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
       </TableCell>
 
       {/* Real Consumption (KPI) */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      {/* <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <TextField
           variant="outlined"
           value={row.cons_real || ''}
@@ -103,7 +148,7 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
             "& input": { textAlign: 'center', fontWeight: 'normal' }
           }}
         />
-      </TableCell>
+      </TableCell> */}
 
       {/* Bagno */}
       <TableCell sx={{ minWidth: '90px', maxWidth: '120px', textAlign: 'center', padding: '4px' }}>

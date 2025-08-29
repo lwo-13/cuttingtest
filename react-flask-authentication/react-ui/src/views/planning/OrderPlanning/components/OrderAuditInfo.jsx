@@ -66,7 +66,7 @@ const useOrderAuditInfo = (orderCommessa) => {
   };
 
   if (!orderCommessa) {
-    return { createdBy: null, lastModifiedBy: null, refetchAuditData };
+    return { createdBy: null, lastModifiedBy: null, hasAuditData: false, refetchAuditData };
   }
 
   if (loading) {
@@ -93,6 +93,7 @@ const useOrderAuditInfo = (orderCommessa) => {
           />
         </Tooltip>
       ),
+      hasAuditData: false, // Loading state - don't show audit blocks yet
       refetchAuditData
     };
   }
@@ -121,6 +122,7 @@ const useOrderAuditInfo = (orderCommessa) => {
           />
         </Tooltip>
       ),
+      hasAuditData: false, // No audit data available
       refetchAuditData
     };
   }
@@ -148,6 +150,7 @@ const useOrderAuditInfo = (orderCommessa) => {
         />
       </Tooltip>
     ),
+    hasAuditData: true, // Audit data is available
     refetchAuditData
   };
 };

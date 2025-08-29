@@ -106,8 +106,20 @@ const NavItem = ({ item, level }) => {
             sx={{ borderRadius: customization.borderRadius + 'px' }}
             selected={
                 item.children
-                  ? item.children.some((child) => location.pathname === child.url)
-                  : location.pathname === item.url
+                  ? item.children.some((child) => {
+                      // Handle URLs with query parameters
+                      const childUrl = new URL(child.url, window.location.origin);
+                      const currentUrl = new URL(location.pathname + location.search, window.location.origin);
+                      return currentUrl.pathname === childUrl.pathname &&
+                             currentUrl.search === childUrl.search;
+                    })
+                  : (() => {
+                      // Handle URLs with query parameters for single items
+                      const itemUrl = new URL(item.url, window.location.origin);
+                      const currentUrl = new URL(location.pathname + location.search, window.location.origin);
+                      return currentUrl.pathname === itemUrl.pathname &&
+                             currentUrl.search === itemUrl.search;
+                    })()
               }
             onClick={() => itemHandler(item.id)}
             target={itemTarget}

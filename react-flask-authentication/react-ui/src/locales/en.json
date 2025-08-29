@@ -32,6 +32,8 @@
     "cuttingBIAnalytics": "Cutting BI Analytics",
     "fabricConsumptionTracking": "Fabric Consumption Tracking",
     "orderReport": "Order Report",
+    "openOrders": "Open Orders",
+    "finishedOrders": "Finished Orders",
     "todoLists": "To Do Lists",
     "italianRatios": "Italian Ratios",
     "widthChangeApprovals": "Width Change Approvals",

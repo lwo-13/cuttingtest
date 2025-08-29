@@ -54,6 +54,34 @@ const OrderToolbar = ({
             isOptionEqualToValue={(option, value) => option.id === value.id}
             value={selectedOrder || null}
             onChange={(event, newValue) => onOrderChange(newValue || null)}
+            renderOption={(props, option) => (
+              <Box
+                component="li"
+                {...props}
+                sx={{
+                  display: 'flex !important',
+                  justifyContent: 'space-between !important',
+                  alignItems: 'center !important',
+                  width: '100% !important',
+                  minHeight: '48px' // Ensure consistent height
+                }}
+              >
+                <Box sx={{ flex: 1 }}>{option.id}</Box>
+                {option.isFinished && (
+                  <Box
+                    sx={{
+                      color: 'secondary.main', // Purple text
+                      fontSize: '0.75rem',
+                      fontWeight: 'normal',
+                      opacity: 0.65, // 65% opacity
+                      marginLeft: 'auto' // Force to the right
+                    }}
+                  >
+                    Finished
+                  </Box>
+                )}
+              </Box>
+            )}
             renderInput={(params) => (
               <TextField {...params} label={t('orderPlanning.orderCommessa', 'Order/Commessa')} variant="outlined" />
             )}
@@ -109,8 +137,8 @@ const OrderToolbar = ({
         />
       </Grid>
 
-      {/* Order Audit Information - Hidden for subcontractors */}
-      {selectedOrder && !hideAuditInfo && (
+      {/* Order Audit Information - Only show if audit data exists */}
+      {selectedOrder && !hideAuditInfo && auditInfo.hasAuditData && (
         <>
           <Grid item xs={3} sm={2} md={1.5}>
             {auditInfo.createdBy}
