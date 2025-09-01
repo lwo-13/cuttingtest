@@ -172,6 +172,64 @@ const SubcontractorView = () => {
         return { bagnoMeters, bagnoOrder };
     };
 
+    const getWidthsByBagno = (table) => {
+        const bagnoWidths = {};
+        const bagnoOrder = []; // Track the order of bagno appearance
+
+        // Safety check for invalid table
+        if (!table || !table.rows) {
+            return { bagnoWidths, bagnoOrder };
+        }
+
+        table.rows.forEach(row => {
+            // Use "no bagno" for rows without a valid bagno
+            const bagno = row.bagno || 'no bagno';
+            const width = row.width ? parseFloat(row.width) : null;
+
+            // Skip rows without valid width or piecesPerSize
+            if (!width || !row.piecesPerSize || typeof row.piecesPerSize !== 'object') {
+                return;
+            }
+
+            // Use actual layers if available, otherwise planned layers
+            const layers = parseFloat(row.layers_a || row.layers) || 0;
+            if (layers <= 0) {
+                return;
+            }
+
+            // Get consumption for this row
+            const consumption = parseFloat(row.cons_actual || row.expectedConsumption) || 0;
+
+            // Track order when first encountered
+            if (!bagnoWidths[bagno]) {
+                bagnoWidths[bagno] = {};
+                bagnoOrder.push(bagno);
+            }
+
+            // Initialize width entry if it doesn't exist
+            if (!bagnoWidths[bagno][width]) {
+                bagnoWidths[bagno][width] = {
+                    sizeMap: {},
+                    consumption: 0
+                };
+            }
+
+            // Add consumption for this width
+            bagnoWidths[bagno][width].consumption += consumption;
+
+            // Process each size and add to the total for this width
+            Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
+                const pieces = parseInt(pcs) || 0;
+                if (pieces <= 0) return; // Skip sizes with no pieces
+
+                const total = pieces * layers;
+                bagnoWidths[bagno][width].sizeMap[size] = (bagnoWidths[bagno][width].sizeMap[size] || 0) + total;
+            });
+        });
+
+        return { bagnoWidths, bagnoOrder };
+    };
+
     // Consumption calculations not needed for read-only subcontractor view
 
     // Print styles
@@ -797,6 +855,7 @@ const SubcontractorView = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    getWidthsByBagno={getWidthsByBagno}
                                 />
                             </Box>
                         }
@@ -885,6 +944,7 @@ const SubcontractorView = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    getWidthsByBagno={getWidthsByBagno}
                                 />
                             </Box>
                         }

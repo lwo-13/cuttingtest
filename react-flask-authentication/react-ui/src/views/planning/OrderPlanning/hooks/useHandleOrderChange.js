@@ -27,7 +27,9 @@ const handleOrderChange = async (newValue, context) => {
     styleTouched,
     setShowCommentCard,
     // Add loading state setter if available
-    setOrderLoading
+    setOrderLoading,
+    setCombinationComments,
+    setCommentData
   } = context;
 
   if (!newValue) {
@@ -50,6 +52,8 @@ const handleOrderChange = async (newValue, context) => {
     setUnsavedChanges(false);
     setStyleTouched(false);
     if (setShowCommentCard) setShowCommentCard(false);
+    if (setCombinationComments) setCombinationComments({});
+    if (setCommentData) setCommentData({});
 
     // Reset deletion tracking arrays
     if (context.setDeletedMattresses) context.setDeletedMattresses([]);

@@ -81,7 +81,7 @@ import useProductionCenterTabs from 'views/planning/OrderPlanning/hooks/useProdu
 // import useUnsavedChanges from 'views/planning/OrderPlanning/hooks/useUnsavedChanges';
 
 // Utils
-import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
+import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, getWidthsByBagno } from 'views/planning/OrderPlanning/utils/plannedQuantities';
 import { usePrintStyles, handlePrint, getAllDestinations, getDestinationsInTabOrder, handleDestinationPrint } from 'views/planning/OrderPlanning/utils/printUtils';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 import { getCombinationKey } from 'utils/productionCenterConfig';
@@ -172,9 +172,10 @@ const OrderPlanning = () => {
     const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
     const [selectedTableForSummary, setSelectedTableForSummary] = useState(null);
 
-    // State for comment cards
+    // State for comment cards - now stores comments per combination
     const [showCommentCard, setShowCommentCard] = useState(false);
-    const [commentData, setCommentData] = useState({ comment_text: '', hasChanges: false, resetState: null });
+    const [commentData, setCommentData] = useState({}); // { combination_id: { comment_text: '', hasChanges: false, resetState: null } }
+    const [combinationComments, setCombinationComments] = useState({}); // Track which combinations have comments
 
     // State for card collapse/expand functionality
     const [collapsedCards, setCollapsedCards] = useState({
@@ -184,6 +185,9 @@ const OrderPlanning = () => {
         weft: {},      // { tableId: boolean }
         bias: {}       // { tableId: boolean }
     });
+
+    // Ref for ProductionCenterTabs to access combinations (must be declared before useHandleSave)
+    const productionCenterTabsRef = useRef();
 
     // Italian Ratio
     const italianRatios = useItalianRatios(selectedOrder);
@@ -304,7 +308,8 @@ const OrderPlanning = () => {
         setUnsavedChanges,
         commentData,
         auditRefetchFunctionRef,
-        styleCommentData
+        styleCommentData,
+        productionCenterTabsRef
     });
 
     // Order Change
@@ -334,6 +339,8 @@ const OrderPlanning = () => {
         styleTouched,
         setShowCommentCard,
         setOrderLoading, // Add loading state setter
+        setCombinationComments,
+        setCommentData,
         // Deletion tracking setters
         setDeletedMattresses,
         setDeletedAdhesive,
@@ -496,8 +503,7 @@ const OrderPlanning = () => {
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState([]);
 
-    // Ref for ProductionCenterTabs to access switchToDestinationTab function
-    const productionCenterTabsRef = useRef();
+    // Ref for ProductionCenterTabs to access switchToDestinationTab function (declared earlier)
 
     // Enhanced Print Handler
     const handleEnhancedPrint = () => {
@@ -675,19 +681,82 @@ const OrderPlanning = () => {
 
     const handleRemoveComment = () => {
         setShowCommentCard(false);
-        // Mark comment for deletion by setting empty text with changes flag
-        setCommentData({
-            comment_text: '',
-            hasChanges: true,
-            resetState: null,
-            isDeleted: true  // Flag to indicate this comment should be deleted
-        });
+        const combinationId = selectedCombination?.combination_id;
+        if (combinationId) {
+            // Mark comment for deletion by setting empty text with changes flag
+            setCommentData(prev => ({
+                ...prev,
+                [combinationId]: {
+                    comment_text: '',
+                    combination_id: combinationId,
+                    hasChanges: true,
+                    resetState: null,
+                    isDeleted: true  // Flag to indicate this comment should be deleted
+                }
+            }));
+        }
         setUnsavedChanges(true);
     };
 
     const handleCommentChange = (data) => {
-        setCommentData(data);
+        const combinationId = selectedCombination?.combination_id;
+        if (combinationId) {
+            setCommentData(prev => ({
+                ...prev,
+                [combinationId]: data
+            }));
+        }
     };
+
+    const handleCommentExists = (exists) => {
+        if (exists && selectedCombination?.combination_id) {
+            setCombinationComments(prev => ({
+                ...prev,
+                [selectedCombination.combination_id]: true
+            }));
+            setShowCommentCard(true);
+        }
+    };
+
+    // Check for existing comments when combination changes
+    const checkExistingComment = async (combination) => {
+        if (!selectedOrder?.id || !combination?.combination_id) return;
+
+        try {
+            const url = `/orders/comments/get/${selectedOrder.id}/${combination.combination_id}`;
+            const response = await axios.get(url);
+
+            if (response.data.success && response.data.data?.comment_text?.trim()) {
+                setCombinationComments(prev => ({
+                    ...prev,
+                    [combination.combination_id]: true
+                }));
+            }
+        } catch (error) {
+            console.error('Error checking existing comment:', error);
+        }
+    };
+
+    // Check if current combination should show comment card
+    const shouldShowCommentCard = showCommentCard ||
+        (selectedCombination?.combination_id && combinationComments[selectedCombination.combination_id]);
+
+    // Check for existing comments when combination changes
+    useEffect(() => {
+        if (selectedCombination?.combination_id) {
+            checkExistingComment(selectedCombination);
+        }
+    }, [selectedCombination?.combination_id, selectedOrder?.id]);
+
+    // Reset showCommentCard when switching combinations (but keep it if combination has existing comment)
+    useEffect(() => {
+        if (selectedCombination?.combination_id) {
+            const hasExistingComment = combinationComments[selectedCombination.combination_id];
+            if (!hasExistingComment) {
+                setShowCommentCard(false);
+            }
+        }
+    }, [selectedCombination?.combination_id, combinationComments]);
 
 
 
@@ -1375,49 +1444,64 @@ const OrderPlanning = () => {
         };
     }, [unsavedChanges, saving, handleSave]);
 
-    // Fetch order data from Flask API
+    // Fetch order data from Flask API with WIP detection
     useEffect(() => {
-        axios.get('/orders/order_lines')
-            .then(response => {
-                if (response.data.success) {
-                    const ordersMap = new Map();
+        Promise.all([
+            axios.get('/orders/order_lines'),
+            axios.get('/mattress/order_ids')  // Get orders that have mattresses (WIP detection)
+        ])
+            .then(([ordersRes, mattressRes]) => {
+                if (!ordersRes.data.success || !mattressRes.data.success) {
+                    console.error("Failed to fetch order or mattress data");
+                    return;
+                }
 
-                    response.data.data.forEach(row => {
-                        if (row.status === 3) {  // ✅ Only include status = 3
-                            if (!ordersMap.has(row.order_commessa)) {
-                                ordersMap.set(row.order_commessa, {
-                                    id: row.order_commessa,  // ✅ Use only id
-                                    style: row.style,  // ✅ Unique style per order
-                                    season: row.season,  // ✅ Unique season per order
-                                    colorCode: row.color_code,  // ✅ Unique color code per order
-                                    sizes: []  // ✅ Initialize array for sizes
-                                });
-                            }
+                // Create set of order IDs that have mattresses (WIP orders)
+                const wipOrderIds = new Set(
+                    (mattressRes.data.data || []).map(item => item.order_commessa)
+                );
 
-                            // Append sizes dynamically
-                            ordersMap.get(row.order_commessa).sizes.push({
-                                size: row.size,
-                                qty: parseFloat(row.quantity.toString().replace(",", "")) || 0 // ✅ Convert quantity to number
+                const ordersMap = new Map();
+
+                ordersRes.data.data.forEach(row => {
+                    if (row.status === 3) {  // ✅ Only include status = 3
+                        if (!ordersMap.has(row.order_commessa)) {
+                            ordersMap.set(row.order_commessa, {
+                                id: row.order_commessa,  // ✅ Use only id
+                                style: row.style,  // ✅ Unique style per order
+                                season: row.season,  // ✅ Unique season per order
+                                colorCode: row.color_code,  // ✅ Unique color code per order
+                                sizes: [],  // ✅ Initialize array for sizes
+                                isWIP: wipOrderIds.has(row.order_commessa)  // ✅ Add WIP flag
                             });
                         }
-                    });
 
-                    const sortedOrders = Array.from(ordersMap.values()).map(order => ({
-                        ...order,
-                        sizes: sortSizes(order.sizes || [])
-                    }));
-                    setOrderOptions(sortedOrders);
+                        // Append sizes dynamically
+                        ordersMap.get(row.order_commessa).sizes.push({
+                            size: row.size,
+                            qty: parseFloat(row.quantity.toString().replace(",", "")) || 0 // ✅ Convert quantity to number
+                        });
+                    }
+                });
 
-                    const uniqueStyles = [
-                        ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
-                      ];
-                      setStyleOptions(uniqueStyles);
-                } else {
-                    // Failed to fetch orders
-                }
+                const sortedOrders = Array.from(ordersMap.values()).map(order => ({
+                    ...order,
+                    sizes: sortSizes(order.sizes || [])
+                }));
+
+                console.log('📊 Order Planning WIP Detection:');
+                console.log('Total orders:', sortedOrders.length);
+                console.log('WIP orders:', sortedOrders.filter(o => o.isWIP).length);
+
+                setOrderOptions(sortedOrders);
+
+                const uniqueStyles = [
+                    ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
+                  ];
+                  setStyleOptions(uniqueStyles);
             })
-            .catch(() => {
-                // Error fetching order data
+            .catch((error) => {
+                console.error("Error fetching order data:", error);
             });
     }, []);
 
@@ -1742,6 +1826,7 @@ const OrderPlanning = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    getWidthsByBagno={getWidthsByBagno}
                                 />
                             </Box>
 
@@ -1863,6 +1948,7 @@ const OrderPlanning = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    getWidthsByBagno={getWidthsByBagno}
                                 />
                             </Box>
 
@@ -2165,14 +2251,16 @@ const OrderPlanning = () => {
                 </React.Fragment>
             ))}
 
-            {/* Comment Card Section */}
-            {selectedOrder && showCommentCard && (
+            {/* Production Center Comment Card Section */}
+            {selectedOrder && selectedCombination && shouldShowCommentCard && (
                 <Box mt={3}>
                     <CommentCard
                         selectedOrder={selectedOrder}
+                        selectedCombination={selectedCombination}
                         onRemove={handleRemoveComment}
                         setUnsavedChanges={setUnsavedChanges}
                         onCommentChange={handleCommentChange}
+                        onCommentExists={handleCommentExists}
                     />
                 </Box>
             )}
@@ -2225,7 +2313,7 @@ const OrderPlanning = () => {
                         {t('orderPlanning.addCollarettoBias', 'Add Collaretto Bias (Sbieco)')}
                     </Button>
 
-                    {!showCommentCard && (
+                    {!shouldShowCommentCard && (
                         <Button
                             variant="contained"
                             color="success"

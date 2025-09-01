@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
-const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChange }) => {
+const CommentCard = ({ selectedOrder, selectedCombination, onRemove, setUnsavedChanges, onCommentChange, onCommentExists }) => {
   const { t } = useTranslation();
   const [comment, setComment] = useState('');
   const [originalComment, setOriginalComment] = useState('');
@@ -27,7 +27,7 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
     severity: 'success'
   });
 
-  // Load existing order comment when order changes
+  // Load existing order comment when order or combination changes
   useEffect(() => {
     if (selectedOrder?.id) {
       loadOrderComment();
@@ -36,7 +36,7 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
       setOriginalComment('');
       setHasUnsavedChanges(false);
     }
-  }, [selectedOrder?.id]);
+  }, [selectedOrder?.id, selectedCombination?.combination_id]);
 
   // Track changes and update parent unsaved state
   useEffect(() => {
@@ -52,20 +52,31 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
     if (onCommentChange) {
       onCommentChange({
         comment_text: comment.trim(),
+        combination_id: selectedCombination?.combination_id,
         hasChanges: hasUnsavedChanges,
         resetState: resetCommentState
       });
     }
-  }, [comment, hasUnsavedChanges]); // Removed onCommentChange from dependencies to prevent infinite loops
+  }, [comment, hasUnsavedChanges, selectedCombination?.combination_id]); // Removed onCommentChange from dependencies to prevent infinite loops
 
   const loadOrderComment = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`/orders/comments/get/${selectedOrder.id}`);
+      const combinationId = selectedCombination?.combination_id;
+      const url = combinationId
+        ? `/orders/comments/get/${selectedOrder.id}/${combinationId}`
+        : `/orders/comments/get/${selectedOrder.id}`;
+
+      const response = await axios.get(url);
       if (response.data.success) {
         const commentText = response.data.data?.comment_text || '';
         setComment(commentText);
         setOriginalComment(commentText);
+
+        // Notify parent if there's existing comment data
+        if (onCommentExists && commentText.trim()) {
+          onCommentExists(true);
+        }
       }
     } catch (error) {
       console.error('Error loading comment:', error);
@@ -155,6 +166,11 @@ const CommentCard = ({ selectedOrder, onRemove, setUnsavedChanges, onCommentChan
               value={comment || ''}
               onChange={(e) => setComment(e.target.value)}
               disabled={loading}
+              sx={{
+                '& .MuiInputBase-input': {
+                  fontWeight: 'normal'
+                }
+              }}
             />
           )}
         </Collapse>

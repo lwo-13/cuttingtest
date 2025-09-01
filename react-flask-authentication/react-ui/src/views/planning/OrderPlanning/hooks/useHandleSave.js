@@ -40,7 +40,8 @@ const useHandleSave = ({
   setUnsavedChanges,
   commentData,
   auditRefetchFunctionRef,
-  styleCommentData
+  styleCommentData,
+  productionCenterTabsRef
 }) => {
   const [saving, setSaving] = useState(false);
 
@@ -759,6 +760,33 @@ const useHandleSave = ({
 
 
 
+      // ✅ Save production center combinations first
+      const saveProductionCenterCombinations = () => {
+        const combinations = productionCenterTabsRef?.current?.getCombinations?.();
+
+        if (!combinations || combinations.length === 0) {
+          console.log("✅ No production center combinations to save");
+          return Promise.resolve();
+        }
+
+        console.log(`💾 Saving ${combinations.length} production center combinations...`);
+        return axios.post('/orders/production_center_combinations/save', {
+          order_commessa: selectedOrder.id,
+          combinations: combinations
+        }).then(response => {
+          if (response.data.success) {
+            console.log("✅ Production center combinations saved successfully");
+            return true;
+          } else {
+            console.warn("⚠️ Failed to save production center combinations:", response.data.msg);
+            return false;
+          }
+        }).catch(error => {
+          console.error("❌ Error saving production center combinations:", error.response?.data || error.message);
+          throw error;
+        });
+      };
+
       // ✅ Save production center data for all table types using unified endpoint
       const saveAllProductionCenters = () => {
         // Combine all tables with their respective table types
@@ -797,7 +825,8 @@ const useHandleSave = ({
         });
       };
 
-      saveAllProductionCenters()
+      saveProductionCenterCombinations()
+        .then(() => saveAllProductionCenters())
         .then(() => saveMattresses())
         .then(() => saveAdhesives())
         .then(() => saveAlongRows())
@@ -984,29 +1013,40 @@ const useHandleSave = ({
           }
         })
         .then(() => {
-          // ✅ Save comment if there are changes (including deletions)
-          if (commentData && commentData.hasChanges && selectedOrder) {
-            return axios.post('/orders/comments/save', {
-              order_commessa: selectedOrder.id,
-              comment_text: commentData.comment_text  // Empty string for deletions
-            }).then(response => {
-              if (response.data.success) {
-                if (commentData.isDeleted) {
-                  console.log('✅ Comment deleted successfully');
-                } else {
-                  console.log('✅ Comment saved successfully');
-                }
-                // Reset comment state
-                if (commentData.resetState) {
-                  commentData.resetState();
-                }
-              } else {
-                console.warn('⚠️ Failed to save comment:', response.data.msg);
+          // ✅ Save all comments that have changes (including deletions)
+          const commentPromises = [];
+
+          if (commentData && selectedOrder) {
+            Object.values(commentData).forEach(comment => {
+              if (comment && comment.hasChanges) {
+                const commentPromise = axios.post('/orders/comments/save', {
+                  order_commessa: selectedOrder.id,
+                  combination_id: comment.combination_id,
+                  comment_text: comment.comment_text  // Empty string for deletions
+                }).then(response => {
+                  if (response.data.success) {
+                    if (comment.isDeleted) {
+                      console.log('✅ Comment deleted successfully for combination:', comment.combination_id);
+                    } else {
+                      console.log('✅ Comment saved successfully for combination:', comment.combination_id);
+                    }
+                    // Reset comment state
+                    if (comment.resetState) {
+                      comment.resetState();
+                    }
+                  } else {
+                    console.warn('⚠️ Failed to save comment for combination:', comment.combination_id, response.data.msg);
+                  }
+                }).catch(error => {
+                  console.error('❌ Error saving comment for combination:', comment.combination_id, error);
+                });
+
+                commentPromises.push(commentPromise);
               }
-            }).catch(error => {
-              console.error('❌ Error saving comment:', error);
             });
           }
+
+          return Promise.all(commentPromises);
         })
         .then(async () => {
           // ✅ Save style comment data if available

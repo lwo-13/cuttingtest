@@ -4,9 +4,9 @@ import { Box, Typography } from '@mui/material';
 const AdhesiveActionRowReadOnly = ({ table }) => {
   const rows = table.rows || [];
 
-  // Sum of expectedConsumption (Total Consumption)
+  // Sum of cons_planned (Total Consumption)
   const totalConsumption = rows.reduce((sum, row) => {
-    const val = parseFloat(row.expectedConsumption);
+    const val = parseFloat(row.cons_planned);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
@@ -41,7 +41,7 @@ const AdhesiveActionRowReadOnly = ({ table }) => {
               Avg Cons: {avgConsumption.toFixed(2)} m/pc
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              Total Cons: {totalConsumption.toFixed(0)} m
+              Total Cons: {totalConsumption.toFixed(0).toLocaleString()} m
             </Typography>
           </Box>
         )}

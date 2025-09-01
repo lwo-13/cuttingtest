@@ -441,15 +441,22 @@ class OrderComments(db.Model):
     __tablename__ = 'order_comments'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
+    order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    combination_id = db.Column(db.String(36), nullable=True)  # Links to OrderProductionCenter.combination_id
     comment_text = db.Column(db.UnicodeText(collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    # Create a unique constraint on the combination of order_commessa and combination_id
+    __table_args__ = (
+        db.UniqueConstraint('order_commessa', 'combination_id', name='uq_order_comments_combination'),
+    )
 
     def to_dict(self):
         return {
             "id": self.id,
             "order_commessa": self.order_commessa,
+            "combination_id": self.combination_id,
             "comment_text": self.comment_text,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

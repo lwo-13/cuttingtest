@@ -53,6 +53,8 @@ const ProductionCenterTabs = forwardRef(({
     const [combinations, setCombinations] = useState([]);
     const [activeTab, setActiveTab] = useState(0);
     const [openDialog, setOpenDialog] = useState(false);
+    const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+    const [combinationToDelete, setCombinationToDelete] = useState(null);
     const [editingCombination, setEditingCombination] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -177,7 +179,7 @@ const ProductionCenterTabs = forwardRef(({
 
 
 
-    const handleAddCombination = () => {
+    const handleOpenAddDialog = () => {
         setEditingCombination(null);
         setFormData({
             production_center: '',
@@ -265,14 +267,18 @@ const ProductionCenterTabs = forwardRef(({
     };
 
     const handleDeleteCombination = async (combination) => {
-        if (combinations.length <= 1) {
-            setError('Cannot delete the last production center combination');
-            return;
-        }
+        // Allow deletion even if it's the last production center combination
+        // Open confirmation dialog instead of window.confirm
+        setCombinationToDelete(combination);
+        setOpenDeleteDialog(true);
+    };
 
-        if (!window.confirm('Are you sure you want to delete this production center combination? All related tables will be removed.')) {
-            return;
-        }
+    const handleConfirmDelete = async () => {
+        const combination = combinationToDelete;
+        if (!combination) return;
+
+        setOpenDeleteDialog(false);
+        setCombinationToDelete(null);
 
         try {
             // Find all tables that use this combination
@@ -449,7 +455,12 @@ const ProductionCenterTabs = forwardRef(({
         }
     };
 
-    const handleSaveCombination = async () => {
+    const handleCancelDelete = () => {
+        setOpenDeleteDialog(false);
+        setCombinationToDelete(null);
+    };
+
+    const handleAddCombination = async () => {
         if (!formData.cutting_room) {
             setError('Cutting room is required');
             return;
@@ -464,10 +475,10 @@ const ProductionCenterTabs = forwardRef(({
         try {
             const newCombination = {
                 ...formData,
-                combination_id: editingCombination?.combination_id
+                combination_id: editingCombination?.combination_id || `combo_${Date.now()}`
             };
 
-            console.log('🔧 Saving combination:', {
+            console.log('➕ Adding combination locally:', {
                 isEditing: !!editingCombination,
                 editingId: editingCombination?.combination_id,
                 newCombination,
@@ -483,21 +494,12 @@ const ProductionCenterTabs = forwardRef(({
                 console.log('📝 Updated combinations for edit:', updatedCombinations);
             } else {
                 // Add new combination
-                newCombination.combination_id = `combo_${Date.now()}`;
                 updatedCombinations = [...combinations, newCombination];
                 console.log('➕ Updated combinations for add:', updatedCombinations);
             }
 
-            // Save to backend
-            console.log('💾 Sending to API:', {
-                order_commessa: selectedOrder.id,
-                combinations: updatedCombinations
-            });
-
-            await axios.post('/orders/production_center_combinations/save', {
-                order_commessa: selectedOrder.id,
-                combinations: updatedCombinations
-            });
+            // Update local state only (no API call)
+            setCombinations(updatedCombinations);
 
             // If we're editing an existing combination, we need to update all tables
             // that were assigned to the old combination with the new values
@@ -517,16 +519,21 @@ const ProductionCenterTabs = forwardRef(({
                 if (onCombinationChange) {
                     onCombinationChange(newCombination);
                 }
+            } else if (!editingCombination) {
+                // For new combinations, auto-select the newly added combination
+                if (onCombinationChange) {
+                    onCombinationChange(newCombination);
+                }
+                setActiveTab(updatedCombinations.length - 1); // Switch to the new tab
             }
 
-            await fetchCombinations();
             setOpenDialog(false);
             setEditingCombination(null);
             setError('');
-            setUnsavedChanges(true);
+            setUnsavedChanges(true); // Mark as having unsaved changes
         } catch (error) {
-            console.error('Error saving combination:', error);
-            setError('Failed to save combination');
+            console.error('Error adding combination:', error);
+            setError('Failed to add combination');
         }
     };
 
@@ -575,7 +582,7 @@ const ProductionCenterTabs = forwardRef(({
                 <Button
                     variant="outlined"
                     startIcon={<Add />}
-                    onClick={handleAddCombination}
+                    onClick={handleOpenAddDialog}
                     size="small"
                 >
                     Add Configuration
@@ -623,19 +630,17 @@ const ProductionCenterTabs = forwardRef(({
                                                     '&:hover': { color: 'primary.main' }
                                                 }}
                                             />
-                                            {combinations.length > 1 && (
-                                                <Delete
-                                                    fontSize="small"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteCombination(combination);
-                                                    }}
-                                                    sx={{
-                                                        cursor: 'pointer',
-                                                        '&:hover': { color: 'error.main' }
-                                                    }}
-                                                />
-                                            )}
+                                            <Delete
+                                                fontSize="small"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteCombination(combination);
+                                                }}
+                                                sx={{
+                                                    cursor: 'pointer',
+                                                    '&:hover': { color: 'error.main' }
+                                                }}
+                                            />
                                         </Box>
                                     }
                                 />
@@ -770,8 +775,89 @@ const ProductionCenterTabs = forwardRef(({
                     <Button onClick={handleCloseDialog} startIcon={<Cancel />}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSaveCombination} variant="contained" startIcon={<Save />}>
-                        Save
+                    <Button onClick={handleAddCombination} variant="contained" startIcon={<Save />}>
+                        {editingCombination ? 'Update' : 'Add'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={openDeleteDialog}
+                onClose={handleCancelDelete}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{
+                    color: 'error.main',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                }}>
+                    <Delete color="error" />
+                    Remove Production Center
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                        You are about to remove the production center configuration:
+                    </Typography>
+
+                    {combinationToDelete && (
+                        <Box sx={{
+                            p: 2,
+                            bgcolor: 'grey.100',
+                            borderRadius: 1,
+                            mb: 2,
+                            border: '1px solid',
+                            borderColor: 'grey.300'
+                        }}>
+                            <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
+                                {combinationToDelete.production_center} - {combinationToDelete.cutting_room}
+                                {combinationToDelete.destination && ` → ${combinationToDelete.destination}`}
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {combinations.length <= 1 && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            <Typography variant="body2">
+                                <strong>Note:</strong> This is the last production center configuration for this order.
+                                Removing it will leave the order without any production center assignment.
+                            </Typography>
+                        </Alert>
+                    )}
+
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        <Typography variant="body2">
+                            <strong>This will also remove:</strong>
+                        </Typography>
+                        <Typography variant="body2" component="ul" sx={{ mt: 1, pl: 2 }}>
+                            <li>All mattress tables assigned to this production center</li>
+                            <li>All collaretto tables (Along, Weft, Bias) for this configuration</li>
+                            <li>All data and calculations within these tables</li>
+                        </Typography>
+                    </Alert>
+
+                    <Typography variant="body2" color="text.secondary">
+                        This action cannot be undone. Are you sure you want to continue?
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button
+                        onClick={handleCancelDelete}
+                        variant="outlined"
+                        startIcon={<Cancel />}
+                    >
+                        Keep Configuration
+                    </Button>
+                    <Button
+                        onClick={handleConfirmDelete}
+                        variant="contained"
+                        color="error"
+                        startIcon={<Delete />}
+                    >
+                        Remove Everything
                     </Button>
                 </DialogActions>
             </Dialog>

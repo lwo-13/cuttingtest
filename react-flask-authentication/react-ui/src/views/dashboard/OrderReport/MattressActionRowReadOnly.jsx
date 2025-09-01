@@ -4,30 +4,38 @@ import { Box, Typography } from '@mui/material';
 const MattressActionRowReadOnly = ({ table }) => {
   const rows = table.rows || [];
 
+  // Sum of cons_planned (Planned Total)
+  const plannedTotal = rows.reduce((sum, row) => {
+    const val = parseFloat(row.cons_planned);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
   // Sum of cons_actual (Expected Total)
   const expectedTotal = rows.reduce((sum, row) => {
     const val = parseFloat(row.cons_actual);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
-  // Sum of cons_real (Real/Total Cons)
-  const realTotal = rows.reduce((sum, row) => {
-    const val = parseFloat(row.cons_real);
-    return sum + (isNaN(val) ? 0 : val);
-  }, 0);
-
-  // Total pieces for actual avg
-  const totalPieces = rows.reduce((total, row) => {
+  // Total planned pieces (using planned layers)
+  const totalPlannedPieces = rows.reduce((total, row) => {
     const pcsPerSize = row.piecesPerSize || {};
     const piecesPerLayer = Object.values(pcsPerSize).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-    const layers = parseFloat(row.layers_a) || 0;
-    return total + (piecesPerLayer * layers);
+    const plannedLayers = parseFloat(row.layers) || 0; // Use planned layers
+    return total + (piecesPerLayer * plannedLayers);
   }, 0);
 
-  const expectedAvg = totalPieces > 0 ? expectedTotal / totalPieces : 0;
-  const realAvg = totalPieces > 0 ? realTotal / totalPieces : 0;
+  // Total actual pieces (using actual layers)
+  const totalActualPieces = rows.reduce((total, row) => {
+    const pcsPerSize = row.piecesPerSize || {};
+    const piecesPerLayer = Object.values(pcsPerSize).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+    const actualLayers = parseFloat(row.layers_a) || 0; // Use actual layers
+    return total + (piecesPerLayer * actualLayers);
+  }, 0);
 
-  const showConsumption = expectedTotal > 0 || realTotal > 0;
+  const plannedAvg = totalPlannedPieces > 0 ? plannedTotal / totalPlannedPieces : 0;
+  const expectedAvg = totalActualPieces > 0 ? expectedTotal / totalActualPieces : 0;
+
+  const showConsumption = (plannedTotal > 0 && totalPlannedPieces > 0) || (expectedTotal > 0 && totalActualPieces > 0);
 
   return (
     <Box
@@ -43,16 +51,16 @@ const MattressActionRowReadOnly = ({ table }) => {
       {showConsumption && (
         <>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+            Planned Avg Cons: {plannedAvg.toFixed(2)} m/pc
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+            Planned Total Cons: {plannedTotal.toFixed(0).toLocaleString()} m
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
             Expected Avg Cons: {expectedAvg.toFixed(2)} m/pc
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Expected Total Cons: {expectedTotal.toFixed(0)} m
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Avg Cons: {realAvg.toFixed(2)} m/pc
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Total Cons: {realTotal.toFixed(0)} m
+            Expected Total Cons: {expectedTotal.toFixed(0).toLocaleString()} m
           </Typography>
         </>
       )}

@@ -2,22 +2,23 @@ import React, { useState, Fragment } from 'react';
 import {
   Box, Typography, Dialog, DialogContent, DialogActions,
   Button, Table, TableBody, TableCell, TableHead, TableRow, TextField,
-  IconButton, Collapse, Chip
+  IconButton, Collapse, FormControlLabel, Switch
 } from '@mui/material';
-import { ExpandMore, ExpandLess, Add, Remove } from '@mui/icons-material';
+import { ExpandMore, ExpandLess } from '@mui/icons-material';
 
-const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, showHelpers = true }) => {
+const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, getWidthsByBagno, showHelpers = true }) => {
   const [open, setOpen] = useState(false);
   const [collarettoConsumption, setCollarettoConsumption] = useState('');
   const [adhesiveConsumption, setAdhesiveConsumption] = useState('');
   const [collarettoHelperExpanded, setCollarettoHelperExpanded] = useState(false);
   const [adhesiveHelperExpanded, setAdhesiveHelperExpanded] = useState(false);
-  const [expandedBagnos, setExpandedBagnos] = useState({});
-  const [bagnoWidths, setBagnoWidths] = useState({});
+  const [showWidthColumn, setShowWidthColumn] = useState(true);
+
 
   const planned = getTablePlannedQuantities(table);
   const { bagnoMap: plannedByBagno, bagnoOrder } = getTablePlannedByBagno(table);
   const { bagnoMeters: metersByBagno } = getMetersByBagno(table);
+  const { bagnoWidths: widthsByBagno } = getWidthsByBagno ? getWidthsByBagno(table) : { bagnoWidths: {} };
 
   const hasRealQty = Object.values(planned).some(qty => qty > 0);
   if (!hasRealQty) return null;
@@ -25,44 +26,9 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  // Bagno width splitting functions
-  const toggleBagnoExpansion = (bagno) => {
-    setExpandedBagnos(prev => ({
-      ...prev,
-      [bagno]: !prev[bagno]
-    }));
 
-    // Initialize width splits if not exists
-    if (!bagnoWidths[bagno]) {
-      setBagnoWidths(prev => ({
-        ...prev,
-        [bagno]: [{ width: '', quantity: '' }]
-      }));
-    }
-  };
 
-  const updateBagnoWidth = (bagno, index, field, value) => {
-    setBagnoWidths(prev => ({
-      ...prev,
-      [bagno]: prev[bagno]?.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      ) || []
-    }));
-  };
 
-  const addBagnoWidth = (bagno) => {
-    setBagnoWidths(prev => ({
-      ...prev,
-      [bagno]: [...(prev[bagno] || []), { width: '', quantity: '' }]
-    }));
-  };
-
-  const removeBagnoWidth = (bagno, index) => {
-    setBagnoWidths(prev => ({
-      ...prev,
-      [bagno]: prev[bagno]?.filter((_, i) => i !== index) || []
-    }));
-  };
 
 
 
@@ -126,15 +92,59 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
       ? Object.values(metersByBagno).reduce((sum, val) => sum + val, 0)
       : 0;
 
+    // Create expanded rows that include width information
+    const expandedRows = [];
+
+    (bagnoOrder || []).forEach(bagno => {
+      const bagnoWidthData = widthsByBagno[bagno] || {};
+      const bagnoSizeMap = plannedByBagno[bagno] || {};
+
+      if (showWidthColumn && Object.keys(bagnoWidthData).length > 0) {
+        // If width column is shown and bagno has width data, create separate rows for each width
+        Object.entries(bagnoWidthData)
+          .sort(([a], [b]) => parseFloat(a) - parseFloat(b)) // Sort by width ascending
+          .forEach(([width, widthData], index) => {
+            expandedRows.push({
+              bagno,
+              width: parseFloat(width),
+              sizeMap: widthData.sizeMap,
+              consumption: widthData.consumption,
+              isWidthRow: true,
+              isFirstWidthRow: index === 0, // Mark the first width row to show bagno name
+              bagnoRowSpan: Object.keys(bagnoWidthData).length // How many rows this bagno spans
+            });
+          });
+      } else {
+        // If width column is hidden OR no width data, show as regular bagno row
+        expandedRows.push({
+          bagno,
+          width: null,
+          sizeMap: bagnoSizeMap,
+          isWidthRow: false,
+          isFirstWidthRow: true, // Single row, so it shows bagno name
+          bagnoRowSpan: 1
+        });
+      }
+    });
+
     // Build header cells array to avoid whitespace issues
     const headerCells = [
-      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>,
+      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
+    ];
+
+    if (showWidthColumn) {
+      headerCells.push(
+        <TableCell key="width" align="center" sx={{ fontWeight: 'bold', minWidth: '80px' }}>Width [cm]</TableCell>
+      );
+    }
+
+    headerCells.push(
       ...uniqueSizes.map(size => (
         <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
       )),
       <TableCell key="total" align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>,
       <TableCell key="cons" align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
-    ];
+    );
 
     if (collarettoConsumption || adhesiveConsumption) {
       headerCells.push(
@@ -170,171 +180,105 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
           <TableRow>{headerCells}</TableRow>
         </TableHead>
         <TableBody>
-          {(bagnoOrder || []).map((bagno) => {
-            const sizeMap = plannedByBagno[bagno] || {};
+          {expandedRows.map((row, index) => {
+            const { bagno, width, sizeMap, isWidthRow, isFirstWidthRow, bagnoRowSpan } = row;
             const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
-            const mattressConsForBagno = metersByBagno[bagno] || 0;
-            const collarettoConsForBagno = total * parseFloat(collarettoConsumption || 0);
-            const adhesiveConsForBagno = total * parseFloat(adhesiveConsumption || 0);
+
+            // Use the actual consumption from the row data
+            const consumption = isWidthRow ? (row.consumption || 0) : (metersByBagno[bagno] || 0);
+
+            const collarettoConsForRow = total * parseFloat(collarettoConsumption || 0);
+            const adhesiveConsForRow = total * parseFloat(adhesiveConsumption || 0);
 
             // Build row cells array to avoid whitespace issues
-            const rowCells = [
-              <TableCell key="bagno" align="center">{bagno}</TableCell>,
+            const rowCells = [];
+
+            // Bagno cell - only show on first row of each bagno group
+            if (isFirstWidthRow) {
+              rowCells.push(
+                <TableCell
+                  key="bagno"
+                  align="center"
+                  rowSpan={bagnoRowSpan}
+                  sx={{
+                    fontWeight: 500,
+                    verticalAlign: 'middle'
+                  }}
+                >
+                  {bagno}
+                </TableCell>
+              );
+            }
+
+            // Add width cell if width column is shown
+            if (showWidthColumn) {
+              rowCells.push(
+                <TableCell key="width" align="center">
+                  {width ? width : '-'}
+                </TableCell>
+              );
+            }
+
+            // Add remaining cells
+            rowCells.push(
               ...uniqueSizes.map(size => (
                 <TableCell key={size} align="center">
                   {sizeMap[size] || 0}
                 </TableCell>
               )),
-              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>,
+              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>
+                {total}
+              </TableCell>,
               <TableCell key="cons" align="center" sx={{ fontWeight: 500 }}>
-                {mattressConsForBagno.toFixed(0)}
+                {consumption.toFixed(1)}
               </TableCell>
-            ];
+            );
 
             if (collarettoConsumption || adhesiveConsumption) {
               rowCells.push(
-                <TableCell key="extra-cons" align="center" sx={{ fontWeight: 500 }}>
+                <TableCell key="extra-cons" align="center" sx={{
+                  fontWeight: 500,
+                  backgroundColor: isWidthRow ? '#f8f9fa' : 'inherit'
+                }}>
                   <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
                     <Typography component="span" sx={{ color: 'black' }}>
-                      {Math.round(mattressConsForBagno)}
+                      {Math.round(consumption)}
                     </Typography>
                     {collarettoConsumption && (
                       <Typography component="span" sx={{ color: '#673ab7' }}>
-                        {" + " + Math.round(collarettoConsForBagno)}
+                        {" + " + Math.round(collarettoConsForRow)}
                       </Typography>
                     )}
                     {adhesiveConsumption && (
                       <Typography component="span" sx={{ color: '#ff9800' }}>
-                        {" + " + Math.round(adhesiveConsForBagno)}
+                        {" + " + Math.round(adhesiveConsForRow)}
                       </Typography>
                     )}
                     <Typography component="span" sx={{ color: 'black' }}>
-                      {" = " + Math.round(mattressConsForBagno + collarettoConsForBagno + adhesiveConsForBagno)}
+                      {" = " + Math.round(consumption + collarettoConsForRow + adhesiveConsForRow)}
                     </Typography>
-                    {/* Width splitting toggle button */}
-                    {collarettoConsumption && (
-                      <IconButton
-                        size="small"
-                        onClick={() => toggleBagnoExpansion(bagno)}
-                        sx={{ ml: 0.5, color: '#673ab7' }}
-                      >
-                        {expandedBagnos[bagno] ? <ExpandLess /> : <ExpandMore />}
-                      </IconButton>
-                    )}
                   </Box>
                 </TableCell>
               );
             }
 
             return (
-              <Fragment key={bagno}>
-                <TableRow>{rowCells}</TableRow>
-                {/* Width splitting row - expands RIGHT HERE under each bagno */}
-                {expandedBagnos[bagno] && collarettoConsumption && (
-                  <TableRow>
-                    <TableCell colSpan={uniqueSizes.length + (collarettoConsumption || adhesiveConsumption ? 3 : 2)} sx={{ p: 0, border: 'none' }}>
-                      <Collapse in={expandedBagnos[bagno]}>
-                        <Box sx={{ p: 2, bgcolor: '#f8f9fa', border: '1px solid #e0e0e0', borderRadius: 1, m: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#673ab7', mb: 2, textAlign: 'center' }}>
-                            Bagno {bagno} - Split by Width
-                          </Typography>
-
-                          {(bagnoWidths[bagno] || []).map((widthItem, index) => {
-                            // Calculate pieces from metres
-                            const totalBagnoMetres = metersByBagno[bagno] || 0;
-                            const totalBagnoPieces = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
-                            const metresPerPiece = totalBagnoPieces > 0 ? totalBagnoMetres / totalBagnoPieces : 0;
-
-                            const metres = parseFloat(widthItem.quantity) || 0;
-                            const pieces = metresPerPiece > 0 ? metres / metresPerPiece : 0;
-                            const consumption = pieces * parseFloat(collarettoConsumption);
-
-                            return (
-                              <Box key={index} display="flex" gap={2} mb={1.5} alignItems="center" justifyContent="center">
-                                <TextField
-                                  size="small"
-                                  label="Width (cm)"
-                                  placeholder="150"
-                                  value={widthItem.width}
-                                  onChange={(e) => updateBagnoWidth(bagno, index, 'width', e.target.value)}
-                                  sx={{ width: '100px' }}
-                                  type="number"
-                                />
-                                <TextField
-                                  size="small"
-                                  label="Metres"
-                                  placeholder="412"
-                                  value={widthItem.quantity}
-                                  onChange={(e) => updateBagnoWidth(bagno, index, 'quantity', e.target.value)}
-                                  sx={{ width: '100px' }}
-                                  type="number"
-                                  slotProps={{
-                                    htmlInput: { step: 0.1 }
-                                  }}
-                                />
-                                <Box display="flex" flexDirection="column" alignItems="center">
-                                  <Typography variant="caption" color="text.secondary">
-                                    {pieces.toFixed(0)} pcs
-                                  </Typography>
-                                  <Chip
-                                    label={`${consumption.toFixed(1)}m`}
-                                    size="small"
-                                    sx={{ bgcolor: '#673ab7', color: 'white', minWidth: '70px' }}
-                                  />
-                                </Box>
-                                {bagnoWidths[bagno]?.length > 1 && (
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => removeBagnoWidth(bagno, index)}
-                                    sx={{ color: 'error.main' }}
-                                  >
-                                    <Remove />
-                                  </IconButton>
-                                )}
-                              </Box>
-                            );
-                          })}
-
-                          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2} pt={1.5} borderTop="1px solid #dee2e6">
-                            <Button
-                              size="small"
-                              startIcon={<Add />}
-                              onClick={() => addBagnoWidth(bagno)}
-                              variant="outlined"
-                              sx={{ color: '#673ab7', borderColor: '#673ab7' }}
-                            >
-                              Add Width
-                            </Button>
-
-                            <Box textAlign="right">
-                              <Typography variant="caption" color="text.secondary">
-                                Total: {(bagnoWidths[bagno] || []).reduce((sum, w) => sum + (parseFloat(w.quantity) || 0), 0).toFixed(1)}m
-                              </Typography>
-                              <br />
-                              <Typography variant="caption" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
-                                Consumption: {(bagnoWidths[bagno] || []).map(w => {
-                                  const metres = parseFloat(w.quantity) || 0;
-                                  const totalBagnoMetres = metersByBagno[bagno] || 0;
-                                  const totalBagnoPieces = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
-                                  const metresPerPiece = totalBagnoPieces > 0 ? totalBagnoMetres / totalBagnoPieces : 0;
-                                  const pieces = metresPerPiece > 0 ? metres / metresPerPiece : 0;
-                                  return pieces * parseFloat(collarettoConsumption);
-                                }).reduce((sum, cons) => sum + cons, 0).toFixed(1)}m
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
+              <TableRow key={`${bagno}-${width || 'main'}-${index}`}>{rowCells}</TableRow>
             );
           })}
           {(() => {
             // Build totals row cells array to avoid whitespace issues
             const totalRowCells = [
-              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>,
+              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+            ];
+
+            if (showWidthColumn) {
+              totalRowCells.push(
+                <TableCell key="total-width" align="center" sx={{ fontWeight: 'bold' }}>-</TableCell>
+              );
+            }
+
+            totalRowCells.push(
               ...uniqueSizes.map(size => {
                 const total = totalPerSize[size] || 0;
                 const ordered = getOrderedQty(size);
@@ -354,7 +298,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
               <TableCell key="total-meters" align="center" sx={{ fontWeight: 'bold' }}>
                 {totalMeters.toFixed(0)}
               </TableCell>
-            ];
+            );
 
             if (collarettoConsumption || adhesiveConsumption) {
               totalRowCells.push(
@@ -422,6 +366,26 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
       <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
         <DialogContent dividers>
+          {/* Width Column Toggle */}
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showWidthColumn}
+                  onChange={(e) => setShowWidthColumn(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Show Width Column"
+              sx={{
+                '& .MuiFormControlLabel-label': {
+                  fontSize: '0.875rem',
+                  fontWeight: 500
+                }
+              }}
+            />
+          </Box>
+
           {renderBagnoTable()}
 
           {/* Helpers Section - Only show in order planning */}

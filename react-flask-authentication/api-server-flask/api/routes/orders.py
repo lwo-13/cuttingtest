@@ -226,13 +226,17 @@ class SaveOrderComment(Resource):
         try:
             data = request.get_json()
             order_commessa = data.get('order_commessa')
+            combination_id = data.get('combination_id')
             comment_text = data.get('comment_text', '').strip()
 
             if not order_commessa:
                 return {"success": False, "msg": "order_commessa is required"}, 400
 
             # Find existing comment or create new one
-            existing_comment = db.session.query(OrderComments).filter_by(order_commessa=order_commessa).first()
+            existing_comment = db.session.query(OrderComments).filter_by(
+                order_commessa=order_commessa,
+                combination_id=combination_id
+            ).first()
 
             if comment_text:  # If there's actual comment text
                 if existing_comment:
@@ -240,6 +244,7 @@ class SaveOrderComment(Resource):
                 else:
                     new_comment = OrderComments(
                         order_commessa=order_commessa,
+                        combination_id=combination_id,
                         comment_text=comment_text
                     )
                     db.session.add(new_comment)
@@ -257,10 +262,22 @@ class SaveOrderComment(Resource):
             return {"success": False, "msg": str(e)}, 500
 
 @orders_api.route('/comments/get/<string:order_commessa>', methods=['GET'])
+@orders_api.route('/comments/get/<string:order_commessa>/<string:combination_id>', methods=['GET'])
 class GetOrderComment(Resource):
-    def get(self, order_commessa):
+    def get(self, order_commessa, combination_id=None):
         try:
-            comment = db.session.query(OrderComments).filter_by(order_commessa=order_commessa).first()
+            if combination_id:
+                comment = db.session.query(OrderComments).filter_by(
+                    order_commessa=order_commessa,
+                    combination_id=combination_id
+                ).first()
+            else:
+                # For backward compatibility, get comment without combination_id
+                comment = db.session.query(OrderComments).filter_by(
+                    order_commessa=order_commessa,
+                    combination_id=None
+                ).first()
+
             if comment:
                 return {
                     "success": True,
@@ -268,6 +285,35 @@ class GetOrderComment(Resource):
                 }, 200
             else:
                 return {"success": True, "data": None}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+@orders_api.route('/comments/get_all/<string:order_commessa>', methods=['GET'])
+class GetAllOrderComments(Resource):
+    def get(self, order_commessa):
+        """Get all comments for an order (all production center combinations)"""
+        try:
+            comments = db.session.query(OrderComments).filter_by(
+                order_commessa=order_commessa
+            ).all()
+
+            result = []
+            for comment in comments:
+                comment_data = comment.to_dict()
+                # Add production center info if combination_id exists
+                if comment.combination_id:
+                    combination = db.session.query(OrderProductionCenter).filter_by(
+                        combination_id=comment.combination_id
+                    ).first()
+                    if combination:
+                        comment_data['production_center_info'] = {
+                            'production_center': combination.production_center,
+                            'cutting_room': combination.cutting_room,
+                            'destination': combination.destination
+                        }
+                result.append(comment_data)
+
+            return {"success": True, "data": result}, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
 

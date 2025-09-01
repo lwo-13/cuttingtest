@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography, Table, TableBody, TableRow, TableCell, TableHead, Divider } from '@mui/material';
+import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography, Table, TableBody, TableRow, TableCell, TableHead, Divider, FormControlLabel, Switch } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
-const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno }) => {
+const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, getWidthsByBagno }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [showWidthColumn, setShowWidthColumn] = useState(true);
 
   // Get planned quantities (same as original)
   const plannedQuantities = getTablePlannedQuantities ? getTablePlannedQuantities(table) : {};
   const plannedByBagno = getTablePlannedByBagno ? getTablePlannedByBagno(table) : { bagnoMap: {}, bagnoOrder: [] };
   const metersByBagno = getMetersByBagno ? getMetersByBagno(table) : { bagnoMeters: {}, bagnoOrder: [] };
+  const { bagnoWidths: widthsByBagno } = getWidthsByBagno ? getWidthsByBagno(table) : { bagnoWidths: {} };
 
   // Calculate actual quantities using actual layers
   const getTableActualQuantities = (table) => {
@@ -74,12 +76,61 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
     return { bagnoMap, bagnoOrder };
   };
 
+  // Calculate actual widths by bagno (similar to planned widths)
+  const getTableActualWidthsByBagno = (table) => {
+    const bagnoWidths = {};
+    const bagnoOrder = [];
+
+    if (!table || !table.rows) {
+      return { bagnoWidths, bagnoOrder };
+    }
+
+    table.rows.forEach(row => {
+      const bagno = row.bagno || 'Unknown';
+      const width = row.width ? parseFloat(row.width) : null;
+
+      if (!width || !row.piecesPerSize || typeof row.piecesPerSize !== 'object') {
+        return;
+      }
+
+      const actualLayers = parseFloat(row.layers_a) || 0;
+      if (actualLayers <= 0) return;
+
+      const consumption = parseFloat(row.cons_actual || row.expectedConsumption) || 0;
+
+      if (!bagnoWidths[bagno]) {
+        bagnoWidths[bagno] = {};
+        bagnoOrder.push(bagno);
+      }
+
+      if (!bagnoWidths[bagno][width]) {
+        bagnoWidths[bagno][width] = {
+          sizeMap: {},
+          consumption: 0
+        };
+      }
+
+      bagnoWidths[bagno][width].consumption += consumption;
+
+      Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
+        const pieces = parseInt(pcs) || 0;
+        if (pieces <= 0) return;
+
+        const total = pieces * actualLayers;
+        bagnoWidths[bagno][width].sizeMap[size] = (bagnoWidths[bagno][width].sizeMap[size] || 0) + total;
+      });
+    });
+
+    return { bagnoWidths, bagnoOrder };
+  };
+
   const actualQuantities = getTableActualQuantities(table);
   const actualByBagno = getTableActualByBagno(table);
+  const actualWidthsByBagno = getTableActualWidthsByBagno(table);
 
   const uniqueSizes = orderSizes.map(s => s.size);
 
-  // Render planned bagno table - same format as original PlannedQuantityBar
+  // Render planned bagno table with width functionality
   const renderPlannedBagnoTable = () => {
     const totalPerSize = {};
 
@@ -98,15 +149,60 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
       ? Object.values(metersByBagno.bagnoMeters).reduce((sum, val) => sum + val, 0)
       : 0;
 
-    // Build header cells array - same as original
+    // Create expanded rows that include width information
+    const expandedRows = [];
+
+    (plannedByBagno.bagnoOrder || []).forEach(bagno => {
+      const bagnoWidthData = widthsByBagno[bagno] || {};
+      const bagnoSizeMap = plannedByBagno.bagnoMap[bagno] || {};
+
+      if (showWidthColumn && Object.keys(bagnoWidthData).length > 0) {
+        // If width column is shown and bagno has width data, create separate rows for each width
+        Object.entries(bagnoWidthData)
+          .sort(([a], [b]) => parseFloat(a) - parseFloat(b)) // Sort by width ascending
+          .forEach(([width, widthData], index) => {
+            expandedRows.push({
+              bagno,
+              width: parseFloat(width),
+              sizeMap: widthData.sizeMap,
+              consumption: widthData.consumption,
+              isWidthRow: true,
+              isFirstWidthRow: index === 0,
+              bagnoRowSpan: Object.keys(bagnoWidthData).length
+            });
+          });
+      } else {
+        // If width column is hidden OR no width data, show as regular bagno row
+        expandedRows.push({
+          bagno,
+          width: null,
+          sizeMap: bagnoSizeMap,
+          consumption: metersByBagno.bagnoMeters[bagno] || 0,
+          isWidthRow: false,
+          isFirstWidthRow: true,
+          bagnoRowSpan: 1
+        });
+      }
+    });
+
+    // Build header cells array
     const headerCells = [
-      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>,
+      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
+    ];
+
+    if (showWidthColumn) {
+      headerCells.push(
+        <TableCell key="width" align="center" sx={{ fontWeight: 'bold', minWidth: '80px' }}>Width [cm]</TableCell>
+      );
+    }
+
+    headerCells.push(
       ...uniqueSizes.map(size => (
         <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
       )),
       <TableCell key="total" align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>,
       <TableCell key="cons" align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
-    ];
+    );
 
     return (
       <Table size="small" sx={{ mt: 2 }}>
@@ -114,31 +210,69 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
           <TableRow>{headerCells}</TableRow>
         </TableHead>
         <TableBody>
-          {(plannedByBagno.bagnoOrder || []).map((bagno) => {
-            const sizeMap = plannedByBagno.bagnoMap[bagno] || {};
+          {expandedRows.map((row, index) => {
+            const { bagno, width, sizeMap, consumption, isWidthRow, isFirstWidthRow, bagnoRowSpan } = row;
             const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
-            const mattressConsForBagno = metersByBagno.bagnoMeters[bagno] || 0;
 
-            // Build row cells array - same as original
-            const rowCells = [
-              <TableCell key="bagno" align="center">{bagno}</TableCell>,
+            // Build row cells array
+            const rowCells = [];
+
+            // Bagno cell - only show on first row of each bagno group
+            if (isFirstWidthRow) {
+              rowCells.push(
+                <TableCell
+                  key="bagno"
+                  align="center"
+                  rowSpan={bagnoRowSpan}
+                  sx={{
+                    fontWeight: 500,
+                    verticalAlign: 'middle'
+                  }}
+                >
+                  {bagno}
+                </TableCell>
+              );
+            }
+
+            // Add width cell if width column is shown
+            if (showWidthColumn) {
+              rowCells.push(
+                <TableCell key="width" align="center">
+                  {width ? width : '-'}
+                </TableCell>
+              );
+            }
+
+            // Add remaining cells
+            rowCells.push(
               ...uniqueSizes.map(size => (
                 <TableCell key={size} align="center">
                   {sizeMap[size] || 0}
                 </TableCell>
               )),
-              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>,
+              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>
+                {total}
+              </TableCell>,
               <TableCell key="cons" align="center" sx={{ fontWeight: 500 }}>
-                {mattressConsForBagno.toFixed(0)}
+                {consumption.toFixed(1)}
               </TableCell>
-            ];
+            );
 
-            return <TableRow key={bagno}>{rowCells}</TableRow>;
+            return <TableRow key={`planned-${bagno}-${width || 'main'}-${index}`}>{rowCells}</TableRow>;
           })}
           {(() => {
-            // Build totals row cells array - same as original
+            // Build totals row cells array
             const totalRowCells = [
-              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>,
+              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+            ];
+
+            if (showWidthColumn) {
+              totalRowCells.push(
+                <TableCell key="total-width" align="center" sx={{ fontWeight: 'bold' }}>-</TableCell>
+              );
+            }
+
+            totalRowCells.push(
               ...uniqueSizes.map(size => {
                 const total = totalPerSize[size] || 0;
                 return (
@@ -153,7 +287,7 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
               <TableCell key="total-cons" align="center" sx={{ fontWeight: 'bold' }}>
                 {Math.round(totalMeters)}
               </TableCell>
-            ];
+            );
 
             return (
               <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
@@ -166,7 +300,7 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
     );
   };
 
-  // Render actual bagno table - same format but with actual data
+  // Render actual bagno table with width functionality
   const renderActualBagnoTable = () => {
     const totalPerSize = {};
 
@@ -183,15 +317,64 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
 
     const totalActualMeters = table.rows.reduce((sum, row) => sum + (parseFloat(row.cons_actual) || 0), 0);
 
-    // Build header cells array - same as original
+    // Create expanded rows for actual data
+    const expandedActualRows = [];
+
+    (actualByBagno.bagnoOrder || []).forEach(bagno => {
+      const bagnoWidthData = actualWidthsByBagno.bagnoWidths[bagno] || {};
+      const bagnoSizeMap = actualByBagno.bagnoMap[bagno] || {};
+
+      if (showWidthColumn && Object.keys(bagnoWidthData).length > 0) {
+        // If width column is shown and bagno has width data, create separate rows for each width
+        Object.entries(bagnoWidthData)
+          .sort(([a], [b]) => parseFloat(a) - parseFloat(b)) // Sort by width ascending
+          .forEach(([width, widthData], index) => {
+            expandedActualRows.push({
+              bagno,
+              width: parseFloat(width),
+              sizeMap: widthData.sizeMap,
+              consumption: widthData.consumption,
+              isWidthRow: true,
+              isFirstWidthRow: index === 0,
+              bagnoRowSpan: Object.keys(bagnoWidthData).length
+            });
+          });
+      } else {
+        // If width column is hidden OR no width data, show as regular bagno row
+        const actualConsForBagno = table.rows
+          .filter(row => (row.bagno || 'Unknown') === bagno)
+          .reduce((sum, row) => sum + (parseFloat(row.cons_actual) || 0), 0);
+
+        expandedActualRows.push({
+          bagno,
+          width: null,
+          sizeMap: bagnoSizeMap,
+          consumption: actualConsForBagno,
+          isWidthRow: false,
+          isFirstWidthRow: true,
+          bagnoRowSpan: 1
+        });
+      }
+    });
+
+    // Build header cells array
     const headerCells = [
-      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>,
+      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
+    ];
+
+    if (showWidthColumn) {
+      headerCells.push(
+        <TableCell key="width" align="center" sx={{ fontWeight: 'bold', minWidth: '80px' }}>Width [cm]</TableCell>
+      );
+    }
+
+    headerCells.push(
       ...uniqueSizes.map(size => (
         <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
       )),
       <TableCell key="total" align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>,
       <TableCell key="cons" align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
-    ];
+    );
 
     return (
       <Table size="small" sx={{ mt: 2 }}>
@@ -199,30 +382,55 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
           <TableRow>{headerCells}</TableRow>
         </TableHead>
         <TableBody>
-          {(actualByBagno.bagnoOrder || []).map((bagno) => {
-            const sizeMap = actualByBagno.bagnoMap[bagno] || {};
+          {expandedActualRows.map((row, index) => {
+            const { bagno, width, sizeMap, consumption, isWidthRow, isFirstWidthRow, bagnoRowSpan } = row;
             const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
 
-            // Calculate actual consumption for this bagno
-            const actualConsForBagno = table.rows
-              .filter(row => (row.bagno || 'Unknown') === bagno)
-              .reduce((sum, row) => sum + (parseFloat(row.cons_actual) || 0), 0);
+            // Build row cells array
+            const rowCells = [];
 
-            // Build row cells array - same as original
-            const rowCells = [
-              <TableCell key="bagno" align="center">{bagno}</TableCell>,
+            // Bagno cell - only show on first row of each bagno group
+            if (isFirstWidthRow) {
+              rowCells.push(
+                <TableCell
+                  key="bagno"
+                  align="center"
+                  rowSpan={bagnoRowSpan}
+                  sx={{
+                    fontWeight: 500,
+                    verticalAlign: 'middle'
+                  }}
+                >
+                  {bagno}
+                </TableCell>
+              );
+            }
+
+            // Add width cell if width column is shown
+            if (showWidthColumn) {
+              rowCells.push(
+                <TableCell key="width" align="center">
+                  {width ? width : '-'}
+                </TableCell>
+              );
+            }
+
+            // Add remaining cells
+            rowCells.push(
               ...uniqueSizes.map(size => (
                 <TableCell key={size} align="center">
                   {sizeMap[size] || 0}
                 </TableCell>
               )),
-              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>,
+              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>
+                {total}
+              </TableCell>,
               <TableCell key="cons" align="center" sx={{ fontWeight: 500 }}>
-                {actualConsForBagno.toFixed(0)}
+                {consumption.toFixed(1)}
               </TableCell>
-            ];
+            );
 
-            return <TableRow key={bagno}>{rowCells}</TableRow>;
+            return <TableRow key={`actual-${bagno}-${width || 'main'}-${index}`}>{rowCells}</TableRow>;
           })}
           {(() => {
             // Calculate planned totals for percentage comparison
@@ -243,7 +451,16 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
 
             // Build totals row cells array with percentages
             const totalRowCells = [
-              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>,
+              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+            ];
+
+            if (showWidthColumn) {
+              totalRowCells.push(
+                <TableCell key="total-width" align="center" sx={{ fontWeight: 'bold' }}>-</TableCell>
+              );
+            }
+
+            totalRowCells.push(
               ...uniqueSizes.map(size => {
                 const actualTotal = totalPerSize[size] || 0;
                 const plannedTotal = plannedTotalPerSize[size] || 0;
@@ -268,7 +485,7 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
                   return `${Math.round(totalActualMeters)} (${consPercentage}%)`;
                 })()}
               </TableCell>
-            ];
+            );
 
             return (
               <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
@@ -339,7 +556,27 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
 
       <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
         <DialogContent dividers>
-          {/* Planned Quantities Table - same format as original */}
+          {/* Width Column Toggle */}
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showWidthColumn}
+                  onChange={(e) => setShowWidthColumn(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Show Width Column"
+              sx={{
+                '& .MuiFormControlLabel-label': {
+                  fontSize: '0.875rem',
+                  fontWeight: 500
+                }
+              }}
+            />
+          </Box>
+
+          {/* Planned Quantities Table */}
           <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold' }}>
             {t('subcontractor.plannedQuantities', 'Planned Quantities')}
           </Typography>

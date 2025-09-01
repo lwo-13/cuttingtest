@@ -20,6 +20,9 @@ import PadPrintInfo from 'views/planning/OrderPlanning/components/PadPrintInfo';
 // Style Comment Component (Read-only)
 import StyleCommentCardReadOnly from 'views/subcontractor/components/StyleCommentCardReadOnly';
 
+// Order Comment Component (Read-only)
+import OrderCommentCardReadOnly from 'views/dashboard/OrderReport/components/OrderCommentCardReadOnly';
+
 // Print Utils
 import { useOrderReportPrintStyles, handleOrderReportPrint } from 'views/dashboard/OrderReport/printUtils';
 
@@ -180,6 +183,7 @@ const OrderReport = () => {
         setSelectedProductionCenter,
         setSelectedCuttingRoom,
         setSelectedDestination,
+        setSelectedCombination,
         setProductionCenterCombinations,
         setShowProductionCenterTabs,
         setProductionCenterLoading,
@@ -423,6 +427,8 @@ const OrderReport = () => {
         setSelectedDestination(combination.destination);
     };
 
+
+
     // Handle changing production center selection (now just shows tabs again)
     const handleChangeSelection = () => {
         // Reset production center info
@@ -549,6 +555,7 @@ const OrderReport = () => {
                         onCombinationChange={handleCombinationChange}
                         loading={orderDataLoading}
                     />
+
                     <Box mt={2} />
                 </>
             )}
@@ -892,6 +899,26 @@ const OrderReport = () => {
                     </MainCard>
                 </React.Fragment>
             ))}
+
+            {/* Order Comment Section - Display at the end */}
+            {selectedOrder && showProductionCenterTabs && selectedCombination && (
+                <Box mt={3}>
+                    <OrderCommentCardReadOnly
+                        selectedOrder={selectedOrder}
+                        selectedCombination={selectedCombination}
+                    />
+                </Box>
+            )}
+
+            {/* Order Comment for orders without production centers (backward compatibility) */}
+            {selectedOrder && !showProductionCenterTabs && (
+                <Box mt={3}>
+                    <OrderCommentCardReadOnly
+                        selectedOrder={selectedOrder}
+                        selectedCombination={null}
+                    />
+                </Box>
+            )}
 
             {/* Error Snackbar
             <Snackbar

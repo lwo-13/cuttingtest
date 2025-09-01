@@ -24,6 +24,7 @@ const handleOrderChange = async (newValue, context) => {
     setSelectedProductionCenter,
     setSelectedCuttingRoom,
     setSelectedDestination,
+    setSelectedCombination,
     setProductionCenterCombinations,
     setShowProductionCenterTabs,
     setProductionCenterLoading,
@@ -81,7 +82,7 @@ const handleOrderChange = async (newValue, context) => {
 
   // First, check if there are production center combinations for this order
   try {
-    const combinationsRes = await axios.get(`/mattress/production_center/combinations/${newValue.id}`, { signal });
+    const combinationsRes = await axios.get(`/orders/production_center_combinations/get/${newValue.id}`, { signal });
 
     // Check if request was cancelled
     if (signal.aborted) {
@@ -111,6 +112,9 @@ const handleOrderChange = async (newValue, context) => {
       setSelectedProductionCenter(firstCombo.production_center || '');
       setSelectedCuttingRoom(firstCombo.cutting_room);
       setSelectedDestination(firstCombo.destination);
+      if (setSelectedCombination) {
+        setSelectedCombination(firstCombo);
+      }
 
       if (!signal.aborted) {
         setProductionCenterLoading(false);
@@ -202,7 +206,7 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         efficiency: marker?.efficiency || "",
         piecesPerSize: marker?.size_quantities || {},
         layers: mattress.layers || "",
-        expectedConsumption: mattress.cons_planned || "", // Planned consumption from DB
+        cons_planned: mattress.cons_planned || "", // Planned consumption from DB
         layers_a: mattress.layers_a || "",
         cons_actual: mattress.cons_actual || "",
         cons_real: mattress.cons_real || "",
@@ -256,7 +260,7 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         efficiency: marker?.efficiency || "",
         piecesPerSize: marker?.size_quantities || {},
         layers: adhesive.layers || "",
-        expectedConsumption: adhesive.cons_planned || "", // Planned consumption from DB
+        cons_planned: adhesive.cons_planned || "", // Planned consumption from DB
         layers_a: adhesive.layers_a || "",
         layers_updated_at: adhesive.layers_updated_at || "", // Updated at timestamp for actual layers
         cons_actual: adhesive.cons_actual || "",

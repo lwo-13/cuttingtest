@@ -67,7 +67,7 @@ const OrderToolbar = ({
                 }}
               >
                 <Box sx={{ flex: 1 }}>{option.id}</Box>
-                {option.isFinished && (
+                {option.isWIP && (
                   <Box
                     sx={{
                       color: 'secondary.main', // Purple text
@@ -77,7 +77,7 @@ const OrderToolbar = ({
                       marginLeft: 'auto' // Force to the right
                     }}
                   >
-                    Finished
+                    IN PROGRESS
                   </Box>
                 )}
               </Box>

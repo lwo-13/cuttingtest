@@ -123,7 +123,7 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
       {/* Planned Consumption */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.expectedConsumption ? parseFloat(row.expectedConsumption).toFixed(1) : '-'}
+          {row.cons_planned ? parseFloat(row.cons_planned).toFixed(1) : '-'}
         </Typography>
       </TableCell>
 

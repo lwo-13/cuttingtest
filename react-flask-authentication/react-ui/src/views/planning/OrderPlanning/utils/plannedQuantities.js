@@ -84,3 +84,65 @@ export const getMetersByBagno = (table) => {
 
     return { bagnoMeters, bagnoOrder };
   };
+
+export const getWidthsByBagno = (table) => {
+    const bagnoWidths = {};
+    const bagnoOrder = []; // Track the order of bagno appearance
+
+    // Safety check for invalid table
+    if (!table || !table.rows) {
+        return { bagnoWidths, bagnoOrder };
+    }
+
+    table.rows.forEach(row => {
+        // Use "No Bagno" for rows without a valid bagno
+        const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
+        const width = row.width ? parseFloat(row.width) : null;
+
+        // Skip rows without valid width or piecesPerSize
+        if (!width || !row.piecesPerSize || typeof row.piecesPerSize !== 'object') {
+            return;
+        }
+
+        // Use actual layers (layers_a) if available and different from planned layers for locked rows
+        const isLocked = !row.isEditable;
+        const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+        const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) : parseInt(row.layers);
+
+        if (isNaN(layers) || layers <= 0) {
+            return;
+        }
+
+        // Get consumption for this row
+        const hasActualConsumption = row.cons_actual && row.cons_actual !== row.expectedConsumption;
+        const consumption = (isLocked && hasActualConsumption) ? parseFloat(row.cons_actual) || 0 : parseFloat(row.expectedConsumption) || 0;
+
+        // Track order when first encountered
+        if (!bagnoWidths[bagno]) {
+            bagnoWidths[bagno] = {};
+            bagnoOrder.push(bagno);
+        }
+
+        // Initialize width entry if it doesn't exist
+        if (!bagnoWidths[bagno][width]) {
+            bagnoWidths[bagno][width] = {
+                sizeMap: {},
+                consumption: 0
+            };
+        }
+
+        // Add consumption for this width
+        bagnoWidths[bagno][width].consumption += consumption;
+
+        // Process each size and add to the total for this width
+        Object.entries(row.piecesPerSize).forEach(([size, pcs]) => {
+            const pieces = parseInt(pcs) || 0;
+            if (pieces <= 0) return; // Skip sizes with no pieces
+
+            const total = pieces * layers;
+            bagnoWidths[bagno][width].sizeMap[size] = (bagnoWidths[bagno][width].sizeMap[size] || 0) + total;
+        });
+    });
+
+    return { bagnoWidths, bagnoOrder };
+};
