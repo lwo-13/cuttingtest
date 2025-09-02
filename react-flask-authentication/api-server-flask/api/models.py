@@ -418,20 +418,22 @@ class MarkerCalculatorData(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    combination_id = db.Column(db.String(36), nullable=False)  # Links to OrderProductionCenter.combination_id
     tab_number = db.Column(db.String(10), nullable=False)  # Tab identifier (e.g., '01', '02', '03')
     selected_baseline = db.Column(db.String(50), nullable=False, default='original')  # 'original', table_id, or 'calc_tab_XX'
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
-    # Composite unique constraint to ensure one record per tab per order
+    # Composite unique constraint to ensure one record per tab per order per combination
     __table_args__ = (
-        db.UniqueConstraint('order_commessa', 'tab_number', name='uq_calculator_order_tab'),
+        db.UniqueConstraint('order_commessa', 'combination_id', 'tab_number', name='uq_calculator_order_combination_tab'),
     )
 
     def to_dict(self):
         return {
             "id": self.id,
             "order_commessa": self.order_commessa,
+            "combination_id": self.combination_id,
             "tab_number": self.tab_number,
             "selected_baseline": self.selected_baseline,
             "created_at": self.created_at.isoformat() if self.created_at else None,

@@ -22,9 +22,12 @@ import {
     Snackbar,
     Alert,
     Tabs,
-    Tab
+    Tab,
+    FormControl,
+    Select,
+    MenuItem
 } from '@mui/material';
-import { Add, Delete, Calculate, Close } from '@mui/icons-material';
+import { Add, Delete, Calculate, Close, ViewColumn } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'utils/axiosInstance';
 
@@ -36,7 +39,8 @@ const MarkerCalculatorDialog = ({
     selectedStyle,
     tables,
     getTablePlannedQuantities,
-    selectedOrder
+    selectedOrder,
+    selectedCombinationId
 }) => {
     // State for calculator tabs - iterative numbering system
     const [calculatorTabs, setCalculatorTabs] = useState([
@@ -87,7 +91,7 @@ const MarkerCalculatorDialog = ({
             const tabNumber = tabValue.replace('calc_', '');
 
             // Delete from backend if it exists
-            const response = await axios.delete(`/marker_calculator/delete/${selectedOrder.id}/${tabNumber}`);
+            const response = await axios.delete(`/marker_calculator/delete/${selectedOrder.id}/${selectedCombinationId}/${tabNumber}`);
 
             if (response.data.success) {
                 console.log(`✅ Tab ${tabNumber} deleted from database`);
@@ -155,8 +159,21 @@ const MarkerCalculatorDialog = ({
     // State for success snackbar
     const [showSuccessSnackbar, setShowSuccessSnackbar] = useState(false);
 
+    // State for split view mode
+    const [splitViewMode, setSplitViewMode] = useState(false);
+
+    // State for right table markers (split view only)
+    const [rightTableMarkers, setRightTableMarkers] = useState([]);
+
     // Get current material type's markers
     const testMarkers = testMarkersByMaterial[currentMaterialType] || [];
+
+    // Ensure current tab has at least one empty marker
+    useEffect(() => {
+        if (testMarkers.length === 0) {
+            addNewMarker();
+        }
+    }, [currentMaterialType]);
 
     // Calculate totals for a specific calculator tab
     const calculateTabTotals = (tabValue) => {
@@ -218,31 +235,34 @@ const MarkerCalculatorDialog = ({
     // Create baseline options including other calculator tabs
     const baselineOptions = useMemo(() => {
         const options = [
-            { value: 'original', label: 'Original Order Quantities' },
-            ...tables.map((table) => {
-                const fabricType = table.fabricType || 'Unknown';
-                return {
-                    value: table.id,
-                    label: `${fabricType} Output`
-                };
-            })
+            { value: 'original', label: 'Original Order Quantities' }
         ];
 
-        // Add other calculator tabs as baseline options (exclude current tab)
-        calculatorTabs.forEach(tab => {
-            if (tab.value !== currentMaterialType) {
-                const tabMarkers = testMarkersByMaterial[tab.value];
-                const hasMarkers = tabMarkers && tabMarkers.length > 0;
-                options.push({
-                    value: `calc_tab_${tab.value}`,
-                    label: `Calculator Tab ${tab.label}${hasMarkers ? '' : ' (empty)'}`,
-                    disabled: !hasMarkers
-                });
+        // Add table options with fabric information
+        tables.forEach((table) => {
+            const fabricType = table.fabricType || 'Unknown';
+            const fabricCode = table.fabricCode || 'Unknown';
+            const fabricColor = table.fabricColor || 'Unknown';
+
+            // Determine table type based on spreading or mattress names
+            let tableType = 'Mattresses'; // Default
+            if (table.rows && table.rows.length > 0) {
+                const firstRow = table.rows[0];
+                if (firstRow.mattressName) {
+                    if (firstRow.mattressName.includes('-ASA-') || firstRow.mattressName.includes('-MSA-')) {
+                        tableType = 'Adhesives';
+                    }
+                }
             }
+
+            options.push({
+                value: table.id,
+                label: `${tableType} ${fabricType} - ${fabricCode} - ${fabricColor} Planned Qty`
+            });
         });
 
         return options;
-    }, [tables, calculatorTabs, currentMaterialType, testMarkersByMaterial]);
+    }, [tables]);
 
     // Helper to update markers for current material type
     const setTestMarkers = (markersOrUpdater) => {
@@ -309,11 +329,52 @@ const MarkerCalculatorDialog = ({
         setTestMarkers(prev => prev.filter(marker => marker.id !== markerId));
     };
 
+    // Right table marker functions
+    const addNewRightMarker = () => {
+        const newMarker = {
+            id: uuidv4(),
+            width: '',
+            markerName: '',
+            quantities: {},
+            layers: 1
+        };
+        setRightTableMarkers(prev => [...prev, newMarker]);
+    };
+
+    const removeRightMarker = (markerId) => {
+        setRightTableMarkers(prev => prev.filter(marker => marker.id !== markerId));
+    };
+
+    const updateRightMarkerField = (markerId, field, value) => {
+        setRightTableMarkers(prev => prev.map(marker =>
+            marker.id === markerId ? { ...marker, [field]: value } : marker
+        ));
+    };
+
+    const updateRightQuantity = (markerId, size, value) => {
+        setRightTableMarkers(prev => prev.map(marker =>
+            marker.id === markerId
+                ? { ...marker, quantities: { ...marker.quantities, [size]: value } }
+                : marker
+        ));
+    };
+
     const clearAllMarkers = () => {
+        // Clear left table
         setTestMarkers([]);
-        // Add one empty marker after clearing
+
+        // Clear right table if in split view
+        if (splitViewMode) {
+            setRightTableMarkers([]);
+        }
+
+        // Add one empty marker to left table after clearing
         setTimeout(() => {
             addNewMarker();
+            // Add one empty marker to right table if in split view
+            if (splitViewMode) {
+                addNewRightMarker();
+            }
         }, 0);
     };
 
@@ -348,10 +409,10 @@ const MarkerCalculatorDialog = ({
 
     // Load saved data when dialog opens
     useEffect(() => {
-        if (open && selectedOrder?.id && !isLoading) {
+        if (open && selectedOrder?.id && selectedCombinationId && !isLoading) {
             loadCalculatorData();
         }
-    }, [open, selectedOrder?.id]); // Only load when dialog opens
+    }, [open, selectedOrder?.id, selectedCombinationId]); // Only load when dialog opens
 
     // Load calculator data from API (tab-specific)
     const loadCalculatorData = async () => {
@@ -359,7 +420,7 @@ const MarkerCalculatorDialog = ({
 
         setIsLoading(true);
         try {
-            const response = await axios.get(`/marker_calculator/load/${selectedOrder.id}`);
+            const response = await axios.get(`/marker_calculator/load/${selectedOrder.id}/${selectedCombinationId}`);
 
             if (response.data.success && response.data.data) {
                 const tabsData = response.data.data;
@@ -459,6 +520,7 @@ const MarkerCalculatorDialog = ({
 
                     const payload = {
                         order_commessa: selectedOrder.id,
+                        combination_id: selectedCombinationId,
                         tab_number: tabNumber,
                         selected_baseline: baselineByTab[tabValue] || 'original',
                         style: selectedStyle,
@@ -528,6 +590,33 @@ const MarkerCalculatorDialog = ({
         return calculatedTotals;
     }, [testMarkers, orderSizeNames]);
 
+    // Calculate totals for right table (split view only)
+    const rightTotals = useMemo(() => {
+        const calculatedTotals = {
+            bySize: {},
+            totalPieces: 0,
+            totalPiecesWithLayers: 0
+        };
+
+        // Initialize size totals
+        orderSizeNames.forEach(sizeName => {
+            calculatedTotals.bySize[sizeName] = 0;
+        });
+
+        // Sum up quantities from all right table markers
+        rightTableMarkers.forEach(marker => {
+            const markerLayers = parseInt(marker.layers) || 1;
+            orderSizeNames.forEach(sizeName => {
+                const qty = parseInt(marker.quantities[sizeName]) || 0;
+                const qtyWithLayers = qty * markerLayers;
+                calculatedTotals.bySize[sizeName] += qtyWithLayers;
+                calculatedTotals.totalPiecesWithLayers += qtyWithLayers;
+            });
+        });
+
+        return calculatedTotals;
+    }, [rightTableMarkers, orderSizeNames]);
+
     // Get order quantities for comparison (using effective order sizes)
     const getOrderQuantity = (sizeName) => {
         const sizeData = effectiveOrderSizes.find(size => size.size === sizeName);
@@ -538,6 +627,14 @@ const MarkerCalculatorDialog = ({
     const getCoveragePercentage = (sizeName) => {
         const orderQty = getOrderQuantity(sizeName);
         const calculatedQty = totals.bySize[sizeName];
+        if (orderQty === 0) return 0;
+        return Math.round((calculatedQty / orderQty) * 100);
+    };
+
+    // Calculate coverage percentage for right table
+    const getRightCoveragePercentage = (sizeName) => {
+        const orderQty = getOrderQuantity(sizeName);
+        const calculatedQty = rightTotals.bySize[sizeName];
         if (orderQty === 0) return 0;
         return Math.round((calculatedQty / orderQty) * 100);
     };
@@ -602,8 +699,6 @@ const MarkerCalculatorDialog = ({
                                 />
                             ))}
                         </Tabs>
-
-                        {/* Add New Tab Button */}
                         <IconButton
                             onClick={addNewTab}
                             sx={{
@@ -617,35 +712,26 @@ const MarkerCalculatorDialog = ({
                         </IconButton>
                     </Box>
                 </Box>
-                <Box mb={3} display="flex" flexDirection="column" alignItems="center" gap={2}>
-                    <Typography variant="h6" gutterBottom>
-                        Style: {selectedStyle}
-                    </Typography>
 
-                    {/* Baseline Selector */}
+                {/* Baseline Selector */}
+                <Box mb={3} display="flex" flexDirection="column" alignItems="center" gap={2}>
                     <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
                         <Typography variant="body2" fontWeight="bold">
                             Calculate coverage against:
                         </Typography>
-                        <Autocomplete
-                            options={baselineOptions}
-                            getOptionLabel={(option) => option.label}
-                            getOptionDisabled={(option) => option.disabled || false}
-                            value={baselineOptions.find(opt => opt.value === getCurrentBaseline()) || baselineOptions[0]}
-                            onChange={(event, newValue) => {
-                                if (newValue && !newValue.disabled) {
-                                    setCurrentBaseline(newValue.value || 'original');
-                                }
-                            }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    variant="outlined"
-                                    size="small"
-                                />
-                            )}
-                            sx={{ width: 300 }}
-                        />
+                        <FormControl size="small" sx={{ minWidth: 300 }}>
+                            <Select
+                                value={getCurrentBaseline()}
+                                onChange={(e) => setCurrentBaseline(e.target.value)}
+                                displayEmpty
+                            >
+                                {baselineOptions.map((option) => (
+                                    <MenuItem key={option.value} value={option.value} disabled={option.disabled}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                         <Typography variant="body2" color="text.secondary">
                             {getCurrentBaseline() === 'original'
                                 ? "Using original order quantities"
@@ -655,21 +741,21 @@ const MarkerCalculatorDialog = ({
                     </Box>
                 </Box>
 
-                {/* Test Markers Table */}
+                {/* Markers Table */}
                 <Box mb={3}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="h6">
-                            Test Markers
-                        </Typography>
+                    <Box display="flex" justifyContent="flex-end" alignItems="center" mb={2}>
                         <Box display="flex" gap={1}>
-                            <Button
-                                variant="outlined"
-                                startIcon={<Add />}
-                                onClick={addNewMarker}
-                                size="small"
-                            >
-                                Add Marker
-                            </Button>
+                            {/* Hide Add Marker button in split view mode */}
+                            {!splitViewMode && (
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<Add />}
+                                    onClick={addNewMarker}
+                                    size="small"
+                                >
+                                    Add Marker
+                                </Button>
+                            )}
                             <Button
                                 variant="outlined"
                                 color="error"
@@ -678,172 +764,216 @@ const MarkerCalculatorDialog = ({
                             >
                                 Clear All
                             </Button>
+                            <Button
+                                variant="outlined"
+                                color={splitViewMode ? "primary" : "secondary"}
+                                startIcon={<ViewColumn />}
+                                onClick={() => setSplitViewMode(!splitViewMode)}
+                                size="small"
+                            >
+                                {splitViewMode ? "Single View" : "Split View"}
+                            </Button>
                         </Box>
                     </Box>
+                </Box>
 
-                    <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                        <Table>
-                            {/* Table Header */}
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell align="center" sx={{ minWidth: '80px', padding: '4px' }}>Width</TableCell>
-                                    <TableCell align="center" sx={{ minWidth: '200px', padding: '4px' }}>Marker Name</TableCell>
-
-                                    {/* Dynamic Sizes */}
-                                    {effectiveOrderSizes.length > 0 &&
-                                        effectiveOrderSizes.map((size) => (
-                                            <TableCell align="center" key={size.size} sx={{ padding: '4px' }}>
-                                                {size.size}
-                                            </TableCell>
-                                        ))
-                                    }
-
-                                    <TableCell align="center" sx={{ padding: '4px' }}>Layers</TableCell>
-                                    <TableCell sx={{ padding: '4px' }} />
-                                </TableRow>
-                            </TableHead>
-
-                            {/* Table Body */}
-                            <TableBody>
-                                {testMarkers.map((marker, index) => (
-                                    <TableRow key={marker.id}>
-                                        {/* Width */}
-                                        <TableCell sx={{ padding: '4px', minWidth: '70px', maxWidth: '80px', textAlign: 'center' }}>
-                                            <TextField
-                                                type="number"
-                                                variant="outlined"
-                                                value={marker.width || ''}
-                                                onChange={(e) => updateMarkerField(marker.id, "width", e.target.value)}
-                                                inputProps={{ min: 0, step: 0.1 }}
-                                                sx={{
-                                                    width: '100%',
-                                                    "& input": {
-                                                        fontWeight: 'normal',
-                                                        textAlign: 'center',
-                                                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                                                            '-webkit-appearance': 'none',
-                                                            margin: 0
-                                                        },
-                                                        '&[type=number]': {
-                                                            '-moz-appearance': 'textfield'
-                                                        }
-                                                    }
-                                                }}
-                                                size="small"
-                                            />
-                                        </TableCell>
-
-                                        {/* Marker Name */}
-                                        <TableCell sx={{ padding: '4px', minWidth: '180px', maxWidth: '200px', textAlign: 'center' }}>
-                                            {(() => {
-                                                const currentWidth = marker.width;
-                                                const autoGeneratedName = generateMarkerName(marker.quantities, currentWidth);
-                                                const displayName = marker.markerName || autoGeneratedName;
-                                                const validation = validateMarkerName(displayName);
-
-                                                return (
-                                                    <TextField
-                                                        variant="outlined"
-                                                        value={displayName}
-                                                        onChange={(e) => updateMarkerField(marker.id, "markerName", e.target.value)}
-                                                        placeholder={autoGeneratedName}
-                                                        error={validation.isOverLimit}
-                                                        sx={{
-                                                            width: '100%',
-                                                            "& input": {
-                                                                fontWeight: 'normal',
-                                                                textAlign: 'center',
-                                                                color: validation.isOverLimit ? 'error.main' : 'inherit'
-                                                            }
-                                                        }}
-                                                        size="small"
-                                                    />
-                                                );
-                                            })()}
-                                        </TableCell>
-
-                                        {/* Size Quantities */}
-                                        {effectiveOrderSizes.map((size) => (
-                                            <TableCell
-                                                key={size.size}
-                                                sx={{ minWidth: '60px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}
-                                            >
+                {/* Main Content Area - Single or Split View */}
+                <Box display="flex" gap={2} sx={{ width: '100%' }}>
+                    {/* Left Panel (or Single Panel) */}
+                    <Box sx={{ flex: splitViewMode ? 1 : 'none', width: splitViewMode ? '50%' : '100%' }}>
+                        {/* Add Marker Button for Left Table (Split View Only) */}
+                        {splitViewMode && (
+                            <Box display="flex" justifyContent="center" mb={1}>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<Add />}
+                                    onClick={addNewMarker}
+                                    size="small"
+                                >
+                                    Add Marker (Left)
+                                </Button>
+                            </Box>
+                        )}
+                        <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell align="center" sx={{ minWidth: '80px', padding: '4px' }}>Width</TableCell>
+                                        <TableCell align="center" sx={{ minWidth: '200px', padding: '4px' }}>Marker Name</TableCell>
+                                        {effectiveOrderSizes.length > 0 &&
+                                            effectiveOrderSizes.map((size) => (
+                                                <TableCell align="center" key={size.size} sx={{ padding: '4px' }}>
+                                                    {size.size}
+                                                </TableCell>
+                                            ))
+                                        }
+                                        <TableCell align="center" sx={{ padding: '4px' }}>Layers</TableCell>
+                                        <TableCell sx={{ padding: '4px' }} />
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {testMarkers.map((marker) => (
+                                        <TableRow key={marker.id}>
+                                            <TableCell sx={{ padding: '4px' }}>
                                                 <TextField
-                                                    type="number"
-                                                    value={marker.quantities[size.size] || ''}
-                                                    onChange={(e) => updateQuantity(marker.id, size.size, e.target.value)}
-                                                    inputProps={{ min: 0 }}
-                                                    sx={{
-                                                        width: '100%',
-                                                        "& input": {
-                                                            textAlign: 'center',
-                                                            fontWeight: 'normal',
-                                                            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                                                                '-webkit-appearance': 'none',
-                                                                margin: 0
-                                                            },
-                                                            '&[type=number]': {
-                                                                '-moz-appearance': 'textfield'
-                                                            }
-                                                        }
-                                                    }}
+                                                    value={marker.width}
+                                                    onChange={(e) => updateMarkerField(marker.id, 'width', e.target.value)}
                                                     size="small"
+                                                    sx={{ width: '80px' }}
                                                 />
                                             </TableCell>
-                                        ))}
+                                            <TableCell sx={{ padding: '4px' }}>
+                                                <TextField
+                                                    value={marker.markerName}
+                                                    onChange={(e) => updateMarkerField(marker.id, 'markerName', e.target.value)}
+                                                    placeholder={generateMarkerName(marker.quantities, marker.width)}
+                                                    size="small"
+                                                    sx={{ minWidth: '200px' }}
+                                                />
+                                            </TableCell>
+                                            {effectiveOrderSizes.map((size) => (
+                                                <TableCell key={size.size} sx={{ padding: '4px' }}>
+                                                    <TextField
+                                                        type="number"
+                                                        value={marker.quantities[size.size] || ''}
+                                                        onChange={(e) => updateQuantity(marker.id, size.size, e.target.value)}
+                                                        size="small"
+                                                        sx={{ width: '60px' }}
+                                                        inputProps={{ min: 0 }}
+                                                    />
+                                                </TableCell>
+                                            ))}
+                                            <TableCell sx={{ padding: '4px' }}>
+                                                <TextField
+                                                    type="number"
+                                                    value={marker.layers}
+                                                    onChange={(e) => updateMarkerField(marker.id, 'layers', e.target.value)}
+                                                    size="small"
+                                                    sx={{ width: '60px' }}
+                                                    inputProps={{ min: 1 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ padding: '4px' }}>
+                                                <IconButton
+                                                    onClick={() => removeMarker(marker.id)}
+                                                    size="small"
+                                                    color="error"
+                                                >
+                                                    <Delete />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Box>
 
-                                        {/* Layers */}
-                                        <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-                                            <TextField
-                                                type="number"
-                                                value={marker.layers || ''}
-                                                onChange={(e) => {
-                                                    updateMarkerField(marker.id, "layers", e.target.value);
-                                                }}
-                                                inputProps={{ min: 1 }}
-                                                sx={{
-                                                    width: '100%',
-                                                    "& input": {
-                                                        textAlign: 'center',
-                                                        fontWeight: "normal",
-                                                        '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                                                            '-webkit-appearance': 'none',
-                                                            margin: 0
-                                                        },
-                                                        '&[type=number]': {
-                                                            '-moz-appearance': 'textfield'
-                                                        }
-                                                    }
-                                                }}
-                                                size="small"
-                                            />
-                                        </TableCell>
-
-                                        {/* Delete Button */}
-                                        <TableCell sx={{ padding: '4px' }}>
-                                            <IconButton
-                                                onClick={() => removeMarker(marker.id)}
-                                                color="error"
-                                                disabled={testMarkers.length === 1}
-                                            >
-                                                <Delete />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                    {/* Right Panel (Split View Only) */}
+                    {splitViewMode && (
+                        <Box sx={{ flex: 1, width: '50%' }}>
+                            {/* Add Marker Button for Right Table */}
+                            <Box display="flex" justifyContent="center" mb={1}>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<Add />}
+                                    onClick={addNewRightMarker}
+                                    size="small"
+                                >
+                                    Add Marker (Right)
+                                </Button>
+                            </Box>
+                            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell align="center" sx={{ minWidth: '80px', padding: '4px' }}>Width</TableCell>
+                                            <TableCell align="center" sx={{ minWidth: '200px', padding: '4px' }}>Marker Name</TableCell>
+                                            {effectiveOrderSizes.length > 0 &&
+                                                effectiveOrderSizes.map((size) => (
+                                                    <TableCell align="center" key={size.size} sx={{ padding: '4px' }}>
+                                                        {size.size}
+                                                    </TableCell>
+                                                ))
+                                            }
+                                            <TableCell align="center" sx={{ padding: '4px' }}>Layers</TableCell>
+                                            <TableCell sx={{ padding: '4px' }} />
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {rightTableMarkers.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={effectiveOrderSizes.length + 3} align="center" sx={{ py: 4 }}>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        Click "Add Marker (Right)" to start comparing
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            rightTableMarkers.map((marker) => (
+                                                <TableRow key={marker.id}>
+                                                    <TableCell sx={{ padding: '4px' }}>
+                                                        <TextField
+                                                            value={marker.width}
+                                                            onChange={(e) => updateRightMarkerField(marker.id, 'width', e.target.value)}
+                                                            size="small"
+                                                            sx={{ width: '80px' }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell sx={{ padding: '4px' }}>
+                                                        <TextField
+                                                            value={marker.markerName}
+                                                            onChange={(e) => updateRightMarkerField(marker.id, 'markerName', e.target.value)}
+                                                            placeholder={generateMarkerName(marker.quantities, marker.width)}
+                                                            size="small"
+                                                            sx={{ minWidth: '200px' }}
+                                                        />
+                                                    </TableCell>
+                                                    {effectiveOrderSizes.map((size) => (
+                                                        <TableCell key={size.size} sx={{ padding: '4px' }}>
+                                                            <TextField
+                                                                type="number"
+                                                                value={marker.quantities[size.size] || ''}
+                                                                onChange={(e) => updateRightQuantity(marker.id, size.size, e.target.value)}
+                                                                size="small"
+                                                                sx={{ width: '60px' }}
+                                                                inputProps={{ min: 0 }}
+                                                            />
+                                                        </TableCell>
+                                                    ))}
+                                                    <TableCell sx={{ padding: '4px' }}>
+                                                        <TextField
+                                                            type="number"
+                                                            value={marker.layers}
+                                                            onChange={(e) => updateRightMarkerField(marker.id, 'layers', e.target.value)}
+                                                            size="small"
+                                                            sx={{ width: '60px' }}
+                                                            inputProps={{ min: 1 }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell sx={{ padding: '4px' }}>
+                                                        <IconButton
+                                                            onClick={() => removeRightMarker(marker.id)}
+                                                            size="small"
+                                                            color="error"
+                                                        >
+                                                            <Delete />
+                                                        </IconButton>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+                    )}
                 </Box>
 
                 <Divider sx={{ my: 3 }} />
 
-                {/* Results Section */}
+                {/* Results Section - Always Below */}
                 <Box>
-                    <Typography variant="h6" gutterBottom>
-                        Calculation Results
-                    </Typography>
-
                     <TableContainer component={Paper} sx={{ mb: 2 }}>
                         <Table size="small">
                             <TableHead>
@@ -859,6 +989,13 @@ const MarkerCalculatorDialog = ({
                                     </TableCell>
                                     <TableCell align="center"><strong>Calculated Total</strong></TableCell>
                                     <TableCell align="center"><strong>Coverage</strong></TableCell>
+                                    {/* Additional columns for split view */}
+                                    {splitViewMode && (
+                                        <>
+                                            <TableCell align="center"><strong>Calculated 2nd Total</strong></TableCell>
+                                            <TableCell align="center"><strong>2nd Coverage</strong></TableCell>
+                                        </>
+                                    )}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -866,6 +1003,8 @@ const MarkerCalculatorDialog = ({
                                     const orderQty = getOrderQuantity(sizeName);
                                     const calculatedQty = totals.bySize[sizeName];
                                     const coverage = getCoveragePercentage(sizeName);
+                                    const rightCalculatedQty = rightTotals.bySize[sizeName];
+                                    const rightCoverage = getRightCoveragePercentage(sizeName);
 
                                     return (
                                         <TableRow key={sizeName}>
@@ -882,19 +1021,78 @@ const MarkerCalculatorDialog = ({
                                                     size="small"
                                                 />
                                             </TableCell>
+                                            {/* Additional columns for split view */}
+                                            {splitViewMode && (
+                                                <>
+                                                    <TableCell align="center">{rightCalculatedQty}</TableCell>
+                                                    <TableCell align="center">
+                                                        <Chip
+                                                            label={`${rightCoverage}%`}
+                                                            color={
+                                                                rightCoverage >= 100 ? 'success' :
+                                                                rightCoverage >= 80 ? 'warning' : 'error'
+                                                            }
+                                                            size="small"
+                                                        />
+                                                    </TableCell>
+                                                </>
+                                            )}
                                         </TableRow>
                                     );
                                 })}
+                                {/* Total Row */}
+                                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                    <TableCell align="center">
+                                        <strong>Total</strong>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <strong>
+                                            {orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0)}
+                                        </strong>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <strong>{totals.totalPiecesWithLayers}</strong>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <Chip
+                                            label={`${Math.round(
+                                                orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0) > 0
+                                                    ? (totals.totalPiecesWithLayers / orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0)) * 100
+                                                    : 0
+                                            )}%`}
+                                            color={
+                                                totals.totalPiecesWithLayers >= orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0) ? 'success' :
+                                                totals.totalPiecesWithLayers >= orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0) * 0.8 ? 'warning' : 'error'
+                                            }
+                                            size="small"
+                                        />
+                                    </TableCell>
+                                    {/* Additional columns for split view totals */}
+                                    {splitViewMode && (
+                                        <>
+                                            <TableCell align="center">
+                                                <strong>{rightTotals.totalPiecesWithLayers}</strong>
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                <Chip
+                                                    label={`${Math.round(
+                                                        orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0) > 0
+                                                            ? (rightTotals.totalPiecesWithLayers / orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0)) * 100
+                                                            : 0
+                                                    )}%`}
+                                                    color={
+                                                        rightTotals.totalPiecesWithLayers >= orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0) ? 'success' :
+                                                        rightTotals.totalPiecesWithLayers >= orderSizeNames.reduce((sum, sizeName) => sum + getOrderQuantity(sizeName), 0) * 0.8 ? 'warning' : 'error'
+                                                    }
+                                                    size="small"
+                                                />
+                                            </TableCell>
+                                        </>
+                                    )}
+                                </TableRow>
                             </TableBody>
                         </Table>
                     </TableContainer>
-
-                    {/* Summary */}
-                    <Box display="flex" gap={3} flexWrap="wrap">
-                        <Typography variant="body1">
-                            <strong>Total Pieces:</strong> {totals.totalPiecesWithLayers}
-                        </Typography>
-                    </Box>
                 </Box>
             </DialogContent>
 
@@ -903,30 +1101,14 @@ const MarkerCalculatorDialog = ({
                     onClick={saveCalculatorData}
                     variant="contained"
                     color="primary"
+                    disabled={isLoading}
                 >
                     Save
                 </Button>
-                <Button onClick={handleClose} variant="outlined">
-                    Close Without Saving
+                <Button onClick={onClose} variant="outlined">
+                    Close
                 </Button>
             </DialogActions>
-
-            {/* Success Snackbar */}
-            <Snackbar
-                open={showSuccessSnackbar}
-                autoHideDuration={3000}
-                onClose={() => setShowSuccessSnackbar(false)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-                <Alert
-                    onClose={() => setShowSuccessSnackbar(false)}
-                    severity="success"
-                    variant="filled"
-                    sx={{ width: '100%' }}
-                >
-                    Calculator data saved successfully!
-                </Alert>
-            </Snackbar>
         </Dialog>
     );
 };

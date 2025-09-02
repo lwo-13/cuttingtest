@@ -2478,6 +2478,7 @@ const OrderPlanning = () => {
                     tables={tables}
                     getTablePlannedQuantities={getTablePlannedQuantities}
                     selectedOrder={selectedOrder}
+                    selectedCombinationId={selectedCombination?.combination_id}
                 />
             )}
 
