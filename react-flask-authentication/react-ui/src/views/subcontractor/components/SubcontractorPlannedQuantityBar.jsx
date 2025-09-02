@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, getWidthsByBagno }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [showWidthColumn, setShowWidthColumn] = useState(true);
+  const [showWidthColumn, setShowWidthColumn] = useState(false);
 
   // Get planned quantities (same as original)
   const plannedQuantities = getTablePlannedQuantities ? getTablePlannedQuantities(table) : {};

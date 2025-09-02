@@ -43,6 +43,94 @@ class MarkerHeaders(Resource):
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
 
+# ===================== Marker Headers Paginated ==========================
+@markers_api.route('/marker_headers_paginated', methods=['GET'])
+class MarkerHeadersPaginated(Resource):
+    def get(self):
+        """Fetch marker headers with pagination support for improved performance.
+
+        Query parameters:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 500, max: 1000)
+        - search: Search term for filtering
+        """
+        try:
+            # Get pagination parameters
+            page = request.args.get('page', 1, type=int)
+            per_page = min(request.args.get('per_page', 500, type=int), 1000)  # Max 1000 items per page
+            search_term = request.args.get('search', '', type=str).strip()
+
+            # Base query for ALL markers (ACTIVE and NOT ACTIVE)
+            query = MarkerHeader.query
+
+            # Add search filtering if search term provided
+            if search_term:
+                search_filter = f"%{search_term.lower()}%"
+                query = query.filter(
+                    db.or_(
+                        MarkerHeader.marker_name.ilike(search_filter),
+                        MarkerHeader.fabric_code.ilike(search_filter),
+                        MarkerHeader.fabric_type.ilike(search_filter),
+                        MarkerHeader.model.ilike(search_filter),
+                        MarkerHeader.variant.ilike(search_filter)
+                    )
+                )
+
+            # Get total count for pagination
+            total_count = query.count()
+
+            # Get paginated results ordered by creation date (newest first)
+            headers = query.order_by(
+                MarkerHeader.id.desc()  # Order by ID descending (newest first)
+            ).offset((page - 1) * per_page).limit(per_page).all()
+
+            # Build result with usage count for each marker
+            result = []
+            for header in headers:
+                # Check if marker is being used in any mattresses
+                usage_count = db.session.query(func.count(MattressMarker.id)).filter(
+                    MattressMarker.marker_id == header.id
+                ).scalar()
+
+                result.append({
+                    "id": header.id,
+                    "marker_name": header.marker_name,
+                    "marker_width": header.marker_width,
+                    "marker_length": header.marker_length,
+                    "fabric_code": header.fabric_code,
+                    "fabric_type": header.fabric_type,
+                    "efficiency": header.efficiency,
+                    "total_pcs": header.total_pcs,
+                    "creation_type": header.creation_type,
+                    "model": header.model,
+                    "variant": header.variant,
+                    "status": header.status,  # Add status field
+                    "usage_count": usage_count
+                })
+
+            # Calculate pagination metadata
+            total_pages = (total_count + per_page - 1) // per_page
+            has_next = page < total_pages
+            has_prev = page > 1
+
+            pagination_info = {
+                "page": page,
+                "per_page": per_page,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": has_next,
+                "has_prev": has_prev
+            }
+
+            return {
+                "success": True,
+                "data": result,
+                "pagination": pagination_info
+            }, 200
+
+        except Exception as e:
+            return {"success": False, "message": f"Database error: {str(e)}"}, 500
+
 # ===================== Marker Headers Planning ==========================
 @markers_api.route('/marker_headers_planning', methods=['GET'])
 class MarkerHeadersPlanning(Resource):
@@ -50,6 +138,7 @@ class MarkerHeadersPlanning(Resource):
         try:
             selected_style = request.args.get('style')  # 🔍 Get style from query parameters
             sizes_param = request.args.get('sizes')
+            order_commessa = request.args.get('order_commessa')  # 🔍 Get order commessa for previously selected markers
 
             if not selected_style:
                 return {"success": False, "msg": "Missing required style parameter"}, 400
@@ -60,14 +149,36 @@ class MarkerHeadersPlanning(Resource):
                 allowed_sizes = set(size.strip() for size in sizes_param.split(',') if size.strip())
 
             # ✅ Fetch ACTIVE markers matching the style
-            headers = MarkerHeader.query.filter(
+            active_headers = MarkerHeader.query.filter(
                 MarkerHeader.status == 'ACTIVE',
                 MarkerHeader.model.ilike(f"%{selected_style}%")  # Case-insensitive search
             ).all()
 
+            # ✅ Fetch previously selected markers for this order (even if NOT ACTIVE)
+            previously_selected_headers = []
+            if order_commessa:
+                # Get marker IDs that are used in mattresses for this order
+                from api.models import Mattresses, MattressMarker
+                used_marker_ids = db.session.query(MattressMarker.marker_id).join(
+                    Mattresses, MattressMarker.mattress_id == Mattresses.id
+                ).filter(
+                    Mattresses.order_commessa == order_commessa
+                ).distinct().all()
+
+                if used_marker_ids:
+                    marker_ids = [row.marker_id for row in used_marker_ids]
+                    previously_selected_headers = MarkerHeader.query.filter(
+                        MarkerHeader.id.in_(marker_ids),
+                        MarkerHeader.status == 'NOT ACTIVE',  # Only get NOT ACTIVE ones (ACTIVE ones are already included above)
+                        MarkerHeader.model.ilike(f"%{selected_style}%")
+                    ).all()
+
+            # Combine both lists and remove duplicates
+            all_headers = active_headers + previously_selected_headers
+
             result = []
 
-            for header in headers:
+            for header in all_headers:
                 # ✅ Fetch Marker Lines for the current header
                 marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
 
@@ -225,17 +336,22 @@ class ImportMarker(Resource):
             efficiency = float(width_elem.find('Efficiency').attrib.get('Value', 0).replace(',', '.'))
             meters_by_variants = float(width_elem.find('MetersByVariants').attrib.get('Value', 0).replace(',', '.'))
 
-            existing_marker = MarkerHeader.query.filter_by(
-                marker_name=marker_name,
-                marker_length=marker_length,
-                creation_type=creation_type
-            ).first()
+            # Check if marker with same name already exists
+            existing_marker = MarkerHeader.query.filter_by(marker_name=marker_name).first()
 
+            replacement_message = ""
             if existing_marker:
-                return {
-                    "success": False,
-                    "msg": f"Marker '{marker_name}' with length {marker_length} and creation type '{creation_type}' already exists"
-                }, 409
+                # If new marker length is higher or equal, reject
+                if marker_length >= existing_marker.marker_length:
+                    return {
+                        "success": False,
+                        "msg": f"Marker '{marker_name}' already exists with better or equal length ({existing_marker.marker_length:.1f}cm vs {marker_length:.1f}cm)"
+                    }, 409
+                # If new marker length is lower, set existing marker to NOT ACTIVE and proceed
+                else:
+                    existing_marker.status = 'NOT ACTIVE'
+                    db.session.add(existing_marker)
+                    replacement_message = f" (Previous marker with length {existing_marker.marker_length:.1f}cm was set to NOT ACTIVE)"
 
             # Extract <Tolerances> Data
             tolerances_elem = root.find('Tolerances')
@@ -360,7 +476,7 @@ class ImportMarker(Resource):
 
             db.session.commit()
 
-            return {"success": True, "msg": f"Marker '{marker_name}' imported"}, 201
+            return {"success": True, "msg": f"Marker '{marker_name}' imported successfully{replacement_message}"}, 201
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
 
@@ -389,6 +505,18 @@ class BatchImportMarkers(Resource):
         success_count = 0
         failure_count = 0
 
+        # Helper function to safely convert string to float, handling comma decimal separators
+        def safe_float(value, default=0):
+            if not value:
+                return default
+            # Replace comma with dot for decimal separator
+            value = value.replace(',', '.')
+            try:
+                return float(value)
+            except ValueError:
+                print(f"Warning: Could not convert '{value}' to float, using default {default}")
+                return default
+
         for file in files:
             result = {"filename": file.filename, "success": False, "msg": ""}
 
@@ -413,12 +541,40 @@ class BatchImportMarkers(Resource):
                 print(f"Full marker name: {full_marker_name}")
                 print(f"Extracted marker name: {marker_name}")
 
-                # Check if marker already exists
-                if MarkerHeader.query.filter_by(marker_name=marker_name).first():
-                    result["msg"] = f"Marker '{marker_name}' already exists"
+                # Extract marker dimensions first to check for duplicates
+                width_desc_elem = root.find('WidthDescription')
+                if width_desc_elem is None:
+                    result["msg"] = "Invalid XML format: Missing WidthDescription element"
                     results.append(result)
                     failure_count += 1
                     continue
+
+                width_elem = width_desc_elem.find('Width')
+                length_elem = width_desc_elem.find('Length')
+
+                if width_elem is None or length_elem is None:
+                    result["msg"] = "Invalid XML format: Missing Width or Length element"
+                    results.append(result)
+                    failure_count += 1
+                    continue
+
+                marker_length = safe_float(length_elem.attrib.get('Value', 0))
+
+                # Check if marker with same name already exists
+                replacement_message = ""
+                existing_marker = MarkerHeader.query.filter_by(marker_name=marker_name).first()
+                if existing_marker:
+                    # If new marker length is higher or equal, reject
+                    if marker_length >= existing_marker.marker_length:
+                        result["msg"] = f"Marker '{marker_name}' already exists with better or equal length ({existing_marker.marker_length:.1f}cm vs {marker_length:.1f}cm)"
+                        results.append(result)
+                        failure_count += 1
+                        continue
+                    # If new marker length is lower, set existing marker to NOT ACTIVE and proceed
+                    else:
+                        existing_marker.status = 'NOT ACTIVE'
+                        db.session.add(existing_marker)
+                        replacement_message = f" (Previous marker with length {existing_marker.marker_length:.1f}cm was set to NOT ACTIVE)"
 
                 # Extract fabric data
                 fabric_elem = root.find('Fabric')
@@ -436,33 +592,12 @@ class BatchImportMarkers(Resource):
                 # Debug fabric data extraction
                 print(f"Fabric data: code={fabric_code}, type={fabric_type}, constraint={constraint_file}, marker_type={marker_type}")
 
-                # Helper function to safely convert string to float, handling comma decimal separators
-                def safe_float(value, default=0):
-                    if not value:
-                        return default
-                    # Replace comma with dot for decimal separator
-                    value = value.replace(',', '.')
-                    try:
-                        return float(value)
-                    except ValueError:
-                        print(f"Warning: Could not convert '{value}' to float, using default {default}")
-                        return default
-
-                # Extract marker dimensions and efficiency from WidthDescription
-                width_desc_elem = root.find('WidthDescription')
-                if width_desc_elem is None:
-                    result["msg"] = "Invalid XML format: Missing WidthDescription element"
-                    results.append(result)
-                    failure_count += 1
-                    continue
-
-                width_elem = width_desc_elem.find('Width')
-                length_elem = width_desc_elem.find('Length')
+                # Extract additional marker dimensions and efficiency from WidthDescription (already extracted above)
                 efficiency_elem = width_desc_elem.find('Efficiency')
                 meters_by_variants_elem = width_desc_elem.find('MetersByVariants')
 
                 marker_width = safe_float(width_elem.attrib.get('Value', '0')) if width_elem is not None else 0
-                marker_length = safe_float(length_elem.attrib.get('Value', '0')) if length_elem is not None else 0
+                # marker_length already extracted above for duplicate check
                 efficiency = safe_float(efficiency_elem.attrib.get('Value', '0')) if efficiency_elem is not None else 0
                 meters_by_variants = safe_float(meters_by_variants_elem.attrib.get('Value', '0')) if meters_by_variants_elem is not None else 0
 
@@ -764,7 +899,7 @@ class BatchImportMarkers(Resource):
                 db.session.commit()
 
                 result["success"] = True
-                result["msg"] = f"Marker '{marker_name}' imported successfully"
+                result["msg"] = f"Marker '{marker_name}' imported successfully{replacement_message}"
                 result["marker_name"] = marker_name
                 success_count += 1
 

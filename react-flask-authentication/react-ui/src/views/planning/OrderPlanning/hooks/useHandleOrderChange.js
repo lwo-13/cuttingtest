@@ -88,7 +88,11 @@ const handleOrderChange = async (newValue, context) => {
     const [mattressRes, markerRes, alongRes, weftRes, biasRes, commentRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${newValue.id}`),
       axios.get(`/markers/marker_headers_planning`, {
-        params: { style: newValue.style, sizes: sizeNames.join(',') }
+        params: {
+          style: newValue.style,
+          sizes: sizeNames.join(','),
+          order_commessa: newValue.order_commessa  // ✅ Include order commessa to get previously selected markers
+        }
       }),
       axios.get(`/collaretto/get_by_order/${newValue.id}`),
       axios.get(`/collaretto/get_weft_by_order/${newValue.id}`),
@@ -120,15 +124,15 @@ const handleOrderChange = async (newValue, context) => {
           rows: []
         };
       }
-      const marker = markersMap[mattress.marker_name];
+      // Use marker data from mattress_markers table and size quantities from mattress_sizes table
       tablesById[tableId].rows.push({
         id: mattress.row_id,
         mattressName: mattress.mattress,
-        width: marker?.marker_width || "",
+        width: mattress.marker_width || "",  // Use marker data from database
         markerName: mattress.marker_name,
-        markerLength: marker?.marker_length || "",
-        efficiency: marker?.efficiency || "",
-        piecesPerSize: marker?.size_quantities || {},
+        markerLength: mattress.marker_length || "",  // Use marker data from database
+        efficiency: mattress.efficiency || "",  // Use marker data from database
+        piecesPerSize: mattress.size_quantities || {},  // Use size quantities from mattress_sizes table
         layers: mattress.layers || "",
         layers_a: mattress.layers_a || "", // Load actual layers from database
         expectedConsumption: mattress.cons_planned || "",

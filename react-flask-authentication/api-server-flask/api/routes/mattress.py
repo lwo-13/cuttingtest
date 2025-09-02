@@ -186,7 +186,8 @@ class MattressResource(Resource):
                         marker_id=marker_id,
                         marker_name=data["marker_name"],
                         marker_width=data["marker_width"],
-                        marker_length=data["marker_length"]
+                        marker_length=data["marker_length"],
+                        efficiency=data.get("efficiency")  # Add efficiency
                     )
                     db.session.add(new_marker_entry)
                 else:
@@ -199,7 +200,8 @@ class MattressResource(Resource):
                     marker_id=marker_id,
                     marker_name=data["marker_name"],
                     marker_width=data["marker_width"],
-                    marker_length=data["marker_length"]
+                    marker_length=data["marker_length"],
+                    efficiency=data.get("efficiency")  # Add efficiency
                 )
                 db.session.add(new_marker_entry)
 
@@ -244,6 +246,9 @@ class GetMattressesByOrder(Resource):
                 MattressDetail.bagno_ready,  # Add bagno_ready field
                 completed_phase_subquery.c.completed_phase_updated_at.label('layers_updated_at'),  # Get timestamp from completed phase
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
+                MattressMarker.marker_width,  # Fetch `marker_width` from mattress_markers
+                MattressMarker.marker_length,  # Fetch `marker_length` from mattress_markers
+                MattressMarker.efficiency,  # Fetch `efficiency` from mattress_markers
                 MattressPhase.status.label('phase_status'),
                 # Add table-specific production center fields
                 MattressProductionCenter.production_center,
@@ -284,7 +289,7 @@ class GetMattressesByOrder(Resource):
                 pending_width_change_mattresses.add(req.mattress_id)
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, marker_width, marker_length, efficiency, phase_status, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
@@ -303,6 +308,9 @@ class GetMattressesByOrder(Resource):
                     "layers_a": layers_a if layers_a is not None else "",
                     "layers_updated_at": layers_updated_at.strftime('%Y-%m-%d %H:%M:%S') if layers_updated_at is not None else "",
                     "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
+                    "marker_width": marker_width if marker_width is not None else "",  # Add marker width from mattress_markers
+                    "marker_length": marker_length if marker_length is not None else "",  # Add marker length from mattress_markers
+                    "efficiency": efficiency if efficiency is not None else "",  # Add efficiency from marker_headers
                     "allowance": extra if extra is not None else 0,
                     "cons_planned": cons_planned if cons_planned is not None else "",
                     "cons_actual": cons_actual if cons_actual is not None else "",
@@ -313,6 +321,36 @@ class GetMattressesByOrder(Resource):
                     "row_id": mattress.row_id,
                     "sequence_number": mattress.sequence_number
                 })
+
+            # Fetch size quantities for all mattresses
+            mattress_ids = [item["mattress"].split('-')[-1] for item in result if item["mattress"]]  # Extract mattress ID from name
+            if mattress_ids:
+                # Get all mattress IDs from the mattresses table
+                mattress_id_map = {}
+                for mattress, *_ in mattresses:
+                    mattress_id_map[mattress.mattress] = mattress.id
+
+                # Fetch size quantities from mattress_sizes table
+                size_data = MattressSize.query.filter(
+                    MattressSize.mattress_id.in_(mattress_id_map.values())
+                ).all()
+
+                # Group size quantities by mattress_id
+                size_quantities_by_mattress = {}
+                for size_record in size_data:
+                    mattress_id = size_record.mattress_id
+                    if mattress_id not in size_quantities_by_mattress:
+                        size_quantities_by_mattress[mattress_id] = {}
+                    size_quantities_by_mattress[mattress_id][size_record.size] = size_record.pcs_layer
+
+                # Add size quantities to result
+                for item in result:
+                    mattress_name = item["mattress"]
+                    if mattress_name in mattress_id_map:
+                        mattress_id = mattress_id_map[mattress_name]
+                        item["size_quantities"] = size_quantities_by_mattress.get(mattress_id, {})
+                    else:
+                        item["size_quantities"] = {}
 
             return {"success": True, "data": result}, 200
 
@@ -347,6 +385,9 @@ class GetAdhesivesByOrder(Resource):
                 MattressDetail.bagno_ready,  # Add bagno_ready field
                 completed_phase_subquery.c.completed_phase_updated_at.label('layers_updated_at'),  # Get timestamp from completed phase
                 MattressMarker.marker_name,  # Fetch `marker_name` from mattress_markers
+                MattressMarker.marker_width,  # Fetch `marker_width` from mattress_markers
+                MattressMarker.marker_length,  # Fetch `marker_length` from mattress_markers
+                MattressMarker.efficiency,  # Fetch `efficiency` from mattress_markers
                 MattressPhase.status.label('phase_status'),
                 # Add table-specific production center fields
                 MattressProductionCenter.production_center,
@@ -387,7 +428,7 @@ class GetAdhesivesByOrder(Resource):
                 pending_width_change_mattresses.add(req.mattress_id)
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, phase_status, production_center, cutting_room, destination in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, marker_width, marker_length, efficiency, phase_status, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "id": mattress.id,
                     "mattress": mattress.mattress,
@@ -404,6 +445,9 @@ class GetAdhesivesByOrder(Resource):
                     "layers_a": layers_a if layers_a is not None else "",
                     "layers_updated_at": layers_updated_at.strftime('%Y-%m-%d %H:%M:%S') if layers_updated_at is not None else "",
                     "marker_name": marker_name if marker_name is not None else "",  # Ensure empty if no value
+                    "marker_width": marker_width if marker_width is not None else "",  # Add marker width from mattress_markers
+                    "marker_length": marker_length if marker_length is not None else "",  # Add marker length from mattress_markers
+                    "efficiency": efficiency if efficiency is not None else "",  # Add efficiency from mattress_markers
                     "allowance": extra if extra is not None else 0,
                     "cons_planned": cons_planned if cons_planned is not None else "",
                     "cons_actual": cons_actual if cons_actual is not None else "",
@@ -420,6 +464,36 @@ class GetAdhesivesByOrder(Resource):
                     "cutting_room": cutting_room,
                     "destination": destination
                 })
+
+            # Fetch size quantities for all mattresses (same logic as regular mattresses)
+            mattress_ids = [item["mattress"].split('-')[-1] for item in result if item["mattress"]]
+            if mattress_ids:
+                # Get all mattress IDs from the mattresses table
+                mattress_id_map = {}
+                for mattress, *_ in mattresses:
+                    mattress_id_map[mattress.mattress] = mattress.id
+
+                # Fetch size quantities from mattress_sizes table
+                size_data = MattressSize.query.filter(
+                    MattressSize.mattress_id.in_(mattress_id_map.values())
+                ).all()
+
+                # Group size quantities by mattress_id
+                size_quantities_by_mattress = {}
+                for size_record in size_data:
+                    mattress_id = size_record.mattress_id
+                    if mattress_id not in size_quantities_by_mattress:
+                        size_quantities_by_mattress[mattress_id] = {}
+                    size_quantities_by_mattress[mattress_id][size_record.size] = size_record.pcs_layer
+
+                # Add size quantities to result
+                for item in result:
+                    mattress_name = item["mattress"]
+                    if mattress_name in mattress_id_map:
+                        mattress_id = mattress_id_map[mattress_name]
+                        item["size_quantities"] = size_quantities_by_mattress.get(mattress_id, {})
+                    else:
+                        item["size_quantities"] = {}
 
             return {"success": True, "data": result}, 200
 

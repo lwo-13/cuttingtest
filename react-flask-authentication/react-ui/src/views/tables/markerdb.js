@@ -19,7 +19,8 @@ import {
     Button,
     Snackbar,
     Alert,
-    Badge
+    Badge,
+    TextField
   } from '@mui/material';
 import { Block, Delete } from '@mui/icons-material';
 import { IconTarget } from '@tabler/icons';
@@ -74,6 +75,31 @@ const MarkerDB = () => {
     const [markerLines, setMarkerLines] = useState([]);
     const [selectedMarkerName, setSelectedMarkerName] = useState('');
 
+    // Pagination state
+    const [pagination, setPagination] = useState({
+        page: 1,
+        per_page: 100,
+        total_count: 0,
+        total_pages: 0
+    });
+
+    // Separate state for current page size to avoid async issues
+    const [currentPageSize, setCurrentPageSize] = useState(100);
+
+    // Server-side pagination state (fetch 300 rows at a time)
+    const [serverData, setServerData] = useState([]);
+    const [serverPage, setServerPage] = useState(1);
+    const [serverPagination, setServerPagination] = useState({
+        page: 1,
+        per_page: 300,
+        total_count: 0,
+        total_pages: 0
+    });
+
+    // Search state
+    const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
     // Snackbar state
     const [openSuccess, setOpenSuccess] = useState(false);
     const [openError, setOpenError] = useState(false);
@@ -84,7 +110,16 @@ const MarkerDB = () => {
     const handleCloseSuccess = () => setOpenSuccess(false);
     const handleCloseError = () => setOpenError(false);
 
-    // ✅ Adjust table height dynamically when the window resizes
+    // Debounce search term to avoid too many API calls
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500); // 500ms delay
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Adjust table height dynamically when the window resizes
     useEffect(() => {
         const handleResize = () => {
             setTableHeight(window.innerHeight - 260); // ✅ Adjust based on viewport height
@@ -94,24 +129,91 @@ const MarkerDB = () => {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const fetchMarkers = () => {
-        setLoading(true);
-        axios.get('/markers/marker_headers') // Adjust URL if needed
-            .then((response) => {
-                if (response.data.success) {
-                    setMarkers(response.data.data);
-                } else {
-                    console.error("Failed to fetch markers");
-                }
-            })
-            .catch((error) => console.error("Error fetching marker data:", error))
-            .finally(() => setLoading(false));
+    const fetchMarkers = (clientPage = 1, search = "", forceRefresh = false) => {
+        // Calculate which server page we need based on client page
+        // Each server page has 300 items, each client page has 100 items
+        // So server page 1 contains client pages 1-3, server page 2 contains client pages 4-6, etc.
+        const itemsPerServerPage = 300;
+        const itemsPerClientPage = currentPageSize;
+        const clientPagesPerServerPage = itemsPerServerPage / itemsPerClientPage; // 3 pages
+
+        const requiredServerPage = Math.ceil(clientPage / clientPagesPerServerPage);
+
+        // Check if we need to fetch new data from server
+        const needsServerFetch = forceRefresh ||
+                                requiredServerPage !== serverPage ||
+                                search !== debouncedSearchTerm;
+
+        if (needsServerFetch) {
+            setLoading(true);
+
+            // Build query parameters for server
+            const params = new URLSearchParams({
+                page: requiredServerPage.toString(),
+                per_page: itemsPerServerPage.toString()
+            });
+
+            if (search.trim()) {
+                params.append('search', search.trim());
+            }
+
+            axios.get(`/markers/marker_headers_paginated?${params.toString()}`)
+                .then((response) => {
+                    if (response.data.success) {
+                        const newServerData = response.data.data;
+                        setServerData(newServerData);
+                        setServerPage(requiredServerPage);
+
+                        // Update server pagination state
+                        if (response.data.pagination) {
+                            setServerPagination(response.data.pagination);
+                        }
+
+                        // Calculate client pagination based on server data (use fresh data, not state)
+                        updateClientPaginationWithData(clientPage, response.data.pagination, newServerData);
+                    } else {
+                        console.error("Failed to fetch markers:", response.data);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error fetching marker data:", error);
+                })
+                .finally(() => setLoading(false));
+        } else {
+            // Use existing server data, just update client pagination
+            updateClientPaginationWithData(clientPage, serverPagination, serverData);
+        }
     };
 
-    // ✅ Call fetchMarkers in useEffect
+    const updateClientPaginationWithData = (clientPage, serverPaginationData, dataArray) => {
+        const itemsPerServerPage = 300;
+        const itemsPerClientPage = currentPageSize;
+        const clientPagesPerServerPage = itemsPerServerPage / itemsPerClientPage;
+
+        // Calculate the range of items for this client page
+        const startIndex = ((clientPage - 1) % clientPagesPerServerPage) * itemsPerClientPage;
+        const endIndex = startIndex + itemsPerClientPage;
+
+        // Extract the subset of data for this client page
+        const clientPageData = dataArray.slice(startIndex, endIndex);
+        setMarkers(clientPageData);
+
+        // Calculate total client pages based on server total count
+        const totalClientPages = Math.ceil(serverPaginationData.total_count / itemsPerClientPage);
+
+        // Update client pagination state
+        setPagination({
+            page: clientPage,
+            per_page: itemsPerClientPage,
+            total_count: serverPaginationData.total_count,
+            total_pages: totalClientPages
+        });
+    };
+
+    // Fetch markers when component mounts or search term changes
     useEffect(() => {
-        fetchMarkers();
-    }, []);
+        fetchMarkers(1, debouncedSearchTerm, true); // Force refresh on search change
+    }, [debouncedSearchTerm]);
 
     // Handle Selection Change
     const handleSelectionChange = (newSelection) => {
@@ -157,8 +259,8 @@ const MarkerDB = () => {
                 setSuccessMessage("Markers set to NOT ACTIVE successfully");
                 setOpenSuccess(true);
 
-                // ✅ Re-fetch markers after update
-                fetchMarkers();
+                // Re-fetch markers after update (maintain current page and search)
+                fetchMarkers(pagination.page, debouncedSearchTerm, true);
 
                 // ✅ Clear selection
                 setSelectedMarkers([]);
@@ -192,8 +294,8 @@ const MarkerDB = () => {
                 setSuccessMessage(response.data.message);
                 setOpenSuccess(true);
 
-                // ✅ Re-fetch markers after deletion
-                fetchMarkers();
+                // Re-fetch markers after deletion (maintain current page and search)
+                fetchMarkers(pagination.page, debouncedSearchTerm, true);
 
                 // ✅ Clear selection
                 setSelectedMarkers([]);
@@ -208,17 +310,72 @@ const MarkerDB = () => {
         }
     };
 
+    // Helper function to apply strikethrough styling for NOT ACTIVE markers
+    const renderCellWithStrikethrough = (value, isNotActive) => (
+        <span style={{
+            textDecoration: isNotActive ? 'line-through' : 'none',
+            color: isNotActive ? '#999' : 'inherit'
+        }}>
+            {value}
+        </span>
+    );
+
     // Table Columns
     const columns = [
-        { field: 'marker_name', headerName: 'Marker Name', width: 290 },
-        { field: 'marker_width', headerName: 'Width', width: 100 },
-        { field: 'marker_length', headerName: 'Length', width: 100 },
-        { field: 'efficiency', headerName: 'Efficiency (%)', width: 130 },
-        { field: 'total_pcs', headerName: 'Total Pieces', width: 120 },
-        { field: 'fabric_type', headerName: 'Fabric Type', width: 100 },
-        { field: 'fabric_code', headerName: 'Fabric Code', width: 130 },
-        { field: 'model', headerName: 'MDL', width: 150 },
-        { field: 'variant', headerName: 'Variant', width: 150 },
+        {
+            field: 'marker_name',
+            headerName: 'Marker Name',
+            width: 290,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'marker_width',
+            headerName: 'Width',
+            width: 100,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'marker_length',
+            headerName: 'Length',
+            width: 100,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'efficiency',
+            headerName: 'Efficiency (%)',
+            width: 130,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'total_pcs',
+            headerName: 'Total Pieces',
+            width: 120,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'fabric_type',
+            headerName: 'Fabric Type',
+            width: 100,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'fabric_code',
+            headerName: 'Fabric Code',
+            width: 130,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'model',
+            headerName: 'MDL',
+            width: 150,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
+        {
+            field: 'variant',
+            headerName: 'Variant',
+            width: 150,
+            renderCell: (params) => renderCellWithStrikethrough(params.value, params.row.status === 'NOT ACTIVE')
+        },
         {
             field: 'usage_count',
             headerName: 'Usage',
@@ -226,13 +383,18 @@ const MarkerDB = () => {
             align: 'center',
             headerAlign: 'center',
             renderCell: (params) => (
-                <Badge
-                    badgeContent={params.row.usage_count}
-                    color={params.row.usage_count > 0 ? 'success' : 'default'}
-                    showZero
-                >
-                    <IconTarget size={20} />
-                </Badge>
+                <div style={{
+                    textDecoration: params.row.status === 'NOT ACTIVE' ? 'line-through' : 'none',
+                    opacity: params.row.status === 'NOT ACTIVE' ? 0.6 : 1
+                }}>
+                    <Badge
+                        badgeContent={params.row.usage_count}
+                        color={params.row.usage_count > 0 ? 'success' : 'default'}
+                        showZero
+                    >
+                        <IconTarget size={20} />
+                    </Badge>
+                </div>
             )
         },
         {
@@ -243,7 +405,11 @@ const MarkerDB = () => {
               <Button
                 variant="text"
                 color="primary"
-                sx={{ textDecoration: 'underline', fontSize: '0.85rem' }}
+                sx={{
+                    textDecoration: params.row.status === 'NOT ACTIVE' ? 'line-through' : 'underline',
+                    fontSize: '0.85rem',
+                    opacity: params.row.status === 'NOT ACTIVE' ? 0.6 : 1
+                }}
                 onClick={() => handleCheckPcsClick(params.row.marker_name)}
               >
                 Check pcs
@@ -256,7 +422,16 @@ const MarkerDB = () => {
     return (
         <>
             <MainCard title="Marker Database" secondary={
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <TextField
+                        label="Search markers..."
+                        variant="outlined"
+                        size="small"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        sx={{ width: 300 }}
+                        placeholder="Search by name, fabric, model, variant..."
+                    />
                     <Button
                         variant="contained"
                         color="secondary"
@@ -277,6 +452,7 @@ const MarkerDB = () => {
                     </Button>
                 </Box>
             }>
+
                 {loading ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="300px">
                         <CircularProgress />
@@ -284,27 +460,43 @@ const MarkerDB = () => {
                 ) : (
                     <div style={{ height: tableHeight, width: '100%' }}>
                         <DataGrid
+                            key={`${pagination.page}-${currentPageSize}`} // Force re-render on pagination change
                             rows={markers}
                             columns={columns}
-                            pageSize={10}
-                            rowsPerPageOptions={[10, 25, 50, 100]} // Allow user selection
-                            pagination
+                            paginationModel={{
+                                page: pagination.page - 1, // DataGrid uses 0-based indexing
+                                pageSize: currentPageSize
+                            }}
+                            pageSizeOptions={[25, 50, 100]}
+                            paginationMode="server" // Server-side pagination
+                            rowCount={pagination.total_count > 0 ? pagination.total_count : 100000}
+                            onPaginationModelChange={(model) => {
+                                // Handle page change
+                                if (model.page !== pagination.page - 1) {
+                                    fetchMarkers(model.page + 1, debouncedSearchTerm);
+                                }
+
+                                // Handle page size change
+                                if (model.pageSize !== currentPageSize) {
+                                    setCurrentPageSize(model.pageSize);
+                                    // Force refresh when page size changes
+                                    fetchMarkers(1, debouncedSearchTerm, true);
+                                }
+                            }}
                             checkboxSelection
                             disableRowSelectionOnClick
                             onRowSelectionModelChange={(newSelection) => {
                                 setSelectedMarkers(newSelection);
                             }}
+                            loading={loading}
                             sx={{
                                 '& .MuiTablePagination-root': {
-                                    overflow: 'hidden', // ✅ Prevents pagination scrolling
-                                    minHeight: '52px', // ✅ Ensures proper alignment
+                                    overflow: 'hidden',
+                                    minHeight: '52px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'flex-end'
                                 }
-                            }}
-                            components={{
-                                Pagination: CustomPagination // ✅ Custom pagination (aligned right, no scroll)
                             }}
                         />
                     </div>

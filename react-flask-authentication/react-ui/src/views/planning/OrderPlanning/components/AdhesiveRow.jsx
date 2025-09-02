@@ -69,7 +69,14 @@ const AdhesiveRow = ({
               <span style={{ color: 'gray', marginLeft: '10px', fontSize: '0.85em' }}>({option.efficiency}%)</span>
             </li>
           )}
-          value={markerOptions.find(m => m.marker_name === row.markerName) || null}
+          // Always use row data as the primary source, create virtual option if needed
+          value={row.markerName ? {
+            marker_name: row.markerName,
+            marker_width: row.width,
+            marker_length: row.markerLength,
+            efficiency: row.efficiency,
+            size_quantities: row.piecesPerSize
+          } : null}
           disabled={!editable}
           onChange={(_, newValue) => {
             if (newValue) {

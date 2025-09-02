@@ -96,21 +96,16 @@ const handleOrderChange = async (newValue, {
 
     const sizeNames = sizesSorted.map(s => s.size);
 
-    const [allMattressRes, markerRes] = await Promise.all([
+    // No longer need marker API call - all marker data comes from mattress_markers and mattress_sizes tables
+    const [allMattressRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${newValue.id}`, {
         params: cuttingRoom ? { cutting_room: cuttingRoom } : {}
-      }),
-      axios.get(`/markers/marker_headers_planning`, {
-        params: { style: style, sizes: sizeNames.join(',') }
       })
     ]);
 
     console.log(`📊 Fetching mattresses for order ${newValue.id} with cutting room filter: ${cuttingRoom}`);
 
-    const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
-      acc[m.marker_name] = m;
-      return acc;
-    }, {});
+    // No longer need markersMap - use data directly from mattress_markers and mattress_sizes tables
 
     // Separate mattress and adhesive data from the single API response
     const allData = allMattressRes.data?.data || [];
@@ -137,15 +132,15 @@ const handleOrderChange = async (newValue, {
           rows: []
         };
       }
-      const marker = markersMap[mattress.marker_name];
+      // Use marker data directly from mattress_markers and mattress_sizes tables
       tablesById[tableId].rows.push({
         id: mattress.row_id,
         mattressName: mattress.mattress,
-        width: marker?.marker_width || "",
-        markerName: mattress.marker_name,
-        markerLength: marker?.marker_length || "",
-        efficiency: marker?.efficiency || "",
-        piecesPerSize: marker?.size_quantities || {},
+        width: mattress.marker_width || "",  // From mattress_markers table
+        markerName: mattress.marker_name,    // From mattress_markers table
+        markerLength: mattress.marker_length || "",  // From mattress_markers table
+        efficiency: mattress.efficiency || "",  // From mattress_markers table
+        piecesPerSize: mattress.size_quantities || {},  // From mattress_sizes table
         layers: mattress.layers || "",
         expectedConsumption: mattress.cons_planned || "", // Planned consumption from DB
         layers_a: mattress.layers_a || "",
@@ -181,15 +176,15 @@ const handleOrderChange = async (newValue, {
           rows: []
         };
       }
-      const marker = markersMap[adhesive.marker_name];
+      // Use marker data directly from mattress_markers and mattress_sizes tables
       adhesiveTablesById[tableId].rows.push({
         id: adhesive.row_id,
         mattressName: adhesive.mattress, // Add mattress name for adhesive ID display
-        width: marker?.marker_width || "",
-        markerName: adhesive.marker_name,
-        markerLength: marker?.marker_length || "",
-        efficiency: marker?.efficiency || "",
-        piecesPerSize: marker?.size_quantities || {},
+        width: adhesive.marker_width || "",  // From mattress_markers table
+        markerName: adhesive.marker_name,    // From mattress_markers table
+        markerLength: adhesive.marker_length || "",  // From mattress_markers table
+        efficiency: adhesive.efficiency || "",  // From mattress_markers table
+        piecesPerSize: adhesive.size_quantities || {},  // From mattress_sizes table
         layers: adhesive.layers || "",
         expectedConsumption: adhesive.cons_planned || "", // Planned consumption from DB
         layers_a: adhesive.layers_a || "",

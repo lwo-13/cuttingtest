@@ -694,6 +694,12 @@ const OrderPlanning = () => {
                     isDeleted: true  // Flag to indicate this comment should be deleted
                 }
             }));
+
+            // Also clear the combinationComments flag so the card disappears
+            setCombinationComments(prev => ({
+                ...prev,
+                [combinationId]: false
+            }));
         }
         setUnsavedChanges(true);
     };
@@ -1520,7 +1526,8 @@ const OrderPlanning = () => {
             const response = await axios.get(`/markers/marker_headers_planning`, {
                 params: {
                     style: selectedStyle,
-                    sizes: orderSizeNames.join(',')
+                    sizes: orderSizeNames.join(','),
+                    order_commessa: selectedOrder.order_commessa  // ✅ Pass order commessa to get previously selected markers
                 }
             });
 

@@ -156,7 +156,7 @@ class MarkerLineRotation(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
 class OrderLinesView(db.Model):
-    __tablename__ = 'order_lines_view'  # SQL View
+    __tablename__ = 'nav_order_lines'  # SQL View
     __table_args__ = {'info': {'read_only': True}}  # Read-only view
 
     # Composite primary key
@@ -324,6 +324,7 @@ class MattressMarker(db.Model):
     marker_name = db.Column(db.String(255), nullable=False)
     marker_width = db.Column(db.Float, nullable=False)
     marker_length = db.Column(db.Float, nullable=False)
+    efficiency = db.Column(db.Float, nullable=True)  # Add efficiency column
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     def to_dict(self):

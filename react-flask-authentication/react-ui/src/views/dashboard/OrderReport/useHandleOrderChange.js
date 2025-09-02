@@ -154,13 +154,10 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
 
   try {
     // Fetch ALL data without any production center filtering
-    const [mattressRes, adhesiveRes, markerRes, alongRes, weftRes, biasRes] = await Promise.all([
+    // No longer need marker API call - all marker data comes from mattress_markers and mattress_sizes tables
+    const [mattressRes, adhesiveRes, alongRes, weftRes, biasRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${order.id}`, { signal }),
       axios.get(`/mattress/get_adhesive_by_order/${order.id}`, { signal }),
-      axios.get(`/markers/marker_headers_planning`, {
-        params: { style: order.style, sizes: sizesSorted.map(s => s.size).join(',') },
-        signal
-      }),
       axios.get(`/collaretto/get_by_order/${order.id}`, { signal }),
       axios.get(`/collaretto/get_weft_by_order/${order.id}`, { signal }),
       axios.get(`/collaretto/get_bias_by_order/${order.id}`, { signal })
@@ -172,10 +169,7 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
       return;
     }
 
-    const markersMap = (markerRes.data?.data || []).reduce((acc, m) => {
-      acc[m.marker_name] = m;
-      return acc;
-    }, {});
+    // No longer need markersMap - use data directly from mattress_markers and mattress_sizes tables
 
     const tablesById = {};
     for (const mattress of mattressRes.data?.data || []) {
@@ -196,15 +190,15 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
           rows: []
         };
       }
-      const marker = markersMap[mattress.marker_name];
+      // Use marker data directly from mattress_markers and mattress_sizes tables
       tablesById[tableId].rows.push({
         id: mattress.row_id,
         mattressName: mattress.mattress,
-        width: marker?.marker_width || "",
-        markerName: mattress.marker_name,
-        markerLength: marker?.marker_length || "",
-        efficiency: marker?.efficiency || "",
-        piecesPerSize: marker?.size_quantities || {},
+        width: mattress.marker_width || "",  // From mattress_markers table
+        markerName: mattress.marker_name,    // From mattress_markers table
+        markerLength: mattress.marker_length || "",  // From mattress_markers table
+        efficiency: mattress.efficiency || "",  // From mattress_markers table
+        piecesPerSize: mattress.size_quantities || {},  // From mattress_sizes table
         layers: mattress.layers || "",
         cons_planned: mattress.cons_planned || "", // Planned consumption from DB
         layers_a: mattress.layers_a || "",
@@ -250,15 +244,15 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
           rows: []
         };
       }
-      const marker = markersMap[adhesive.marker_name];
+      // Use marker data directly from mattress_markers and mattress_sizes tables
       adhesiveTablesById[tableId].rows.push({
         id: adhesive.row_id,
         mattressName: adhesive.mattress, // Add mattress name for adhesive ID display
-        width: marker?.marker_width || "",
-        markerName: adhesive.marker_name,
-        markerLength: marker?.marker_length || "",
-        efficiency: marker?.efficiency || "",
-        piecesPerSize: marker?.size_quantities || {},
+        width: adhesive.marker_width || "",  // From mattress_markers table
+        markerName: adhesive.marker_name,    // From mattress_markers table
+        markerLength: adhesive.marker_length || "",  // From mattress_markers table
+        efficiency: adhesive.efficiency || "",  // From mattress_markers table
+        piecesPerSize: adhesive.size_quantities || {},  // From mattress_sizes table
         layers: adhesive.layers || "",
         cons_planned: adhesive.cons_planned || "", // Planned consumption from DB
         layers_a: adhesive.layers_a || "",

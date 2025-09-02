@@ -21,9 +21,10 @@ const CombinedImports = () => {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [importStatus, setImportStatus] = useState("");
   const [hasEdits, setHasEdits] = useState(false);
-  const [creationType, setCreationType] = useState('');
+  const [creationType, setCreationType] = useState('CLOUD');
   const [batchImportResults, setBatchImportResults] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isSingleImporting, setIsSingleImporting] = useState(false);
   const [selectedFileForEdit, setSelectedFileForEdit] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editedFiles, setEditedFiles] = useState(new Set());
@@ -151,6 +152,8 @@ const CombinedImports = () => {
   const handleXMLImport = async () => {
     if (!selectedXML) return alert('Please select an XML file first.');
 
+    setIsSingleImporting(true); // Disable button
+
     const formData = new FormData();
     formData.append("file", selectedXML);
     formData.append("updatedData", JSON.stringify(markerInfo)); // RAW Data
@@ -167,12 +170,16 @@ const CombinedImports = () => {
         setOpenSuccess(true);
         setTimeout(() => handleDialogClose(), 2000);
       } else {
-        setErrorMessage(`⚠️ ${response.data.msg}`);
+        setErrorMessage(`Upload failed: ${response.data.msg}`);
         setOpenError(true);
+        setTimeout(() => handleDialogClose(), 2000);
       }
     } catch (error) {
-      setErrorMessage(`❌ Upload failed: ${error.response?.data?.msg || error.message}`);
+      setErrorMessage(`Upload failed: ${error.response?.data?.msg || error.message}`);
       setOpenError(true);
+      setTimeout(() => handleDialogClose(), 2000);
+    } finally {
+      setIsSingleImporting(false); // Re-enable button
     }
   };
 
@@ -182,16 +189,18 @@ const CombinedImports = () => {
     setImportStatus("");
     setHasEdits(false); // Reset edit flag
     setSelectedXML(null);
-    setCreationType('');
+    setCreationType('CLOUD'); // Reset to default instead of empty
+    setIsSingleImporting(false); // Reset loading state
   };
 
   const handleBatchDialogClose = () => {
     setBatchDialogOpen(false);
     setBatchImportResults(null);
     setSelectedXMLs([]);
-    setCreationType('');
+    setCreationType('CLOUD'); // Reset to default instead of empty
     setBatchMarkerInfo({});
     setEditedFiles(new Set());
+    setIsImporting(false); // Reset loading state
   };
 
   // Parse XML file and extract marker content
@@ -355,11 +364,11 @@ const CombinedImports = () => {
         }
         setOpenSuccess(true);
       } else {
-        setErrorMessage(`❌ Failed to import any markers. Please check the error details.`);
+        setErrorMessage(`Failed to import any markers. Please check the error details.`);
         setOpenError(true);
       }
     } catch (error) {
-      setErrorMessage(`❌ Batch import failed: ${error.response?.data?.msg || error.message}`);
+      setErrorMessage(`Batch import failed: ${error.response?.data?.msg || error.message}`);
       setOpenError(true);
     } finally {
       setIsImporting(false);
@@ -419,7 +428,7 @@ const CombinedImports = () => {
           <Card variant="outlined" style={{ textAlign: 'center', width: '100%', height: '100%' }}>
             <CardContent>
               <Typography variant="h5" gutterBottom>
-                Batch Import Markers
+                Batch Import
               </Typography>
 
               <input
@@ -538,9 +547,10 @@ const CombinedImports = () => {
             color="primary"
             variant="contained"
             sx={{ mx: 1 }}
-            disabled={!creationType || importStatus.includes("already exists")}
+            disabled={isSingleImporting || !creationType || importStatus.includes("already exists")}
+            startIcon={isSingleImporting ? <CircularProgress size={20} /> : null}
           >
-            Import
+            {isSingleImporting ? 'Importing...' : 'Import'}
           </Button>
 
           <Button
@@ -556,7 +566,7 @@ const CombinedImports = () => {
 
       {/* Batch Import Dialog */}
       <Dialog open={batchDialogOpen} onClose={handleBatchDialogClose} fullWidth maxWidth="md">
-        <DialogTitle>Batch Import Markers</DialogTitle>
+        <DialogTitle>Batch Import</DialogTitle>
         <DialogContent>
           {/* Creation Type Dropdown */}
           <FormControl fullWidth sx={{ mt: 2, mb: 3 }}>
@@ -630,7 +640,7 @@ const CombinedImports = () => {
                               {isSuccess ? (
                                 <>
                                   <span>✅</span>
-                                  <Typography variant="body2" color="success.main">Success</Typography>
+                                  <Typography variant="body2" color="success.main">{message}</Typography>
                                 </>
                               ) : (
                                 <>
@@ -667,22 +677,16 @@ const CombinedImports = () => {
 
           {/* Edit Dialog for Marker Content */}
           <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="sm">
-            <DialogTitle>
-              Edit Marker Content: {selectedFileForEdit?.name}
-            </DialogTitle>
-            <DialogContent>
+            <DialogContent sx={{ pt: 3 }}>
               {selectedFileForEdit && batchMarkerInfo[selectedFileForEdit.name] ? (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Summarized by Style and Size
-                  </Typography>
-                  <TableContainer component={Paper} sx={{ height: 250 }}>
-                    <Table size="small">
+                <Box>
+                  <TableContainer component={Paper}>
+                    <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell width="40%"><strong>Style</strong></TableCell>
-                          <TableCell width="30%"><strong>Size</strong></TableCell>
-                          <TableCell width="30%"><strong>Quantity</strong></TableCell>
+                          <TableCell sx={{ width: '40%' }}><strong>Style</strong></TableCell>
+                          <TableCell sx={{ width: '30%' }}><strong>Size</strong></TableCell>
+                          <TableCell sx={{ width: '30%' }}><strong>Quantity</strong></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -693,7 +697,7 @@ const CombinedImports = () => {
                                 value={item.style}
                                 onChange={(e) => handleBatchFieldChange(selectedFileForEdit.name, index, 'style', e.target.value)}
                                 variant="standard"
-                                fullWidth
+                                sx={{ width: '150px' }}
                               />
                             </TableCell>
                             <TableCell>
@@ -701,7 +705,7 @@ const CombinedImports = () => {
                                 value={item.size}
                                 onChange={(e) => handleBatchFieldChange(selectedFileForEdit.name, index, 'size', e.target.value)}
                                 variant="standard"
-                                fullWidth
+                                sx={{ width: '100px' }}
                               />
                             </TableCell>
                             <TableCell>
@@ -712,15 +716,18 @@ const CombinedImports = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
-
-
                 </Box>
               ) : (
                 <Typography>Loading marker content...</Typography>
               )}
             </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseEditDialog} color="primary">
+            <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
+              <Button
+                onClick={handleCloseEditDialog}
+                color="primary"
+                variant="contained"
+                sx={{ borderRadius: '8px', px: 4 }}
+              >
                 Done
               </Button>
             </DialogActions>
@@ -773,7 +780,7 @@ const CombinedImports = () => {
       {/* ❌ Error Snackbar */}
       <Snackbar
         open={openError}
-        autoHideDuration={5000}
+        autoHideDuration={2000}
         onClose={handleCloseError}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >

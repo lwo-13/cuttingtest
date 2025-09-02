@@ -12,7 +12,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
   const [adhesiveConsumption, setAdhesiveConsumption] = useState('');
   const [collarettoHelperExpanded, setCollarettoHelperExpanded] = useState(false);
   const [adhesiveHelperExpanded, setAdhesiveHelperExpanded] = useState(false);
-  const [showWidthColumn, setShowWidthColumn] = useState(true);
+  const [showWidthColumn, setShowWidthColumn] = useState(false);
 
 
   const planned = getTablePlannedQuantities(table);

@@ -115,8 +115,6 @@ const MattressTable = () => {
             params.append('search', search.trim());
         }
 
-        console.log(`🔍 Fetching page ${page} with ${effectivePageSize} items per page, search: "${search}"`);
-
         axios.get(`/mattress/all_with_details?${params.toString()}`)
             .then((response) => {
                 if (response.data.success) {
@@ -137,6 +135,11 @@ const MattressTable = () => {
                     });
 
                     setMattresses(updatedMattresses);
+
+                    // Update pagination state with server response
+                    if (response.data.pagination) {
+                        setPagination(response.data.pagination);
+                    }
                 }
             })
             .catch(() => {
@@ -145,15 +148,12 @@ const MattressTable = () => {
             .finally(() => setLoading(false));
     };
 
-    // ✅ Fetch mattresses when component mounts or search term changes
+    // Fetch mattresses when component mounts or search term changes
     useEffect(() => {
         fetchMattresses(1, debouncedSearchTerm);
     }, [debouncedSearchTerm]);
 
-    // ✅ Initial load
-    useEffect(() => {
-        fetchMattresses();
-    }, []);
+    // ✅ Initial load - removed duplicate to avoid race condition
 
     // ✅ No need for client-side filtering anymore - it's done server-side
 
@@ -242,21 +242,30 @@ const MattressTable = () => {
                         key={`${pagination.page}-${currentPageSize}`} // ✅ Force re-render on pagination change
                         rows={mattresses} // ✅ Use server-filtered data
                         columns={columns}
-                        pageSize={currentPageSize}
-                        rowsPerPageOptions={[25, 50, 100, 200]}
-                        pagination
+                        paginationModel={{
+                            page: pagination.page - 1, // ✅ DataGrid uses 0-based indexing
+                            pageSize: currentPageSize
+                        }}
+                        pageSizeOptions={[25, 50, 100, 200]}
                         paginationMode="server" // ✅ Server-side pagination
                         rowCount={pagination.total_count > 0 ? pagination.total_count : 100000} // ✅ Handle -1 case
-                        page={pagination.page - 1} // ✅ DataGrid uses 0-based indexing
-                        onPageChange={(newPage) => {
-                            console.log(`📄 Page changed to: ${newPage} (API page: ${newPage + 1})`);
-                            fetchMattresses(newPage + 1, debouncedSearchTerm);
-                        }}
-                        onPageSizeChange={(newPageSize) => {
-                            console.log(`📏 Page size changed to: ${newPageSize}`);
-                            setCurrentPageSize(newPageSize);
-                            setPagination(prev => ({ ...prev, per_page: newPageSize, page: 1 }));
-                            fetchMattresses(1, debouncedSearchTerm, newPageSize);
+                        onPaginationModelChange={(model) => {
+                            console.log(`📄 Pagination model changed:`, model);
+                            console.log(`📄 Current pagination state before change:`, pagination);
+
+                            // Handle page change
+                            if (model.page !== pagination.page - 1) {
+                                console.log(`📄 Page changed from ${pagination.page - 1} to ${model.page} (0-based), API page: ${model.page + 1} (1-based)`);
+                                fetchMattresses(model.page + 1, debouncedSearchTerm);
+                            }
+
+                            // Handle page size change
+                            if (model.pageSize !== currentPageSize) {
+                                console.log(`📏 Page size changed from ${currentPageSize} to ${model.pageSize}`);
+                                setCurrentPageSize(model.pageSize);
+                                setPagination(prev => ({ ...prev, per_page: model.pageSize, page: 1 }));
+                                fetchMattresses(1, debouncedSearchTerm, model.pageSize);
+                            }
                         }}
                         checkboxSelection
                         disableRowSelectionOnClick
