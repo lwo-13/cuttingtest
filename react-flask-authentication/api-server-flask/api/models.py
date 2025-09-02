@@ -176,7 +176,7 @@ class OrderLinesView(db.Model):
         return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
 
 class ProdOrderComponentView(db.Model):
-    __tablename__ = 'vw_ProdOrderComponent_COL'  # SQL View
+    __tablename__ = 'nav_col_components'  # SQL View
     __table_args__ = {'info': {'read_only': True}}  # Read-only view
 
     # Primary key columns
@@ -663,7 +663,7 @@ class SystemSettings(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
 class ZalliItemsView(db.Model):
-    __tablename__ = 'zalli_items_view'
+    __tablename__ = 'nav_brand'
     __table_args__ = {'info': {'read_only': True}}
 
     item_no = db.Column(db.String(50), primary_key=True, nullable=False)
@@ -930,7 +930,7 @@ class MarkerRequest(db.Model):
 
 
 class ItemDescriptions(db.Model):
-    __tablename__ = 'vw_ItemDescriptions'
+    __tablename__ = 'nav_colors'
     __table_args__ = {'info': {'read_only': True}}  # Read-only view
 
     # Using Code as primary key since we're selecting distinct values
