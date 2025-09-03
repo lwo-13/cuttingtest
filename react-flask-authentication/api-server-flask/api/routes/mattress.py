@@ -859,7 +859,6 @@ class GetAllMattressesWithDetailsResource(Resource):
         - search: Search term for filtering
 
         Filters applied:
-        - Only mattresses created within the last 30 days
         - Only mattresses assigned to ZALLI cutting room
         - Only mattresses in early phases (0 - NOT SET, 1 - TO LOAD)
         - Only mattresses with both details and markers
@@ -870,10 +869,6 @@ class GetAllMattressesWithDetailsResource(Resource):
             per_page = min(request.args.get('per_page', 100, type=int), 500)  # Max 500 items per page
             search_term = request.args.get('search', '', type=str).strip()
             skip_count = request.args.get('skip_count', 'false', type=str).lower() == 'true'  # Option to skip count for faster response
-            # ABSOLUTE STRICT DATE FILTERING - ONLY LAST 30 DAYS
-            current_time = datetime.now()
-            one_month_ago = current_time - timedelta(days=30)
-
             # ✅ SUPER OPTIMIZED: Use separate simpler queries instead of complex joins
             # Step 1: Get mattress IDs that match our criteria (fastest query)
             mattress_ids_query = db.session.query(Mattresses.id).join(
@@ -881,8 +876,6 @@ class GetAllMattressesWithDetailsResource(Resource):
             ).join(
                 MattressPhase, Mattresses.id == MattressPhase.mattress_id
             ).filter(
-                # Date filter
-                Mattresses.created_at >= one_month_ago,
                 # Cutting room filter
                 MattressProductionCenter.cutting_room == 'ZALLI',
                 # Phase filter

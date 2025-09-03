@@ -127,27 +127,12 @@
     "widthChangeRequestSubmitted": "Заявката за промяна на ширина е подадена успешно. Очаква одобрение.",
     "errorSubmittingWidthChangeRequest": "Грешка при подаване на заявка за промяна на ширина: {{message}}",
     "errorSubmittingWidthChangeRequestTryAgain": "Грешка при подаване на заявка за промяна на ширина. Моля, опитайте отново.",
-    "noChangesToSave": "Няма промени за запазване",
-    "updatedAt": "Обновено на",
     "quantityDetails": "Детайли за количествата",
     "plannedQuantities": "Планирани количества",
     "actualQuantities": "Действителни количества",
     "noStyleComment": "Няма коментар за стила"
   },
-  "table": {
-    "mattress": "Настил",
-    "adhesive": "Лепило",
-    "width": "Ширина [см]",
-    "markerName": "Име на маркер",
-    "length": "Дължина [м]",
-    "efficiency": "Ефективност %",
-    "na": "Н/П",
-    "bagno": "Баня",
-    "size": "Размер",
-    "quantity": "Количество",
-    "table": "Таблица",
-    "consumption": "Консумация [м]"
-  },
+
   "common": {
     "loading": "Зарежда се...",
     "error": "Грешка",
@@ -277,6 +262,7 @@
     "plannedTotalCons": "Планирана обща конс.",
     "expectedAvgCons": "Очаквана средна конс.",
     "expectedTotalCons": "Очаквана обща конс."
+    
   },
   "dashboard": {
     "workInProgress": "В ПРОЦЕС НА РАЗРАБОТКА",
