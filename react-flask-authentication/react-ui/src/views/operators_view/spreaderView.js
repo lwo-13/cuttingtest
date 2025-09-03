@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 
 import MainCard from '../../ui-component/cards/MainCard';
+import { areSizeQuantitiesEqual } from '../../utils/sizeNormalization';
 import axios from 'utils/axiosInstance';
 import {
     ChevronLeft,
@@ -423,22 +424,7 @@ const SpreaderView = () => {
         return sizeQuantities;
     };
 
-    const areSizeQuantitiesEqual = (mattressSizes, markerSizes) => {
-        // Compare two size quantity objects for exact match
-        const mattressKeys = Object.keys(mattressSizes).sort();
-        const markerKeys = Object.keys(markerSizes).sort();
-
-        // Check if they have the same sizes
-        if (mattressKeys.length !== markerKeys.length) return false;
-        if (mattressKeys.join(',') !== markerKeys.join(',')) return false;
-
-        // Check if quantities match
-        for (const size of mattressKeys) {
-            if (mattressSizes[size] !== markerSizes[size]) return false;
-        }
-
-        return true;
-    };
+    // Note: Using imported areSizeQuantitiesEqual function with size normalization
 
     const fetchMarkersForStyle = async (style, orderCommessa, mattressSizes) => {
         try {

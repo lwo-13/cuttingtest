@@ -18,6 +18,7 @@ import {
     Chip
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { areSizeQuantitiesEqual } from '../../../utils/sizeNormalization';
 import axios from 'utils/axiosInstance';
 
 const SubcontractorWidthChangeDialog = ({
@@ -78,18 +79,7 @@ const SubcontractorWidthChangeDialog = ({
         return sizeQuantities;
     };
 
-    const areSizeQuantitiesEqual = (mattressSizes, markerSizes) => {
-        // Compare two size quantity objects for exact match
-        const mattressKeys = Object.keys(mattressSizes).sort();
-        const markerKeys = Object.keys(markerSizes).sort();
-
-        // Check if they have the same sizes
-        if (mattressKeys.length !== markerKeys.length) return false;
-        if (!mattressKeys.every(key => markerKeys.includes(key))) return false;
-
-        // Check if quantities match
-        return mattressKeys.every(size => mattressSizes[size] === markerSizes[size]);
-    };
+    // Note: Using imported areSizeQuantitiesEqual function with size normalization
 
     const fetchMarkersForStyle = async () => {
         if (!mattressData?.style || !mattressData?.orderCommessa) {

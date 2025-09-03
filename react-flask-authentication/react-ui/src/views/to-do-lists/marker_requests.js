@@ -33,6 +33,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
+import { areSizeQuantitiesEqual } from 'utils/sizeNormalization';
 import { useBadgeCount } from 'contexts/BadgeCountContext';
 
 const MarkerRequests = () => {
@@ -77,23 +78,7 @@ const MarkerRequests = () => {
         });
     }, [requests]);
 
-    // Helper function to compare size quantities (same as spreader logic)
-    const areSizeQuantitiesEqual = (requestSizes, markerSizes) => {
-        // Compare two size quantity objects for exact match
-        const requestKeys = Object.keys(requestSizes).sort();
-        const markerKeys = Object.keys(markerSizes).sort();
-
-        // Check if they have the same sizes
-        if (requestKeys.length !== markerKeys.length) return false;
-        if (requestKeys.join(',') !== markerKeys.join(',')) return false;
-
-        // Check if quantities match
-        for (const size of requestKeys) {
-            if (requestSizes[size] !== markerSizes[size]) return false;
-        }
-
-        return true;
-    };
+    // Note: Using imported areSizeQuantitiesEqual function with size normalization
 
     // Parse size quantities string (same as spreader logic)
     const parseSizeQuantities = (sizesString) => {

@@ -1668,10 +1668,10 @@ const OrderPlanning = () => {
                                 })()}
 
                                 {/* Order Actions Bar in Header */}
+                                {/* Print button commented out: handlePrint={handleEnhancedPrint} */}
                                 <OrderActionBar
                                     unsavedChanges={unsavedChanges}
                                     handleSave={handleSave}
-                                    handlePrint={handleEnhancedPrint}
                                     isPinned={isPinned}
                                     setIsPinned={setIsPinned}
                                     saving={saving}

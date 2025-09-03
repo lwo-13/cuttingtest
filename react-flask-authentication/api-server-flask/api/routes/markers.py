@@ -134,6 +134,20 @@ class MarkerHeadersPaginated(Resource):
 # ===================== Marker Headers Planning ==========================
 @markers_api.route('/marker_headers_planning', methods=['GET'])
 class MarkerHeadersPlanning(Resource):
+    def normalize_size(self, size):
+        """
+        Normalize size format to handle different formatting between order sizes and marker sizes.
+        Examples:
+        - "3-4" -> "3_4"
+        - "4-5" -> "4_5"
+        - "S" -> "S" (unchanged)
+        - "3_4" -> "3_4" (unchanged)
+        """
+        if not size:
+            return size
+        # Replace hyphens with underscores for consistency
+        return size.replace('-', '_')
+
     def get(self):
         try:
             selected_style = request.args.get('style')  # 🔍 Get style from query parameters
@@ -143,10 +157,11 @@ class MarkerHeadersPlanning(Resource):
             if not selected_style:
                 return {"success": False, "msg": "Missing required style parameter"}, 400
 
-            # Convert comma-separated sizes into a clean set
+            # Convert comma-separated sizes into a clean set and normalize them
             allowed_sizes = set()
             if sizes_param:
-                allowed_sizes = set(size.strip() for size in sizes_param.split(',') if size.strip())
+                raw_sizes = set(size.strip() for size in sizes_param.split(',') if size.strip())
+                allowed_sizes = set(self.normalize_size(size) for size in raw_sizes)
 
             # ✅ Fetch ACTIVE markers matching the style
             active_headers = MarkerHeader.query.filter(
@@ -182,8 +197,9 @@ class MarkerHeadersPlanning(Resource):
                 # ✅ Fetch Marker Lines for the current header
                 marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
 
-                # ✅ Extract sizes used in this marker
-                marker_sizes = set(line.size for line in marker_lines)
+                # ✅ Extract sizes used in this marker and normalize them
+                raw_marker_sizes = set(line.size for line in marker_lines)
+                marker_sizes = set(self.normalize_size(size) for size in raw_marker_sizes)
 
                 # ✅ If sizes were provided, skip this marker if it uses a size not in the list
                 if allowed_sizes and not marker_sizes.issubset(allowed_sizes):
@@ -210,6 +226,20 @@ class MarkerHeadersPlanning(Resource):
 
 @markers_api.route('/by-style-and-sizes')
 class MarkersByStyleAndSizes(Resource):
+    def normalize_size(self, size):
+        """
+        Normalize size format to handle different formatting between order sizes and marker sizes.
+        Examples:
+        - "3-4" -> "3_4"
+        - "4-5" -> "4_5"
+        - "S" -> "S" (unchanged)
+        - "3_4" -> "3_4" (unchanged)
+        """
+        if not size:
+            return size
+        # Replace hyphens with underscores for consistency
+        return size.replace('-', '_')
+
     def post(self):
         """Get markers for a specific style with matching size quantities and width range"""
         try:
@@ -245,13 +275,20 @@ class MarkersByStyleAndSizes(Resource):
 
             result = []
             for marker in markers:
-                # Get the marker's size quantities
+                # Get the marker's size quantities and normalize the size keys
                 marker_sizes = {}
                 for size_detail in marker.marker_sizes:
-                    marker_sizes[size_detail.size] = size_detail.quantity
+                    normalized_size = self.normalize_size(size_detail.size)
+                    marker_sizes[normalized_size] = size_detail.quantity
+
+                # Normalize request sizes as well
+                normalized_request_sizes = {}
+                for size, qty in size_quantities.items():
+                    normalized_size = self.normalize_size(size)
+                    normalized_request_sizes[normalized_size] = qty
 
                 # Compare size quantities (only check if marker has the same sizes with non-zero quantities)
-                request_sizes = {k: v for k, v in size_quantities.items() if v > 0}
+                request_sizes = {k: v for k, v in normalized_request_sizes.items() if v > 0}
                 marker_nonzero_sizes = {k: v for k, v in marker_sizes.items() if v > 0}
 
                 # Check if the marker has exactly the same sizes with quantities > 0

@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 import LockOutlined from '@mui/icons-material/LockOutlined';
+import { convertMarkerSizesToOrderFormat } from 'utils/sizeNormalization';
 
 const MattressRow = ({
   row,
@@ -89,11 +90,18 @@ const MattressRow = ({
           disabled={!editable}
           onChange={(_, newValue) => {
             if (newValue) {
+              // Convert marker size quantities to match order size format
+              const orderSizeNames = orderSizes.map(size => size.size);
+              const convertedSizeQuantities = convertMarkerSizesToOrderFormat(
+                newValue.size_quantities || {},
+                orderSizeNames
+              );
+
               handleInputChange(tableId, rowId, "markerName", newValue.marker_name);
               handleInputChange(tableId, rowId, "width", newValue.marker_width);
               handleInputChange(tableId, rowId, "markerLength", newValue.marker_length);
               handleInputChange(tableId, rowId, "efficiency", newValue.efficiency);
-              handleInputChange(tableId, rowId, "piecesPerSize", newValue.size_quantities || {});
+              handleInputChange(tableId, rowId, "piecesPerSize", convertedSizeQuantities);
             } else {
               handleInputChange(tableId, rowId, "markerName", "");
               handleInputChange(tableId, rowId, "width", "");

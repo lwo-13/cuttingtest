@@ -83,21 +83,23 @@ const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, set
                 {saving ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
             </Button>
 
-            {/* Print Button */}
-            <Button
-                variant="contained"
-                color="primary"
-                onClick={handlePrint}
-                startIcon={<Print />}
-                sx={{
-                    fontSize: '0.875rem',
-                    py: 0.75,
-                    px: 2,
-                    minHeight: '36px'
-                }}
-            >
-                {t('common.print', 'Print')}
-            </Button>
+            {/* Print Button - Only show if handlePrint is provided */}
+            {handlePrint && (
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handlePrint}
+                    startIcon={<Print />}
+                    sx={{
+                        fontSize: '0.875rem',
+                        py: 0.75,
+                        px: 2,
+                        minHeight: '36px'
+                    }}
+                >
+                    {t('common.print', 'Print')}
+                </Button>
+            )}
 
             <IconButton
                 onClick={() => setIsPinned((prev) => !prev)}

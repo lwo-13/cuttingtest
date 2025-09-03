@@ -683,7 +683,7 @@ class Operator(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)
-    operator_type = db.Column(db.String(50), nullable=False)  # 'SPREADER', 'CUTTER', 'COLLARETTO', 'WAREHOUSE', etc.
+    operator_type = db.Column(db.String(50), nullable=False)  # 'spreader', 'cutter', 'collaretto', 'warehouse', etc.
     active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
@@ -702,7 +702,7 @@ class Operator(db.Model):
     @classmethod
     def get_by_type(cls, operator_type, active_only=False):
         """Get operators by type, optionally filtering for active only."""
-        query = cls.query.filter_by(operator_type=operator_type.upper())
+        query = cls.query.filter_by(operator_type=operator_type.lower())
         if active_only:
             query = query.filter_by(active=True)
         return query.all()
@@ -710,12 +710,12 @@ class Operator(db.Model):
     @classmethod
     def get_spreader_operators(cls, active_only=False):
         """Get spreader operators (for backward compatibility)."""
-        return cls.get_by_type('SPREADER', active_only)
+        return cls.get_by_type('spreader', active_only)
 
     @classmethod
     def get_cutter_operators(cls, active_only=False):
         """Get cutter operators (for backward compatibility)."""
-        return cls.get_by_type('CUTTER', active_only)
+        return cls.get_by_type('cutter', active_only)
 
 class ProductionCenter(db.Model):
     __tablename__ = 'production_center'
