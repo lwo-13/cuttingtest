@@ -42,7 +42,6 @@ const useProductionCenterTabs = ({
 
     // Handle combination change
     const handleCombinationChange = useCallback((combination) => {
-        console.log('🔄 Combination changed to:', combination);
         setSelectedCombination(combination);
     }, []);
 

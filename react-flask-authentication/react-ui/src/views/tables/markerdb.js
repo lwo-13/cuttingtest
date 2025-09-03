@@ -25,11 +25,12 @@ import {
 import { Block, Delete } from '@mui/icons-material';
 import { IconTarget } from '@tabler/icons';
 import MainCard from '../../ui-component/cards/MainCard';
-import TablePagination from '@mui/material/TablePagination';
+
 
 //==============================|| MARKER DATABASE PAGE ||==============================//
 
-// Custom Pagination Component to Disable Scrolling and Keep Alignment Right
+/*
+// UNUSED - Custom Pagination Component to Disable Scrolling and Keep Alignment Right
 const CustomPagination = (props) => {
     return (
         <Box
@@ -65,6 +66,7 @@ const CustomPagination = (props) => {
         </Box>
     );
 };
+*/
 
 const MarkerDB = () => {
     const [markers, setMarkers] = useState([]);
@@ -74,27 +76,6 @@ const MarkerDB = () => {
     const [pcsDialogOpen, setPcsDialogOpen] = useState(false);
     const [markerLines, setMarkerLines] = useState([]);
     const [selectedMarkerName, setSelectedMarkerName] = useState('');
-
-    // Pagination state
-    const [pagination, setPagination] = useState({
-        page: 1,
-        per_page: 100,
-        total_count: 0,
-        total_pages: 0
-    });
-
-    // Separate state for current page size to avoid async issues
-    const [currentPageSize, setCurrentPageSize] = useState(100);
-
-    // Server-side pagination state (fetch 300 rows at a time)
-    const [serverData, setServerData] = useState([]);
-    const [serverPage, setServerPage] = useState(1);
-    const [serverPagination, setServerPagination] = useState({
-        page: 1,
-        per_page: 300,
-        total_count: 0,
-        total_pages: 0
-    });
 
     // Search state
     const [searchTerm, setSearchTerm] = useState("");
@@ -129,106 +110,38 @@ const MarkerDB = () => {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const fetchMarkers = (clientPage = 1, search = "", forceRefresh = false) => {
-        // Calculate which server page we need based on client page
-        // Each server page has 300 items, each client page has 100 items
-        // So server page 1 contains client pages 1-3, server page 2 contains client pages 4-6, etc.
-        const itemsPerServerPage = 300;
-        const itemsPerClientPage = currentPageSize;
-        const clientPagesPerServerPage = itemsPerServerPage / itemsPerClientPage; // 3 pages
+    const fetchMarkers = (search = "") => {
+        setLoading(true);
 
-        const requiredServerPage = Math.ceil(clientPage / clientPagesPerServerPage);
-
-        // Check if we need to fetch new data from server
-        const needsServerFetch = forceRefresh ||
-                                requiredServerPage !== serverPage ||
-                                search !== debouncedSearchTerm;
-
-        if (needsServerFetch) {
-            setLoading(true);
-
-            // Build query parameters for server
-            const params = new URLSearchParams({
-                page: requiredServerPage.toString(),
-                per_page: itemsPerServerPage.toString()
-            });
-
-            if (search.trim()) {
-                params.append('search', search.trim());
-            }
-
-            axios.get(`/markers/marker_headers_paginated?${params.toString()}`)
-                .then((response) => {
-                    if (response.data.success) {
-                        const newServerData = response.data.data;
-                        setServerData(newServerData);
-                        setServerPage(requiredServerPage);
-
-                        // Update server pagination state
-                        if (response.data.pagination) {
-                            setServerPagination(response.data.pagination);
-                        }
-
-                        // Calculate client pagination based on server data (use fresh data, not state)
-                        updateClientPaginationWithData(clientPage, response.data.pagination, newServerData);
-                    } else {
-                        console.error("Failed to fetch markers:", response.data);
-                    }
-                })
-                .catch((error) => {
-                    console.error("Error fetching marker data:", error);
-                })
-                .finally(() => setLoading(false));
-        } else {
-            // Use existing server data, just update client pagination
-            updateClientPaginationWithData(clientPage, serverPagination, serverData);
-        }
-    };
-
-    const updateClientPaginationWithData = (clientPage, serverPaginationData, dataArray) => {
-        const itemsPerServerPage = 300;
-        const itemsPerClientPage = currentPageSize;
-        const clientPagesPerServerPage = itemsPerServerPage / itemsPerClientPage;
-
-        // Calculate the range of items for this client page
-        const startIndex = ((clientPage - 1) % clientPagesPerServerPage) * itemsPerClientPage;
-        const endIndex = startIndex + itemsPerClientPage;
-
-        // Extract the subset of data for this client page
-        const clientPageData = dataArray.slice(startIndex, endIndex);
-        setMarkers(clientPageData);
-
-        // Calculate total client pages based on server total count
-        const totalClientPages = Math.ceil(serverPaginationData.total_count / itemsPerClientPage);
-
-        // Update client pagination state
-        setPagination({
-            page: clientPage,
-            per_page: itemsPerClientPage,
-            total_count: serverPaginationData.total_count,
-            total_pages: totalClientPages
+        // Build query parameters for server - fetch ALL markers from database
+        const params = new URLSearchParams({
+            page: '1',
+            per_page: '999999' // Fetch all markers without limit
         });
+
+        if (search.trim()) {
+            params.append('search', search.trim());
+        }
+
+        axios.get(`/markers/marker_headers_paginated?${params.toString()}`)
+            .then((response) => {
+                if (response.data.success) {
+                    const markersData = response.data.data;
+                    setMarkers(markersData);
+                } else {
+                    console.error("Failed to fetch markers:", response.data);
+                }
+            })
+            .catch((error) => {
+                console.error("Error fetching marker data:", error);
+            })
+            .finally(() => setLoading(false));
     };
 
     // Fetch markers when component mounts or search term changes
     useEffect(() => {
-        fetchMarkers(1, debouncedSearchTerm, true); // Force refresh on search change
+        fetchMarkers(debouncedSearchTerm);
     }, [debouncedSearchTerm]);
-
-    // Handle Selection Change
-    const handleSelectionChange = (newSelection) => {
-        console.log("Selection Model:", newSelection); // 🔍 Debugging
-
-        if (!newSelection.length) {
-            setSelectedMarkers([]); // ✅ Clear selection if none
-            return;
-        }
-
-        // ✅ Extract selected marker IDs from `newSelection` directly
-        setSelectedMarkers(newSelection);
-
-        console.log("Selected Marker IDs:", newSelection); // 🔍 Debugging
-    };
 
     const handleCheckPcsClick = async (markerName) => {
         try {
@@ -259,8 +172,8 @@ const MarkerDB = () => {
                 setSuccessMessage("Markers set to NOT ACTIVE successfully");
                 setOpenSuccess(true);
 
-                // Re-fetch markers after update (maintain current page and search)
-                fetchMarkers(pagination.page, debouncedSearchTerm, true);
+                // Re-fetch markers after update
+                fetchMarkers(debouncedSearchTerm);
 
                 // ✅ Clear selection
                 setSelectedMarkers([]);
@@ -294,8 +207,8 @@ const MarkerDB = () => {
                 setSuccessMessage(response.data.message);
                 setOpenSuccess(true);
 
-                // Re-fetch markers after deletion (maintain current page and search)
-                fetchMarkers(pagination.page, debouncedSearchTerm, true);
+                // Re-fetch markers after deletion
+                fetchMarkers(debouncedSearchTerm);
 
                 // ✅ Clear selection
                 setSelectedMarkers([]);
@@ -382,6 +295,7 @@ const MarkerDB = () => {
             width: 100,
             align: 'center',
             headerAlign: 'center',
+            filterable: false, // Disable filtering for this column
             renderCell: (params) => (
                 <div style={{
                     textDecoration: params.row.status === 'NOT ACTIVE' ? 'line-through' : 'none',
@@ -401,6 +315,7 @@ const MarkerDB = () => {
             field: 'check_pcs',
             headerName: 'Check pcs',
             width: 120,
+            filterable: false, // Disable filtering for this column
             renderCell: (params) => (
               <Button
                 variant="text"
@@ -460,35 +375,21 @@ const MarkerDB = () => {
                 ) : (
                     <div style={{ height: tableHeight, width: '100%' }}>
                         <DataGrid
-                            key={`${pagination.page}-${currentPageSize}`} // Force re-render on pagination change
                             rows={markers}
                             columns={columns}
-                            paginationModel={{
-                                page: pagination.page - 1, // DataGrid uses 0-based indexing
-                                pageSize: currentPageSize
-                            }}
-                            pageSizeOptions={[25, 50, 100]}
-                            paginationMode="server" // Server-side pagination
-                            rowCount={pagination.total_count > 0 ? pagination.total_count : 100000}
-                            onPaginationModelChange={(model) => {
-                                // Handle page change
-                                if (model.page !== pagination.page - 1) {
-                                    fetchMarkers(model.page + 1, debouncedSearchTerm);
-                                }
-
-                                // Handle page size change
-                                if (model.pageSize !== currentPageSize) {
-                                    setCurrentPageSize(model.pageSize);
-                                    // Force refresh when page size changes
-                                    fetchMarkers(1, debouncedSearchTerm, true);
+                            initialState={{
+                                pagination: {
+                                    paginationModel: { page: 0, pageSize: 100 }
                                 }
                             }}
+                            pageSizeOptions={[25, 50, 100, 200]}
                             checkboxSelection
                             disableRowSelectionOnClick
                             onRowSelectionModelChange={(newSelection) => {
                                 setSelectedMarkers(newSelection);
                             }}
                             loading={loading}
+                            disableColumnFilter={false} // Enable column filtering
                             sx={{
                                 '& .MuiTablePagination-root': {
                                     overflow: 'hidden',

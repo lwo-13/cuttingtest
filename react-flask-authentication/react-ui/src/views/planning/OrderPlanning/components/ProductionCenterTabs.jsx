@@ -126,7 +126,6 @@ const ProductionCenterTabs = forwardRef(({
     const switchToDestinationTab = (destination) => {
         const tabIndex = combinations.findIndex(c => c.destination === destination);
         if (tabIndex !== -1 && tabIndex !== activeTab) {
-            console.log(`🔄 Switching from tab ${activeTab} to tab ${tabIndex} for destination: ${destination}`);
             setActiveTab(tabIndex);
             if (combinations[tabIndex] && onCombinationChange) {
                 onCombinationChange(combinations[tabIndex]);
@@ -481,24 +480,15 @@ const ProductionCenterTabs = forwardRef(({
                 combination_id: editingCombination?.combination_id || `combo_${Date.now()}`
             };
 
-            console.log('➕ Adding combination locally:', {
-                isEditing: !!editingCombination,
-                editingId: editingCombination?.combination_id,
-                newCombination,
-                formData
-            });
-
             let updatedCombinations;
             if (editingCombination) {
                 // Update existing combination
                 updatedCombinations = combinations.map(c =>
                     c.combination_id === editingCombination.combination_id ? newCombination : c
                 );
-                console.log('📝 Updated combinations for edit:', updatedCombinations);
             } else {
                 // Add new combination
                 updatedCombinations = [...combinations, newCombination];
-                console.log('➕ Updated combinations for add:', updatedCombinations);
             }
 
             // Update local state only (no API call)
@@ -507,10 +497,6 @@ const ProductionCenterTabs = forwardRef(({
             // If we're editing an existing combination, we need to update all tables
             // that were assigned to the old combination with the new values
             if (editingCombination && updateTablesWithCombination) {
-                console.log('🔄 Updating existing table assignments...');
-                console.log('Old combination:', editingCombination);
-                console.log('New combination:', newCombination);
-
                 // Update all table types that might have been assigned to the old combination
                 updateTablesWithCombination(editingCombination, newCombination, tables, setTables);
                 updateTablesWithCombination(editingCombination, newCombination, adhesiveTables, setAdhesiveTables);
@@ -554,7 +540,44 @@ const ProductionCenterTabs = forwardRef(({
             .map(opt => opt.cutting_room);
 
         // Remove duplicates and create options
-        return [...new Set(cuttingRooms)].map(cr => ({ value: cr, label: cr }));
+        const uniqueCuttingRooms = [...new Set(cuttingRooms)];
+
+        // Filter out cutting rooms that would create duplicate combinations
+        const availableCuttingRooms = uniqueCuttingRooms.filter(cuttingRoom => {
+            // Get all possible destinations for this cutting room
+            const possibleDestinations = productionCenterOptions
+                .filter(opt => opt.cutting_room === cuttingRoom)
+                .map(opt => opt.destination)
+                .filter(dest => dest); // Remove null/empty destinations
+
+            // If no destinations, check if this production_center + cutting_room combination exists
+            if (possibleDestinations.length === 0) {
+                return !combinations.some(combo => {
+                    // Skip the current combination being edited
+                    if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                        return false;
+                    }
+                    return combo.production_center === formData.production_center &&
+                           combo.cutting_room === cuttingRoom &&
+                           !combo.destination;
+                });
+            }
+
+            // If there are destinations, check if at least one combination is available
+            return possibleDestinations.some(destination => {
+                return !combinations.some(combo => {
+                    // Skip the current combination being edited
+                    if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                        return false;
+                    }
+                    return combo.production_center === formData.production_center &&
+                           combo.cutting_room === cuttingRoom &&
+                           combo.destination === destination;
+                });
+            });
+        });
+
+        return availableCuttingRooms.map(cr => ({ value: cr, label: cr }));
     };
 
     const getDestinationOptions = (cuttingRoom = null) => {
@@ -566,12 +589,46 @@ const ProductionCenterTabs = forwardRef(({
             .map(opt => opt.destination)
             .filter(dest => dest); // Remove null/empty destinations
 
-        return [...new Set(destinations)].map(dest => ({ value: dest, label: dest }));
+        // Filter out destinations that would create duplicate combinations
+        const availableDestinations = [...new Set(destinations)].filter(destination => {
+            return !combinations.some(combo => {
+                // Skip the current combination being edited
+                if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                    return false;
+                }
+                return combo.production_center === formData.production_center &&
+                       combo.cutting_room === roomToCheck &&
+                       combo.destination === destination;
+            });
+        });
+
+        return availableDestinations.map(dest => ({ value: dest, label: dest }));
     };
 
     const getProductionCenterOptions = () => {
         const uniqueCenters = [...new Set(productionCenterOptions.map(opt => opt.production_center))];
-        return uniqueCenters.map(center => ({ value: center, label: center }));
+
+        // Filter out production centers that have no available combinations left
+        const availableProductionCenters = uniqueCenters.filter(productionCenter => {
+            // Get all possible combinations for this production center
+            const possibleCombinations = productionCenterOptions
+                .filter(opt => opt.production_center === productionCenter);
+
+            // Check if at least one combination is available
+            return possibleCombinations.some(option => {
+                return !combinations.some(combo => {
+                    // Skip the current combination being edited
+                    if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                        return false;
+                    }
+                    return combo.production_center === option.production_center &&
+                           combo.cutting_room === option.cutting_room &&
+                           combo.destination === option.destination;
+                });
+            });
+        });
+
+        return availableProductionCenters.map(center => ({ value: center, label: center }));
     };
 
     if (!selectedOrder) {
@@ -722,7 +779,16 @@ const ProductionCenterTabs = forwardRef(({
                                     }));
                                 }}
                                 renderInput={(params) => (
-                                    <TextField {...params} label="Production Center" fullWidth />
+                                    <TextField
+                                        {...params}
+                                        label="Production Center"
+                                        fullWidth
+                                        sx={{
+                                            '& .MuiInputBase-input': {
+                                                fontWeight: 'normal'
+                                            }
+                                        }}
+                                    />
                                 )}
                             />
                         </Grid>
@@ -750,7 +816,17 @@ const ProductionCenterTabs = forwardRef(({
                                     }));
                                 }}
                                 renderInput={(params) => (
-                                    <TextField {...params} label="Cutting Room" fullWidth required />
+                                    <TextField
+                                        {...params}
+                                        label="Cutting Room"
+                                        fullWidth
+                                        required
+                                        sx={{
+                                            '& .MuiInputBase-input': {
+                                                fontWeight: 'normal'
+                                            }
+                                        }}
+                                    />
                                 )}
                             />
                         </Grid>
@@ -767,7 +843,17 @@ const ProductionCenterTabs = forwardRef(({
                                         }));
                                     }}
                                     renderInput={(params) => (
-                                        <TextField {...params} label="Destination" fullWidth required />
+                                        <TextField
+                                            {...params}
+                                            label="Destination"
+                                            fullWidth
+                                            required
+                                            sx={{
+                                                '& .MuiInputBase-input': {
+                                                    fontWeight: 'normal'
+                                                }
+                                            }}
+                                        />
                                     )}
                                 />
                             </Grid>

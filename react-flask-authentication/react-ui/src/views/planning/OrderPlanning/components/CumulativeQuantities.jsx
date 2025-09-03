@@ -34,22 +34,7 @@ const CumulativeQuantities = ({
     });
 
     // Calculate quantities from mattress tables with fabric type "01" for previous combinations
-    console.log('🔍 CumulativeQuantities Debug:', {
-      currentTabIndex,
-      previousCombinations,
-      totalTables: tables.length,
-      allTables: tables.map(t => ({
-        id: t.id,
-        productionCenter: t.productionCenter,
-        cuttingRoom: t.cuttingRoom,
-        destination: t.destination,
-        fabricType: t.fabricType,
-        rowsCount: t.rows?.length || 0
-      }))
-    });
-
     previousCombinations.forEach((combination, combIndex) => {
-      console.log(`🔍 Checking combination ${combIndex + 1}:`, combination);
 
       // Find mattress tables that match this combination and have fabric type "01"
       const matchingTables = tables.filter(table => {
@@ -63,27 +48,11 @@ const CumulativeQuantities = ({
         return matches;
       });
 
-      console.log(`✅ Found ${matchingTables.length} matching tables for combination ${combIndex + 1}`);
-
       // Sum up quantities from these tables
       matchingTables.forEach((table, tableIndex) => {
-        console.log(`📊 Processing table ${tableIndex + 1}:`, {
-          tableId: table.id,
-          fabricType: table.fabricType,
-          rowsCount: table.rows?.length || 0,
-          rows: table.rows
-        });
 
         if (table.rows && table.rows.length > 0) {
           table.rows.forEach((row, rowIndex) => {
-            console.log(`📊 Processing row ${rowIndex + 1}:`, row);
-
-            // Add quantities for each size from piecesPerSize field multiplied by layers
-            console.log(`📊 OrderSizes:`, orderSizes.map(s => s.size));
-            console.log(`📊 Row keys:`, Object.keys(row));
-            console.log(`📊 PiecesPerSize:`, row.piecesPerSize);
-            console.log(`📊 Layers:`, row.layers);
-
             // The size quantities are stored in the piecesPerSize object and need to be multiplied by layers
             if (row.piecesPerSize && typeof row.piecesPerSize === 'object') {
               const layers = parseInt(row.layers) || 1; // Default to 1 if no layers specified
@@ -93,14 +62,8 @@ const CumulativeQuantities = ({
                 const piecesForSize = parseInt(row.piecesPerSize[sizeKey]) || 0;
                 const totalQuantity = piecesForSize * layers; // Multiply by layers
 
-                console.log(`📊 Size ${sizeKey}: piecesPerSize[${sizeKey}] = ${row.piecesPerSize[sizeKey]} × layers(${layers}) = ${totalQuantity}`);
-                if (totalQuantity > 0) {
-                  console.log(`📊 Adding ${totalQuantity} for size ${sizeKey}`);
-                }
                 sizeTotals[sizeKey] += totalQuantity;
               });
-            } else {
-              console.log(`⚠️ No piecesPerSize data found in row`);
             }
           });
         }

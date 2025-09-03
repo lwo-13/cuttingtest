@@ -59,16 +59,7 @@ const PlannedQuantityBar = ({
     const fabricCode = table.fabricCode;
     const fabricColor = table.fabricColor;
 
-    console.log('🔍 Fabric Cons Debug - Current table fabric:', { fabricType, fabricCode, fabricColor });
-    console.log('🔍 Available tables:', {
-      alongTables: alongTables.length,
-      weftTables: weftTables.length,
-      biasTables: biasTables.length,
-      adhesiveTables: adhesiveTables.length
-    });
-
     if (!fabricType || !fabricCode || !fabricColor) {
-      console.log('❌ Missing fabric info, returning 0');
       return { collarettoConsumption: 0, adhesiveConsumption: 0, consumptionByBagno: {} };
     }
 
@@ -79,7 +70,6 @@ const PlannedQuantityBar = ({
         mattressBagnos.add(bagno);
       });
     }
-    console.log('🔍 Mattress table bagnos:', Array.from(mattressBagnos));
 
     let totalCollarettoConsumption = 0;
     let totalAdhesiveConsumption = 0;
@@ -89,23 +79,13 @@ const PlannedQuantityBar = ({
     const adhesiveConsumptionByBagno = {};
 
     // Check along tables (CA)
-    console.log('🔍 Checking along tables:', alongTables);
     alongTables.forEach((alongTable, index) => {
-      console.log(`🔍 Along table ${index}:`, {
-        fabricType: alongTable.fabricType,
-        fabricCode: alongTable.fabricCode,
-        fabricColor: alongTable.fabricColor,
-        rows: alongTable.rows?.length || 0
-      });
-
       if (alongTable.fabricType === fabricType &&
           alongTable.fabricCode === fabricCode &&
           alongTable.fabricColor === fabricColor) {
-        console.log('✅ Found matching along table');
         alongTable.rows.forEach(row => {
           const bagno = row.bagno || 'No Bagno';
           const consumption = parseFloat(row.consumption) || 0;
-          console.log(`🔍 Along row: bagno=${bagno}, consumption=${consumption}, exists in mattress=${mattressBagnos.has(bagno)}`);
           if (consumption > 0 && mattressBagnos.has(bagno)) {
             collarettoConsumptionByBagno[bagno] = (collarettoConsumptionByBagno[bagno] || 0) + consumption;
             totalCollarettoConsumption += consumption;
@@ -115,23 +95,13 @@ const PlannedQuantityBar = ({
     });
 
     // Check weft tables (CT)
-    console.log('🔍 Checking weft tables:', weftTables);
     weftTables.forEach((weftTable, index) => {
-      console.log(`🔍 Weft table ${index}:`, {
-        fabricType: weftTable.fabricType,
-        fabricCode: weftTable.fabricCode,
-        fabricColor: weftTable.fabricColor,
-        rows: weftTable.rows?.length || 0
-      });
-
       if (weftTable.fabricType === fabricType &&
           weftTable.fabricCode === fabricCode &&
           weftTable.fabricColor === fabricColor) {
-        console.log('✅ Found matching weft table');
         weftTable.rows.forEach(row => {
           const bagno = row.bagno || 'No Bagno';
           const consumption = parseFloat(row.consumption) || 0;
-          console.log(`🔍 Weft row: bagno=${bagno}, consumption=${consumption}, exists in mattress=${mattressBagnos.has(bagno)}`);
           if (consumption > 0 && mattressBagnos.has(bagno)) {
             collarettoConsumptionByBagno[bagno] = (collarettoConsumptionByBagno[bagno] || 0) + consumption;
             totalCollarettoConsumption += consumption;
@@ -148,7 +118,6 @@ const PlannedQuantityBar = ({
         biasTable.rows.forEach(row => {
           const bagno = row.bagno || 'No Bagno';
           const consumption = parseFloat(row.consumption) || 0;
-          console.log(`🔍 Bias row: bagno=${bagno}, consumption=${consumption}, exists in mattress=${mattressBagnos.has(bagno)}`);
           if (consumption > 0 && mattressBagnos.has(bagno)) {
             collarettoConsumptionByBagno[bagno] = (collarettoConsumptionByBagno[bagno] || 0) + consumption;
             totalCollarettoConsumption += consumption;
@@ -158,36 +127,19 @@ const PlannedQuantityBar = ({
     });
 
     // Check adhesive tables
-    console.log('🔍 Checking adhesive tables:', adhesiveTables);
     adhesiveTables.forEach((adhesiveTable, index) => {
-      console.log(`🔍 Adhesive table ${index}:`, {
-        fabricType: adhesiveTable.fabricType,
-        fabricCode: adhesiveTable.fabricCode,
-        fabricColor: adhesiveTable.fabricColor,
-        rows: adhesiveTable.rows?.length || 0
-      });
-
       if (adhesiveTable.fabricType === fabricType &&
           adhesiveTable.fabricCode === fabricCode &&
           adhesiveTable.fabricColor === fabricColor) {
-        console.log('✅ Found matching adhesive table');
         adhesiveTable.rows.forEach(row => {
           const bagno = row.bagno || 'No Bagno';
           const expectedConsumption = parseFloat(row.expectedConsumption) || 0;
-          console.log(`🔍 Adhesive row: bagno=${bagno}, expectedConsumption=${expectedConsumption}, exists in mattress=${mattressBagnos.has(bagno)}`);
           if (expectedConsumption > 0 && mattressBagnos.has(bagno)) {
             adhesiveConsumptionByBagno[bagno] = (adhesiveConsumptionByBagno[bagno] || 0) + expectedConsumption;
             totalAdhesiveConsumption += expectedConsumption;
           }
         });
       }
-    });
-
-    console.log('🔍 Final consumption result:', {
-      totalCollarettoConsumption,
-      totalAdhesiveConsumption,
-      collarettoConsumptionByBagno,
-      adhesiveConsumptionByBagno
     });
 
     return {
