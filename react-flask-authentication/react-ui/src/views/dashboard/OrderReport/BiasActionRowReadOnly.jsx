@@ -21,7 +21,7 @@ const BiasActionRowReadOnly = ({ table }) => {
       }}
     >
       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-        {totalRolls} Rolls, {totalPanels} Panels, {totalConsPlanned.toFixed(1)} Cons [m]
+        {totalRolls} {t('table.rolls')}, {totalPanels} {t('table.panels')}, {totalConsPlanned.toFixed(1)} {t('table.cons')}
       </Typography>
     </Box>
   );

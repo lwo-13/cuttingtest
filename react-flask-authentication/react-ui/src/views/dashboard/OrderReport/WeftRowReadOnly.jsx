@@ -1,7 +1,9 @@
 import React from 'react';
 import { TableRow, TableCell, TextField, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const WeftRowReadOnly = ({ row }) => {
+  const { t } = useTranslation();
 
   return (
     <TableRow>
@@ -96,7 +98,7 @@ const WeftRowReadOnly = ({ row }) => {
             minWidth: '80px'
           }}
         >
-          {row.sizes || "ALL"}
+          {row.sizes || t('table.all')}
         </Typography>
       </TableCell>
     </TableRow>

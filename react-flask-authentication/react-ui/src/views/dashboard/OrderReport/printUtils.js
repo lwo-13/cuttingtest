@@ -4,7 +4,14 @@ import { SET_MENU } from '../../../store/actions';
 
 export const useOrderReportPrintStyles = () => {
   useEffect(() => {
+    // Check if print styles already exist to prevent duplicates
+    const existingStyle = document.getElementById('order-report-print-styles');
+    if (existingStyle) {
+      return;
+    }
+
     const style = document.createElement("style");
+    style.id = 'order-report-print-styles';
     style.innerHTML = `
       @media print {
         @page {
@@ -132,6 +139,17 @@ export const useOrderReportPrintStyles = () => {
         .print-hidden, .cumulative-quantities-section {
           display: none !important;
         }
+
+        /* Production Center print header styling */
+        .production-center-print-header {
+          display: block !important;
+          margin-bottom: 16px !important;
+        }
+        .production-center-print-header .MuiTypography-root {
+          font-size: 20px !important;
+          font-weight: bold !important;
+          text-align: center !important;
+        }
         .main-content, .MuiContainer-root, .MuiGrid-root {
           width: 100% !important;
           max-width: 100% !important;
@@ -206,6 +224,14 @@ export const useOrderReportPrintStyles = () => {
       }
     `;
     document.head.appendChild(style);
+
+    // Cleanup function to remove the style when component unmounts
+    return () => {
+      const styleToRemove = document.getElementById('order-report-print-styles');
+      if (styleToRemove) {
+        styleToRemove.remove();
+      }
+    };
   }, []);
 };
 
@@ -225,6 +251,21 @@ export const addOrderReportTableClasses = (tables, adhesiveTables, alongTables, 
     if (tableElement) {
       tableElement.classList.add('collaretto-table');
     }
+  });
+};
+
+// Remove table classes after printing
+export const removeOrderReportTableClasses = () => {
+  // Remove all mattress table classes
+  const mattressTables = document.querySelectorAll('.mattress-table');
+  mattressTables.forEach(table => {
+    table.classList.remove('mattress-table');
+  });
+
+  // Remove all collaretto table classes
+  const collarettoTables = document.querySelectorAll('.collaretto-table');
+  collarettoTables.forEach(table => {
+    table.classList.remove('collaretto-table');
   });
 };
 
@@ -296,7 +337,8 @@ export const handleOrderReportPrint = (tables, adhesiveTables, alongTables, weft
     window.print();
     document.body.classList.remove("print-mode");
 
-    // Remove table classes
+    // Remove all table and card classes
+    removeOrderReportTableClasses();
     removeProductionCenterCardClass();
     removeStyleCommentCardClass();
 

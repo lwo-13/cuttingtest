@@ -1,7 +1,9 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const MattressActionRowReadOnly = ({ table }) => {
+  const { t } = useTranslation();
   const rows = table.rows || [];
 
   // Sum of cons_planned (Planned Total)
@@ -51,16 +53,16 @@ const MattressActionRowReadOnly = ({ table }) => {
       {showConsumption && (
         <>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Planned Avg Cons: {plannedAvg.toFixed(2)} m/pc
+            {t('table.plannedAvgCons')}: {plannedAvg.toFixed(2)} m/pc
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Planned Total Cons: {plannedTotal.toFixed(0).toLocaleString()} m
+            {t('table.plannedTotalCons')}: {plannedTotal.toFixed(0).toLocaleString()} m
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Expected Avg Cons: {expectedAvg.toFixed(2)} m/pc
+            {t('table.expectedAvgCons')}: {expectedAvg.toFixed(2)} m/pc
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Expected Total Cons: {expectedTotal.toFixed(0).toLocaleString()} m
+            {t('table.expectedTotalCons')}: {expectedTotal.toFixed(0).toLocaleString()} m
           </Typography>
         </>
       )}

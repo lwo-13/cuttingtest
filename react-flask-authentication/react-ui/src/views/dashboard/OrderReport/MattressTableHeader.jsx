@@ -1,37 +1,40 @@
 import React from 'react';
 import { TableCell, TableHead, TableRow } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const MattressTableHeader = ({ orderSizes }) => {
+  const { t } = useTranslation();
+
   return (
     <TableHead>
       <TableRow>
-        <TableCell align="center" sx={{ minWidth: '120px' }}>Mattress</TableCell>
-        <TableCell align="center" sx={{ minWidth: '70px' }}>Width [cm]</TableCell>
-        <TableCell align="center" sx={{ minWidth: '150px', maxWidth: '400px', width: 'auto' }}>Marker Name</TableCell>
+        <TableCell align="center" sx={{ minWidth: '120px' }}>{t('table.mattress')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '10px' }}>{t('table.width')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '150px', maxWidth: '400px', width: 'auto' }}>{t('table.markerName')}</TableCell>
 
-        {/* Dynamic Sizes 
+        {/* Dynamic Sizes
         {orderSizes.length > 0 &&
           orderSizes.map((size) => (
             <TableCell align="center" key={size.size}>
-              {size.size || "N/A"}
+              {size.size || t('table.na')}
             </TableCell>
           ))
         } */}
 
-        <TableCell align="center" sx={{ minWidth: '100px' }}>Length [m]</TableCell>
-        <TableCell align="center" sx={{ minWidth: '70px' }}>Eff %</TableCell>
+        <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.length')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '10px' }}>{t('table.effPercent')}</TableCell>
 
-        <TableCell align="center">Planned Layers</TableCell>
-        <TableCell align="center">Actual Layers</TableCell>
-        <TableCell align="center">Planned Pcs</TableCell>
-        <TableCell align="center">Actual Pcs</TableCell>
+        <TableCell align="center" sx={{ minWidth: '10px' }}>{t('table.plannedLayers')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '10px' }}>{t('table.actualLayers')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '10px' }}>{t('table.plannedPcs')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '10px' }}>{t('table.actualPcs')}</TableCell>
 
-        <TableCell align="center">Planned Cons [m]</TableCell>
-        <TableCell align="center">Actual Cons [m]</TableCell>
-        {/* <TableCell align="center">Real Cons [m]</TableCell> */}
+        <TableCell align="center">{t('table.plannedCons')}</TableCell>
+        <TableCell align="center">{t('table.actualCons')}</TableCell>
+        {/* <TableCell align="center">{t('table.realCons')}</TableCell> */}
 
-        <TableCell align="center">Bagno</TableCell>
-        <TableCell align="center" sx={{ minWidth: '150px' }}>Progress</TableCell>
+        <TableCell align="center">{t('table.bagno')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '150px' }}>{t('table.progress')}</TableCell>
 
       </TableRow>
     </TableHead>

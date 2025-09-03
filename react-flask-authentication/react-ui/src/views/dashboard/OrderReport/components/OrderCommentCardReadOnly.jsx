@@ -48,7 +48,7 @@ const OrderCommentCardReadOnly = ({ selectedOrder, selectedCombination }) => {
       {loading ? (
         <Box display="flex" justifyContent="center" py={4}>
           <CircularProgress size={32} />
-          <Box ml={2}>Loading comment...</Box>
+          <Box ml={2}>{t('orderPlanning.loadingComment', 'Loading comment...')}</Box>
         </Box>
       ) : (
         <TextField
@@ -71,7 +71,7 @@ const OrderCommentCardReadOnly = ({ selectedOrder, selectedCombination }) => {
               fontWeight: 'normal'
             }
           }}
-          placeholder={comment ? '' : `No order comment available for combination ${selectedCombination?.combination_id}`}
+          placeholder={comment ? '' : `${t('orderPlanning.noOrderCommentAvailable', 'No order comment available for combination')} ${selectedCombination?.combination_id}`}
         />
       )}
     </MainCard>

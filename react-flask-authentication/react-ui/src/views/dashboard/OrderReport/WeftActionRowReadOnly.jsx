@@ -21,7 +21,7 @@ const WeftActionRowReadOnly = ({ table }) => {
       }}
     >
       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-        Planned Rolls: {totalPlannedRolls}, Planned Cons: {totalPlannedCons.toFixed(2)} m, Panels: {totalPanels}
+        {t('table.rollsPlanned')}: {totalPlannedRolls}, {t('table.plannedConsShort')}: {totalPlannedCons.toFixed(2)} m, {t('table.panels')}: {totalPanels}
       </Typography>
     </Box>
   );

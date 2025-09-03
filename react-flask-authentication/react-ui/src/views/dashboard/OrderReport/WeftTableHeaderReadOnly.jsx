@@ -8,15 +8,15 @@ const WeftTableHeaderReadOnly = () => {
   return (
     <TableHead>
       <TableRow>
-        <TableCell align="center" sx={{ minWidth: '120px' }}>Collaretto ID</TableCell>
+        <TableCell align="center" sx={{ minWidth: '120px' }}>{t('table.collarettoId')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.usableWidth')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.pcsSeamtoSeam')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.panelLength')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.collarettoWidth')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.scrapRolls')}</TableCell>
-        <TableCell align="center" sx={{ minWidth: '80px' }}>N° Rolls</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.numberOfRollsShort')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.panels')}</TableCell>
-        <TableCell align="center" sx={{ minWidth: '80px' }}>Cons [m]</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.cons')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.sizes')}</TableCell>
       </TableRow>

@@ -1,7 +1,9 @@
 import React from 'react';
 import { TableRow, TableCell, TextField, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const AlongRowReadOnly = ({ row }) => {
+  const { t } = useTranslation();
 
 
   return (
@@ -70,7 +72,7 @@ const AlongRowReadOnly = ({ row }) => {
       {/* Bagno */}
       <TableCell sx={{ minWidth: '80px', maxWidth: '100px', textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.bagno || 'no bagno'}
+          {row.bagno || t('table.noBagno')}
         </Typography>
       </TableCell>
 
@@ -83,7 +85,7 @@ const AlongRowReadOnly = ({ row }) => {
             minWidth: '80px'
           }}
         >
-          {row.sizes || "ALL"}
+          {row.sizes || t('table.all')}
         </Typography>
       </TableCell>
     </TableRow>

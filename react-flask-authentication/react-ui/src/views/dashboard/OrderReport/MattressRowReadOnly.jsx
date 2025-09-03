@@ -6,7 +6,7 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
   return (
     <TableRow>
       {/* Mattress Name (short display) */}
-      <TableCell sx={{ minWidth: '120px', maxWidth: '150px', textAlign: 'center', padding: '9px' }}>
+      <TableCell sx={{ minWidth: '120px', maxWidth: '150px', textAlign: 'center', padding: '1px' }}>
         <TextField
           variant="outlined"
           value={row.mattressName?.match(/[A-Z]{2,3}-\d{2}-\d{2,3}$/)?.[0] || ''}
@@ -60,28 +60,28 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       ))} */}
 
       {/* Marker Length */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '1px' }}>
         <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.markerLength || '-'}
         </Typography>
       </TableCell>
 
       {/* Efficiency */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '1px' }}>
         <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.efficiency || '-'}
         </Typography>
       </TableCell>
 
       {/* Planned Layers */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '1px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.layers || '-'}
         </Typography>
       </TableCell>
 
       {/* Actual Layers (KPI) */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '1px' }}>
         <TextField
           variant="outlined"
           value={row.layers_a || ''}
@@ -97,7 +97,7 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       </TableCell>
 
       {/* Planned Pcs */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '70px', textAlign: 'center', padding: '1px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {(() => {
             if (!row.piecesPerSize || !row.layers) return '-';
@@ -109,7 +109,7 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       </TableCell>
 
       {/* Actual Pcs */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '70px', textAlign: 'center', padding: '1px' }}>
         <TextField
           variant="outlined"
           value={(() => {
@@ -130,14 +130,14 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       </TableCell>
 
       {/* Planned Consumption */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '70px', textAlign: 'center', padding: '1px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.cons_planned ? parseFloat(row.cons_planned).toFixed(1) : '-'}
         </Typography>
       </TableCell>
 
       {/* Actual Consumption */}
-      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '65px', maxWidth: '70px', textAlign: 'center', padding: '1px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {typeof row.cons_actual === 'number' ? row.cons_actual.toFixed(1) : '-'}
         </Typography>
@@ -160,14 +160,14 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
       </TableCell> */}
 
       {/* Bagno */}
-      <TableCell sx={{ minWidth: '90px', maxWidth: '120px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '30px', maxWidth: '50px', textAlign: 'center', padding: '1px' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.bagno || '-'}
         </Typography>
       </TableCell>
 
       {/* Progress Bar */}
-      <TableCell sx={{ minWidth: '150px', textAlign: 'center', padding: '4px' }}>
+      <TableCell sx={{ minWidth: '100px', textAlign: 'center', padding: '10px' }}>
         {(row.bagno_ready === true || row.bagno_ready === 1 || row.bagno_ready === '1') ? (
           <MattressProgressBar
             currentPhase={row.phase_status}

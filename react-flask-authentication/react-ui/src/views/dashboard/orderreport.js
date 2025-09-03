@@ -3,6 +3,7 @@ import { Grid, TextField, Autocomplete, Typography, Box, Table, TableBody, Table
 import { AddCircleOutline, DeleteOutline, Save, Print } from '@mui/icons-material';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import { useSelector } from "react-redux";
@@ -75,6 +76,7 @@ import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } f
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 const OrderReport = () => {
+    const { t } = useTranslation();
     const location = useLocation();
 
     const [orderOptions, setOrderOptions] = useState([]);
@@ -479,7 +481,7 @@ const OrderReport = () => {
                 <MainCard
                     title={
                         <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                            Order Details
+                            {t('orderPlanning.orderDetails', 'Order Details')}
                             {selectedOrder && (
                                 <Button
                                     variant="contained"
@@ -493,7 +495,7 @@ const OrderReport = () => {
                                         minHeight: '36px'
                                     }}
                                 >
-                                    Print
+                                    {t('orderPlanning.print', 'Print')}
                                 </Button>
                             )}
                         </Box>
@@ -572,7 +574,7 @@ const OrderReport = () => {
                         data-table-id={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                {`Mattresses`}
+                                {t('orderPlanning.mattresses', 'Mattresses')}
 
                                 {/* Table-Specific Planned Quantities - Hide if Empty */}
                                 <PlannedQuantityBar
@@ -653,7 +655,7 @@ const OrderReport = () => {
                         data-table-id={table.id}
                         title={
                             <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                {`Adhesives`}
+                                {t('orderPlanning.adhesives', 'Adhesives')}
 
                                 {/* Table-Specific Planned Quantities - Hide if Empty */}
                                 <PlannedQuantityBar
@@ -731,7 +733,7 @@ const OrderReport = () => {
 
                     <Box mt={2} />
                     
-                    <MainCard data-table-id={table.id} title="Collaretto Along the Grain">
+                    <MainCard data-table-id={table.id} title={t('orderPlanning.collarettoAlongTheGrain', 'Collaretto Along the Grain')}>
                         <AlongGroupCardReadOnly table={table} />
 
                         {/* Table Section */}
@@ -789,7 +791,7 @@ const OrderReport = () => {
                     <MainCard
                         key={table.id}
                         data-table-id={table.id}
-                        title="Collaretto in Weft"
+                        title={t('orderPlanning.collarettoInWeft', 'Collaretto in Weft')}
                     >
                     <WeftGroupCardReadOnly table={table} />
 
@@ -848,7 +850,7 @@ const OrderReport = () => {
                     <MainCard
                         key={table.id}
                         data-table-id={table.id}
-                        title="Collaretto Bias"
+                        title={t('orderPlanning.collarettoBiasGrain', 'Collaretto Bias')}
                     >
                     <BiasGroupCardReadOnly table={table} />
 

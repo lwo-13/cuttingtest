@@ -1,7 +1,9 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 const AdhesiveActionRowReadOnly = ({ table }) => {
+  const { t } = useTranslation();
   const rows = table.rows || [];
 
   // Sum of cons_planned (Total Consumption)
@@ -38,10 +40,10 @@ const AdhesiveActionRowReadOnly = ({ table }) => {
         {showConsumption && (
           <Box display="flex" gap={2} alignItems="center">
             <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              Avg Cons: {avgConsumption.toFixed(2)} m/pc
+              {t('table.avgCons')}: {avgConsumption.toFixed(2)} m/pc
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              Total Cons: {totalConsumption.toFixed(0).toLocaleString()} m
+              {t('table.totalCons')}: {totalConsumption.toFixed(0).toLocaleString()} m
             </Typography>
           </Box>
         )}

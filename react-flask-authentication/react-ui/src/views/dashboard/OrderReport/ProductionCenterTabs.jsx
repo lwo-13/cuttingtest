@@ -5,6 +5,7 @@ import {
     Tab,
     Typography
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import MainCard from 'ui-component/cards/MainCard';
 
 const ProductionCenterTabs = ({
@@ -13,6 +14,7 @@ const ProductionCenterTabs = ({
     onCombinationChange,
     loading = false
 }) => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState(0);
 
     // Update active tab when selectedCombination changes
@@ -50,13 +52,20 @@ const ProductionCenterTabs = ({
     // Always show tabs, even for single combination (like Order Planning)
 
     return (
-        <MainCard title="Production Center" sx={{ mb: 3 }}>
+        <MainCard
+            title={t('dashboard.productionCenter', 'Production Center')}
+            sx={{ mb: 3 }}
+            data-testid="production-center-card"
+            className="production-center-card"
+        >
             <Box>
+                {/* Interactive tabs - hidden when printing */}
                 <Tabs
                     value={activeTab}
                     onChange={handleTabChange}
                     variant="scrollable"
                     scrollButtons="auto"
+                    className="print-hidden"
                 >
                     {combinations.map((combination, index) => (
                         <Tab
@@ -73,6 +82,28 @@ const ProductionCenterTabs = ({
                         />
                     ))}
                 </Tabs>
+
+                {/* Print-only header showing selected combination */}
+                {selectedCombination && (
+                    <Box
+                        sx={{
+                            display: 'none',
+                            '@media print': {
+                                display: 'block !important',
+                                p: 2,
+                                backgroundColor: '#f5f5f5',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd'
+                            }
+                        }}
+                        className="production-center-print-header"
+                    >
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
+                            {selectedCombination.production_center} - {selectedCombination.cutting_room}
+                            {selectedCombination.destination && selectedCombination.destination !== selectedCombination.cutting_room && ` - ${selectedCombination.destination}`}
+                        </Typography>
+                    </Box>
+                )}
             </Box>
         </MainCard>
     );
