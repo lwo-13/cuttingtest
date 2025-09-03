@@ -9,6 +9,12 @@ import { useTranslation } from 'react-i18next';
 
 const OrderActionBar = ({ unsavedChanges, handleSave, handlePrint, isPinned, setIsPinned, saving, handleDiscard }) => {
     const { t } = useTranslation();
+
+    // Debug logging for save button state
+    React.useEffect(() => {
+        console.log('💾 Save button state - unsavedChanges:', unsavedChanges, 'saving:', saving, 'disabled:', !unsavedChanges && !saving);
+    }, [unsavedChanges, saving]);
+
     return (
         <Box sx={{
             display: 'flex',

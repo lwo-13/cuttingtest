@@ -130,6 +130,17 @@ const OrderPlanning = () => {
     // Basic unsaved changes tracking (temporary fallback)
     const [unsavedChanges, setUnsavedChanges] = useState(false);
 
+    // Debug wrapper for setUnsavedChanges to track when it's being set to false
+    const originalSetUnsavedChanges = setUnsavedChanges;
+    const debugSetUnsavedChanges = (value) => {
+        if (value === false) {
+            console.log('⚠️ setUnsavedChanges(false) called from:', new Error().stack);
+        } else {
+            console.log('✅ setUnsavedChanges(true) called');
+        }
+        originalSetUnsavedChanges(value);
+    };
+
     // Audit refetch function state - use useRef to avoid re-renders
     const auditRefetchFunctionRef = useRef(null);
 
@@ -221,7 +232,15 @@ const OrderPlanning = () => {
         handleRemoveRow,
         handleInputChange,
         updateExpectedConsumption
-    } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges, setDeletedTableIds });
+    } = useMattressTables({
+        orderSizeNames,
+        setDeletedMattresses,
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useMattressTables calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        },
+        setDeletedTableIds
+    });
 
     // Adhesive Tables
     const {
@@ -305,7 +324,10 @@ const OrderPlanning = () => {
         setOpenError,
         setSuccessMessage,
         setOpenSuccess,
-        setUnsavedChanges,
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useHandleSave calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        },
         commentData,
         auditRefetchFunctionRef,
         styleCommentData,
@@ -331,7 +353,10 @@ const OrderPlanning = () => {
         setMarkerOptions,
         setManualPattern,
         setManualColor,
-        setUnsavedChanges,
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useHandleOrderChange calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        },
         handleWeftRowChange,
         sortSizes,
         clearBrand,
@@ -379,7 +404,10 @@ const OrderPlanning = () => {
         alongTables: alongTables || [],
         weftTables: weftTables || [],
         biasTables: biasTables || [],
-        setUnsavedChanges
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useProductionCenterTabs calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        }
     });
 
     // Helper function to get last 6 digits of order ID (same as in useHandleSave)
@@ -487,6 +515,7 @@ const OrderPlanning = () => {
             );
 
             if (hasChanges) {
+                console.log('🔄 Auto-assigning production center combination to tables, setting unsaved changes');
                 setTablesFunction(updatedTables);
                 setUnsavedChanges(true);
             }
@@ -1647,7 +1676,7 @@ const OrderPlanning = () => {
                     />
 
                     {/* Order Quantities Section */}
-                    <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} />
+                    <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} selectedOrder={selectedOrder} />
 
                 </MainCard>
             </Box>
@@ -1808,6 +1837,7 @@ const OrderPlanning = () => {
                                 refreshingMarkers={refreshingMarkers}
                                 markerOptions={markerOptions}
                                 onBulkAddRows={handleBulkAddRowsWithNames}
+                                selectedOrder={selectedOrder}
                             />
 
                             {/* Table Section */}
@@ -2095,6 +2125,7 @@ const OrderPlanning = () => {
                                 mattressTables={tables}
                                 orderSizes={orderSizes}
                                 handleAddRowWeft={handleAddRowWeft}
+                                selectedOrder={selectedOrder}
                                 />
 
                             {/* Table Section */}

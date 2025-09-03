@@ -948,3 +948,27 @@ class ItemDescriptions(db.Model):
     def __repr__(self):
         return f"<ItemDescriptions(Code='{self.Code}', Description='{self.Description}')>"
 
+
+class NavBom(db.Model):
+    __tablename__ = 'nav_bom'
+    __table_args__ = {'info': {'read_only': True}}  # Read-only view since it's an existing table
+
+    # Map to the actual column names in the database
+    shortcut_dimension_2_code = db.Column('Shortcut Dimension 2 Code', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)  # Order number
+    item_no = db.Column('Item No_', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)  # Item
+    quantity = db.Column('Quantity', db.Float, nullable=False)  # Quantity
+    pf_vertical_component = db.Column('PFVertical Component', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Color code
+    source = db.Column('Source', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Category
+
+    def to_dict(self):
+        return {
+            'order_number': self.shortcut_dimension_2_code,
+            'item': self.item_no,
+            'quantity': self.quantity,
+            'color_code': self.pf_vertical_component,
+            'category': self.source
+        }
+
+    def __repr__(self):
+        return f"<NavBom {self.shortcut_dimension_2_code}, Item {self.item_no}>"
+

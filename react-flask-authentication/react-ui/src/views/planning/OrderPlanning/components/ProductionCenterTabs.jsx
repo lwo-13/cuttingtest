@@ -13,7 +13,8 @@ import {
     DialogActions,
     Autocomplete,
     Typography,
-    Alert
+    Alert,
+    Tooltip
 } from '@mui/material';
 import { Add, Edit, Delete, Save, Cancel } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
@@ -265,7 +266,22 @@ const ProductionCenterTabs = forwardRef(({
         return matchingTables;
     };
 
+    // Check if a combination has any locked rows that would prevent deletion
+    const hasLockedRows = (combination) => {
+        const matchingTables = findTablesUsingCombination(combination);
+
+        return matchingTables.some(({ type, table }) => {
+            return table.rows.some(row => row.isEditable === false);
+        });
+    };
+
     const handleDeleteCombination = async (combination) => {
+        // Check if combination has locked rows
+        if (hasLockedRows(combination)) {
+            // Don't allow deletion if there are locked rows
+            return;
+        }
+
         // Allow deletion even if it's the last production center combination
         // Open confirmation dialog instead of window.confirm
         setCombinationToDelete(combination);
@@ -280,8 +296,11 @@ const ProductionCenterTabs = forwardRef(({
         setCombinationToDelete(null);
 
         try {
+            console.log('🗑️ Starting production center deletion process');
+
             // Find all tables that use this combination
             const matchingTables = findTablesUsingCombination(combination);
+            console.log('🗑️ Found matching tables:', matchingTables.length);
 
             // Remove tables from UI - the table removal logic will handle marking records for deletion
             matchingTables.forEach(({ type, table }) => {
@@ -311,6 +330,8 @@ const ProductionCenterTabs = forwardRef(({
 
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'adhesive':
@@ -336,6 +357,8 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'along':
@@ -361,6 +384,8 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'weft':
@@ -386,6 +411,8 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'bias':
@@ -411,27 +438,30 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                 }
             });
 
-            // Mark combination for deletion
+            // Mark combination for deletion (will be deleted when user hits save)
             if (setDeletedCombinations) {
                 setDeletedCombinations(prev => prev.includes(combination.combination_id) ? prev : [...prev, combination.combination_id]);
             }
 
-            // Delete combination from database immediately
-            try {
-                await axios.delete(`/orders/production_center_combinations/delete/${selectedOrder.id}/${combination.combination_id}`);
-            } catch (error) {
-                console.error('Error deleting combination from database:', error);
-                // Don't fail the UI operation if database deletion fails
-            }
+            console.log('🔄 Setting unsaved changes to true immediately after marking combination for deletion');
+            setUnsavedChanges(true);
+
+            // Note: Combination will be deleted from database when user hits save button
+            // No immediate backend deletion here
 
             // Remove combination from UI
             const updatedCombinations = combinations.filter(c => c.combination_id !== combination.combination_id);
             setCombinations(updatedCombinations);
+
+            console.log('🔄 Setting unsaved changes to true after updating combinations');
+            setUnsavedChanges(true);
 
             // Update active tab if needed and trigger combination change
             let newActiveTab = activeTab;
@@ -440,16 +470,38 @@ const ProductionCenterTabs = forwardRef(({
                 setActiveTab(newActiveTab);
             }
 
+            console.log('🔄 About to call onCombinationChange, setting unsaved changes again');
+            setUnsavedChanges(true);
+
             // Trigger combination change to update table filtering
             if (updatedCombinations.length > 0 && onCombinationChange) {
                 const newActiveCombination = updatedCombinations[newActiveTab];
+                console.log('🔄 Calling onCombinationChange with new combination:', newActiveCombination);
                 onCombinationChange(newActiveCombination);
             } else if (onCombinationChange) {
                 // No combinations left, clear the selection
+                console.log('🔄 Calling onCombinationChange with null (no combinations left)');
                 onCombinationChange(null);
             }
 
+            console.log('🔄 Setting unsaved changes to true after onCombinationChange');
             setUnsavedChanges(true);
+
+            // Use multiple setTimeout calls to ensure setUnsavedChanges persists
+            setTimeout(() => {
+                console.log('🔄 Setting unsaved changes to true after production center deletion (first timeout)');
+                setUnsavedChanges(true);
+            }, 0);
+
+            setTimeout(() => {
+                console.log('🔄 Setting unsaved changes to true after production center deletion (second timeout)');
+                setUnsavedChanges(true);
+            }, 100);
+
+            setTimeout(() => {
+                console.log('🔄 Setting unsaved changes to true after production center deletion (third timeout)');
+                setUnsavedChanges(true);
+            }, 200);
 
         } catch (error) {
             console.error('Error removing combination:', error);
@@ -690,17 +742,29 @@ const ProductionCenterTabs = forwardRef(({
                                                     '&:hover': { color: 'primary.main' }
                                                 }}
                                             />
-                                            <Delete
-                                                fontSize="small"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteCombination(combination);
-                                                }}
-                                                sx={{
-                                                    cursor: 'pointer',
-                                                    '&:hover': { color: 'error.main' }
-                                                }}
-                                            />
+                                            <Tooltip
+                                                title={hasLockedRows(combination)
+                                                    ? "Cannot delete: contains locked mattresses in production"
+                                                    : "Delete production center configuration"
+                                                }
+                                                arrow
+                                            >
+                                                <Delete
+                                                    fontSize="small"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteCombination(combination);
+                                                    }}
+                                                    sx={{
+                                                        cursor: hasLockedRows(combination) ? 'not-allowed' : 'pointer',
+                                                        color: hasLockedRows(combination) ? 'grey.400' : 'inherit',
+                                                        opacity: hasLockedRows(combination) ? 0.5 : 1,
+                                                        '&:hover': {
+                                                            color: hasLockedRows(combination) ? 'grey.400' : 'error.main'
+                                                        }
+                                                    }}
+                                                />
+                                            </Tooltip>
                                         </Box>
                                     }
                                 />

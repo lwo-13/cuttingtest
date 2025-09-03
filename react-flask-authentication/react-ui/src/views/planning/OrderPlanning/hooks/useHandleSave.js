@@ -51,12 +51,10 @@ const useHandleSave = ({
     for (const item of items) {
       try {
         await deleteFunction(item);
-        console.log(`🗑️ Deleted ${itemType}: ${item}`);
         results.push({ item, success: true });
         // Small delay between deletes to reduce database pressure
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
-        console.error(`❌ Error deleting ${itemType}: ${item}`, error);
         results.push({ item, success: false, error });
       }
     }
@@ -89,6 +87,10 @@ const useHandleSave = ({
       let invalidAlongRow = null;
       let invalidWeftRow = null;
       let invalidBiasRow = null;
+
+      // Performance tracking
+      let skippedMattressRows = 0;
+      let skippedAdhesiveRows = 0;
 
       // ✅ Check for missing mandatory fields
       const hasInvalidData = tables.some((table, tableIndex) => {
@@ -336,6 +338,11 @@ const useHandleSave = ({
       // ✅ Proceed with valid mattress processing
       tables.forEach((table) => {
         table.rows.forEach((row) => {
+          // ✅ Skip locked rows (not editable) to improve performance
+          if (row.isEditable === false) {
+            skippedMattressRows++;
+            return;
+          }
 
           // ✅ Always generate mattress name based on current spreading to handle spreading changes
           const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
@@ -403,6 +410,11 @@ const useHandleSave = ({
       // ✅ Proceed with valid adhesive processing
       adhesiveTables.forEach((table) => {
         table.rows.forEach((row) => {
+          // ✅ Skip locked rows (not editable) to improve performance
+          if (row.isEditable === false) {
+            skippedAdhesiveRows++;
+            return;
+          }
 
           // ✅ Generate Adhesive Name with combination key (KEY-ORDER-ASA-FABRICTYPE-001, 002, ...)
           const itemTypeCode = table.spreading === "MANUAL" ? "MSA" : "ASA"; // Use ASA for adhesive instead of AS
@@ -632,16 +644,12 @@ const useHandleSave = ({
           axios.post('/mattress/add_mattress_row', payload)
             .then(response => {
               if (response.data.success) {
-                console.log(`✅ Mattress ${payload.mattress} saved successfully.`);
                 return true;
               } else {
-                console.warn(`⚠️ Failed to save mattress ${payload.mattress}:`, response.data.message);
                 return false;
               }
             })
             .catch(error => {
-              console.error(`❌ Error saving mattress ${payload.mattress}:`, error.response?.data || error.message);
-              console.log("💥 Full payload that caused failure:", payload);
               return false;
             })
         )).then(results => {
@@ -656,16 +664,12 @@ const useHandleSave = ({
           axios.post('/mattress/add_mattress_row', payload) // Use same endpoint as mattress
             .then(response => {
               if (response.data.success) {
-                console.log(`✅ Adhesive ${payload.mattress} saved successfully.`);
                 return true;
               } else {
-                console.warn(`⚠️ Failed to save adhesive ${payload.mattress}:`, response.data.message);
                 return false;
               }
             })
             .catch(error => {
-              console.error(`❌ Error saving adhesive ${payload.mattress}:`, error.response?.data || error.message);
-              console.log("💥 Full payload that caused failure:", payload);
               return false;
             })
         )).then(results => {
@@ -680,15 +684,12 @@ const useHandleSave = ({
           axios.post('/collaretto/add_along_row', payload)
             .then(response => {
               if (response.data.success) {
-                console.log(`✅ Along Row ${payload.collaretto} saved successfully.`);
                 return true;
               } else {
-                console.warn(`⚠️ Failed to save along row ${payload.collaretto}:`, response.data.message);
                 return false;
               }
             })
             .catch(error => {
-              console.error(`❌ Error saving along row ${payload.collaretto}:`, error);
               return false;
             })
         )).then(results => {
@@ -748,9 +749,8 @@ const useHandleSave = ({
           });
         } catch (error) {
           if (error.response?.status === 409) {
-            console.warn('⚠️ Pad Print entry already exists. Skipping creation.');
+            // Pad Print entry already exists, skip creation
           } else {
-            console.error('❌ Failed to save manual Pad Print info:', error);
             setErrorMessage("⚠️ Failed to save manual Pad Print info. Please try again.");
             setOpenError(true);
             return;
@@ -765,24 +765,19 @@ const useHandleSave = ({
         const combinations = productionCenterTabsRef?.current?.getCombinations?.();
 
         if (!combinations || combinations.length === 0) {
-          console.log("✅ No production center combinations to save");
           return Promise.resolve();
         }
 
-        console.log(`💾 Saving ${combinations.length} production center combinations...`);
         return axios.post('/orders/production_center_combinations/save', {
           order_commessa: selectedOrder.id,
           combinations: combinations
         }).then(response => {
           if (response.data.success) {
-            console.log("✅ Production center combinations saved successfully");
             return true;
           } else {
-            console.warn("⚠️ Failed to save production center combinations:", response.data.msg);
             return false;
           }
         }).catch(error => {
-          console.error("❌ Error saving production center combinations:", error.response?.data || error.message);
           throw error;
         });
       };
@@ -808,15 +803,12 @@ const useHandleSave = ({
           })
           .then(response => {
             if (response.data.success) {
-              console.log(`✅ Production center for ${table.tableType} table ${table.id} saved successfully.`);
               return true;
             } else {
-              console.warn(`⚠️ Failed to save production center for ${table.tableType} table ${table.id}:`, response.data.msg);
               return false;
             }
           })
           .catch(error => {
-            console.error(`❌ Error saving production center for ${table.tableType} table ${table.id}:`, error.response?.data || error.message);
             return false;
           })
         )).then(results => {
@@ -834,7 +826,6 @@ const useHandleSave = ({
         .then(() => saveBiasRows())
         .then(async () => {
           // ✅ Delete by row_id first (more reliable)
-          console.log("🗑️ Row IDs to delete:", deletedRowIds);
           if (deletedRowIds && deletedRowIds.length > 0) {
             const results = await deleteSequentially(
               deletedRowIds,
@@ -855,7 +846,6 @@ const useHandleSave = ({
           }
 
           // ✅ Fallback: Delete by name for any remaining records (legacy support)
-          console.log("🗑️ Mattresses to delete by name:", deletedMattresses);
           const mattressesToDelete = deletedMattresses.filter(mattress => !newMattressNames.has(mattress));
 
           if (mattressesToDelete.length > 0) {
@@ -876,7 +866,6 @@ const useHandleSave = ({
         })
         .then(async () => {
           // ✅ Delete Only Adhesives That Were Removed from UI (Sequential)
-          console.log("🗑️ Adhesives to delete:", deletedAdhesive);
           const adhesivesToDelete = deletedAdhesive.filter(adhesive => !newAdhesiveNames.has(adhesive));
 
           if (adhesivesToDelete.length > 0) {
@@ -897,7 +886,6 @@ const useHandleSave = ({
         })
         .then(async () => {
           // ✅ Delete Only Along Rows Removed from the UI (Sequential)
-          console.log("🗑️ Along Rows to delete:", deletedAlong);
           const alongToDelete = deletedAlong.filter(along => !newAlongNames.has(along));
 
           if (alongToDelete.length > 0) {
@@ -920,7 +908,6 @@ const useHandleSave = ({
           // ✅ Delete collaretto rows by row_id first (more reliable)
           // Note: deletedRowIds contains row IDs from all table types (mattress, weft, bias, along)
           // The backend endpoints will handle the appropriate deletion based on what exists
-          console.log("🗑️ Collaretto Row IDs to delete:", deletedRowIds);
           if (deletedRowIds && deletedRowIds.length > 0) {
             const results = await deleteSequentially(
               deletedRowIds,
@@ -937,7 +924,6 @@ const useHandleSave = ({
           }
 
           // ✅ Fallback: Delete weft rows by name for any remaining records
-          console.log("🗑️ Weft Rows to delete by name:", deletedWeft);
           const weftToDelete = deletedWeft.filter(weft => !newWeftNames.has(weft));
 
           if (weftToDelete.length > 0) {
@@ -958,7 +944,6 @@ const useHandleSave = ({
         })
         .then(async () => {
           // ✅ Fallback: Delete bias rows by name for any remaining records
-          console.log("🗑️ Bias Rows to delete by name:", deletedBias);
           const biasToDelete = deletedBias.filter(bias => !newBiasNames.has(bias));
 
           if (biasToDelete.length > 0) {
@@ -980,36 +965,37 @@ const useHandleSave = ({
         .then(async () => {
           // ✅ Clean up production center entries for deleted tables
           if (deletedTableIds && deletedTableIds.length > 0) {
-            console.log(`🧹 Cleaning up production center entries for ${deletedTableIds.length} deleted tables...`);
-
             const cleanupResults = await deleteSequentially(
               deletedTableIds,
               (tableId) => axios.delete(`/mattress/production_center/delete/${tableId}`),
               'production center entry'
             );
 
-            const successfulCleanups = cleanupResults.filter(r => r.success).length;
-            console.log(`✅ Cleaned up ${successfulCleanups}/${deletedTableIds.length} production center entries`);
-
             // Clear the deleted table IDs after cleanup
             if (setDeletedTableIds) {
               setDeletedTableIds([]);
             }
-          } else {
-            console.log("✅ No production center entries to clean up");
           }
         })
         .then(async () => {
-          // ✅ Clear deleted combinations tracking (combinations are deleted immediately in UI)
+          // ✅ Delete production center combinations from backend
           if (deletedCombinations && deletedCombinations.length > 0) {
-            console.log(`🧹 Clearing ${deletedCombinations.length} deleted combination tracking entries (already deleted from database)`);
+            const combinationDeleteResults = await deleteSequentially(
+              deletedCombinations,
+              (combinationId) => axios.delete(`/orders/production_center_combinations/delete/${selectedOrder.id}/${combinationId}`),
+              'production center combination'
+            );
 
-            // Clear the deleted combinations tracking
+            const successfulDeletes = combinationDeleteResults
+              .filter(r => r.success)
+              .map(r => r.item);
+
+            // Clear the deleted combinations tracking for successfully deleted items
             if (setDeletedCombinations) {
-              setDeletedCombinations([]);
+              setDeletedCombinations(prev =>
+                prev.filter(combinationId => !successfulDeletes.includes(combinationId))
+              );
             }
-          } else {
-            console.log("✅ No deleted combinations to clear");
           }
         })
         .then(() => {
@@ -1025,20 +1011,13 @@ const useHandleSave = ({
                   comment_text: comment.comment_text  // Empty string for deletions
                 }).then(response => {
                   if (response.data.success) {
-                    if (comment.isDeleted) {
-                      console.log('✅ Comment deleted successfully for combination:', comment.combination_id);
-                    } else {
-                      console.log('✅ Comment saved successfully for combination:', comment.combination_id);
-                    }
                     // Reset comment state
                     if (comment.resetState) {
                       comment.resetState();
                     }
-                  } else {
-                    console.warn('⚠️ Failed to save comment for combination:', comment.combination_id, response.data.msg);
                   }
                 }).catch(error => {
-                  console.error('❌ Error saving comment for combination:', comment.combination_id, error);
+                  // Error handling for comment save
                 });
 
                 commentPromises.push(commentPromise);
@@ -1052,16 +1031,9 @@ const useHandleSave = ({
           // ✅ Save style comment data if available
           if (styleCommentData?.saveFunction && styleCommentData?.hasUnsavedChanges) {
             try {
-              console.log("📝 Saving style comment data...");
               const styleResult = await styleCommentData.saveFunction();
-              if (styleResult.success) {
-                console.log("✅ Style comment data saved successfully");
-              } else {
-                console.warn("⚠️ Failed to save style comment data:", styleResult.error);
-                // Don't fail the entire save operation for style comment issues
-              }
+              // Don't fail the entire save operation for style comment issues
             } catch (error) {
-              console.warn("⚠️ Failed to save style comment data:", error.message);
               // Don't fail the entire save operation for style comment issues
             }
           }
@@ -1069,20 +1041,16 @@ const useHandleSave = ({
           // ✅ Update audit tracking for the order
           if (selectedOrder?.id && username) {
             try {
-              console.log("📝 Updating order audit tracking...");
               await axios.post('/orders/audit/update', {
                 order_commessa: selectedOrder.id,
                 username: username
               });
-              console.log("✅ Order audit tracking updated successfully");
 
               // ✅ Refresh audit info in the UI immediately
               if (auditRefetchFunctionRef?.current) {
-                console.log("🔄 Refreshing audit info in UI...");
                 auditRefetchFunctionRef.current();
               }
             } catch (error) {
-              console.warn("⚠️ Failed to update audit tracking:", error.response?.data || error.message);
               // Don't fail the entire save operation for audit tracking issues
             }
           }
@@ -1101,15 +1069,13 @@ const useHandleSave = ({
           setSaving(false);
         })
         .catch((error) => {
-          console.error("🚨 Final Save Error:", error);
           setErrorMessage("⚠️ An error occurred while saving. Please try again.");
           setOpenError(true);
           setSaving(false);
         });
 
     } catch (error) {
-      console.error("\uD83D\uDEA8 Final Save Error:", error);
-      setErrorMessage("\u26A0\uFE0F An error occurred while saving. Please try again.");
+      setErrorMessage("⚠️ An error occurred while saving. Please try again.");
       setOpenError(true);
       setSaving(false);
     }
