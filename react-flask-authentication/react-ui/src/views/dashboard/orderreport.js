@@ -71,7 +71,7 @@ import useHandleOrderChange from 'views/dashboard/OrderReport/useHandleOrderChan
 import useAvgConsumption from 'views/planning/OrderPlanning/hooks/useAvgConsumption';
 
 // Utils
-import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno } from 'views/dashboard/OrderReport/plannedQuantities';
+import { getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, getWidthsByBagno } from 'views/dashboard/OrderReport/plannedQuantities';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 
 const OrderReport = () => {
@@ -581,6 +581,7 @@ const OrderReport = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    getWidthsByBagno={getWidthsByBagno}
                                     showHelpers={false}
                                 />
                             </Box>
@@ -662,6 +663,7 @@ const OrderReport = () => {
                                     getTablePlannedQuantities={getTablePlannedQuantities}
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
+                                    getWidthsByBagno={getWidthsByBagno}
                                     showHelpers={false}
                                 />
                             </Box>

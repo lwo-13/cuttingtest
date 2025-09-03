@@ -445,6 +445,9 @@ const ProductionCenterTabs = forwardRef(({
             if (updatedCombinations.length > 0 && onCombinationChange) {
                 const newActiveCombination = updatedCombinations[newActiveTab];
                 onCombinationChange(newActiveCombination);
+            } else if (onCombinationChange) {
+                // No combinations left, clear the selection
+                onCombinationChange(null);
             }
 
             setUnsavedChanges(true);

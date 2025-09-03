@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop, Typography } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 
@@ -1834,6 +1834,10 @@ const OrderPlanning = () => {
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
                                     getWidthsByBagno={getWidthsByBagno}
+                                    alongTables={filteredAlongTables}
+                                    weftTables={filteredWeftTables}
+                                    biasTables={filteredBiasTables}
+                                    adhesiveTables={filteredAdhesiveTables}
                                 />
                             </Box>
 
@@ -1956,6 +1960,10 @@ const OrderPlanning = () => {
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
                                     getWidthsByBagno={getWidthsByBagno}
+                                    alongTables={filteredAlongTables}
+                                    weftTables={filteredWeftTables}
+                                    biasTables={filteredBiasTables}
+                                    adhesiveTables={filteredAdhesiveTables}
                                 />
                             </Box>
 
@@ -2273,7 +2281,7 @@ const OrderPlanning = () => {
             )}
 
 
-            {selectedOrder && (
+            {selectedOrder && selectedCombinationId && (
                 <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
                     <Button
                         variant="contained"
@@ -2332,6 +2340,14 @@ const OrderPlanning = () => {
                     )}
 
 
+                </Box>
+            )}
+
+            {selectedOrder && !selectedCombinationId && (
+                <Box mt={2} p={2}>
+                    <Typography variant="body1" color="text.disabled" sx={{ fontWeight: 'normal' }}>
+                        {t('orderPlanning.selectProductionCenterFirst', 'Please select or create a production center configuration first before adding tables.')}
+                    </Typography>
                 </Box>
             )}
 

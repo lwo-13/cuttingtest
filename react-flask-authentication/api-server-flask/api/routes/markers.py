@@ -198,6 +198,7 @@ class MarkerHeadersPlanning(Resource):
                     "marker_name": header.marker_name,
                     "marker_width": header.marker_width,
                     "marker_length": header.marker_length,
+                    "fabric_type": header.fabric_type,  # Include fabric type for filtering
                     "efficiency": header.efficiency,
                     "size_quantities": size_quantities
                 })

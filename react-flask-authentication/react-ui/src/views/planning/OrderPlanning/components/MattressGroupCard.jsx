@@ -240,6 +240,7 @@ const MattressGroupCard = ({
       <MattressBulkAddDialog
         open={bulkAddDialogOpen}
         onClose={() => setBulkAddDialogOpen(false)}
+        table={table}
         markerOptions={markerOptions}
         onBulkAdd={(bulkAddData) => {
           onBulkAddRows(table.id, bulkAddData);

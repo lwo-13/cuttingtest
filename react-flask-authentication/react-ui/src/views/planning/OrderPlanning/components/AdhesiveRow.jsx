@@ -58,10 +58,18 @@ const AdhesiveRow = ({
                 .filter(m => {
                   const markerW = parseFloat(m.marker_width);
                   const selectedW = parseFloat(row.width);
-                  return markerW >= selectedW && markerW <= selectedW + 0.5;
+                  const widthMatch = markerW >= selectedW && markerW <= selectedW + 0.5;
+                  // Filter by fabric type if table has fabricType set
+                  const fabricTypeMatch = !table.fabricType || m.fabric_type === table.fabricType;
+                  return widthMatch && fabricTypeMatch;
                 })
                 .sort((a, b) => b.efficiency - a.efficiency)
-            : markerOptions.sort((a, b) => b.efficiency - a.efficiency)}
+            : markerOptions
+                .filter(m => {
+                  // Filter by fabric type if table has fabricType set
+                  return !table.fabricType || m.fabric_type === table.fabricType;
+                })
+                .sort((a, b) => b.efficiency - a.efficiency)}
           getOptionLabel={(option) => option.marker_name}
           renderOption={(props, option) => (
             <li {...props}>
