@@ -377,6 +377,14 @@
     "printAllDestinations": "Print All Destinations",
     "padPrint": "Pad Print",
     "pattern": "Pattern",
-    "padPrintColor": "Pad Print Color"
+    "padPrintColor": "Pad Print Color",
+    "bomTitle": "Bill of Materials",
+    "bomItem": "Item",
+    "bomQuantity": "Quantity",
+    "bomConsumption": "Consumption [m/pc]",
+    "bomColor": "Color",
+    "noBomData": "No BOM data found for this order",
+    "loadingFabrics": "Loading fabrics...",
+    "noFabricsFound": "No fabric items found in BOM"
   }
 }

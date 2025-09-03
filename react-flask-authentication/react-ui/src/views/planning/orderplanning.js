@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop, Typography } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 
@@ -130,6 +130,17 @@ const OrderPlanning = () => {
     // Basic unsaved changes tracking (temporary fallback)
     const [unsavedChanges, setUnsavedChanges] = useState(false);
 
+    // Debug wrapper for setUnsavedChanges to track when it's being set to false
+    const originalSetUnsavedChanges = setUnsavedChanges;
+    const debugSetUnsavedChanges = (value) => {
+        if (value === false) {
+            console.log('⚠️ setUnsavedChanges(false) called from:', new Error().stack);
+        } else {
+            console.log('✅ setUnsavedChanges(true) called');
+        }
+        originalSetUnsavedChanges(value);
+    };
+
     // Audit refetch function state - use useRef to avoid re-renders
     const auditRefetchFunctionRef = useRef(null);
 
@@ -221,7 +232,15 @@ const OrderPlanning = () => {
         handleRemoveRow,
         handleInputChange,
         updateExpectedConsumption
-    } = useMattressTables({ orderSizeNames, setDeletedMattresses, setUnsavedChanges, setDeletedTableIds });
+    } = useMattressTables({
+        orderSizeNames,
+        setDeletedMattresses,
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useMattressTables calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        },
+        setDeletedTableIds
+    });
 
     // Adhesive Tables
     const {
@@ -305,7 +324,10 @@ const OrderPlanning = () => {
         setOpenError,
         setSuccessMessage,
         setOpenSuccess,
-        setUnsavedChanges,
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useHandleSave calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        },
         commentData,
         auditRefetchFunctionRef,
         styleCommentData,
@@ -331,7 +353,10 @@ const OrderPlanning = () => {
         setMarkerOptions,
         setManualPattern,
         setManualColor,
-        setUnsavedChanges,
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useHandleOrderChange calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        },
         handleWeftRowChange,
         sortSizes,
         clearBrand,
@@ -379,7 +404,10 @@ const OrderPlanning = () => {
         alongTables: alongTables || [],
         weftTables: weftTables || [],
         biasTables: biasTables || [],
-        setUnsavedChanges
+        setUnsavedChanges: (value) => {
+            console.log('🔍 useProductionCenterTabs calling setUnsavedChanges with:', value);
+            setUnsavedChanges(value);
+        }
     });
 
     // Helper function to get last 6 digits of order ID (same as in useHandleSave)
@@ -487,6 +515,7 @@ const OrderPlanning = () => {
             );
 
             if (hasChanges) {
+                console.log('🔄 Auto-assigning production center combination to tables, setting unsaved changes');
                 setTablesFunction(updatedTables);
                 setUnsavedChanges(true);
             }
@@ -1191,25 +1220,17 @@ const OrderPlanning = () => {
                                 let rowSpecificPieces = 0;
                                 const rowSizes = row.sizes || 'ALL';
 
-                                console.log(`🎯 Processing collaretto row with bagno ${bagno}, sizes: "${rowSizes}"`);
-                                console.log(`🎯 Available pieces per size:`, piecesPerSizeForBagno);
-
                                 if (rowSizes === 'ALL') {
                                     // Use all pieces if row is for all sizes
                                     rowSpecificPieces = totalPiecesForBagno;
-                                    console.log(`🎯 Row configured for ALL sizes, using total: ${rowSpecificPieces}`);
                                 } else {
                                     // Calculate pieces only for the sizes this row is configured for
                                     const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
-                                    console.log(`🎯 Row configured for specific sizes: ${targetSizes.join(', ')}`);
 
                                     rowSpecificPieces = targetSizes.reduce((sum, size) => {
                                         const piecesForSize = piecesPerSizeForBagno[size] || 0;
-                                        console.log(`🎯 Size ${size}: ${piecesForSize} pieces`);
                                         return sum + piecesForSize;
                                     }, 0);
-
-                                    console.log(`🎯 Row-specific pieces for sizes ${targetSizes.join(', ')}: ${rowSpecificPieces}`);
                                 }
 
 
@@ -1239,7 +1260,7 @@ const OrderPlanning = () => {
                 return;
             }
 
-            console.log(`🔍 Collaretto bagno changed to ${bagno} in ${tableType} table - auto-fetching pieces from mattress tables`);
+
 
             // Get the configuration from the collaretto table that triggered this event
             let collarettoDestination = null;
@@ -1271,13 +1292,7 @@ const OrderPlanning = () => {
                 collarettoFabricColor = alongTable?.fabricColor;
             }
 
-            console.log(`🎯 Collaretto configuration for bagno ${bagno}:`, {
-                destination: collarettoDestination,
-                productionCenter: collarettoProductionCenter,
-                cuttingRoom: collarettoCuttingRoom,
-                fabricCode: collarettoFabricCode,
-                fabricColor: collarettoFabricColor
-            });
+
 
             // Get the sizes information from the collaretto row to determine which sizes to include
             let collarettoRowSizes = 'ALL';
@@ -1297,8 +1312,7 @@ const OrderPlanning = () => {
                 }
             }
 
-            console.log(`🎯 Collaretto row sizes configuration: ${collarettoRowSizes}`, targetSizes.length > 0 ? targetSizes : 'ALL sizes');
-            console.log(`🎯 Target row details:`, targetRow);
+
 
             // Calculate total pieces for this bagno from mattress tables with matching configuration
             let totalPiecesForBagno = 0;
@@ -1312,31 +1326,12 @@ const OrderPlanning = () => {
                                         table.fabricCode === collarettoFabricCode &&
                                         table.fabricColor === collarettoFabricColor;
 
-                // Debug logging to see what's being compared
-                console.log(`🔍 Checking mattress table ${table.id}:`, {
-                    mattress: {
-                        destination: table.destination,
-                        productionCenter: table.productionCenter,
-                        cuttingRoom: table.cuttingRoom,
-                        fabricCode: table.fabricCode,
-                        fabricColor: table.fabricColor
-                    },
-                    collaretto: {
-                        destination: collarettoDestination,
-                        productionCenter: collarettoProductionCenter,
-                        cuttingRoom: collarettoCuttingRoom,
-                        fabricCode: collarettoFabricCode,
-                        fabricColor: collarettoFabricColor
-                    },
-                    hasMatchingConfig
-                });
+
 
                 if (hasMatchingConfig) {
-                    console.log(`✅ Found matching mattress table ${table.id} for bagno ${bagno}`);
                     table.rows.forEach(row => {
                         if (row.bagno === bagno && row.layers && row.piecesPerSize) {
                             const layers = parseInt(row.layers) || 0;
-                            console.log(`📋 Processing mattress row with bagno ${bagno}, layers: ${layers}, piecesPerSize:`, row.piecesPerSize);
 
                             Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
                                 // ✅ Size-aware filtering: only include pieces for target sizes
@@ -1347,34 +1342,20 @@ const OrderPlanning = () => {
                                     const totalForSize = pcs * layers;
                                     piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
                                     totalPiecesForBagno += totalForSize;
-
-                                    console.log(`📊 Including size ${size}: ${pcs} pcs/layer × ${layers} layers = ${totalForSize} pieces`);
-                                } else {
-                                    console.log(`⏭️ Skipping size ${size} (not in target sizes: ${targetSizes.join(', ')})`);
                                 }
-                            });
-                        } else if (row.bagno === bagno) {
-                            console.log(`⚠️ Found row with matching bagno ${bagno} but missing layers or piecesPerSize:`, {
-                                layers: row.layers,
-                                piecesPerSize: row.piecesPerSize
                             });
                         }
                     });
-                } else {
-                    console.log(`❌ Mattress table ${table.id} doesn't match configuration`);
                 }
             });
 
             if (totalPiecesForBagno === 0) {
-                console.log(`⚠️ No pieces found for bagno ${bagno} in MATTRESS section for fabric ${collarettoFabricCode} ${collarettoFabricColor}`);
                 // Show notification that no pieces were found
                 setInfoMessage(`⚠️ No pieces found for bagno ${bagno} in MATTRESS section for fabric ${collarettoFabricCode} ${collarettoFabricColor}`);
                 setOpenInfo(true);
                 setTimeout(() => setOpenInfo(false), 3000);
                 return;
             }
-
-            console.log(`✅ Found ${totalPiecesForBagno} total pieces for bagno ${bagno} in ${collarettoDestination}`, piecesPerSizeForBagno);
 
             // Show success notification with size information
             const sizeInfo = collarettoRowSizes === 'ALL' ? 'all sizes' : `sizes: ${targetSizes.join(', ')}`;
@@ -1391,7 +1372,6 @@ const OrderPlanning = () => {
                         ...table,
                         rows: table.rows.map(row => {
                             if (row.id === rowId) {
-                                console.log(`🔄 Updating ${tableType} row pieces for bagno ${bagno} in ${collarettoDestination}: ${totalPiecesForBagno}`);
                                 return {
                                     ...row,
                                     pieces: totalPiecesForBagno.toString()
@@ -1495,9 +1475,7 @@ const OrderPlanning = () => {
                     sizes: sortSizes(order.sizes || [])
                 }));
 
-                console.log('📊 Order Planning WIP Detection:');
-                console.log('Total orders:', sortedOrders.length);
-                console.log('WIP orders:', sortedOrders.filter(o => o.isWIP).length);
+
 
                 setOrderOptions(sortedOrders);
 
@@ -1668,10 +1646,10 @@ const OrderPlanning = () => {
                                 })()}
 
                                 {/* Order Actions Bar in Header */}
+                                {/* Print button commented out: handlePrint={handleEnhancedPrint} */}
                                 <OrderActionBar
                                     unsavedChanges={unsavedChanges}
                                     handleSave={handleSave}
-                                    handlePrint={handleEnhancedPrint}
                                     isPinned={isPinned}
                                     setIsPinned={setIsPinned}
                                     saving={saving}
@@ -1698,7 +1676,7 @@ const OrderPlanning = () => {
                     />
 
                     {/* Order Quantities Section */}
-                    <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} />
+                    <OrderQuantities orderSizes={orderSizes} italianRatios={italianRatios} selectedOrder={selectedOrder} />
 
                 </MainCard>
             </Box>
@@ -1834,6 +1812,10 @@ const OrderPlanning = () => {
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
                                     getWidthsByBagno={getWidthsByBagno}
+                                    alongTables={filteredAlongTables}
+                                    weftTables={filteredWeftTables}
+                                    biasTables={filteredBiasTables}
+                                    adhesiveTables={filteredAdhesiveTables}
                                 />
                             </Box>
 
@@ -1855,6 +1837,7 @@ const OrderPlanning = () => {
                                 refreshingMarkers={refreshingMarkers}
                                 markerOptions={markerOptions}
                                 onBulkAddRows={handleBulkAddRowsWithNames}
+                                selectedOrder={selectedOrder}
                             />
 
                             {/* Table Section */}
@@ -1956,6 +1939,10 @@ const OrderPlanning = () => {
                                     getTablePlannedByBagno={getTablePlannedByBagno}
                                     getMetersByBagno={getMetersByBagno}
                                     getWidthsByBagno={getWidthsByBagno}
+                                    alongTables={filteredAlongTables}
+                                    weftTables={filteredWeftTables}
+                                    biasTables={filteredBiasTables}
+                                    adhesiveTables={filteredAdhesiveTables}
                                 />
                             </Box>
 
@@ -2138,6 +2125,7 @@ const OrderPlanning = () => {
                                 mattressTables={tables}
                                 orderSizes={orderSizes}
                                 handleAddRowWeft={handleAddRowWeft}
+                                selectedOrder={selectedOrder}
                                 />
 
                             {/* Table Section */}
@@ -2273,7 +2261,7 @@ const OrderPlanning = () => {
             )}
 
 
-            {selectedOrder && (
+            {selectedOrder && selectedCombinationId && (
                 <Box mt={2} display="flex" justifyContent="flex-start" gap={2}>
                     <Button
                         variant="contained"
@@ -2332,6 +2320,14 @@ const OrderPlanning = () => {
                     )}
 
 
+                </Box>
+            )}
+
+            {selectedOrder && !selectedCombinationId && (
+                <Box mt={2} p={2}>
+                    <Typography variant="body1" color="text.disabled" sx={{ fontWeight: 'normal' }}>
+                        {t('orderPlanning.selectProductionCenterFirst', 'Please select or create a production center configuration first before adding tables.')}
+                    </Typography>
                 </Box>
             )}
 
@@ -2478,6 +2474,7 @@ const OrderPlanning = () => {
                     tables={tables}
                     getTablePlannedQuantities={getTablePlannedQuantities}
                     selectedOrder={selectedOrder}
+                    selectedCombinationId={selectedCombination?.combination_id}
                 />
             )}
 

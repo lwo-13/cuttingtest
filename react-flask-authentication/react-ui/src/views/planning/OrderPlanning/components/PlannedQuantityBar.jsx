@@ -6,14 +6,35 @@ import {
 } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
 
-const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getTablePlannedByBagno, getMetersByBagno, getWidthsByBagno, showHelpers = true }) => {
+const PlannedQuantityBar = ({
+  table,
+  orderSizes,
+  getTablePlannedQuantities,
+  getTablePlannedByBagno,
+  getMetersByBagno,
+  getWidthsByBagno,
+  showHelpers = true,
+  // New props for fabric consumption
+  alongTables = [],
+  weftTables = [],
+  biasTables = [],
+  adhesiveTables = []
+}) => {
   const [open, setOpen] = useState(false);
   const [collarettoConsumption, setCollarettoConsumption] = useState('');
   const [adhesiveConsumption, setAdhesiveConsumption] = useState('');
   const [collarettoHelperExpanded, setCollarettoHelperExpanded] = useState(false);
   const [adhesiveHelperExpanded, setAdhesiveHelperExpanded] = useState(false);
   const [showWidthColumn, setShowWidthColumn] = useState(false);
+  const [fabricConsMode, setFabricConsMode] = useState(false);
 
+  // Check if we have any real consumption data to show
+  const hasRealConsumptionData = () => {
+    const realConsumption = calculateRealFabricConsumption();
+    return realConsumption.collarettoConsumption > 0 || realConsumption.adhesiveConsumption > 0;
+  };
+
+  const uniqueSizes = orderSizes.map(s => s.size);
 
   const planned = getTablePlannedQuantities(table);
   const { bagnoMap: plannedByBagno, bagnoOrder } = getTablePlannedByBagno(table);
@@ -26,8 +47,108 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
+  // Format numbers for better readability
+  const formatNumber = (num) => {
+    const rounded = Math.round(num);
+    return rounded.toLocaleString();
+  };
 
+  // Calculate real fabric consumption from collaretto and adhesive tables
+  const calculateRealFabricConsumption = () => {
+    const fabricType = table.fabricType;
+    const fabricCode = table.fabricCode;
+    const fabricColor = table.fabricColor;
 
+    if (!fabricType || !fabricCode || !fabricColor) {
+      return { collarettoConsumption: 0, adhesiveConsumption: 0, consumptionByBagno: {} };
+    }
+
+    // Get list of bagnos that exist in the current mattress table
+    const mattressBagnos = new Set();
+    if (plannedByBagno && typeof plannedByBagno === 'object') {
+      Object.keys(plannedByBagno).forEach(bagno => {
+        mattressBagnos.add(bagno);
+      });
+    }
+
+    let totalCollarettoConsumption = 0;
+    let totalAdhesiveConsumption = 0;
+
+    // Calculate consumption by bagno for this fabric
+    const collarettoConsumptionByBagno = {};
+    const adhesiveConsumptionByBagno = {};
+
+    // Check along tables (CA)
+    alongTables.forEach((alongTable, index) => {
+      if (alongTable.fabricType === fabricType &&
+          alongTable.fabricCode === fabricCode &&
+          alongTable.fabricColor === fabricColor) {
+        alongTable.rows.forEach(row => {
+          const bagno = row.bagno || 'No Bagno';
+          const consumption = parseFloat(row.consumption) || 0;
+          if (consumption > 0 && mattressBagnos.has(bagno)) {
+            collarettoConsumptionByBagno[bagno] = (collarettoConsumptionByBagno[bagno] || 0) + consumption;
+            totalCollarettoConsumption += consumption;
+          }
+        });
+      }
+    });
+
+    // Check weft tables (CT)
+    weftTables.forEach((weftTable, index) => {
+      if (weftTable.fabricType === fabricType &&
+          weftTable.fabricCode === fabricCode &&
+          weftTable.fabricColor === fabricColor) {
+        weftTable.rows.forEach(row => {
+          const bagno = row.bagno || 'No Bagno';
+          const consumption = parseFloat(row.consumption) || 0;
+          if (consumption > 0 && mattressBagnos.has(bagno)) {
+            collarettoConsumptionByBagno[bagno] = (collarettoConsumptionByBagno[bagno] || 0) + consumption;
+            totalCollarettoConsumption += consumption;
+          }
+        });
+      }
+    });
+
+    // Check bias tables (CB)
+    biasTables.forEach(biasTable => {
+      if (biasTable.fabricType === fabricType &&
+          biasTable.fabricCode === fabricCode &&
+          biasTable.fabricColor === fabricColor) {
+        biasTable.rows.forEach(row => {
+          const bagno = row.bagno || 'No Bagno';
+          const consumption = parseFloat(row.consumption) || 0;
+          if (consumption > 0 && mattressBagnos.has(bagno)) {
+            collarettoConsumptionByBagno[bagno] = (collarettoConsumptionByBagno[bagno] || 0) + consumption;
+            totalCollarettoConsumption += consumption;
+          }
+        });
+      }
+    });
+
+    // Check adhesive tables
+    adhesiveTables.forEach((adhesiveTable, index) => {
+      if (adhesiveTable.fabricType === fabricType &&
+          adhesiveTable.fabricCode === fabricCode &&
+          adhesiveTable.fabricColor === fabricColor) {
+        adhesiveTable.rows.forEach(row => {
+          const bagno = row.bagno || 'No Bagno';
+          const expectedConsumption = parseFloat(row.expectedConsumption) || 0;
+          if (expectedConsumption > 0 && mattressBagnos.has(bagno)) {
+            adhesiveConsumptionByBagno[bagno] = (adhesiveConsumptionByBagno[bagno] || 0) + expectedConsumption;
+            totalAdhesiveConsumption += expectedConsumption;
+          }
+        });
+      }
+    });
+
+    return {
+      collarettoConsumption: totalCollarettoConsumption,
+      adhesiveConsumption: totalAdhesiveConsumption,
+      collarettoConsumptionByBagno,
+      adhesiveConsumptionByBagno
+    };
+  };
 
 
 
@@ -41,7 +162,7 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
       return (
         <Typography key={size} variant="body2" sx={{ fontWeight: "bold", mb: 0.5 }}>
-          {size}: {qty} ({percentage !== "NaN" ? percentage + "%" : "N/A"})
+          {size}: {formatNumber(qty)} ({percentage !== "NaN" ? percentage + "%" : "N/A"})
         </Typography>
       );
     });
@@ -56,14 +177,12 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
     sizeElements.push(
       <Typography key="total_pcs" variant="body2" sx={{ fontWeight: "bold", ml: 2 }}>
-        Total: {totalPcs} ({totalPcsPct}%)
+        Total: {formatNumber(totalPcs)} ({totalPcsPct}%)
       </Typography>
     );
 
     return sizeElements;
   };
-
-  const uniqueSizes = orderSizes.map(s => s.size);
 
 
 
@@ -146,15 +265,55 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
       <TableCell key="cons" align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
     );
 
-    if (collarettoConsumption || adhesiveConsumption) {
+    if ((fabricConsMode && hasRealConsumptionData()) || collarettoConsumption || adhesiveConsumption) {
       headerCells.push(
         <TableCell key="extra-cons" align="center" sx={{ fontWeight: 'bold' }}>
-          {collarettoConsumption && adhesiveConsumption ? (
+          {fabricConsMode ? (
+            (() => {
+              const realConsumption = calculateRealFabricConsumption();
+              const hasCollaretto = realConsumption.collarettoConsumption > 0;
+              const hasAdhesive = realConsumption.adhesiveConsumption > 0;
+
+              if (hasCollaretto && hasAdhesive) {
+                return (
+                  <Box component="span">
+                    <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
+                      With Collaretto
+                    </Typography>
+                    <Typography component="span" sx={{ fontWeight: 'bold' }}>
+                      {' and '}
+                    </Typography>
+                    <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                      Adhesive Cons [m]
+                    </Typography>
+                  </Box>
+                );
+              } else if (hasCollaretto) {
+                return (
+                  <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
+                    With Collaretto Cons [m]
+                  </Typography>
+                );
+              } else if (hasAdhesive) {
+                return (
+                  <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                    With Adhesive Cons [m]
+                  </Typography>
+                );
+              } else {
+                return (
+                  <Typography component="span" sx={{ color: 'black', fontWeight: 'bold' }}>
+                    Real Fabric Cons [m]
+                  </Typography>
+                );
+              }
+            })()
+          ) : collarettoConsumption && adhesiveConsumption ? (
             <Box component="span">
               <Typography component="span" sx={{ color: '#673ab7', fontWeight: 'bold' }}>
                 With Collaretto
               </Typography>
-              <Typography component="span" sx={{ color: 'black', fontWeight: 'bold' }}>
+              <Typography component="span" sx={{ fontWeight: 'bold' }}>
                 {' and '}
               </Typography>
               <Typography component="span" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
@@ -184,11 +343,46 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
             const { bagno, width, sizeMap, isWidthRow, isFirstWidthRow, bagnoRowSpan } = row;
             const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
 
-            // Use the actual consumption from the row data
-            const consumption = isWidthRow ? (row.consumption || 0) : (metersByBagno[bagno] || 0);
+            // Use the actual consumption from the row data or real fabric consumption
+            let consumption, collarettoConsForRow, adhesiveConsForRow;
 
-            const collarettoConsForRow = total * parseFloat(collarettoConsumption || 0);
-            const adhesiveConsForRow = total * parseFloat(adhesiveConsumption || 0);
+            if (fabricConsMode) {
+              // Use real fabric consumption from collaretto and adhesive tables
+              const realConsumption = calculateRealFabricConsumption();
+
+              // Keep the original consumption from the mattress table
+              consumption = isWidthRow ? (row.consumption || 0) : (metersByBagno[bagno] || 0);
+
+              // Add real collaretto and adhesive consumption for this bagno
+              let bagnoCollarettoConsumption = realConsumption.collarettoConsumptionByBagno[bagno] || 0;
+              let bagnoAdhesiveConsumption = realConsumption.adhesiveConsumptionByBagno[bagno] || 0;
+
+              // If both fabric cons and width column are enabled, and this is a width row,
+              // distribute consumption proportionally based on pieces quantity
+              if (showWidthColumn && isWidthRow && (bagnoCollarettoConsumption > 0 || bagnoAdhesiveConsumption > 0)) {
+                // Calculate total pieces for this bagno across all widths
+                const bagnoRows = expandedRows.filter(r => r.bagno === bagno);
+                const totalBagnoPieces = bagnoRows.reduce((sum, r) => {
+                  return sum + Object.values(r.sizeMap).reduce((s, qty) => s + qty, 0);
+                }, 0);
+
+                // Calculate this row's proportion
+                const rowPieces = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
+                const proportion = totalBagnoPieces > 0 ? rowPieces / totalBagnoPieces : 0;
+
+                // Distribute consumption proportionally
+                bagnoCollarettoConsumption = bagnoCollarettoConsumption * proportion;
+                bagnoAdhesiveConsumption = bagnoAdhesiveConsumption * proportion;
+              }
+
+              collarettoConsForRow = bagnoCollarettoConsumption;
+              adhesiveConsForRow = bagnoAdhesiveConsumption;
+            } else {
+              // Use helper values (theoretical)
+              consumption = isWidthRow ? (row.consumption || 0) : (metersByBagno[bagno] || 0);
+              collarettoConsForRow = total * parseFloat(collarettoConsumption || 0);
+              adhesiveConsForRow = total * parseFloat(adhesiveConsumption || 0);
+            }
 
             // Build row cells array to avoid whitespace issues
             const rowCells = [];
@@ -223,41 +417,64 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
             rowCells.push(
               ...uniqueSizes.map(size => (
                 <TableCell key={size} align="center">
-                  {sizeMap[size] || 0}
+                  {formatNumber(sizeMap[size] || 0)}
                 </TableCell>
               )),
               <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>
-                {total}
+                {formatNumber(total)}
               </TableCell>,
               <TableCell key="cons" align="center" sx={{ fontWeight: 500 }}>
-                {consumption.toFixed(1)}
+                {formatNumber(consumption)}
               </TableCell>
             );
 
-            if (collarettoConsumption || adhesiveConsumption) {
+            if ((fabricConsMode && hasRealConsumptionData()) || collarettoConsumption || adhesiveConsumption) {
               rowCells.push(
                 <TableCell key="extra-cons" align="center" sx={{
                   fontWeight: 500,
                   backgroundColor: isWidthRow ? '#f8f9fa' : 'inherit'
                 }}>
-                  <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
-                    <Typography component="span" sx={{ color: 'black' }}>
-                      {Math.round(consumption)}
-                    </Typography>
-                    {collarettoConsumption && (
-                      <Typography component="span" sx={{ color: '#673ab7' }}>
-                        {" + " + Math.round(collarettoConsForRow)}
+                  {fabricConsMode ? (
+                    <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+                      <Typography component="span" sx={{ color: 'black' }}>
+                        {formatNumber(consumption)}
                       </Typography>
-                    )}
-                    {adhesiveConsumption && (
-                      <Typography component="span" sx={{ color: '#ff9800' }}>
-                        {" + " + Math.round(adhesiveConsForRow)}
+                      {collarettoConsForRow > 0 && (
+                        <Typography component="span" sx={{ color: '#673ab7' }}>
+                          {" + " + formatNumber(collarettoConsForRow)}
+                        </Typography>
+                      )}
+                      {adhesiveConsForRow > 0 && (
+                        <Typography component="span" sx={{ color: '#ff9800' }}>
+                          {" + " + formatNumber(adhesiveConsForRow)}
+                        </Typography>
+                      )}
+                      {(collarettoConsForRow > 0 || adhesiveConsForRow > 0) && (
+                        <Typography component="span" sx={{ color: 'black' }}>
+                          {" = " + formatNumber(consumption + collarettoConsForRow + adhesiveConsForRow)}
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+                      <Typography component="span" sx={{ color: 'black' }}>
+                        {formatNumber(consumption)}
                       </Typography>
-                    )}
-                    <Typography component="span" sx={{ color: 'black' }}>
-                      {" = " + Math.round(consumption + collarettoConsForRow + adhesiveConsForRow)}
-                    </Typography>
-                  </Box>
+                      {collarettoConsumption && (
+                        <Typography component="span" sx={{ color: '#673ab7' }}>
+                          {" + " + formatNumber(collarettoConsForRow)}
+                        </Typography>
+                      )}
+                      {adhesiveConsumption && (
+                        <Typography component="span" sx={{ color: '#ff9800' }}>
+                          {" + " + formatNumber(adhesiveConsForRow)}
+                        </Typography>
+                      )}
+                      <Typography component="span" sx={{ color: 'black' }}>
+                        {" = " + formatNumber(consumption + collarettoConsForRow + adhesiveConsForRow)}
+                      </Typography>
+                    </Box>
+                  )}
                 </TableCell>
               );
             }
@@ -286,46 +503,79 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
                 return (
                   <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
-                    {total} {pct ? `(${pct}%)` : ''}
+                    {formatNumber(total)} {pct ? `(${pct}%)` : ''}
                   </TableCell>
                 );
               }),
               <TableCell key="total-pcs" align="center" sx={{ fontWeight: 'bold' }}>
-                {Object.values(totalPerSize).reduce((sum, val) => sum + val, 0)}{" "}
+                {formatNumber(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0))}{" "}
                 ({((Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) /
                     orderSizes.reduce((sum, s) => sum + (s.qty || 0), 0)) * 100).toFixed(1)}%)
               </TableCell>,
               <TableCell key="total-meters" align="center" sx={{ fontWeight: 'bold' }}>
-                {totalMeters.toFixed(0)}
+                {formatNumber(totalMeters)}
               </TableCell>
             );
 
-            if (collarettoConsumption || adhesiveConsumption) {
-              totalRowCells.push(
-                <TableCell key="total-extra-cons" align="center" sx={{ fontWeight: 'bold' }}>
-                  <Box>
-                    <Typography component="span" sx={{ color: 'black' }}>
-                      {Math.round(totalMeters)}
-                    </Typography>
-                    {collarettoConsumption && (
-                      <Typography component="span" sx={{ color: '#673ab7' }}>
-                        {" + " + Math.round(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0))}
+            if ((fabricConsMode && hasRealConsumptionData()) || collarettoConsumption || adhesiveConsumption) {
+              if (fabricConsMode) {
+                // Calculate total real consumption
+                const realConsumption = calculateRealFabricConsumption();
+                const totalRealCollaretto = realConsumption.collarettoConsumption;
+                const totalRealAdhesive = realConsumption.adhesiveConsumption;
+
+                totalRowCells.push(
+                  <TableCell key="total-extra-cons" align="center" sx={{ fontWeight: 'bold' }}>
+                    <Box>
+                      <Typography component="span" sx={{ color: 'black' }}>
+                        {formatNumber(totalMeters)}
                       </Typography>
-                    )}
-                    {adhesiveConsumption && (
-                      <Typography component="span" sx={{ color: '#ff9800' }}>
-                        {" + " + Math.round(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))}
-                      </Typography>
-                    )}
-                    <Typography component="span" sx={{ color: 'black' }}>
-                      {" = " + Math.round(totalMeters +
-                        (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0)) +
-                        (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))
+                      {totalRealCollaretto > 0 && (
+                        <Typography component="span" sx={{ color: '#673ab7' }}>
+                          {" + " + formatNumber(totalRealCollaretto)}
+                        </Typography>
                       )}
-                    </Typography>
-                  </Box>
-                </TableCell>
-              );
+                      {totalRealAdhesive > 0 && (
+                        <Typography component="span" sx={{ color: '#ff9800' }}>
+                          {" + " + formatNumber(totalRealAdhesive)}
+                        </Typography>
+                      )}
+                      {(totalRealCollaretto > 0 || totalRealAdhesive > 0) && (
+                        <Typography component="span" sx={{ color: 'black' }}>
+                          {" = " + formatNumber(totalMeters + totalRealCollaretto + totalRealAdhesive)}
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
+                );
+              } else {
+                // Use helper values (existing logic)
+                totalRowCells.push(
+                  <TableCell key="total-extra-cons" align="center" sx={{ fontWeight: 'bold' }}>
+                    <Box>
+                      <Typography component="span" sx={{ color: 'black' }}>
+                        {formatNumber(totalMeters)}
+                      </Typography>
+                      {collarettoConsumption && (
+                        <Typography component="span" sx={{ color: '#673ab7' }}>
+                          {" + " + formatNumber(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0))}
+                        </Typography>
+                      )}
+                      {adhesiveConsumption && (
+                        <Typography component="span" sx={{ color: '#ff9800' }}>
+                          {" + " + formatNumber(Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))}
+                        </Typography>
+                      )}
+                      <Typography component="span" sx={{ color: 'black' }}>
+                        {" = " + formatNumber(totalMeters +
+                          (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(collarettoConsumption || 0)) +
+                          (Object.values(totalPerSize).reduce((sum, val) => sum + val, 0) * parseFloat(adhesiveConsumption || 0))
+                        )}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                );
+              }
             }
 
             return (
@@ -366,8 +616,26 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
       <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
         <DialogContent dividers>
-          {/* Width Column Toggle */}
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Toggle Controls */}
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            {hasRealConsumptionData() && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={fabricConsMode}
+                    onChange={(e) => setFabricConsMode(e.target.checked)}
+                    color="secondary"
+                  />
+                }
+                label="Fabric Cons."
+                sx={{
+                  '& .MuiFormControlLabel-label': {
+                    fontSize: '0.875rem',
+                    fontWeight: 500
+                  }
+                }}
+              />
+            )}
             <FormControlLabel
               control={
                 <Switch
@@ -388,8 +656,8 @@ const PlannedQuantityBar = ({ table, orderSizes, getTablePlannedQuantities, getT
 
           {renderBagnoTable()}
 
-          {/* Helpers Section - Only show in order planning */}
-          {showHelpers && (
+          {/* Helpers Section - Only show in order planning and when not in fabric cons mode */}
+          {showHelpers && !fabricConsMode && (
             <>
               <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
                 {/* Collaretto Helper - Left */}

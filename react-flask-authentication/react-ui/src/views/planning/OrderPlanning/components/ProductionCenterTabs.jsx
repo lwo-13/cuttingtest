@@ -13,7 +13,8 @@ import {
     DialogActions,
     Autocomplete,
     Typography,
-    Alert
+    Alert,
+    Tooltip
 } from '@mui/material';
 import { Add, Edit, Delete, Save, Cancel } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
@@ -126,7 +127,6 @@ const ProductionCenterTabs = forwardRef(({
     const switchToDestinationTab = (destination) => {
         const tabIndex = combinations.findIndex(c => c.destination === destination);
         if (tabIndex !== -1 && tabIndex !== activeTab) {
-            console.log(`🔄 Switching from tab ${activeTab} to tab ${tabIndex} for destination: ${destination}`);
             setActiveTab(tabIndex);
             if (combinations[tabIndex] && onCombinationChange) {
                 onCombinationChange(combinations[tabIndex]);
@@ -266,7 +266,22 @@ const ProductionCenterTabs = forwardRef(({
         return matchingTables;
     };
 
+    // Check if a combination has any locked rows that would prevent deletion
+    const hasLockedRows = (combination) => {
+        const matchingTables = findTablesUsingCombination(combination);
+
+        return matchingTables.some(({ type, table }) => {
+            return table.rows.some(row => row.isEditable === false);
+        });
+    };
+
     const handleDeleteCombination = async (combination) => {
+        // Check if combination has locked rows
+        if (hasLockedRows(combination)) {
+            // Don't allow deletion if there are locked rows
+            return;
+        }
+
         // Allow deletion even if it's the last production center combination
         // Open confirmation dialog instead of window.confirm
         setCombinationToDelete(combination);
@@ -281,8 +296,11 @@ const ProductionCenterTabs = forwardRef(({
         setCombinationToDelete(null);
 
         try {
+            console.log('🗑️ Starting production center deletion process');
+
             // Find all tables that use this combination
             const matchingTables = findTablesUsingCombination(combination);
+            console.log('🗑️ Found matching tables:', matchingTables.length);
 
             // Remove tables from UI - the table removal logic will handle marking records for deletion
             matchingTables.forEach(({ type, table }) => {
@@ -312,6 +330,8 @@ const ProductionCenterTabs = forwardRef(({
 
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'adhesive':
@@ -337,6 +357,8 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'along':
@@ -362,6 +384,8 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'weft':
@@ -387,6 +411,8 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                     case 'bias':
@@ -412,27 +438,30 @@ const ProductionCenterTabs = forwardRef(({
                                 }
                                 return prev.filter(t => t.id !== table.id);
                             });
+                            // Ensure unsaved changes is set immediately after table removal
+                            setUnsavedChanges(true);
                         }
                         break;
                 }
             });
 
-            // Mark combination for deletion
+            // Mark combination for deletion (will be deleted when user hits save)
             if (setDeletedCombinations) {
                 setDeletedCombinations(prev => prev.includes(combination.combination_id) ? prev : [...prev, combination.combination_id]);
             }
 
-            // Delete combination from database immediately
-            try {
-                await axios.delete(`/orders/production_center_combinations/delete/${selectedOrder.id}/${combination.combination_id}`);
-            } catch (error) {
-                console.error('Error deleting combination from database:', error);
-                // Don't fail the UI operation if database deletion fails
-            }
+            console.log('🔄 Setting unsaved changes to true immediately after marking combination for deletion');
+            setUnsavedChanges(true);
+
+            // Note: Combination will be deleted from database when user hits save button
+            // No immediate backend deletion here
 
             // Remove combination from UI
             const updatedCombinations = combinations.filter(c => c.combination_id !== combination.combination_id);
             setCombinations(updatedCombinations);
+
+            console.log('🔄 Setting unsaved changes to true after updating combinations');
+            setUnsavedChanges(true);
 
             // Update active tab if needed and trigger combination change
             let newActiveTab = activeTab;
@@ -441,13 +470,38 @@ const ProductionCenterTabs = forwardRef(({
                 setActiveTab(newActiveTab);
             }
 
+            console.log('🔄 About to call onCombinationChange, setting unsaved changes again');
+            setUnsavedChanges(true);
+
             // Trigger combination change to update table filtering
             if (updatedCombinations.length > 0 && onCombinationChange) {
                 const newActiveCombination = updatedCombinations[newActiveTab];
+                console.log('🔄 Calling onCombinationChange with new combination:', newActiveCombination);
                 onCombinationChange(newActiveCombination);
+            } else if (onCombinationChange) {
+                // No combinations left, clear the selection
+                console.log('🔄 Calling onCombinationChange with null (no combinations left)');
+                onCombinationChange(null);
             }
 
+            console.log('🔄 Setting unsaved changes to true after onCombinationChange');
             setUnsavedChanges(true);
+
+            // Use multiple setTimeout calls to ensure setUnsavedChanges persists
+            setTimeout(() => {
+                console.log('🔄 Setting unsaved changes to true after production center deletion (first timeout)');
+                setUnsavedChanges(true);
+            }, 0);
+
+            setTimeout(() => {
+                console.log('🔄 Setting unsaved changes to true after production center deletion (second timeout)');
+                setUnsavedChanges(true);
+            }, 100);
+
+            setTimeout(() => {
+                console.log('🔄 Setting unsaved changes to true after production center deletion (third timeout)');
+                setUnsavedChanges(true);
+            }, 200);
 
         } catch (error) {
             console.error('Error removing combination:', error);
@@ -478,24 +532,15 @@ const ProductionCenterTabs = forwardRef(({
                 combination_id: editingCombination?.combination_id || `combo_${Date.now()}`
             };
 
-            console.log('➕ Adding combination locally:', {
-                isEditing: !!editingCombination,
-                editingId: editingCombination?.combination_id,
-                newCombination,
-                formData
-            });
-
             let updatedCombinations;
             if (editingCombination) {
                 // Update existing combination
                 updatedCombinations = combinations.map(c =>
                     c.combination_id === editingCombination.combination_id ? newCombination : c
                 );
-                console.log('📝 Updated combinations for edit:', updatedCombinations);
             } else {
                 // Add new combination
                 updatedCombinations = [...combinations, newCombination];
-                console.log('➕ Updated combinations for add:', updatedCombinations);
             }
 
             // Update local state only (no API call)
@@ -504,10 +549,6 @@ const ProductionCenterTabs = forwardRef(({
             // If we're editing an existing combination, we need to update all tables
             // that were assigned to the old combination with the new values
             if (editingCombination && updateTablesWithCombination) {
-                console.log('🔄 Updating existing table assignments...');
-                console.log('Old combination:', editingCombination);
-                console.log('New combination:', newCombination);
-
                 // Update all table types that might have been assigned to the old combination
                 updateTablesWithCombination(editingCombination, newCombination, tables, setTables);
                 updateTablesWithCombination(editingCombination, newCombination, adhesiveTables, setAdhesiveTables);
@@ -551,7 +592,44 @@ const ProductionCenterTabs = forwardRef(({
             .map(opt => opt.cutting_room);
 
         // Remove duplicates and create options
-        return [...new Set(cuttingRooms)].map(cr => ({ value: cr, label: cr }));
+        const uniqueCuttingRooms = [...new Set(cuttingRooms)];
+
+        // Filter out cutting rooms that would create duplicate combinations
+        const availableCuttingRooms = uniqueCuttingRooms.filter(cuttingRoom => {
+            // Get all possible destinations for this cutting room
+            const possibleDestinations = productionCenterOptions
+                .filter(opt => opt.cutting_room === cuttingRoom)
+                .map(opt => opt.destination)
+                .filter(dest => dest); // Remove null/empty destinations
+
+            // If no destinations, check if this production_center + cutting_room combination exists
+            if (possibleDestinations.length === 0) {
+                return !combinations.some(combo => {
+                    // Skip the current combination being edited
+                    if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                        return false;
+                    }
+                    return combo.production_center === formData.production_center &&
+                           combo.cutting_room === cuttingRoom &&
+                           !combo.destination;
+                });
+            }
+
+            // If there are destinations, check if at least one combination is available
+            return possibleDestinations.some(destination => {
+                return !combinations.some(combo => {
+                    // Skip the current combination being edited
+                    if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                        return false;
+                    }
+                    return combo.production_center === formData.production_center &&
+                           combo.cutting_room === cuttingRoom &&
+                           combo.destination === destination;
+                });
+            });
+        });
+
+        return availableCuttingRooms.map(cr => ({ value: cr, label: cr }));
     };
 
     const getDestinationOptions = (cuttingRoom = null) => {
@@ -563,12 +641,46 @@ const ProductionCenterTabs = forwardRef(({
             .map(opt => opt.destination)
             .filter(dest => dest); // Remove null/empty destinations
 
-        return [...new Set(destinations)].map(dest => ({ value: dest, label: dest }));
+        // Filter out destinations that would create duplicate combinations
+        const availableDestinations = [...new Set(destinations)].filter(destination => {
+            return !combinations.some(combo => {
+                // Skip the current combination being edited
+                if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                    return false;
+                }
+                return combo.production_center === formData.production_center &&
+                       combo.cutting_room === roomToCheck &&
+                       combo.destination === destination;
+            });
+        });
+
+        return availableDestinations.map(dest => ({ value: dest, label: dest }));
     };
 
     const getProductionCenterOptions = () => {
         const uniqueCenters = [...new Set(productionCenterOptions.map(opt => opt.production_center))];
-        return uniqueCenters.map(center => ({ value: center, label: center }));
+
+        // Filter out production centers that have no available combinations left
+        const availableProductionCenters = uniqueCenters.filter(productionCenter => {
+            // Get all possible combinations for this production center
+            const possibleCombinations = productionCenterOptions
+                .filter(opt => opt.production_center === productionCenter);
+
+            // Check if at least one combination is available
+            return possibleCombinations.some(option => {
+                return !combinations.some(combo => {
+                    // Skip the current combination being edited
+                    if (editingCombination && combo.combination_id === editingCombination.combination_id) {
+                        return false;
+                    }
+                    return combo.production_center === option.production_center &&
+                           combo.cutting_room === option.cutting_room &&
+                           combo.destination === option.destination;
+                });
+            });
+        });
+
+        return availableProductionCenters.map(center => ({ value: center, label: center }));
     };
 
     if (!selectedOrder) {
@@ -630,17 +742,29 @@ const ProductionCenterTabs = forwardRef(({
                                                     '&:hover': { color: 'primary.main' }
                                                 }}
                                             />
-                                            <Delete
-                                                fontSize="small"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteCombination(combination);
-                                                }}
-                                                sx={{
-                                                    cursor: 'pointer',
-                                                    '&:hover': { color: 'error.main' }
-                                                }}
-                                            />
+                                            <Tooltip
+                                                title={hasLockedRows(combination)
+                                                    ? "Cannot delete: contains locked mattresses in production"
+                                                    : "Delete production center configuration"
+                                                }
+                                                arrow
+                                            >
+                                                <Delete
+                                                    fontSize="small"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteCombination(combination);
+                                                    }}
+                                                    sx={{
+                                                        cursor: hasLockedRows(combination) ? 'not-allowed' : 'pointer',
+                                                        color: hasLockedRows(combination) ? 'grey.400' : 'inherit',
+                                                        opacity: hasLockedRows(combination) ? 0.5 : 1,
+                                                        '&:hover': {
+                                                            color: hasLockedRows(combination) ? 'grey.400' : 'error.main'
+                                                        }
+                                                    }}
+                                                />
+                                            </Tooltip>
                                         </Box>
                                     }
                                 />
@@ -719,7 +843,16 @@ const ProductionCenterTabs = forwardRef(({
                                     }));
                                 }}
                                 renderInput={(params) => (
-                                    <TextField {...params} label="Production Center" fullWidth />
+                                    <TextField
+                                        {...params}
+                                        label="Production Center"
+                                        fullWidth
+                                        sx={{
+                                            '& .MuiInputBase-input': {
+                                                fontWeight: 'normal'
+                                            }
+                                        }}
+                                    />
                                 )}
                             />
                         </Grid>
@@ -747,7 +880,17 @@ const ProductionCenterTabs = forwardRef(({
                                     }));
                                 }}
                                 renderInput={(params) => (
-                                    <TextField {...params} label="Cutting Room" fullWidth required />
+                                    <TextField
+                                        {...params}
+                                        label="Cutting Room"
+                                        fullWidth
+                                        required
+                                        sx={{
+                                            '& .MuiInputBase-input': {
+                                                fontWeight: 'normal'
+                                            }
+                                        }}
+                                    />
                                 )}
                             />
                         </Grid>
@@ -764,7 +907,17 @@ const ProductionCenterTabs = forwardRef(({
                                         }));
                                     }}
                                     renderInput={(params) => (
-                                        <TextField {...params} label="Destination" fullWidth required />
+                                        <TextField
+                                            {...params}
+                                            label="Destination"
+                                            fullWidth
+                                            required
+                                            sx={{
+                                                '& .MuiInputBase-input': {
+                                                    fontWeight: 'normal'
+                                                }
+                                            }}
+                                        />
                                     )}
                                 />
                             </Grid>

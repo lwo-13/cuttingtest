@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
-const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
+const MattressBulkAddDialog = ({ open, onClose, table, markerOptions, onBulkAdd }) => {
   const { t } = useTranslation();
   const [width, setWidth] = useState('');
   const [selectedMarker, setSelectedMarker] = useState(null);
@@ -280,11 +280,19 @@ const MattressBulkAddDialog = ({ open, onClose, markerOptions, onBulkAdd }) => {
                         const markerWidthStr = m.marker_width.toString();
                         const widthStr = width.toString();
                         // Exact match or decimal extension (e.g., 153 matches 153 and 153.5, but not 1530)
-                        return markerWidthStr === widthStr ||
+                        const widthMatch = markerWidthStr === widthStr ||
                                (markerWidthStr.startsWith(widthStr + '.') && markerWidthStr.length > widthStr.length + 1);
+                        // Filter by fabric type if table has fabricType set
+                        const fabricTypeMatch = !table.fabricType || m.fabric_type === table.fabricType;
+                        return widthMatch && fabricTypeMatch;
                       })
                       .sort((a, b) => b.efficiency - a.efficiency)
-                  : (markerOptions || []).sort((a, b) => b.efficiency - a.efficiency)}
+                  : (markerOptions || [])
+                      .filter(m => {
+                        // Filter by fabric type if table has fabricType set
+                        return !table.fabricType || m.fabric_type === table.fabricType;
+                      })
+                      .sort((a, b) => b.efficiency - a.efficiency)}
                 getOptionLabel={(option) => option.marker_name}
                 renderOption={(props, option) => (
                   <li {...props}>

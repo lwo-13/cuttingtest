@@ -81,7 +81,7 @@ const CutterOperatorManagement = () => {
     try {
       const response = await axios.post('/operators/', {
         name: newOperatorName,
-        operator_type: 'CUTTER',
+        operator_type: 'cutter',
         active: true
       });
 

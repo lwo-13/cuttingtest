@@ -42,8 +42,10 @@ const CommentCard = ({ selectedOrder, selectedCombination, onRemove, setUnsavedC
   useEffect(() => {
     const hasChanges = comment !== originalComment;
     setHasUnsavedChanges(hasChanges);
-    if (setUnsavedChanges) {
-      setUnsavedChanges(hasChanges);
+    // Only set unsaved changes to true if there are comment changes
+    // Don't set it to false as that would override other unsaved changes
+    if (setUnsavedChanges && hasChanges) {
+      setUnsavedChanges(true);
     }
   }, [comment, originalComment, setUnsavedChanges]);
 
@@ -90,7 +92,8 @@ const CommentCard = ({ selectedOrder, selectedCombination, onRemove, setUnsavedC
   const resetCommentState = () => {
     setOriginalComment(comment);
     setHasUnsavedChanges(false);
-    if (setUnsavedChanges) setUnsavedChanges(false);
+    // Don't clear global unsaved changes here as there might be other unsaved changes
+    // The main save function will handle clearing global unsaved changes
   };
 
   const showSnackbar = (message, severity) => {

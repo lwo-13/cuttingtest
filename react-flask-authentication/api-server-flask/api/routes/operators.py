@@ -17,7 +17,7 @@ class OperatorsResource(Resource):
             query = Operator.query
 
             if operator_type:
-                query = query.filter_by(operator_type=operator_type.upper())
+                query = query.filter_by(operator_type=operator_type.lower())
 
             if active_only:
                 query = query.filter_by(active=True)
@@ -40,8 +40,8 @@ class OperatorsResource(Resource):
                 return {"success": False, "message": "Operator type is required"}, 400
 
             # Validate operator type
-            valid_types = ['SPREADER', 'CUTTER', 'COLLARETTO', 'WAREHOUSE']
-            operator_type = data['operator_type'].upper()
+            valid_types = ['spreader', 'cutter', 'collaretto', 'warehouse']
+            operator_type = data['operator_type'].lower()
             if operator_type not in valid_types:
                 return {"success": False, "message": f"Invalid operator type. Must be one of: {', '.join(valid_types)}"}, 400
 
@@ -101,8 +101,8 @@ class OperatorResource(Resource):
 
             if 'operator_type' in data:
                 # Validate operator type
-                valid_types = ['SPREADER', 'CUTTER', 'COLLARETTO', 'WAREHOUSE']
-                operator_type = data['operator_type'].upper()
+                valid_types = ['spreader', 'cutter', 'collaretto', 'warehouse']
+                operator_type = data['operator_type'].lower()
                 if operator_type not in valid_types:
                     return {"success": False, "message": f"Invalid operator type. Must be one of: {', '.join(valid_types)}"}, 400
 
@@ -148,15 +148,29 @@ class ActiveOperatorsResource(Resource):
         """Get all active operators, optionally filtered by type"""
         try:
             operator_type = request.args.get('type')  # Optional filter by type
+            print(f"🔍 ActiveOperators API called with type: {operator_type}")
 
             query = Operator.query.filter_by(active=True)
+            print(f"🔍 Base query created for active operators")
 
             if operator_type:
-                query = query.filter_by(operator_type=operator_type.upper())
+                query = query.filter_by(operator_type=operator_type.lower())
+                print(f"🔍 Filtered by operator_type: {operator_type.upper()}")
 
             operators = query.all()
-            return {"success": True, "data": [op.to_dict() for op in operators]}, 200
+            print(f"🔍 Found {len(operators)} operators")
+
+            result_data = []
+            for op in operators:
+                op_dict = op.to_dict()
+                result_data.append(op_dict)
+                print(f"🔍 Operator: {op_dict}")
+
+            return {"success": True, "data": result_data}, 200
         except Exception as e:
+            print(f"❌ ActiveOperators API error: {str(e)}")
+            import traceback
+            print(f"📋 Error traceback: {traceback.format_exc()}")
             return {"success": False, "message": str(e)}, 500
 
 @operators_api.route('/types')
@@ -164,7 +178,7 @@ class OperatorTypesResource(Resource):
     def get(self):
         """Get all available operator types"""
         try:
-            types = ['SPREADER', 'CUTTER', 'COLLARETTO', 'WAREHOUSE']
+            types = ['spreader', 'cutter', 'collaretto', 'warehouse']
             return {"success": True, "data": types}, 200
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
@@ -174,8 +188,8 @@ class OperatorsByTypeResource(Resource):
     def get(self, operator_type):
         """Get operators by specific type"""
         try:
-            valid_types = ['SPREADER', 'CUTTER', 'COLLARETTO', 'WAREHOUSE']
-            operator_type = operator_type.upper()
+            valid_types = ['spreader', 'cutter', 'collaretto', 'warehouse']
+            operator_type = operator_type.lower()
 
             if operator_type not in valid_types:
                 return {"success": False, "message": f"Invalid operator type. Must be one of: {', '.join(valid_types)}"}, 400

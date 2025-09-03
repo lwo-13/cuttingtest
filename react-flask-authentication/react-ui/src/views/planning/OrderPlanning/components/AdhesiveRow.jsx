@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 import LockOutlined from '@mui/icons-material/LockOutlined';
+import { convertMarkerSizesToOrderFormat } from 'utils/sizeNormalization';
 
 const AdhesiveRow = ({
   row,
@@ -58,10 +59,18 @@ const AdhesiveRow = ({
                 .filter(m => {
                   const markerW = parseFloat(m.marker_width);
                   const selectedW = parseFloat(row.width);
-                  return markerW >= selectedW && markerW <= selectedW + 0.5;
+                  const widthMatch = markerW >= selectedW && markerW <= selectedW + 0.5;
+                  // Filter by fabric type if table has fabricType set
+                  const fabricTypeMatch = !table.fabricType || m.fabric_type === table.fabricType;
+                  return widthMatch && fabricTypeMatch;
                 })
                 .sort((a, b) => b.efficiency - a.efficiency)
-            : markerOptions.sort((a, b) => b.efficiency - a.efficiency)}
+            : markerOptions
+                .filter(m => {
+                  // Filter by fabric type if table has fabricType set
+                  return !table.fabricType || m.fabric_type === table.fabricType;
+                })
+                .sort((a, b) => b.efficiency - a.efficiency)}
           getOptionLabel={(option) => option.marker_name}
           renderOption={(props, option) => (
             <li {...props}>
@@ -80,11 +89,18 @@ const AdhesiveRow = ({
           disabled={!editable}
           onChange={(_, newValue) => {
             if (newValue) {
+              // Convert marker size quantities to match order size format
+              const orderSizeNames = orderSizes.map(size => size.size);
+              const convertedSizeQuantities = convertMarkerSizesToOrderFormat(
+                newValue.size_quantities || {},
+                orderSizeNames
+              );
+
               handleInputChange(tableId, rowId, "markerName", newValue.marker_name);
               handleInputChange(tableId, rowId, "width", newValue.marker_width);
               handleInputChange(tableId, rowId, "markerLength", newValue.marker_length);
               handleInputChange(tableId, rowId, "efficiency", newValue.efficiency);
-              handleInputChange(tableId, rowId, "piecesPerSize", newValue.size_quantities || {});
+              handleInputChange(tableId, rowId, "piecesPerSize", convertedSizeQuantities);
             } else {
               handleInputChange(tableId, rowId, "markerName", "");
               handleInputChange(tableId, rowId, "width", "");

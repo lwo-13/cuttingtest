@@ -87,7 +87,7 @@ const SpreaderOperatorManagement = () => {
     try {
       const response = await axios.post('/operators/', {
         name: newOperatorName,
-        operator_type: 'SPREADER',
+        operator_type: 'spreader',
         active: true
       });
 

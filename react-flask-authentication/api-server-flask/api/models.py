@@ -418,20 +418,22 @@ class MarkerCalculatorData(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_commessa = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    combination_id = db.Column(db.String(36), nullable=False)  # Links to OrderProductionCenter.combination_id
     tab_number = db.Column(db.String(10), nullable=False)  # Tab identifier (e.g., '01', '02', '03')
     selected_baseline = db.Column(db.String(50), nullable=False, default='original')  # 'original', table_id, or 'calc_tab_XX'
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
-    # Composite unique constraint to ensure one record per tab per order
+    # Composite unique constraint to ensure one record per tab per order per combination
     __table_args__ = (
-        db.UniqueConstraint('order_commessa', 'tab_number', name='uq_calculator_order_tab'),
+        db.UniqueConstraint('order_commessa', 'combination_id', 'tab_number', name='uq_calculator_order_combination_tab'),
     )
 
     def to_dict(self):
         return {
             "id": self.id,
             "order_commessa": self.order_commessa,
+            "combination_id": self.combination_id,
             "tab_number": self.tab_number,
             "selected_baseline": self.selected_baseline,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -681,7 +683,7 @@ class Operator(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)
-    operator_type = db.Column(db.String(50), nullable=False)  # 'SPREADER', 'CUTTER', 'COLLARETTO', 'WAREHOUSE', etc.
+    operator_type = db.Column(db.String(50), nullable=False)  # 'spreader', 'cutter', 'collaretto', 'warehouse', etc.
     active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
@@ -700,7 +702,7 @@ class Operator(db.Model):
     @classmethod
     def get_by_type(cls, operator_type, active_only=False):
         """Get operators by type, optionally filtering for active only."""
-        query = cls.query.filter_by(operator_type=operator_type.upper())
+        query = cls.query.filter_by(operator_type=operator_type.lower())
         if active_only:
             query = query.filter_by(active=True)
         return query.all()
@@ -708,12 +710,12 @@ class Operator(db.Model):
     @classmethod
     def get_spreader_operators(cls, active_only=False):
         """Get spreader operators (for backward compatibility)."""
-        return cls.get_by_type('SPREADER', active_only)
+        return cls.get_by_type('spreader', active_only)
 
     @classmethod
     def get_cutter_operators(cls, active_only=False):
         """Get cutter operators (for backward compatibility)."""
-        return cls.get_by_type('CUTTER', active_only)
+        return cls.get_by_type('cutter', active_only)
 
 class ProductionCenter(db.Model):
     __tablename__ = 'production_center'
@@ -945,4 +947,28 @@ class ItemDescriptions(db.Model):
 
     def __repr__(self):
         return f"<ItemDescriptions(Code='{self.Code}', Description='{self.Description}')>"
+
+
+class NavBom(db.Model):
+    __tablename__ = 'nav_bom'
+    __table_args__ = {'info': {'read_only': True}}  # Read-only view since it's an existing table
+
+    # Map to the actual column names in the database
+    shortcut_dimension_2_code = db.Column('Shortcut Dimension 2 Code', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)  # Order number
+    item_no = db.Column('Item No_', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)  # Item
+    quantity = db.Column('Quantity', db.Float, nullable=False)  # Quantity
+    pf_vertical_component = db.Column('PFVertical Component', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Color code
+    source = db.Column('Source', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Category
+
+    def to_dict(self):
+        return {
+            'order_number': self.shortcut_dimension_2_code,
+            'item': self.item_no,
+            'quantity': self.quantity,
+            'color_code': self.pf_vertical_component,
+            'category': self.source
+        }
+
+    def __repr__(self):
+        return f"<NavBom {self.shortcut_dimension_2_code}, Item {self.item_no}>"
 

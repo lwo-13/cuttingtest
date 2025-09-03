@@ -80,6 +80,19 @@ const OrderToolbar = ({
                     IN PROGRESS
                   </Box>
                 )}
+                {option.isFinished && (
+                  <Box
+                    sx={{
+                      color: 'secondary.main', // Purple text
+                      fontSize: '0.75rem',
+                      fontWeight: 'normal',
+                      opacity: 0.65, // 65% opacity
+                      marginLeft: 'auto' // Force to the right
+                    }}
+                  >
+                    FINISHED
+                  </Box>
+                )}
               </Box>
             )}
             renderInput={(params) => (

@@ -55,9 +55,10 @@ class MarkerHeadersPaginated(Resource):
         - search: Search term for filtering
         """
         try:
+            print(f"[DEBUG] Marker API called with page={request.args.get('page')}, per_page={request.args.get('per_page')}, search={request.args.get('search')}")
             # Get pagination parameters
             page = request.args.get('page', 1, type=int)
-            per_page = min(request.args.get('per_page', 500, type=int), 1000)  # Max 1000 items per page
+            per_page = min(request.args.get('per_page', 500, type=int), 999999)  # No practical limit - fetch all markers
             search_term = request.args.get('search', '', type=str).strip()
 
             # Base query for ALL markers (ACTIVE and NOT ACTIVE)
@@ -78,19 +79,74 @@ class MarkerHeadersPaginated(Resource):
 
             # Get total count for pagination
             total_count = query.count()
+            print(f"[DEBUG] Total count: {total_count}")
 
             # Get paginated results ordered by creation date (newest first)
             headers = query.order_by(
                 MarkerHeader.id.desc()  # Order by ID descending (newest first)
             ).offset((page - 1) * per_page).limit(per_page).all()
+            print(f"[DEBUG] Found {len(headers)} headers")
 
-            # Build result with usage count for each marker
+            # Optimized usage count calculation - batch query to avoid N+1 problem
+            marker_ids = [header.id for header in headers]
+            usage_counts = {}
+
+            if marker_ids:
+                try:
+                    print(f"[DEBUG] Checking usage for {len(marker_ids)} markers")
+
+                    # First, let's check if there are any mattress markers at all
+                    total_mattress_markers = db.session.query(func.count(MattressMarker.id)).scalar()
+                    print(f"[DEBUG] Total mattress markers in database: {total_mattress_markers}")
+
+                    # SQL Server-compatible approach: Use a subquery instead of large IN clause
+                    # Create a temporary table-like structure using VALUES
+                    if len(marker_ids) > 1000:
+                        # For very large lists, process in batches to avoid SQL Server limits
+                        print(f"[DEBUG] Processing {len(marker_ids)} markers in batches")
+                        usage_counts = {}
+                        batch_size = 500
+
+                        for i in range(0, len(marker_ids), batch_size):
+                            batch_ids = marker_ids[i:i + batch_size]
+                            print(f"[DEBUG] Processing batch {i//batch_size + 1}: {len(batch_ids)} markers")
+
+                            batch_results = db.session.query(
+                                MattressMarker.marker_id,
+                                func.count(MattressMarker.id).label('usage_count')
+                            ).filter(
+                                MattressMarker.marker_id.in_(batch_ids)
+                            ).group_by(MattressMarker.marker_id).all()
+
+                            # Add batch results to main dictionary
+                            for marker_id, count in batch_results:
+                                usage_counts[marker_id] = count
+
+                        print(f"[DEBUG] Loaded usage counts for {len(usage_counts)} markers from batches")
+                    else:
+                        # For smaller lists, use the original approach
+                        usage_results = db.session.query(
+                            MattressMarker.marker_id,
+                            func.count(MattressMarker.id).label('usage_count')
+                        ).filter(
+                            MattressMarker.marker_id.in_(marker_ids)
+                        ).group_by(MattressMarker.marker_id).all()
+
+                        usage_counts = {marker_id: count for marker_id, count in usage_results}
+                        print(f"[DEBUG] Loaded usage counts for {len(usage_counts)} markers")
+
+                except Exception as e:
+                    print(f"[WARNING] Usage count query failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Continue without usage counts if query fails
+                    usage_counts = {}
+
+            # Build result with optimized usage count lookup
             result = []
             for header in headers:
-                # Check if marker is being used in any mattresses
-                usage_count = db.session.query(func.count(MattressMarker.id)).filter(
-                    MattressMarker.marker_id == header.id
-                ).scalar()
+                # Get usage count from pre-calculated dictionary (defaults to 0)
+                usage_count = usage_counts.get(header.id, 0)
 
                 result.append({
                     "id": header.id,
@@ -107,6 +163,8 @@ class MarkerHeadersPaginated(Resource):
                     "status": header.status,  # Add status field
                     "usage_count": usage_count
                 })
+
+            print(f"[DEBUG] Built result with {len(result)} items")
 
             # Calculate pagination metadata
             total_pages = (total_count + per_page - 1) // per_page
@@ -129,11 +187,28 @@ class MarkerHeadersPaginated(Resource):
             }, 200
 
         except Exception as e:
+            print(f"[ERROR] Exception in marker_headers_paginated: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "message": f"Database error: {str(e)}"}, 500
 
 # ===================== Marker Headers Planning ==========================
 @markers_api.route('/marker_headers_planning', methods=['GET'])
 class MarkerHeadersPlanning(Resource):
+    def normalize_size(self, size):
+        """
+        Normalize size format to handle different formatting between order sizes and marker sizes.
+        Examples:
+        - "3-4" -> "3_4"
+        - "4-5" -> "4_5"
+        - "S" -> "S" (unchanged)
+        - "3_4" -> "3_4" (unchanged)
+        """
+        if not size:
+            return size
+        # Replace hyphens with underscores for consistency
+        return size.replace('-', '_')
+
     def get(self):
         try:
             selected_style = request.args.get('style')  # 🔍 Get style from query parameters
@@ -143,10 +218,11 @@ class MarkerHeadersPlanning(Resource):
             if not selected_style:
                 return {"success": False, "msg": "Missing required style parameter"}, 400
 
-            # Convert comma-separated sizes into a clean set
+            # Convert comma-separated sizes into a clean set and normalize them
             allowed_sizes = set()
             if sizes_param:
-                allowed_sizes = set(size.strip() for size in sizes_param.split(',') if size.strip())
+                raw_sizes = set(size.strip() for size in sizes_param.split(',') if size.strip())
+                allowed_sizes = set(self.normalize_size(size) for size in raw_sizes)
 
             # ✅ Fetch ACTIVE markers matching the style
             active_headers = MarkerHeader.query.filter(
@@ -182,8 +258,9 @@ class MarkerHeadersPlanning(Resource):
                 # ✅ Fetch Marker Lines for the current header
                 marker_lines = MarkerLine.query.filter_by(marker_header_id=header.id).all()
 
-                # ✅ Extract sizes used in this marker
-                marker_sizes = set(line.size for line in marker_lines)
+                # ✅ Extract sizes used in this marker and normalize them
+                raw_marker_sizes = set(line.size for line in marker_lines)
+                marker_sizes = set(self.normalize_size(size) for size in raw_marker_sizes)
 
                 # ✅ If sizes were provided, skip this marker if it uses a size not in the list
                 if allowed_sizes and not marker_sizes.issubset(allowed_sizes):
@@ -198,6 +275,7 @@ class MarkerHeadersPlanning(Resource):
                     "marker_name": header.marker_name,
                     "marker_width": header.marker_width,
                     "marker_length": header.marker_length,
+                    "fabric_type": header.fabric_type,  # Include fabric type for filtering
                     "efficiency": header.efficiency,
                     "size_quantities": size_quantities
                 })
@@ -209,6 +287,20 @@ class MarkerHeadersPlanning(Resource):
 
 @markers_api.route('/by-style-and-sizes')
 class MarkersByStyleAndSizes(Resource):
+    def normalize_size(self, size):
+        """
+        Normalize size format to handle different formatting between order sizes and marker sizes.
+        Examples:
+        - "3-4" -> "3_4"
+        - "4-5" -> "4_5"
+        - "S" -> "S" (unchanged)
+        - "3_4" -> "3_4" (unchanged)
+        """
+        if not size:
+            return size
+        # Replace hyphens with underscores for consistency
+        return size.replace('-', '_')
+
     def post(self):
         """Get markers for a specific style with matching size quantities and width range"""
         try:
@@ -244,13 +336,20 @@ class MarkersByStyleAndSizes(Resource):
 
             result = []
             for marker in markers:
-                # Get the marker's size quantities
+                # Get the marker's size quantities and normalize the size keys
                 marker_sizes = {}
                 for size_detail in marker.marker_sizes:
-                    marker_sizes[size_detail.size] = size_detail.quantity
+                    normalized_size = self.normalize_size(size_detail.size)
+                    marker_sizes[normalized_size] = size_detail.quantity
+
+                # Normalize request sizes as well
+                normalized_request_sizes = {}
+                for size, qty in size_quantities.items():
+                    normalized_size = self.normalize_size(size)
+                    normalized_request_sizes[normalized_size] = qty
 
                 # Compare size quantities (only check if marker has the same sizes with non-zero quantities)
-                request_sizes = {k: v for k, v in size_quantities.items() if v > 0}
+                request_sizes = {k: v for k, v in normalized_request_sizes.items() if v > 0}
                 marker_nonzero_sizes = {k: v for k, v in marker_sizes.items() if v > 0}
 
                 # Check if the marker has exactly the same sizes with quantities > 0

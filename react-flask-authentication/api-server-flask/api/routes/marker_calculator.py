@@ -58,20 +58,22 @@ class SaveCalculatorData(Resource):
             data = request.get_json()
 
             # Validate required fields
-            required_fields = ['order_commessa', 'tab_number', 'selected_baseline', 'markers']
+            required_fields = ['order_commessa', 'combination_id', 'tab_number', 'selected_baseline', 'markers']
             for field in required_fields:
                 if field not in data:
                     return {"success": False, "message": f"Missing required field: {field}"}, 400
 
             order_commessa = data['order_commessa']
+            combination_id = data['combination_id']
             tab_number = data['tab_number']
             selected_baseline = data['selected_baseline']
             style = data.get('style', 'STYLE')  # Default to 'STYLE' if not provided
             markers_data = data['markers']
 
-            # Check if calculator data already exists for this order and tab
+            # Check if calculator data already exists for this order, combination and tab
             existing_data = MarkerCalculatorData.query.filter_by(
                 order_commessa=order_commessa,
+                combination_id=combination_id,
                 tab_number=tab_number
             ).first()
 
@@ -87,6 +89,7 @@ class SaveCalculatorData(Resource):
                 # Create new calculator data
                 calculator_data = MarkerCalculatorData(
                     order_commessa=order_commessa,
+                    combination_id=combination_id,
                     tab_number=tab_number,
                     selected_baseline=selected_baseline
                 )
@@ -163,14 +166,15 @@ class SaveCalculatorData(Resource):
             else:
                 return {"success": False, "message": f"Error saving calculator data: {error_msg}"}, 500
 
-@marker_calculator_api.route('/load/<order_commessa>', methods=['GET'])
+@marker_calculator_api.route('/load/<order_commessa>/<combination_id>', methods=['GET'])
 class LoadCalculatorData(Resource):
-    def get(self, order_commessa):
-        """Load calculator data for all tabs of a specific order"""
+    def get(self, order_commessa, combination_id):
+        """Load calculator data for all tabs of a specific order and combination"""
         try:
-            # Find all calculator data for this order
+            # Find all calculator data for this order and combination
             calculator_data_list = MarkerCalculatorData.query.filter_by(
-                order_commessa=order_commessa
+                order_commessa=order_commessa,
+                combination_id=combination_id
             ).all()
 
             if not calculator_data_list:
@@ -221,13 +225,14 @@ class LoadCalculatorData(Resource):
             print(traceback.format_exc())
             return {"success": False, "message": f"Error loading calculator data: {str(e)}"}, 500
 
-@marker_calculator_api.route('/delete/<order_commessa>/<tab_number>', methods=['DELETE'])
+@marker_calculator_api.route('/delete/<order_commessa>/<combination_id>/<tab_number>', methods=['DELETE'])
 class DeleteCalculatorData(Resource):
-    def delete(self, order_commessa, tab_number):
-        """Delete calculator data for a specific order and tab"""
+    def delete(self, order_commessa, combination_id, tab_number):
+        """Delete calculator data for a specific order, combination and tab"""
         try:
             calculator_data = MarkerCalculatorData.query.filter_by(
                 order_commessa=order_commessa,
+                combination_id=combination_id,
                 tab_number=tab_number
             ).first()
 

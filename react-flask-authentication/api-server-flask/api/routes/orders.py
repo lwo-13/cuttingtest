@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
 from sqlalchemy import text
-from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, StyleComments, StyleSettings, ProdOrderComponentView, OrderProductionCenter, OrderAudit
+from api.models import db, OrderLinesView, OrderRatio, ProductionCenter, OrderComments, StyleComments, StyleSettings, ProdOrderComponentView, OrderProductionCenter, OrderAudit, NavBom
 import uuid
 
 # ✅ Create Blueprint and API instance
@@ -768,4 +768,54 @@ class UpdateOrderAudit(Resource):
         except Exception as e:
             db.session.rollback()
             print(f"❌ Error updating audit record: {str(e)}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@orders_api.route('/bom/<string:order_number>')
+class OrderBom(Resource):
+    def get(self, order_number):
+        """Get BOM (Bill of Materials) data for a specific order"""
+        try:
+            print(f"🔍 Fetching BOM data for order: {order_number}")
+
+            # Check if nav_bom table exists
+            table_exists = db.session.execute(text("""
+                SELECT COUNT(*)
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_NAME = 'nav_bom'
+            """)).scalar()
+
+            if not table_exists:
+                print("⚠️ nav_bom table does not exist")
+                return {
+                    "success": True,
+                    "data": [],
+                    "message": f"BOM table not found. No BOM data available for order {order_number}"
+                }, 200
+
+            # Query nav_bom table for the specified order number
+            bom_data = NavBom.query.filter_by(shortcut_dimension_2_code=order_number).all()
+
+            print(f"📋 Found {len(bom_data)} BOM records for order {order_number}")
+
+            if not bom_data:
+                return {
+                    "success": True,
+                    "data": [],
+                    "message": f"No BOM data found for order {order_number}"
+                }, 200
+
+            # Convert to dictionary format
+            bom_list = [item.to_dict() for item in bom_data]
+
+            return {
+                "success": True,
+                "data": bom_list,
+                "order_number": order_number
+            }, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching BOM data for order {order_number}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "msg": str(e)}, 500

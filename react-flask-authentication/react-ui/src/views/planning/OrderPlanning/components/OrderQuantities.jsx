@@ -10,12 +10,15 @@ import {
   Box,
   Typography,
   useTheme,
-  Chip
+  Chip,
+  IconButton
 } from '@mui/material';
+import { Assignment as AssignmentIcon } from '@mui/icons-material';
 import PropTypes from 'prop-types';
 import Chart from 'react-apexcharts';
 import { sortSizes } from 'views/planning/OrderPlanning/utils/sortSizes';
 import { useTranslation } from 'react-i18next';
+import BomDialog from './BomDialog';
 
 const evaluateRatioShift = (italianRatios, zalliRatios, orderedSizes) => {
   const sizeWeights = orderedSizes.reduce((acc, size, index) => {
@@ -57,9 +60,10 @@ const evaluateRatioShift = (italianRatios, zalliRatios, orderedSizes) => {
   };
 };
 
-const OrderQuantities = ({ orderSizes, italianRatios }) => {
+const OrderQuantities = ({ orderSizes, italianRatios, selectedOrder }) => {
   const { t } = useTranslation();
   const [openPopup, setOpenPopup] = useState(false);
+  const [openBomDialog, setOpenBomDialog] = useState(false);
 
   const theme = useTheme();
   if (!orderSizes.length) return null;
@@ -270,9 +274,24 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
           );
         })}
 
-        {/* 🇮🇹 Button shown inline if ratios exist */}
-        {italianRatios && Object.keys(italianRatios).length > 0 && (
-          <Grid item xs="auto" sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+        {/* Action buttons container */}
+        <Grid item xs="auto" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* BOM Button - always shown if order is selected */}
+          {selectedOrder && (
+            <IconButton
+              onClick={() => setOpenBomDialog(true)}
+              sx={{
+                color: 'primary.main',
+                '&:hover': { backgroundColor: 'primary.light', color: 'white' }
+              }}
+              title={t('orderPlanning.bomTitle', 'Bill of Materials')}
+            >
+              <AssignmentIcon fontSize="small" />
+            </IconButton>
+          )}
+
+          {/* 🇮🇹 Button shown if ratios exist */}
+          {italianRatios && Object.keys(italianRatios).length > 0 && (
             <Button
               variant="outlined"
               onClick={() => setOpenPopup(true)}
@@ -296,8 +315,8 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
             >
               🇮🇹
             </Button>
-          </Grid>
-        )}
+          )}
+        </Grid>
 
         <Dialog open={openPopup} onClose={() => setOpenPopup(false)} maxWidth="md" fullWidth>
           <DialogContent>
@@ -359,6 +378,13 @@ const OrderQuantities = ({ orderSizes, italianRatios }) => {
           </DialogActions>
         </Dialog>
 
+        {/* BOM Dialog */}
+        <BomDialog
+          open={openBomDialog}
+          onClose={() => setOpenBomDialog(false)}
+          orderNumber={selectedOrder?.id}
+        />
+
       </Grid>
       </Box>
     </Box>
@@ -373,7 +399,8 @@ OrderQuantities.propTypes = {
       qty: PropTypes.number.isRequired
     })
   ).isRequired,
-  italianRatios: PropTypes.object
+  italianRatios: PropTypes.object,
+  selectedOrder: PropTypes.object
 };
 
 export default OrderQuantities;
