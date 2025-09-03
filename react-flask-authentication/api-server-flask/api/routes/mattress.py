@@ -2213,6 +2213,8 @@ class GetProductionCenterOptions(Resource):
                 {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 1 - SECTOR 3"},
                 {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 2"},
                 {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "ZALLI 3"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "TEXCONS"},
+                {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "VERONA"},
                 {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "INTERTOP"},
                 {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "SANIA"},
                 {"production_center": "PXE1", "cutting_room": "ZALLI", "destination": "CUTTING SECTION"},

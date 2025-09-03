@@ -33,7 +33,13 @@ const useProductionCenterTabs = ({
             setProductionCenterOptions([
                 { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'ZALLI 1 - SECTOR 1' },
                 { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'ZALLI 1 - SECTOR 2' },
+                { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'ZALLI 1 - SECTOR 3' },
+                { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'ZALLI 2' },
+                { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'ZALLI 3' },
+                { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'TEXCONS' },
+                { production_center: 'PXE1', cutting_room: 'ZALLI', destination: 'VERONA' },
                 { production_center: 'PXE1', cutting_room: 'VERONA', destination: 'VERONA' },
+                { production_center: 'PXE1', cutting_room: 'TEXCONS', destination: 'TEXCONS' },
                 { production_center: 'PXE3', cutting_room: 'DELICIA', destination: 'DELICIA' },
                 { production_center: 'PXE3', cutting_room: 'VEGATEX', destination: 'VEGATEX' },
             ]);
