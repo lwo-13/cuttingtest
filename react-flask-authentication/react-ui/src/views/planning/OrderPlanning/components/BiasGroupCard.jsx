@@ -2,6 +2,8 @@ import React from 'react';
 import { Grid, Autocomplete, TextField, Box } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import ColorFieldWithDescription from 'components/ColorFieldWithDescription';
+import FabricCodeDropdown from './FabricCodeDropdown';
+import useBomFabrics from '../hooks/useBomFabrics';
 
 const BiasGroupCard = ({
   table,
@@ -10,9 +12,18 @@ const BiasGroupCard = ({
   isTableEditable,
   setTables,
   setUnsavedChanges,
-  handleBiasExtraChange
+  handleBiasExtraChange,
+  selectedOrder
 }) => {
   const { t } = useTranslation();
+
+  // BOM fabrics hook
+  const {
+    bomFabrics,
+    loading: bomLoading,
+    getColorCodeForFabric,
+    fetchBomFabrics
+  } = useBomFabrics(selectedOrder);
 
   return (
     <Box p={1}>
@@ -38,41 +49,41 @@ const BiasGroupCard = ({
           />
         </Grid>
 
-        {/* Fabric Code */}
+        {/* Fabric Code (BOM Dropdown) */}
         <Grid item xs={3} sm={2} md={1.8}>
-          <TextField
-            label={t('orderPlanning.fabricCode', 'Fabric Code')}
-            variant="outlined"
+          <FabricCodeDropdown
             value={table.fabricCode || ""}
             disabled={!isTableEditable(table)}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^a-zA-Z0-9 ]/g, '').toUpperCase().slice(0, 8);
+            bomFabrics={bomFabrics}
+            loading={bomLoading}
+            getColorCodeForFabric={getColorCodeForFabric}
+            fetchBomFabrics={fetchBomFabrics}
+            onChange={(fabricCode) => {
               setTables(prev =>
                 prev.map(t =>
-                  t.id === table.id ? { ...t, fabricCode: value } : t
+                  t.id === table.id ? { ...t, fabricCode: fabricCode } : t
                 )
               );
               setUnsavedChanges(true);
             }}
-            sx={{ width: '100%', minWidth: '60px', "& input": { fontWeight: "normal" } }}
+            onColorChange={(colorCode) => {
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, fabricColor: colorCode } : t
+                )
+              );
+              setUnsavedChanges(true);
+            }}
           />
         </Grid>
 
-        {/* Fabric Color */}
+        {/* Fabric Color (Read-only, auto-populated from BOM) */}
         <Grid item xs={3} sm={2} md={1.5}>
           <ColorFieldWithDescription
             label={t('orderPlanning.fabricColor', 'Fabric Color')}
             value={table.fabricColor || ""}
-            readOnly={!isTableEditable(table)}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4);
-              setTables(prev =>
-                prev.map(t =>
-                  t.id === table.id ? { ...t, fabricColor: value } : t
-                )
-              );
-              setUnsavedChanges(true);
-            }}
+            readOnly={true} // Always read-only since it's auto-populated from BOM
+            onChange={() => {}} // No-op since it's read-only
             debounceMs={400}
             minCharsForSearch={3}
             sx={{ width: '100%', minWidth: '60px' }}

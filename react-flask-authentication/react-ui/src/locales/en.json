@@ -267,7 +267,20 @@
     "rollsPlanned": "Rolls Planned",
     "consPlanned": "Cons Planned [m]",
     "extra": "Extra",
-    "totals": "Totals"
+    "totals": "Totals",
+    "plannedLayers": "Planned Layers",
+    "actualLayers": "Actual Layers",
+    "plannedPcs": "Planned Pcs",
+    "actualPcs": "Actual Pcs",
+    "plannedCons": "Planned Cons [m]",
+    "actualCons": "Actual Cons [m]",
+    "effPercent": "Eff %",
+    "plannedAvgCons": "Planned Avg Cons",
+    "plannedTotalCons": "Planned Total Cons",
+    "expectedAvgCons": "Expected Avg Cons",
+    "expectedTotalCons": "Expected Total Cons",
+    "plannedConsShort": "Planned Cons",
+    "numberOfRollsShort": "N° Rolls"
   },
   "dashboard": {
     "workInProgress": "WORK IN PROGRESS",

@@ -70,6 +70,15 @@ const handleOrderChange = async (newValue, context) => {
   // Set loading state to prevent layout shift
   if (setOrderLoading) setOrderLoading(true);
 
+  // Clear all tables immediately when switching orders to prevent stale data
+  setTables([]);
+  setAdhesiveTables([]);
+  setAlongTables([]);
+  setWeftTables([]);
+  setBiasTables([]);
+  setMarkerOptions([]);
+
+  // Set order data immediately
   setSelectedOrder(newValue);
   const sizesSorted = sortSizes(newValue.sizes || []);
   setOrderSizes(sizesSorted);

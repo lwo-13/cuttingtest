@@ -261,8 +261,17 @@
     "plannedAvgCons": "Планирана средна конс.",
     "plannedTotalCons": "Планирана обща конс.",
     "expectedAvgCons": "Очаквана средна конс.",
-    "expectedTotalCons": "Очаквана обща конс."
-    
+    "expectedTotalCons": "Очаквана обща конс.",
+    "plannedLayers": "Планирани слоеве",
+    "actualLayers": "Действителни слоеве",
+    "plannedPcs": "Планирани бр.",
+    "actualPcs": "Действителни бр.",
+    "plannedCons": "Планирана конс. [м]",
+    "actualCons": "Действителна конс. [м]",
+    "effPercent": "Ефективност %",
+    "plannedConsShort": "Планирана конс.",
+    "numberOfRollsShort": "Брой ролки"
+
   },
   "dashboard": {
     "workInProgress": "В ПРОЦЕС НА РАЗРАБОТКА",

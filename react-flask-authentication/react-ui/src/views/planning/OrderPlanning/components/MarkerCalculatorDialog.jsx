@@ -175,6 +175,13 @@ const MarkerCalculatorDialog = ({
         }
     }, [currentMaterialType]);
 
+    // Ensure right table has at least one empty marker when split view is enabled
+    useEffect(() => {
+        if (splitViewMode && rightTableMarkers.length === 0) {
+            addNewRightMarker();
+        }
+    }, [splitViewMode]);
+
     // Calculate totals for a specific calculator tab
     const calculateTabTotals = (tabValue) => {
         const tabMarkers = testMarkersByMaterial[tabValue] || [];
@@ -798,62 +805,62 @@ const MarkerCalculatorDialog = ({
                             <Table>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell align="center" sx={{ minWidth: '80px', padding: '4px' }}>Width</TableCell>
-                                        <TableCell align="center" sx={{ minWidth: '200px', padding: '4px' }}>Marker Name</TableCell>
+                                        <TableCell align="center" sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>Width</TableCell>
+                                        <TableCell align="center" sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>Marker Name</TableCell>
                                         {effectiveOrderSizes.length > 0 &&
                                             effectiveOrderSizes.map((size) => (
-                                                <TableCell align="center" key={size.size} sx={{ padding: '4px' }}>
+                                                <TableCell align="center" key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
                                                     {size.size}
                                                 </TableCell>
                                             ))
                                         }
-                                        <TableCell align="center" sx={{ padding: '4px' }}>Layers</TableCell>
-                                        <TableCell sx={{ padding: '4px' }} />
+                                        <TableCell align="center" sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>Layers</TableCell>
+                                        <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }} />
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {testMarkers.map((marker) => (
                                         <TableRow key={marker.id}>
-                                            <TableCell sx={{ padding: '4px' }}>
+                                            <TableCell sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>
                                                 <TextField
                                                     value={marker.width}
                                                     onChange={(e) => updateMarkerField(marker.id, 'width', e.target.value)}
                                                     size="small"
-                                                    sx={{ width: '80px' }}
+                                                    sx={{ width: '72px' }}
                                                 />
                                             </TableCell>
-                                            <TableCell sx={{ padding: '4px' }}>
+                                            <TableCell sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>
                                                 <TextField
                                                     value={marker.markerName}
                                                     onChange={(e) => updateMarkerField(marker.id, 'markerName', e.target.value)}
                                                     placeholder={generateMarkerName(marker.quantities, marker.width)}
                                                     size="small"
-                                                    sx={{ minWidth: '200px' }}
+                                                    sx={{ width: '192px' }}
                                                 />
                                             </TableCell>
                                             {effectiveOrderSizes.map((size) => (
-                                                <TableCell key={size.size} sx={{ padding: '4px' }}>
+                                                <TableCell key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
                                                     <TextField
                                                         type="number"
                                                         value={marker.quantities[size.size] || ''}
                                                         onChange={(e) => updateQuantity(marker.id, size.size, e.target.value)}
                                                         size="small"
-                                                        sx={{ width: '60px' }}
+                                                        sx={{ width: '52px' }}
                                                         inputProps={{ min: 0 }}
                                                     />
                                                 </TableCell>
                                             ))}
-                                            <TableCell sx={{ padding: '4px' }}>
+                                            <TableCell sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
                                                 <TextField
                                                     type="number"
                                                     value={marker.layers}
                                                     onChange={(e) => updateMarkerField(marker.id, 'layers', e.target.value)}
                                                     size="small"
-                                                    sx={{ width: '60px' }}
+                                                    sx={{ width: '52px' }}
                                                     inputProps={{ min: 1 }}
                                                 />
                                             </TableCell>
-                                            <TableCell sx={{ padding: '4px' }}>
+                                            <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }}>
                                                 <IconButton
                                                     onClick={() => removeMarker(marker.id)}
                                                     size="small"
@@ -887,17 +894,17 @@ const MarkerCalculatorDialog = ({
                                 <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell align="center" sx={{ minWidth: '80px', padding: '4px' }}>Width</TableCell>
-                                            <TableCell align="center" sx={{ minWidth: '200px', padding: '4px' }}>Marker Name</TableCell>
+                                            <TableCell align="center" sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>Width</TableCell>
+                                            <TableCell align="center" sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>Marker Name</TableCell>
                                             {effectiveOrderSizes.length > 0 &&
                                                 effectiveOrderSizes.map((size) => (
-                                                    <TableCell align="center" key={size.size} sx={{ padding: '4px' }}>
+                                                    <TableCell align="center" key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
                                                         {size.size}
                                                     </TableCell>
                                                 ))
                                             }
-                                            <TableCell align="center" sx={{ padding: '4px' }}>Layers</TableCell>
-                                            <TableCell sx={{ padding: '4px' }} />
+                                            <TableCell align="center" sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>Layers</TableCell>
+                                            <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }} />
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -912,46 +919,46 @@ const MarkerCalculatorDialog = ({
                                         ) : (
                                             rightTableMarkers.map((marker) => (
                                                 <TableRow key={marker.id}>
-                                                    <TableCell sx={{ padding: '4px' }}>
+                                                    <TableCell sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>
                                                         <TextField
                                                             value={marker.width}
                                                             onChange={(e) => updateRightMarkerField(marker.id, 'width', e.target.value)}
                                                             size="small"
-                                                            sx={{ width: '80px' }}
+                                                            sx={{ width: '72px' }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ padding: '4px' }}>
+                                                    <TableCell sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>
                                                         <TextField
                                                             value={marker.markerName}
                                                             onChange={(e) => updateRightMarkerField(marker.id, 'markerName', e.target.value)}
                                                             placeholder={generateMarkerName(marker.quantities, marker.width)}
                                                             size="small"
-                                                            sx={{ minWidth: '200px' }}
+                                                            sx={{ width: '192px' }}
                                                         />
                                                     </TableCell>
                                                     {effectiveOrderSizes.map((size) => (
-                                                        <TableCell key={size.size} sx={{ padding: '4px' }}>
+                                                        <TableCell key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
                                                             <TextField
                                                                 type="number"
                                                                 value={marker.quantities[size.size] || ''}
                                                                 onChange={(e) => updateRightQuantity(marker.id, size.size, e.target.value)}
                                                                 size="small"
-                                                                sx={{ width: '60px' }}
+                                                                sx={{ width: '52px' }}
                                                                 inputProps={{ min: 0 }}
                                                             />
                                                         </TableCell>
                                                     ))}
-                                                    <TableCell sx={{ padding: '4px' }}>
+                                                    <TableCell sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
                                                         <TextField
                                                             type="number"
                                                             value={marker.layers}
                                                             onChange={(e) => updateRightMarkerField(marker.id, 'layers', e.target.value)}
                                                             size="small"
-                                                            sx={{ width: '60px' }}
+                                                            sx={{ width: '52px' }}
                                                             inputProps={{ min: 1 }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ padding: '4px' }}>
+                                                    <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }}>
                                                         <IconButton
                                                             onClick={() => removeRightMarker(marker.id)}
                                                             size="small"

@@ -336,6 +336,7 @@ const OrderPlanning = () => {
 
     // Order Change
     const { onOrderChange } = useHandleOrderChange({
+        selectedOrder, // Pass current selectedOrder for debugging
         setSelectedOrder,
         setOrderSizes,
         setOrderSizeNames,
@@ -353,10 +354,7 @@ const OrderPlanning = () => {
         setMarkerOptions,
         setManualPattern,
         setManualColor,
-        setUnsavedChanges: (value) => {
-            console.log('🔍 useHandleOrderChange calling setUnsavedChanges with:', value);
-            setUnsavedChanges(value);
-        },
+        setUnsavedChanges,
         handleWeftRowChange,
         sortSizes,
         clearBrand,
@@ -487,6 +485,11 @@ const OrderPlanning = () => {
     useEffect(() => {
         if (!selectedCombination || !assignCombinationToNewTable) return;
 
+        // Don't run during order loading to prevent interference
+        if (orderLoading) {
+            return;
+        }
+
         // Check for tables and assign/update the selected combination
         const updateTablesWithCombination = (currentTables, setTablesFunction) => {
             if (!currentTables || currentTables.length === 0) return;
@@ -515,7 +518,6 @@ const OrderPlanning = () => {
             );
 
             if (hasChanges) {
-                console.log('🔄 Auto-assigning production center combination to tables, setting unsaved changes');
                 setTablesFunction(updatedTables);
                 setUnsavedChanges(true);
             }
@@ -526,7 +528,7 @@ const OrderPlanning = () => {
         updateTablesWithCombination(alongTables, setAlongTables);
         updateTablesWithCombination(weftTables, setWeftTables);
         updateTablesWithCombination(biasTables, setBiasTables);
-    }, [selectedCombination, assignCombinationToNewTable, tables, adhesiveTables, alongTables, weftTables, biasTables, setTables, setAdhesiveTables, setAlongTables, setWeftTables, setBiasTables]);
+    }, [selectedCombination, assignCombinationToNewTable, tables, adhesiveTables, alongTables, weftTables, biasTables, setTables, setAdhesiveTables, setAlongTables, setWeftTables, setBiasTables, orderLoading]);
 
     // Destination Print Dialog State
     const [openDestinationPrintDialog, setOpenDestinationPrintDialog] = useState(false);
@@ -1555,14 +1557,39 @@ const OrderPlanning = () => {
 
     // Enhanced order change handler with unsaved changes protection
     const handleOrderChangeWithProtection = (newOrder) => {
-        if (unsavedChanges && newOrder !== selectedOrder) {
+        // Compare orders by ID instead of object reference to handle same style order switches
+        const isSameOrder = newOrder?.id === selectedOrder?.id;
+
+        if (unsavedChanges && !isSameOrder) {
             // Store the pending order change
-            setPendingNavigation(() => () => onOrderChange(newOrder));
+            setPendingNavigation(() => () => handleOrderChangeWithNullReset(newOrder));
             setOpenUnsavedDialog(true);
             return;
         }
 
-        onOrderChange(newOrder);
+        handleOrderChangeWithNullReset(newOrder);
+    };
+
+    // Helper function to force order to null first, then load new order
+    const handleOrderChangeWithNullReset = (newOrder) => {
+        if (!newOrder) {
+            // If newOrder is null, just call onOrderChange directly
+            onOrderChange(newOrder);
+            return;
+        }
+
+        if (selectedOrder && selectedOrder.id !== newOrder.id) {
+            // First, set order to null to trigger cleanup
+            onOrderChange(null);
+
+            // Then, after a brief delay, load the new order
+            setTimeout(() => {
+                onOrderChange(newOrder);
+            }, 50); // Small delay to ensure null state is processed
+        } else {
+            // Same order or no previous order, load directly
+            onOrderChange(newOrder);
+        }
     };
 
     const isTableEditable = (table) => {
@@ -2043,6 +2070,7 @@ const OrderPlanning = () => {
                                 mattressTables={tables}
                                 orderSizes={orderSizes}
                                 handleAddRowAlong={handleAddRowAlong}
+                                selectedOrder={selectedOrder}
                             />
 
                             {/* Table Section */}
@@ -2205,6 +2233,7 @@ const OrderPlanning = () => {
                                 setTables={setBiasTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 handleBiasExtraChange={handleBiasExtraChange}
+                                selectedOrder={selectedOrder}
                                 />
 
                             {/* Table Section */}
