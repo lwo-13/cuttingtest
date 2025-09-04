@@ -207,6 +207,7 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         bagno: mattress.dye_lot,
         bagno_ready: mattress.bagno_ready || false, // Add bagno_ready field
         phase_status: mattress.phase_status || "0 - NOT SET",
+        phase_operator: mattress.phase_operator || "",
         has_pending_width_change: mattress.has_pending_width_change || false,
         sequenceNumber: mattress.sequence_number || 0
       });
@@ -260,6 +261,10 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         cons_actual: adhesive.cons_actual || "",
         cons_real: adhesive.cons_real || "",
         bagno: adhesive.dye_lot,
+        bagno_ready: adhesive.bagno_ready || false, // Add bagno_ready field
+        phase_status: adhesive.phase_status || "0 - NOT SET",
+        phase_operator: adhesive.phase_operator || "",
+        has_pending_width_change: adhesive.has_pending_width_change || false,
         sequenceNumber: adhesive.sequence_number || 0
       });
     }

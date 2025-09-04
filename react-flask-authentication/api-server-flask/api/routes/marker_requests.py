@@ -112,6 +112,7 @@ class CompleteMarkerRequest(Resource):
                         mattress_marker.marker_name = created_marker.marker_name
                         mattress_marker.marker_width = created_marker.marker_width
                         mattress_marker.marker_length = created_marker.marker_length
+                        mattress_marker.efficiency = created_marker.efficiency  # Add efficiency field
 
                         # Update the mattress details with new marker length and consumption
                         mattress_detail = MattressDetail.query.filter_by(mattress_id=width_request.mattress_id).first()

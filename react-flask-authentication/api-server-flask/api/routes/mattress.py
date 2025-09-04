@@ -191,7 +191,11 @@ class MattressResource(Resource):
                     )
                     db.session.add(new_marker_entry)
                 else:
-                    pass
+                    # ✅ If the marker is the same, still update other fields that might have changed
+                    existing_marker.marker_name = data["marker_name"]
+                    existing_marker.marker_width = data["marker_width"]
+                    existing_marker.marker_length = data["marker_length"]
+                    existing_marker.efficiency = data.get("efficiency")  # Update efficiency
 
             else:
                 # ✅ Insert new marker if none exists
@@ -250,6 +254,7 @@ class GetMattressesByOrder(Resource):
                 MattressMarker.marker_length,  # Fetch `marker_length` from mattress_markers
                 MattressMarker.efficiency,  # Fetch `efficiency` from mattress_markers
                 MattressPhase.status.label('phase_status'),
+                MattressPhase.operator.label('phase_operator'),  # Add operator from active phase
                 # Add table-specific production center fields
                 MattressProductionCenter.production_center,
                 MattressProductionCenter.cutting_room,
@@ -289,10 +294,11 @@ class GetMattressesByOrder(Resource):
                 pending_width_change_mattresses.add(req.mattress_id)
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, marker_width, marker_length, efficiency, phase_status, production_center, cutting_room, destination in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, marker_width, marker_length, efficiency, phase_status, phase_operator, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "mattress": mattress.mattress,
                     "phase_status": phase_status,
+                    "phase_operator": phase_operator if phase_operator is not None else "",
                     "has_pending_width_change": mattress.id in pending_width_change_mattresses,
                     # Table-specific production center fields (before fabric info)
                     "production_center": production_center,
@@ -389,6 +395,7 @@ class GetAdhesivesByOrder(Resource):
                 MattressMarker.marker_length,  # Fetch `marker_length` from mattress_markers
                 MattressMarker.efficiency,  # Fetch `efficiency` from mattress_markers
                 MattressPhase.status.label('phase_status'),
+                MattressPhase.operator.label('phase_operator'),  # Add operator from active phase
                 # Add table-specific production center fields
                 MattressProductionCenter.production_center,
                 MattressProductionCenter.cutting_room,
@@ -428,7 +435,7 @@ class GetAdhesivesByOrder(Resource):
                 pending_width_change_mattresses.add(req.mattress_id)
 
             result = []
-            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, marker_width, marker_length, efficiency, phase_status, production_center, cutting_room, destination in mattresses:
+            for mattress, layers, layers_a, extra, cons_planned, cons_actual, cons_real, bagno_ready, layers_updated_at, marker_name, marker_width, marker_length, efficiency, phase_status, phase_operator, production_center, cutting_room, destination in mattresses:
                 result.append({
                     "id": mattress.id,
                     "mattress": mattress.mattress,
@@ -458,6 +465,7 @@ class GetAdhesivesByOrder(Resource):
                     "row_id": mattress.row_id,
                     "sequence_number": mattress.sequence_number,
                     "phase_status": phase_status if phase_status is not None else "0 - NOT SET",
+                    "phase_operator": phase_operator if phase_operator is not None else "",
                     "has_pending_width_change": mattress.id in pending_width_change_mattresses,
                     # Production center fields
                     "production_center": production_center,
@@ -745,7 +753,8 @@ class GetKanbanMattressesResource(Resource):
                 db.func.coalesce(MattressProductionCenter.destination, 'Not Assigned').label('destination'),
                 # Adding sector information from table-specific production center (use destination as sector)
                 db.func.coalesce(MattressProductionCenter.destination, 'No Sector Assigned').label('sector')
-            ).join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
+            ).distinct() \
+             .join(Mattresses, MattressPhase.mattress_id == Mattresses.id) \
              .outerjoin(MattressMarker, MattressPhase.mattress_id == MattressMarker.mattress_id) \
              .join(MattressDetail, MattressPhase.mattress_id == MattressDetail.mattress_id) \
              .outerjoin(MattressKanban, MattressPhase.mattress_id == MattressKanban.mattress_id) \

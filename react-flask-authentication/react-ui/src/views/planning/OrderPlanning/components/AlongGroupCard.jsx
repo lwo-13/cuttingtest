@@ -232,7 +232,7 @@ const AlongGroupCard = ({
       {/* Fabric Information */}
       <Grid container spacing={2}>
         {/* Fabric Type */}
-        <Grid item xs={3} sm={2} md={1.2}>
+        <Grid item xs={3} sm={2} md={1}>
           <Autocomplete
             options={fabricTypeOptions}
             getOptionLabel={(option) => option}

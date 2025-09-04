@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Tooltip } from '@mui/material';
 
-const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false }) => {
+const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false, operator = "" }) => {
   // Define the phases in order
   const phases = [
     { id: 0, label: "NOT SET", shortLabel: "NS" },
@@ -50,8 +50,12 @@ const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false }) =>
     >
       {phases.map((phase, index) => (
         <React.Fragment key={phase.id}>
-          <Tooltip 
-            title={`${phase.id} - ${phase.label}${phase.id === currentPhaseNumber ? ' (Current)' : phase.id < currentPhaseNumber ? ' (Completed)' : ''}`}
+          <Tooltip
+            title={
+              phase.id === 2 && operator
+                ? `${phase.id} - ${phase.label} (${operator})`
+                : `${phase.id} - ${phase.label}`
+            }
             arrow
           >
             <Box

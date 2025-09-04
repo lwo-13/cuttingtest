@@ -10,7 +10,7 @@ const BiasGroupCardReadOnly = ({ table }) => {
     <Box p={1}>
       <Grid container spacing={2}>
         {/* Fabric Type */}
-        <Grid item xs={3} sm={2} md={1.5}>
+        <Grid item xs={3} sm={2} md={1}>
           <TextField
             label={t('orderPlanning.fabricType', 'Fabric Type')}
             value={table.fabricType || ''}

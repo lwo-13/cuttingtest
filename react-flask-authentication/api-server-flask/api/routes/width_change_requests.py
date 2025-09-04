@@ -139,6 +139,7 @@ class CreateWidthChangeRequest(Resource):
                         mattress_marker.marker_name = new_marker.marker_name
                         mattress_marker.marker_width = new_marker.marker_width
                         mattress_marker.marker_length = new_marker.marker_length
+                        mattress_marker.efficiency = new_marker.efficiency  # Add efficiency field
                         db.session.add(mattress_marker)
 
                         # Update the mattress_details table with new length and consumption

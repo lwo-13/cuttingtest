@@ -40,14 +40,17 @@ const CommentCard = ({ selectedOrder, selectedCombination, onRemove, setUnsavedC
 
   // Track changes and update parent unsaved state
   useEffect(() => {
-    const hasChanges = comment !== originalComment;
-    setHasUnsavedChanges(hasChanges);
-    // Only set unsaved changes to true if there are comment changes
-    // Don't set it to false as that would override other unsaved changes
-    if (setUnsavedChanges && hasChanges) {
-      setUnsavedChanges(true);
+    // Only check for changes if we're not currently loading and originalComment has been set
+    if (!loading && originalComment !== undefined) {
+      const hasChanges = comment !== originalComment;
+      setHasUnsavedChanges(hasChanges);
+      // Only set unsaved changes to true if there are comment changes
+      // Don't set it to false as that would override other unsaved changes
+      if (setUnsavedChanges && hasChanges) {
+        setUnsavedChanges(true);
+      }
     }
-  }, [comment, originalComment, setUnsavedChanges]);
+  }, [comment, originalComment, setUnsavedChanges, loading]);
 
   // Pass comment data to parent (separate effect to avoid conflicts)
   useEffect(() => {

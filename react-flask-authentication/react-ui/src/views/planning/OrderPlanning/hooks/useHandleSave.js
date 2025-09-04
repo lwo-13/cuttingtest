@@ -386,6 +386,7 @@ const useHandleSave = ({
             marker_name: row.markerName,
             marker_width: parseFloat(row.width) || 0,
             marker_length: markerLength,
+            efficiency: row.efficiency, // Add efficiency field
             operator: username
           };
 
@@ -457,6 +458,7 @@ const useHandleSave = ({
             marker_name: row.markerName,
             marker_width: parseFloat(row.width) || 0,
             marker_length: markerLength,
+            efficiency: row.efficiency, // Add efficiency field
             operator: username
           };
 
@@ -565,7 +567,7 @@ const useHandleSave = ({
                 pieces: parseFloat(row.pieces) || 0,
                 usable_width: parseFloat(row.usableWidth) || 0,
                 gross_length: parseFloat(row.grossLength) || 0,
-                pcs_seam: Math.floor(parseFloat(row.pcsSeamtoSeam) || 0),
+                pcs_seam: parseFloat(row.pcsSeamtoSeam) || 0,
                 rewound_width: parseFloat(row.rewoundWidth) || 0,
                 roll_width: parseFloat(row.collarettoWidth) || 0,
                 scrap_rolls: parseFloat(row.scrapRoll) || 0,

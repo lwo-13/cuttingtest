@@ -1,8 +1,28 @@
 import React from 'react';
-import { TableRow, TableCell, TextField, Typography } from '@mui/material';
+import { TableRow, TableCell, TextField, Typography, Tooltip } from '@mui/material';
 import MattressProgressBar from './MattressProgressBar';
 
 const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
+  // Helper function to create tooltip content showing size breakdown
+  const createSizeBreakdownTooltip = (piecesPerSize, layers, isActual = false) => {
+    if (!piecesPerSize || !layers) return null;
+
+    const layerCount = parseInt(layers) || 0;
+    if (layerCount === 0) return null;
+
+    const sizeEntries = Object.entries(piecesPerSize)
+      .filter(([size, pieces]) => (parseInt(pieces) || 0) > 0)
+      .map(([size, pieces]) => {
+        const piecesPerLayer = parseInt(pieces) || 0;
+        const totalPieces = piecesPerLayer * layerCount;
+        return `${size}: ${totalPieces}`;
+      });
+
+    if (sizeEntries.length === 0) return null;
+
+    return sizeEntries.join('        ');
+  };
+
   return (
     <TableRow>
       {/* Adhesive Name (short display) */}
@@ -89,35 +109,90 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
 
       {/* Planned Pcs */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {(() => {
-            if (!row.piecesPerSize || !row.layers) return '-';
-            const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
-            const plannedLayers = parseInt(row.layers) || 0;
-            return totalPieces * plannedLayers;
-          })()}
-        </Typography>
+        {(() => {
+          if (!row.piecesPerSize || !row.layers) {
+            return (
+              <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+                -
+              </Typography>
+            );
+          }
+
+          const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
+          const plannedLayers = parseInt(row.layers) || 0;
+          const totalPlannedPcs = totalPieces * plannedLayers;
+          const tooltipContent = createSizeBreakdownTooltip(row.piecesPerSize, row.layers, false);
+
+          return (
+            <Tooltip
+              title={tooltipContent || ''}
+              arrow
+              placement="top"
+              enterDelay={300}
+              leaveDelay={200}
+            >
+              <Typography sx={{
+                fontWeight: 'normal',
+                textAlign: 'center'
+              }}>
+                {totalPlannedPcs}
+              </Typography>
+            </Tooltip>
+          );
+        })()}
       </TableCell>
 
       {/* Actual Pcs */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-        <TextField
-          variant="outlined"
-          value={(() => {
-            if (!row.piecesPerSize || !row.layers_a) return '';
-            const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
-            const actualLayers = parseInt(row.layers_a) || 0;
-            return totalPieces * actualLayers;
-          })()}
-          InputProps={{ readOnly: true }}
-          sx={{
-            width: '100%',
-            minWidth: '65px',
-            maxWidth: '80px',
-            textAlign: 'center',
-            "& input": { textAlign: 'center', fontWeight: 'normal' }
-          }}
-        />
+        {(() => {
+          if (!row.piecesPerSize || !row.layers_a) {
+            return (
+              <TextField
+                variant="outlined"
+                value=""
+                InputProps={{ readOnly: true }}
+                sx={{
+                  width: '100%',
+                  minWidth: '65px',
+                  maxWidth: '80px',
+                  textAlign: 'center',
+                  "& input": { textAlign: 'center', fontWeight: 'normal' }
+                }}
+              />
+            );
+          }
+
+          const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
+          const actualLayers = parseInt(row.layers_a) || 0;
+          const totalActualPcs = totalPieces * actualLayers;
+          const tooltipContent = createSizeBreakdownTooltip(row.piecesPerSize, row.layers_a, true);
+
+          return (
+            <Tooltip
+              title={tooltipContent || ''}
+              arrow
+              placement="top"
+              enterDelay={300}
+              leaveDelay={200}
+            >
+              <TextField
+                variant="outlined"
+                value={totalActualPcs}
+                InputProps={{ readOnly: true }}
+                sx={{
+                  width: '100%',
+                  minWidth: '65px',
+                  maxWidth: '80px',
+                  textAlign: 'center',
+                  "& input": {
+                    textAlign: 'center',
+                    fontWeight: 'normal'
+                  }
+                }}
+              />
+            </Tooltip>
+          );
+        })()}
       </TableCell>
 
       {/* Planned Consumption */}
@@ -162,6 +237,7 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
         <MattressProgressBar
           currentPhase={row.phase_status}
           hasPendingWidthChange={row.has_pending_width_change}
+          operator={row.phase_operator}
         />
       </TableCell>
 

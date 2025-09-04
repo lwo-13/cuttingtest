@@ -44,6 +44,11 @@ const AlongRowReadOnly = ({ row }) => {
         />
       </TableCell>
 
+      {/* Gross Length */}
+      <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+        <Typography sx={{ fontWeight: 'normal' }}>{row.theoreticalConsumption || ""}</Typography>
+      </TableCell>
+
       {/* Collaretto Width */}
       <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.collarettoWidth || ""}</Typography>

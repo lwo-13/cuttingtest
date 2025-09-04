@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { Paper, Box, Grid, Button, Typography, Alert, Snackbar } from "@mui/material";
+import { Paper, Box, Grid, Button, Typography, Alert, Snackbar, IconButton } from "@mui/material";
 import LockIcon from '@mui/icons-material/Lock';
 import ViewStreamIcon from '@mui/icons-material/ViewStream';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
@@ -12,28 +13,42 @@ import { useTranslation } from 'react-i18next';
 
 const devices = ["SP0", "SP1", "SP2", "SP3", "MS"];
 
-const FilterBar = ({ selectedDay, setSelectedDay }) => {
+const FilterBar = ({ selectedDay, setSelectedDay, refreshing, lastRefreshTime, onRefresh }) => {
   const { t } = useTranslation();
 
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", bgcolor: "white", p: 2, borderRadius: 2, mb: 2, gap: 2 }}>
-      <Button variant={selectedDay === "Today" ? "contained" : "outlined"} color="primary" onClick={() => setSelectedDay("Today")}>
-        {t('common.today', 'Today')}
-      </Button>
-      <Button variant={selectedDay === "Tomorrow" ? "contained" : "outlined"} color="secondary" onClick={() => setSelectedDay("Tomorrow")}>
-        {t('common.tomorrow', 'Tomorrow')}
-      </Button>
-      {/* Manual transition button - commented out as requested
-      <Button
-        variant="outlined"
-        color="warning"
-        onClick={onTransitionDay}
-        disabled={isTransitioning}
-        sx={{ ml: 2 }}
-      >
-        {isTransitioning ? t('common.processing') : "Move Tomorrow → Today"}
-      </Button>
-      */}
+    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", bgcolor: "white", p: 2, borderRadius: 2, mb: 2, gap: 2, position: "relative" }}>
+      {/* Day selection buttons - centered */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Button variant={selectedDay === "Today" ? "contained" : "outlined"} color="primary" onClick={() => setSelectedDay("Today")}>
+          {t('common.today', 'Today')}
+        </Button>
+        <Button variant={selectedDay === "Tomorrow" ? "contained" : "outlined"} color="secondary" onClick={() => setSelectedDay("Tomorrow")}>
+          {t('common.tomorrow', 'Tomorrow')}
+        </Button>
+      </Box>
+
+      {/* Refresh controls - positioned on the right */}
+      <Box sx={{
+        position: "absolute",
+        right: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2
+      }}>
+        <Tooltip title={t('common.refresh', 'Refresh data')}>
+          <IconButton
+            onClick={onRefresh}
+            disabled={refreshing}
+            color="primary"
+          >
+            <RefreshIcon />
+          </IconButton>
+        </Tooltip>
+        <Typography variant="caption" color="textSecondary">
+          {t('common.lastUpdated', 'Last updated')}: {lastRefreshTime.toLocaleTimeString()}
+        </Typography>
+      </Box>
     </Box>
   );
 };
@@ -48,6 +63,11 @@ const KanbanBoard = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
   const [showTransitionAlert, setShowTransitionAlert] = useState(false);
+
+  // Refresh functionality states
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
 
   const handleDragScroll = (e) => {
     const container = scrollContainerRef.current;
@@ -98,7 +118,17 @@ const KanbanBoard = () => {
   };
 
   useEffect(() => {
-    fetchMattresses();
+    fetchMattresses(true); // Initial load
+
+    // Set up auto-refresh polling every 5 minutes
+    const refreshInterval = setInterval(() => {
+      fetchMattresses(false); // Background refresh
+    }, 300000); // 5 minutes (300,000 ms)
+
+    // Clean up the interval when component unmounts
+    return () => {
+      clearInterval(refreshInterval);
+    };
   }, [selectedDay]);
 
   useEffect(() => {
@@ -110,11 +140,19 @@ const KanbanBoard = () => {
     };
   }, []);
 
-  const fetchMattresses = () => {
+  const fetchMattresses = (isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
     axios.get(`/mattress/kanban?day=${selectedDay.toLowerCase()}`)
       .then((res) => {
         if (res.data.success) {
           setMattresses(res.data.data);
+          // Update last refresh time
+          setLastRefreshTime(new Date());
         } else {
           console.error("Error fetching data:", res.data.message);
         }
@@ -122,6 +160,11 @@ const KanbanBoard = () => {
       .catch((err) => {
         console.error("API Error:", err);
         console.error("Error details:", err.response?.data);
+      })
+      .finally(() => {
+        // Reset loading states
+        setLoading(false);
+        setRefreshing(false);
       });
   };
 
@@ -322,6 +365,9 @@ const KanbanBoard = () => {
       <FilterBar
         selectedDay={selectedDay}
         setSelectedDay={setSelectedDay}
+        refreshing={refreshing}
+        lastRefreshTime={lastRefreshTime}
+        onRefresh={() => fetchMattresses(false)}
       />
       <DndProvider backend={HTML5Backend}>
         <Box

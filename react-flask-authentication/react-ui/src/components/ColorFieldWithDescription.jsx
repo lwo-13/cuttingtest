@@ -124,7 +124,7 @@ const ColorFieldWithDescription = ({
             transform: 'translateY(-50%)',
             fontSize: '0.875rem', // Same size as input text
             color: 'text.secondary',
-            maxWidth: '45%',
+            maxWidth: '75%',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',

@@ -406,7 +406,7 @@ class CollarettoWeft(Resource):
                     existing_collaretto_detail.pieces = detail.get('pieces')
                     existing_collaretto_detail.usable_width = detail.get('usable_width')
                     existing_collaretto_detail.gross_length = detail.get('gross_length')
-                    existing_collaretto_detail.pcs_seam = int(detail.get('pcs_seam')) if detail.get('pcs_seam') is not None else None
+                    existing_collaretto_detail.pcs_seam = float(detail.get('pcs_seam')) if detail.get('pcs_seam') is not None else None
                     existing_collaretto_detail.roll_width = detail.get('roll_width')
                     existing_collaretto_detail.scrap_rolls = detail.get('scrap_rolls')
                     existing_collaretto_detail.rolls_planned = detail.get('rolls_planned')

@@ -625,7 +625,10 @@ const OrderPlanning = () => {
 
             // After successful save, proceed with navigation
             if (pendingNavigation && typeof pendingNavigation === 'function') {
-                pendingNavigation();
+                const navigationFunction = pendingNavigation();
+                if (typeof navigationFunction === 'function') {
+                    navigationFunction();
+                }
             }
             setOpenUnsavedDialog(false);
             setPendingNavigation(null);
@@ -646,13 +649,11 @@ const OrderPlanning = () => {
         // Clear all change tracking
         clearAllChanges();
 
-        // Reload the original data from the server to discard all changes
-        if (selectedOrder) {
-            onOrderChange(selectedOrder);
-        }
+        // Reset to empty state (like when no order is selected)
+        onOrderChange(null);
 
         // Show success message
-        setInfoMessage('Changes discarded successfully. Data has been reverted to the last saved state.');
+        setInfoMessage('Changes discarded successfully. Data has been reset to empty state.');
         setOpenInfo(true);
 
         setOpenDiscardDialog(false);
@@ -668,18 +669,22 @@ const OrderPlanning = () => {
         // Clear all change tracking
         clearAllChanges();
 
-        // Reload the original data from the server to discard all changes
-        if (selectedOrder) {
-            onOrderChange(selectedOrder);
-        }
-
-        // Proceed with navigation if there was a pending navigation
-        if (pendingNavigation && typeof pendingNavigation === 'function') {
-            pendingNavigation();
-        }
-
+        // Close the dialog first
         setOpenUnsavedDialog(false);
+
+        // Clear pending navigation first
+        const navFunction = pendingNavigation;
         setPendingNavigation(null);
+
+        // Use setTimeout to ensure state updates are processed
+        setTimeout(() => {
+            if (navFunction && typeof navFunction === 'function') {
+                const navigationFunction = navFunction();
+                if (typeof navigationFunction === 'function') {
+                    navigationFunction();
+                }
+            }
+        }, 100);
     };
 
 
@@ -1673,7 +1678,6 @@ const OrderPlanning = () => {
                                 })()}
 
                                 {/* Order Actions Bar in Header */}
-                                {/* Print button commented out: handlePrint={handleEnhancedPrint} */}
                                 <OrderActionBar
                                     unsavedChanges={unsavedChanges}
                                     handleSave={handleSave}
@@ -1681,6 +1685,7 @@ const OrderPlanning = () => {
                                     setIsPinned={setIsPinned}
                                     saving={saving}
                                     handleDiscard={handleDiscard}
+                                    handlePrint={handleEnhancedPrint}
                                 />
                             </Box>
                         </Box>

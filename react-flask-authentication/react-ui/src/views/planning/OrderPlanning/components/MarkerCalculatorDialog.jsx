@@ -156,17 +156,26 @@ const MarkerCalculatorDialog = ({
     // State to prevent duplicate loading requests
     const [isLoading, setIsLoading] = useState(false);
 
-    // State for success snackbar
+    // State for snackbars
     const [showSuccessSnackbar, setShowSuccessSnackbar] = useState(false);
+    const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     // State for split view mode
     const [splitViewMode, setSplitViewMode] = useState(false);
 
-    // State for right table markers (split view only)
+    // State for right table markers (split view only) - organized by tab like left table
     const [rightTableMarkers, setRightTableMarkers] = useState([]);
+    const [rightTableMarkersByMaterial, setRightTableMarkersByMaterial] = useState({});
 
     // Get current material type's markers
     const testMarkers = testMarkersByMaterial[currentMaterialType] || [];
+    const currentRightTableMarkers = rightTableMarkersByMaterial[currentMaterialType] || [];
+
+    // Sync right table markers with current tab
+    useEffect(() => {
+        setRightTableMarkers(currentRightTableMarkers);
+    }, [currentMaterialType, currentRightTableMarkers]);
 
     // Ensure current tab has at least one empty marker
     useEffect(() => {
@@ -239,6 +248,15 @@ const MarkerCalculatorDialog = ({
 
     const effectiveOrderSizes = getEffectiveOrderQuantities();
 
+    // Get effective order quantities for right table (always uses left table's calculated output)
+    const getRightTableEffectiveOrderQuantities = () => {
+        // Right table always uses left table's calculated totals as baseline
+        return orderSizeNames.map(sizeName => ({
+            size: sizeName,
+            qty: totals.bySize[sizeName] || 0
+        }));
+    };
+
     // Create baseline options including other calculator tabs
     const baselineOptions = useMemo(() => {
         const options = [
@@ -284,7 +302,8 @@ const MarkerCalculatorDialog = ({
     // Generate enhanced marker name based on style, quantities, and width
     const generateMarkerName = (quantities, width = '') => {
         const nonZeroQuantities = [];
-        orderSizeNames.forEach(sizeName => {
+        effectiveOrderSizes.forEach(sizeObj => {
+            const sizeName = sizeObj.size;
             const qty = parseInt(quantities[sizeName]) || 0;
             if (qty > 0) {
                 nonZeroQuantities.push(`${qty}${sizeName}`);
@@ -295,8 +314,34 @@ const MarkerCalculatorDialog = ({
             const quantitiesStr = nonZeroQuantities.join('');
             let baseName = `${selectedStyle}-${quantitiesStr}`;
 
-            // Add width if provided
-            if (width && width.toString().trim()) {
+            // Add width only if provided and not empty
+            if (width && width.toString().trim() !== '') {
+                baseName += `-${width.toString().trim()}`;
+            }
+
+            return baseName;
+        } else {
+            return '';
+        }
+    };
+
+    // Generate enhanced marker name for right table (adds -G before width)
+    const generateRightMarkerName = (quantities, width = '') => {
+        const nonZeroQuantities = [];
+        effectiveOrderSizes.forEach(sizeObj => {
+            const sizeName = sizeObj.size;
+            const qty = parseInt(quantities[sizeName]) || 0;
+            if (qty > 0) {
+                nonZeroQuantities.push(`${qty}${sizeName}`);
+            }
+        });
+
+        if (nonZeroQuantities.length > 0) {
+            const quantitiesStr = nonZeroQuantities.join('');
+            let baseName = `${selectedStyle}-${quantitiesStr}-G`;
+
+            // Add width only if provided and not empty
+            if (width && width.toString().trim() !== '') {
                 baseName += `-${width.toString().trim()}`;
             }
 
@@ -346,24 +391,68 @@ const MarkerCalculatorDialog = ({
             layers: 1
         };
         setRightTableMarkers(prev => [...prev, newMarker]);
+        // Also update the material-specific state
+        setRightTableMarkersByMaterial(prev => ({
+            ...prev,
+            [currentMaterialType]: [...(prev[currentMaterialType] || []), newMarker]
+        }));
     };
 
     const removeRightMarker = (markerId) => {
         setRightTableMarkers(prev => prev.filter(marker => marker.id !== markerId));
+        // Also update the material-specific state
+        setRightTableMarkersByMaterial(prev => ({
+            ...prev,
+            [currentMaterialType]: (prev[currentMaterialType] || []).filter(marker => marker.id !== markerId)
+        }));
     };
 
     const updateRightMarkerField = (markerId, field, value) => {
-        setRightTableMarkers(prev => prev.map(marker =>
-            marker.id === markerId ? { ...marker, [field]: value } : marker
-        ));
+        const updateFunction = (prev) => prev.map(marker => {
+            if (marker.id === markerId) {
+                const updatedMarker = { ...marker, [field]: value };
+
+                // Always regenerate marker name when width changes (except for layers)
+                if (field === 'width') {
+                    updatedMarker.markerName = generateRightMarkerName(marker.quantities, value);
+                }
+
+                return updatedMarker;
+            }
+            return marker;
+        });
+
+        setRightTableMarkers(updateFunction);
+        // Also update the material-specific state
+        setRightTableMarkersByMaterial(prev => ({
+            ...prev,
+            [currentMaterialType]: updateFunction(prev[currentMaterialType] || [])
+        }));
     };
 
     const updateRightQuantity = (markerId, size, value) => {
-        setRightTableMarkers(prev => prev.map(marker =>
-            marker.id === markerId
-                ? { ...marker, quantities: { ...marker.quantities, [size]: value } }
-                : marker
-        ));
+        const updateFunction = (prev) => prev.map(marker => {
+            if (marker.id === markerId) {
+                const updatedQuantities = { ...marker.quantities, [size]: value };
+                const updatedMarker = {
+                    ...marker,
+                    quantities: updatedQuantities
+                };
+
+                // Always regenerate marker name when quantities change
+                updatedMarker.markerName = generateRightMarkerName(updatedQuantities, marker.width);
+
+                return updatedMarker;
+            }
+            return marker;
+        });
+
+        setRightTableMarkers(updateFunction);
+        // Also update the material-specific state
+        setRightTableMarkersByMaterial(prev => ({
+            ...prev,
+            [currentMaterialType]: updateFunction(prev[currentMaterialType] || [])
+        }));
     };
 
     const clearAllMarkers = () => {
@@ -373,6 +462,11 @@ const MarkerCalculatorDialog = ({
         // Clear right table if in split view
         if (splitViewMode) {
             setRightTableMarkers([]);
+            // Also clear the material-specific state
+            setRightTableMarkersByMaterial(prev => ({
+                ...prev,
+                [currentMaterialType]: []
+            }));
         }
 
         // Add one empty marker to left table after clearing
@@ -389,28 +483,43 @@ const MarkerCalculatorDialog = ({
 
     const updateMarkerField = (markerId, field, value) => {
         setTestMarkers(prev =>
-            prev.map(marker =>
-                marker.id === markerId
-                    ? { ...marker, [field]: value }
-                    : marker
-            )
+            prev.map(marker => {
+                if (marker.id === markerId) {
+                    const updatedMarker = { ...marker, [field]: value };
+
+                    // Always regenerate marker name when width changes (except for layers)
+                    if (field === 'width') {
+                        updatedMarker.markerName = generateMarkerName(marker.quantities, value);
+                    }
+
+                    return updatedMarker;
+                }
+                return marker;
+            })
         );
     };
 
     const updateQuantity = (markerId, sizeName, quantity) => {
         const numQuantity = Math.max(0, parseInt(quantity) || 0);
         setTestMarkers(prev =>
-            prev.map(marker =>
-                marker.id === markerId
-                    ? {
+            prev.map(marker => {
+                if (marker.id === markerId) {
+                    const updatedQuantities = {
+                        ...marker.quantities,
+                        [sizeName]: numQuantity
+                    };
+                    const updatedMarker = {
                         ...marker,
-                        quantities: {
-                            ...marker.quantities,
-                            [sizeName]: numQuantity
-                        }
-                    }
-                    : marker
-            )
+                        quantities: updatedQuantities
+                    };
+
+                    // Always regenerate marker name when quantities change
+                    updatedMarker.markerName = generateMarkerName(updatedQuantities, marker.width);
+
+                    return updatedMarker;
+                }
+                return marker;
+            })
         );
     };
 
@@ -432,29 +541,52 @@ const MarkerCalculatorDialog = ({
             if (response.data.success && response.data.data) {
                 const tabsData = response.data.data;
                 const loadedTabsData = {};
+                const loadedRightTabsData = {};
                 const loadedBaselines = {};
+                let hasRightTableData = false;
 
                 // Process each tab's data
                 Object.entries(tabsData).forEach(([tabNumber, tabData]) => {
-                    const tabValue = `calc_${tabNumber}`;
+                    if (tabNumber.endsWith('_right')) {
+                        // This is right table data
+                        const baseTabNumber = tabNumber.replace('_right', '');
+                        const tabValue = `calc_${baseTabNumber}`;
+                        hasRightTableData = true;
 
-                    // Store baseline for this tab
-                    loadedBaselines[tabValue] = tabData.selected_baseline;
+                        // Convert markers to the format expected by the component
+                        const loadedRightMarkers = tabData.markers.map(marker => ({
+                            id: uuidv4(), // Generate new client-side ID
+                            markerName: marker.marker_name,
+                            width: marker.marker_width || '',
+                            layers: marker.layers,
+                            quantities: marker.quantities
+                        }));
 
-                    // Convert markers to the format expected by the component
-                    const loadedMarkers = tabData.markers.map(marker => ({
-                        id: uuidv4(), // Generate new client-side ID
-                        markerName: marker.marker_name,
-                        width: marker.marker_width || '',
-                        layers: marker.layers,
-                        quantities: marker.quantities
-                    }));
+                        loadedRightTabsData[tabValue] = loadedRightMarkers;
+                    } else {
+                        // This is left table data
+                        const tabValue = `calc_${tabNumber}`;
 
-                    loadedTabsData[tabValue] = loadedMarkers;
+                        // Store baseline for this tab
+                        loadedBaselines[tabValue] = tabData.selected_baseline;
+
+                        // Convert markers to the format expected by the component
+                        const loadedMarkers = tabData.markers.map(marker => ({
+                            id: uuidv4(), // Generate new client-side ID
+                            markerName: marker.marker_name,
+                            width: marker.marker_width || '',
+                            layers: marker.layers,
+                            quantities: marker.quantities
+                        }));
+
+                        loadedTabsData[tabValue] = loadedMarkers;
+                    }
                 });
 
-                // Update calculator tabs to match loaded data
-                const loadedTabNumbers = Object.keys(tabsData).sort();
+                // Update calculator tabs to match loaded data (exclude right table entries)
+                const loadedTabNumbers = Object.keys(tabsData)
+                    .filter(tabNumber => !tabNumber.endsWith('_right'))
+                    .sort();
                 if (loadedTabNumbers.length > 0) {
                     const newTabs = loadedTabNumbers.map(tabNumber => ({
                         value: `calc_${tabNumber}`,
@@ -466,7 +598,13 @@ const MarkerCalculatorDialog = ({
 
                 // Set all loaded markers data and baselines
                 setTestMarkersByMaterial(loadedTabsData);
+                setRightTableMarkersByMaterial(loadedRightTabsData);
                 setBaselineByTab(loadedBaselines);
+
+                // Enable split view if right table data exists
+                if (hasRightTableData) {
+                    setSplitViewMode(true);
+                }
             } else {
                 // No saved data, initialize with one empty marker if none exist
                 if (testMarkers.length === 0) {
@@ -538,6 +676,31 @@ const MarkerCalculatorDialog = ({
                     const response = await saveWithRetry(payload);
                     results.push(response);
                     console.log(`✅ Tab ${tabNumber} saved successfully`);
+
+                    // Also save right table data if in split view and has data
+                    const rightTabMarkers = rightTableMarkersByMaterial[tabValue];
+                    if (splitViewMode && rightTabMarkers && Array.isArray(rightTabMarkers) && rightTabMarkers.length > 0) {
+                        const rightMarkersData = rightTabMarkers.map(marker => ({
+                            marker_name: marker.markerName || '',
+                            marker_width: marker.width ? parseFloat(marker.width) : null,
+                            layers: marker.layers ? parseInt(marker.layers) : 1,
+                            quantities: marker.quantities || {}
+                        }));
+
+                        const rightPayload = {
+                            order_commessa: selectedOrder.id,
+                            combination_id: selectedCombinationId,
+                            tab_number: `${tabNumber}_right`, // Distinguish right table data
+                            selected_baseline: `calc_tab_${tabNumber}`, // Right table uses left table's output
+                            style: selectedStyle,
+                            markers: rightMarkersData
+                        };
+
+                        console.log(`Saving right table for tab ${tabNumber}...`);
+                        const rightResponse = await saveWithRetry(rightPayload);
+                        results.push(rightResponse);
+                        console.log(`✅ Right table for tab ${tabNumber} saved successfully`);
+                    }
                 }
             }
 
@@ -550,23 +713,30 @@ const MarkerCalculatorDialog = ({
             } else {
                 const failedResponses = results.filter(response => !response.data.success);
                 console.error('Failed to save some calculator data:', failedResponses);
-                alert(`Failed to save some tabs: ${failedResponses.map(r => r.data.message).join(', ')}`);
+                const errorMsg = `Failed to save some tabs: ${failedResponses.map(r => r.data.message).join(', ')}`;
+                setErrorMessage(errorMsg);
+                setShowErrorSnackbar(true);
                 return false;
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.message || error.message;
+            const errorMsg = error.response?.data?.message || error.message;
 
-            if (errorMessage.includes('1205') || errorMessage.includes('deadlock')) {
-                alert('Database is busy. Please try saving again in a moment.');
+            if (errorMsg.includes('1205') || errorMsg.includes('deadlock')) {
+                setErrorMessage('Database is busy. Please try saving again in a moment.');
             } else {
-                alert(`Save failed: ${errorMessage}`);
+                setErrorMessage(`Save failed: ${errorMsg}`);
             }
+            setShowErrorSnackbar(true);
             return false;
         }
     };
 
     // Handle dialog close without auto-save
     const handleClose = () => {
+        // Clear unsaved right table data
+        setRightTableMarkers([]);
+        setRightTableMarkersByMaterial({});
+        setSplitViewMode(false);
         onClose();
     };
 
@@ -638,26 +808,26 @@ const MarkerCalculatorDialog = ({
         return Math.round((calculatedQty / orderQty) * 100);
     };
 
-    // Calculate coverage percentage for right table
+    // Calculate coverage percentage for right table (comparison with left table)
     const getRightCoveragePercentage = (sizeName) => {
-        const orderQty = getOrderQuantity(sizeName);
-        const calculatedQty = rightTotals.bySize[sizeName];
-        if (orderQty === 0) return 0;
-        return Math.round((calculatedQty / orderQty) * 100);
+        const leftCalculatedQty = totals.bySize[sizeName];
+        const rightCalculatedQty = rightTotals.bySize[sizeName];
+        if (leftCalculatedQty === 0) return 0;
+        return Math.round((rightCalculatedQty / leftCalculatedQty) * 100);
     };
 
     return (
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth="xl"
+            maxWidth={false}
             fullWidth
             PaperProps={{
                 sx: {
-                    minHeight: '80vh',
-                    maxHeight: '90vh',
-                    width: '95vw',
-                    maxWidth: '1400px'
+                    minHeight: '85vh',
+                    maxHeight: '95vh',
+                    width: '98vw',
+                    maxWidth: '1800px'
                 }
             }}
         >
@@ -797,70 +967,141 @@ const MarkerCalculatorDialog = ({
                                     onClick={addNewMarker}
                                     size="small"
                                 >
-                                    Add Marker (Left)
+                                    Add Marker
                                 </Button>
                             </Box>
                         )}
                         <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                            <Table>
+                            <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell align="center" sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>Width</TableCell>
-                                        <TableCell align="center" sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>Marker Name</TableCell>
+                                        <TableCell align="center" sx={{ width: '80px', padding: '8px' }}>Width</TableCell>
+                                        <TableCell align="center" sx={{ width: '200px', padding: '8px' }}>Marker Name</TableCell>
                                         {effectiveOrderSizes.length > 0 &&
                                             effectiveOrderSizes.map((size) => (
-                                                <TableCell align="center" key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
+                                                <TableCell align="center" key={size.size} sx={{ width: '60px', padding: '8px' }}>
                                                     {size.size}
                                                 </TableCell>
                                             ))
                                         }
-                                        <TableCell align="center" sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>Layers</TableCell>
-                                        <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }} />
+                                        <TableCell align="center" sx={{ width: '60px', padding: '8px' }}>Layers</TableCell>
+                                        <TableCell sx={{ width: '40px', padding: '8px' }} />
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {testMarkers.map((marker) => (
                                         <TableRow key={marker.id}>
-                                            <TableCell sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>
+                                            <TableCell sx={{ width: '80px', padding: '8px', textAlign: 'center' }}>
                                                 <TextField
                                                     value={marker.width}
                                                     onChange={(e) => updateMarkerField(marker.id, 'width', e.target.value)}
                                                     size="small"
-                                                    sx={{ width: '72px' }}
+                                                    sx={{
+                                                        width: '100%',
+                                                        '& .MuiInputBase-input': {
+                                                            textAlign: 'center',
+                                                        },
+                                                        '& input[type=number]': {
+                                                            '-moz-appearance': 'textfield',
+                                                        },
+                                                        '& input[type=number]::-webkit-outer-spin-button': {
+                                                            '-webkit-appearance': 'none',
+                                                            margin: 0,
+                                                        },
+                                                        '& input[type=number]::-webkit-inner-spin-button': {
+                                                            '-webkit-appearance': 'none',
+                                                            margin: 0,
+                                                        },
+                                                    }}
                                                 />
                                             </TableCell>
-                                            <TableCell sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>
+                                            <TableCell sx={{ width: '200px', padding: '8px', textAlign: 'center' }}>
                                                 <TextField
                                                     value={marker.markerName}
                                                     onChange={(e) => updateMarkerField(marker.id, 'markerName', e.target.value)}
                                                     placeholder={generateMarkerName(marker.quantities, marker.width)}
+                                                    variant="standard"
                                                     size="small"
-                                                    sx={{ width: '192px' }}
+                                                    sx={{
+                                                        width: '100%',
+                                                        '& .MuiInputBase-input': {
+                                                            textAlign: 'center',
+                                                            cursor: 'text',
+                                                            userSelect: 'text',
+                                                            '&:focus': {
+                                                                outline: 'none',
+                                                            },
+                                                        },
+                                                        '& .MuiInput-underline:before': {
+                                                            borderBottom: 'none',
+                                                        },
+                                                        '& .MuiInput-underline:after': {
+                                                            borderBottom: 'none',
+                                                        },
+                                                        '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
+                                                            borderBottom: 'none',
+                                                        },
+                                                        '& .MuiInput-underline.Mui-focused:after': {
+                                                            borderBottom: 'none',
+                                                        },
+                                                    }}
                                                 />
                                             </TableCell>
                                             {effectiveOrderSizes.map((size) => (
-                                                <TableCell key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
+                                                <TableCell key={size.size} sx={{ width: '60px', padding: '8px', textAlign: 'center' }}>
                                                     <TextField
                                                         type="number"
                                                         value={marker.quantities[size.size] || ''}
                                                         onChange={(e) => updateQuantity(marker.id, size.size, e.target.value)}
                                                         size="small"
-                                                        sx={{ width: '52px' }}
+                                                        sx={{
+                                                            width: '100%',
+                                                            '& .MuiInputBase-input': {
+                                                                textAlign: 'center',
+                                                            },
+                                                            '& input[type=number]': {
+                                                                '-moz-appearance': 'textfield',
+                                                            },
+                                                            '& input[type=number]::-webkit-outer-spin-button': {
+                                                                '-webkit-appearance': 'none',
+                                                                margin: 0,
+                                                            },
+                                                            '& input[type=number]::-webkit-inner-spin-button': {
+                                                                '-webkit-appearance': 'none',
+                                                                margin: 0,
+                                                            },
+                                                        }}
                                                         inputProps={{ min: 0 }}
                                                     />
                                                 </TableCell>
                                             ))}
-                                            <TableCell sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
+                                            <TableCell sx={{ width: '60px', padding: '8px', textAlign: 'center' }}>
                                                 <TextField
                                                     type="number"
                                                     value={marker.layers}
                                                     onChange={(e) => updateMarkerField(marker.id, 'layers', e.target.value)}
                                                     size="small"
-                                                    sx={{ width: '52px' }}
+                                                    sx={{
+                                                        width: '100%',
+                                                        '& .MuiInputBase-input': {
+                                                            textAlign: 'center',
+                                                        },
+                                                        '& input[type=number]': {
+                                                            '-moz-appearance': 'textfield',
+                                                        },
+                                                        '& input[type=number]::-webkit-outer-spin-button': {
+                                                            '-webkit-appearance': 'none',
+                                                            margin: 0,
+                                                        },
+                                                        '& input[type=number]::-webkit-inner-spin-button': {
+                                                            '-webkit-appearance': 'none',
+                                                            margin: 0,
+                                                        },
+                                                    }}
                                                     inputProps={{ min: 1 }}
                                                 />
                                             </TableCell>
-                                            <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }}>
+                                            <TableCell sx={{ width: '40px', padding: '8px', textAlign: 'center' }}>
                                                 <IconButton
                                                     onClick={() => removeMarker(marker.id)}
                                                     size="small"
@@ -887,24 +1128,24 @@ const MarkerCalculatorDialog = ({
                                     onClick={addNewRightMarker}
                                     size="small"
                                 >
-                                    Add Marker (Right)
+                                    Add Marker
                                 </Button>
                             </Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <Table>
+                                <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell align="center" sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>Width</TableCell>
-                                            <TableCell align="center" sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>Marker Name</TableCell>
+                                            <TableCell align="center" sx={{ width: '80px', padding: '8px' }}>Width</TableCell>
+                                            <TableCell align="center" sx={{ width: '200px', padding: '8px' }}>Marker Name</TableCell>
                                             {effectiveOrderSizes.length > 0 &&
                                                 effectiveOrderSizes.map((size) => (
-                                                    <TableCell align="center" key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
+                                                    <TableCell align="center" key={size.size} sx={{ width: '60px', padding: '8px' }}>
                                                         {size.size}
                                                     </TableCell>
                                                 ))
                                             }
-                                            <TableCell align="center" sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>Layers</TableCell>
-                                            <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }} />
+                                            <TableCell align="center" sx={{ width: '60px', padding: '8px' }}>Layers</TableCell>
+                                            <TableCell sx={{ width: '40px', padding: '8px' }} />
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -912,53 +1153,124 @@ const MarkerCalculatorDialog = ({
                                             <TableRow>
                                                 <TableCell colSpan={effectiveOrderSizes.length + 3} align="center" sx={{ py: 4 }}>
                                                     <Typography variant="body2" color="text.secondary">
-                                                        Click "Add Marker (Right)" to start comparing
+                                                        Click "Add Marker" to start comparing
                                                     </Typography>
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
                                             rightTableMarkers.map((marker) => (
                                                 <TableRow key={marker.id}>
-                                                    <TableCell sx={{ minWidth: '80px', maxWidth: '80px', padding: '8px' }}>
+                                                    <TableCell sx={{ width: '80px', padding: '8px', textAlign: 'center' }}>
                                                         <TextField
                                                             value={marker.width}
                                                             onChange={(e) => updateRightMarkerField(marker.id, 'width', e.target.value)}
                                                             size="small"
-                                                            sx={{ width: '72px' }}
+                                                            sx={{
+                                                                width: '100%',
+                                                                '& .MuiInputBase-input': {
+                                                                    textAlign: 'center',
+                                                                },
+                                                                '& input[type=number]': {
+                                                                    '-moz-appearance': 'textfield',
+                                                                },
+                                                                '& input[type=number]::-webkit-outer-spin-button': {
+                                                                    '-webkit-appearance': 'none',
+                                                                    margin: 0,
+                                                                },
+                                                                '& input[type=number]::-webkit-inner-spin-button': {
+                                                                    '-webkit-appearance': 'none',
+                                                                    margin: 0,
+                                                                },
+                                                            }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ minWidth: '200px', maxWidth: '200px', padding: '8px' }}>
+                                                    <TableCell sx={{ width: '200px', padding: '8px', textAlign: 'center' }}>
                                                         <TextField
                                                             value={marker.markerName}
                                                             onChange={(e) => updateRightMarkerField(marker.id, 'markerName', e.target.value)}
-                                                            placeholder={generateMarkerName(marker.quantities, marker.width)}
+                                                            placeholder={generateRightMarkerName(marker.quantities, marker.width)}
+                                                            variant="standard"
                                                             size="small"
-                                                            sx={{ width: '192px' }}
+                                                            sx={{
+                                                                width: '100%',
+                                                                '& .MuiInputBase-input': {
+                                                                    textAlign: 'center',
+                                                                    cursor: 'text',
+                                                                    userSelect: 'text',
+                                                                    '&:focus': {
+                                                                        outline: 'none',
+                                                                    },
+                                                                },
+                                                                '& .MuiInput-underline:before': {
+                                                                    borderBottom: 'none',
+                                                                },
+                                                                '& .MuiInput-underline:after': {
+                                                                    borderBottom: 'none',
+                                                                },
+                                                                '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
+                                                                    borderBottom: 'none',
+                                                                },
+                                                                '& .MuiInput-underline.Mui-focused:after': {
+                                                                    borderBottom: 'none',
+                                                                },
+                                                            }}
                                                         />
                                                     </TableCell>
                                                     {effectiveOrderSizes.map((size) => (
-                                                        <TableCell key={size.size} sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
+                                                        <TableCell key={size.size} sx={{ width: '60px', padding: '8px', textAlign: 'center' }}>
                                                             <TextField
                                                                 type="number"
                                                                 value={marker.quantities[size.size] || ''}
                                                                 onChange={(e) => updateRightQuantity(marker.id, size.size, e.target.value)}
                                                                 size="small"
-                                                                sx={{ width: '52px' }}
+                                                                sx={{
+                                                                    width: '100%',
+                                                                    '& .MuiInputBase-input': {
+                                                                        textAlign: 'center',
+                                                                    },
+                                                                    '& input[type=number]': {
+                                                                        '-moz-appearance': 'textfield',
+                                                                    },
+                                                                    '& input[type=number]::-webkit-outer-spin-button': {
+                                                                        '-webkit-appearance': 'none',
+                                                                        margin: 0,
+                                                                    },
+                                                                    '& input[type=number]::-webkit-inner-spin-button': {
+                                                                        '-webkit-appearance': 'none',
+                                                                        margin: 0,
+                                                                    },
+                                                                }}
                                                                 inputProps={{ min: 0 }}
                                                             />
                                                         </TableCell>
                                                     ))}
-                                                    <TableCell sx={{ minWidth: '60px', maxWidth: '60px', padding: '8px' }}>
+                                                    <TableCell sx={{ width: '60px', padding: '8px', textAlign: 'center' }}>
                                                         <TextField
                                                             type="number"
                                                             value={marker.layers}
                                                             onChange={(e) => updateRightMarkerField(marker.id, 'layers', e.target.value)}
                                                             size="small"
-                                                            sx={{ width: '52px' }}
+                                                            sx={{
+                                                                width: '100%',
+                                                                '& .MuiInputBase-input': {
+                                                                    textAlign: 'center',
+                                                                },
+                                                                '& input[type=number]': {
+                                                                    '-moz-appearance': 'textfield',
+                                                                },
+                                                                '& input[type=number]::-webkit-outer-spin-button': {
+                                                                    '-webkit-appearance': 'none',
+                                                                    margin: 0,
+                                                                },
+                                                                '& input[type=number]::-webkit-inner-spin-button': {
+                                                                    '-webkit-appearance': 'none',
+                                                                    margin: 0,
+                                                                },
+                                                            }}
                                                             inputProps={{ min: 1 }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ minWidth: '40px', maxWidth: '40px', padding: '8px' }}>
+                                                    <TableCell sx={{ width: '40px', padding: '8px', textAlign: 'center' }}>
                                                         <IconButton
                                                             onClick={() => removeRightMarker(marker.id)}
                                                             size="small"
@@ -1116,6 +1428,38 @@ const MarkerCalculatorDialog = ({
                     Close
                 </Button>
             </DialogActions>
+
+            {/* Success Snackbar */}
+            <Snackbar
+                open={showSuccessSnackbar}
+                autoHideDuration={5000}
+                onClose={() => setShowSuccessSnackbar(false)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={() => setShowSuccessSnackbar(false)}
+                    severity="success"
+                    sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}
+                >
+                    Calculator data saved successfully!
+                </Alert>
+            </Snackbar>
+
+            {/* Error Snackbar */}
+            <Snackbar
+                open={showErrorSnackbar}
+                autoHideDuration={5000}
+                onClose={() => setShowErrorSnackbar(false)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={() => setShowErrorSnackbar(false)}
+                    severity="error"
+                    sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}
+                >
+                    {errorMessage}
+                </Alert>
+            </Snackbar>
         </Dialog>
     );
 };

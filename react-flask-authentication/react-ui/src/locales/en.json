@@ -253,7 +253,7 @@
     "consumption": "Cons [m]",
     "bagno": "Bagno",
     "status": "Status",
-    "mattress": "Mattress",
+    "mattress": "Mattress ID",
     "na": "N/A",
     "numberOfPanels": "N° Panels",
     "totalCollaretto": "Total Collaretto [m]",
@@ -280,7 +280,10 @@
     "expectedAvgCons": "Expected Avg Cons",
     "expectedTotalCons": "Expected Total Cons",
     "plannedConsShort": "Planned Cons",
-    "numberOfRollsShort": "N° Rolls"
+    "numberOfRollsShort": "N° Rolls",
+    "collarettoId": "Collaretto ID",
+    "cons": "Cons. [m]",
+    "progress": "Progress"
   },
   "dashboard": {
     "workInProgress": "WORK IN PROGRESS",

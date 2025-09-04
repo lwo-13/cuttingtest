@@ -34,19 +34,22 @@ const StyleCommentCard = ({ selectedStyle, onDataChange }) => {
 
   // Track changes and notify parent component
   useEffect(() => {
-    const hasChanges = comment !== originalComment || maxPiecesInPackage !== originalMaxPieces;
-    setHasUnsavedChanges(hasChanges);
+    // Only check for changes if we're not currently loading and original values have been set
+    if (!loading && originalComment !== undefined && originalMaxPieces !== undefined) {
+      const hasChanges = comment !== originalComment || maxPiecesInPackage !== originalMaxPieces;
+      setHasUnsavedChanges(hasChanges);
 
-    // Notify parent component about data changes
-    if (onDataChange) {
-      onDataChange({
-        comment: comment.trim(),
-        maxPiecesInPackage: maxPiecesInPackage ? parseInt(maxPiecesInPackage) : null,
-        hasUnsavedChanges: hasChanges,
-        selectedStyle
-      });
+      // Notify parent component about data changes
+      if (onDataChange) {
+        onDataChange({
+          comment: comment.trim(),
+          maxPiecesInPackage: maxPiecesInPackage ? parseInt(maxPiecesInPackage) : null,
+          hasUnsavedChanges: hasChanges,
+          selectedStyle
+        });
+      }
     }
-  }, [comment, originalComment, maxPiecesInPackage, originalMaxPieces, selectedStyle, onDataChange]);
+  }, [comment, originalComment, maxPiecesInPackage, originalMaxPieces, selectedStyle, onDataChange, loading]);
 
   const loadStyleData = async () => {
     setLoading(true);
