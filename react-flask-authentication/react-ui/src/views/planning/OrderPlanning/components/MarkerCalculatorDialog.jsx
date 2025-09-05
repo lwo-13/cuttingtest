@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -173,26 +173,49 @@ const MarkerCalculatorDialog = ({
 
     // Get current material type's markers
     const testMarkers = testMarkersByMaterial[currentMaterialType] || [];
-    const currentRightTableMarkers = rightTableMarkersByMaterial[currentMaterialType] || [];
 
-    // Sync right table markers with current tab
+    // Sync right table markers with current tab (only when material type changes)
     useEffect(() => {
-        setRightTableMarkers(currentRightTableMarkers);
-    }, [currentMaterialType, currentRightTableMarkers]);
+        setRightTableMarkers(rightTableMarkersByMaterial[currentMaterialType] || []);
+    }, [currentMaterialType]);
 
     // Ensure current tab has at least one empty marker
     useEffect(() => {
         if (testMarkers.length === 0) {
-            addNewMarker();
+            const newMarker = {
+                id: uuidv4(),
+                markerName: '',
+                width: '',
+                quantities: orderSizeNames.reduce((acc, sizeName) => {
+                    acc[sizeName] = 0;
+                    return acc;
+                }, {}),
+                layers: ''
+            };
+            setTestMarkersByMaterial(prev => ({
+                ...prev,
+                [currentMaterialType]: [newMarker]
+            }));
         }
-    }, [currentMaterialType]);
+    }, [currentMaterialType, testMarkers.length, orderSizeNames]);
 
     // Ensure right table has at least one empty marker when split view is enabled
     useEffect(() => {
         if (splitViewMode && rightTableMarkers.length === 0) {
-            addNewRightMarker();
+            const newMarker = {
+                id: uuidv4(),
+                width: '',
+                markerName: '',
+                quantities: {},
+                layers: 1
+            };
+            setRightTableMarkers([newMarker]);
+            setRightTableMarkersByMaterial(prev => ({
+                ...prev,
+                [currentMaterialType]: [newMarker]
+            }));
         }
-    }, [splitViewMode]);
+    }, [splitViewMode, rightTableMarkers.length, currentMaterialType]);
 
     // Calculate totals for a specific calculator tab
     const calculateTabTotals = (tabValue) => {
@@ -293,14 +316,14 @@ const MarkerCalculatorDialog = ({
     }, [tables, t]);
 
     // Helper to update markers for current material type
-    const setTestMarkers = (markersOrUpdater) => {
+    const setTestMarkers = useCallback((markersOrUpdater) => {
         setTestMarkersByMaterial(prev => ({
             ...prev,
             [currentMaterialType]: typeof markersOrUpdater === 'function'
                 ? markersOrUpdater(prev[currentMaterialType] || [])
                 : markersOrUpdater
         }));
-    };
+    }, [currentMaterialType]);
 
     // Generate enhanced marker name based on style, quantities, and width
     const generateMarkerName = (quantities, width = '') => {
@@ -366,7 +389,7 @@ const MarkerCalculatorDialog = ({
         };
     };
 
-    const addNewMarker = () => {
+    const addNewMarker = useCallback(() => {
         const newMarker = {
             id: uuidv4(),
             markerName: '',
@@ -377,15 +400,18 @@ const MarkerCalculatorDialog = ({
             }, {}),
             layers: ''
         };
-        setTestMarkers(prev => [...prev, newMarker]);
-    };
+        setTestMarkersByMaterial(prev => ({
+            ...prev,
+            [currentMaterialType]: [...(prev[currentMaterialType] || []), newMarker]
+        }));
+    }, [orderSizeNames, currentMaterialType]);
 
     const removeMarker = (markerId) => {
         setTestMarkers(prev => prev.filter(marker => marker.id !== markerId));
     };
 
     // Right table marker functions
-    const addNewRightMarker = () => {
+    const addNewRightMarker = useCallback(() => {
         const newMarker = {
             id: uuidv4(),
             width: '',
@@ -399,7 +425,7 @@ const MarkerCalculatorDialog = ({
             ...prev,
             [currentMaterialType]: [...(prev[currentMaterialType] || []), newMarker]
         }));
-    };
+    }, [currentMaterialType]);
 
     const removeRightMarker = (markerId) => {
         setRightTableMarkers(prev => prev.filter(marker => marker.id !== markerId));
