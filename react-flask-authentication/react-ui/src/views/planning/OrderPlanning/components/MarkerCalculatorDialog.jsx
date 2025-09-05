@@ -30,6 +30,7 @@ import {
 import { Add, Delete, Calculate, Close, ViewColumn } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'utils/axiosInstance';
+import { useTranslation } from 'react-i18next';
 
 const MarkerCalculatorDialog = ({
     open,
@@ -42,6 +43,8 @@ const MarkerCalculatorDialog = ({
     selectedOrder,
     selectedCombinationId
 }) => {
+    const { t } = useTranslation();
+
     // State for calculator tabs - iterative numbering system
     const [calculatorTabs, setCalculatorTabs] = useState([
         { value: 'calc_01', label: '01' }
@@ -81,7 +84,7 @@ const MarkerCalculatorDialog = ({
         if (hasData) {
             const tabNumber = tabValue.replace('calc_', '');
             const confirmed = window.confirm(
-                `Are you sure you want to delete Tab ${tabNumber}? This will permanently remove all markers and data in this tab.`
+                t('calculator.confirmDeleteTab', { tabNumber })
             );
             if (!confirmed) return;
         }
@@ -260,34 +263,34 @@ const MarkerCalculatorDialog = ({
     // Create baseline options including other calculator tabs
     const baselineOptions = useMemo(() => {
         const options = [
-            { value: 'original', label: 'Original Order Quantities' }
+            { value: 'original', label: t('calculator.originalOrderQuantities') }
         ];
 
         // Add table options with fabric information
         tables.forEach((table) => {
-            const fabricType = table.fabricType || 'Unknown';
-            const fabricCode = table.fabricCode || 'Unknown';
-            const fabricColor = table.fabricColor || 'Unknown';
+            const fabricType = table.fabricType || t('calculator.unknown');
+            const fabricCode = table.fabricCode || t('calculator.unknown');
+            const fabricColor = table.fabricColor || t('calculator.unknown');
 
             // Determine table type based on spreading or mattress names
-            let tableType = 'Mattresses'; // Default
+            let tableType = t('calculator.mattress'); // Default
             if (table.rows && table.rows.length > 0) {
                 const firstRow = table.rows[0];
                 if (firstRow.mattressName) {
                     if (firstRow.mattressName.includes('-ASA-') || firstRow.mattressName.includes('-MSA-')) {
-                        tableType = 'Adhesives';
+                        tableType = t('calculator.adhesive');
                     }
                 }
             }
 
             options.push({
                 value: table.id,
-                label: `${tableType} ${fabricType} - ${fabricCode} - ${fabricColor} Planned Qty`
+                label: `${tableType} ${fabricType} - ${fabricCode} - ${fabricColor} ${t('calculator.plannedQty')}`
             });
         });
 
         return options;
-    }, [tables]);
+    }, [tables, t]);
 
     // Helper to update markers for current material type
     const setTestMarkers = (markersOrUpdater) => {
@@ -713,7 +716,9 @@ const MarkerCalculatorDialog = ({
             } else {
                 const failedResponses = results.filter(response => !response.data.success);
                 console.error('Failed to save some calculator data:', failedResponses);
-                const errorMsg = `Failed to save some tabs: ${failedResponses.map(r => r.data.message).join(', ')}`;
+                const errorMsg = t('calculator.failedToSaveSomeTabs', {
+                    message: failedResponses.map(r => r.data.message).join(', ')
+                });
                 setErrorMessage(errorMsg);
                 setShowErrorSnackbar(true);
                 return false;
@@ -722,9 +727,9 @@ const MarkerCalculatorDialog = ({
             const errorMsg = error.response?.data?.message || error.message;
 
             if (errorMsg.includes('1205') || errorMsg.includes('deadlock')) {
-                setErrorMessage('Database is busy. Please try saving again in a moment.');
+                setErrorMessage(t('calculator.databaseBusy'));
             } else {
-                setErrorMessage(`Save failed: ${errorMsg}`);
+                setErrorMessage(t('calculator.saveFailed', { message: errorMsg }));
             }
             setShowErrorSnackbar(true);
             return false;
@@ -834,7 +839,7 @@ const MarkerCalculatorDialog = ({
             <DialogTitle>
                 <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
                     <Calculate />
-                    Marker Calculator - Test Combinations
+                    {t('calculator.title')}
                 </Box>
             </DialogTitle>
 
@@ -883,7 +888,7 @@ const MarkerCalculatorDialog = ({
                                 color: 'primary.main',
                                 '&:hover': { backgroundColor: 'primary.light', color: 'white' }
                             }}
-                            title="Add New Calculator Tab"
+                            title={t('calculator.addNewCalculatorTab')}
                         >
                             <Add />
                         </IconButton>
@@ -894,7 +899,7 @@ const MarkerCalculatorDialog = ({
                 <Box mb={3} display="flex" flexDirection="column" alignItems="center" gap={2}>
                     <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
                         <Typography variant="body2" fontWeight="bold">
-                            Calculate coverage against:
+                            {t('calculator.calculateCoverageAgainst')}
                         </Typography>
                         <FormControl size="small" sx={{ minWidth: 300 }}>
                             <Select
@@ -911,8 +916,10 @@ const MarkerCalculatorDialog = ({
                         </FormControl>
                         <Typography variant="body2" color="text.secondary">
                             {getCurrentBaseline() === 'original'
-                                ? "Using original order quantities"
-                                : `Using output from ${baselineOptions.find(opt => opt.value === getCurrentBaseline())?.label}`
+                                ? t('calculator.usingOriginalOrderQuantities')
+                                : t('calculator.usingOutputFrom', {
+                                    label: baselineOptions.find(opt => opt.value === getCurrentBaseline())?.label
+                                })
                             }
                         </Typography>
                     </Box>
@@ -930,7 +937,7 @@ const MarkerCalculatorDialog = ({
                                     onClick={addNewMarker}
                                     size="small"
                                 >
-                                    Add Marker
+                                    {t('calculator.addMarker')}
                                 </Button>
                             )}
                             <Button
@@ -939,7 +946,7 @@ const MarkerCalculatorDialog = ({
                                 onClick={clearAllMarkers}
                                 size="small"
                             >
-                                Clear All
+                                {t('calculator.clearAll')}
                             </Button>
                             <Button
                                 variant="outlined"
@@ -948,7 +955,7 @@ const MarkerCalculatorDialog = ({
                                 onClick={() => setSplitViewMode(!splitViewMode)}
                                 size="small"
                             >
-                                {splitViewMode ? "Single View" : "Split View"}
+                                {splitViewMode ? t('calculator.singleView') : t('calculator.splitView')}
                             </Button>
                         </Box>
                     </Box>
@@ -967,7 +974,7 @@ const MarkerCalculatorDialog = ({
                                     onClick={addNewMarker}
                                     size="small"
                                 >
-                                    Add Marker
+                                    {t('calculator.addMarker')}
                                 </Button>
                             </Box>
                         )}
@@ -975,8 +982,8 @@ const MarkerCalculatorDialog = ({
                             <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell align="center" sx={{ width: '80px', padding: '8px' }}>Width</TableCell>
-                                        <TableCell align="center" sx={{ width: '200px', padding: '8px' }}>Marker Name</TableCell>
+                                        <TableCell align="center" sx={{ width: '80px', padding: '8px' }}>{t('calculator.width')}</TableCell>
+                                        <TableCell align="center" sx={{ width: '200px', padding: '8px' }}>{t('calculator.markerName')}</TableCell>
                                         {effectiveOrderSizes.length > 0 &&
                                             effectiveOrderSizes.map((size) => (
                                                 <TableCell align="center" key={size.size} sx={{ width: '60px', padding: '8px' }}>
@@ -984,7 +991,7 @@ const MarkerCalculatorDialog = ({
                                                 </TableCell>
                                             ))
                                         }
-                                        <TableCell align="center" sx={{ width: '60px', padding: '8px' }}>Layers</TableCell>
+                                        <TableCell align="center" sx={{ width: '60px', padding: '8px' }}>{t('calculator.layers')}</TableCell>
                                         <TableCell sx={{ width: '40px', padding: '8px' }} />
                                     </TableRow>
                                 </TableHead>
@@ -1128,15 +1135,15 @@ const MarkerCalculatorDialog = ({
                                     onClick={addNewRightMarker}
                                     size="small"
                                 >
-                                    Add Marker
+                                    {t('calculator.addMarker')}
                                 </Button>
                             </Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell align="center" sx={{ width: '80px', padding: '8px' }}>Width</TableCell>
-                                            <TableCell align="center" sx={{ width: '200px', padding: '8px' }}>Marker Name</TableCell>
+                                            <TableCell align="center" sx={{ width: '80px', padding: '8px' }}>{t('calculator.width')}</TableCell>
+                                            <TableCell align="center" sx={{ width: '200px', padding: '8px' }}>{t('calculator.markerName')}</TableCell>
                                             {effectiveOrderSizes.length > 0 &&
                                                 effectiveOrderSizes.map((size) => (
                                                     <TableCell align="center" key={size.size} sx={{ width: '60px', padding: '8px' }}>
@@ -1144,7 +1151,7 @@ const MarkerCalculatorDialog = ({
                                                     </TableCell>
                                                 ))
                                             }
-                                            <TableCell align="center" sx={{ width: '60px', padding: '8px' }}>Layers</TableCell>
+                                            <TableCell align="center" sx={{ width: '60px', padding: '8px' }}>{t('calculator.layers')}</TableCell>
                                             <TableCell sx={{ width: '40px', padding: '8px' }} />
                                         </TableRow>
                                     </TableHead>
@@ -1153,7 +1160,7 @@ const MarkerCalculatorDialog = ({
                                             <TableRow>
                                                 <TableCell colSpan={effectiveOrderSizes.length + 3} align="center" sx={{ py: 4 }}>
                                                     <Typography variant="body2" color="text.secondary">
-                                                        Click "Add Marker" to start comparing
+                                                        {t('calculator.clickAddMarkerToStartComparing')}
                                                     </Typography>
                                                 </TableCell>
                                             </TableRow>
@@ -1297,22 +1304,22 @@ const MarkerCalculatorDialog = ({
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
-                                    <TableCell align="center"><strong>Size</strong></TableCell>
+                                    <TableCell align="center"><strong>{t('calculator.size')}</strong></TableCell>
                                     <TableCell align="center">
                                         <strong>
                                             {getCurrentBaseline() === 'original'
-                                                ? "Order Qty"
-                                                : `${baselineOptions.find(opt => opt.value === getCurrentBaseline())?.label || 'Baseline'}`
+                                                ? t('calculator.orderQty')
+                                                : `${baselineOptions.find(opt => opt.value === getCurrentBaseline())?.label || t('calculator.baseline')}`
                                             }
                                         </strong>
                                     </TableCell>
-                                    <TableCell align="center"><strong>Calculated Total</strong></TableCell>
-                                    <TableCell align="center"><strong>Coverage</strong></TableCell>
+                                    <TableCell align="center"><strong>{t('calculator.calculatedTotal')}</strong></TableCell>
+                                    <TableCell align="center"><strong>{t('calculator.coverage')}</strong></TableCell>
                                     {/* Additional columns for split view */}
                                     {splitViewMode && (
                                         <>
-                                            <TableCell align="center"><strong>Calculated 2nd Total</strong></TableCell>
-                                            <TableCell align="center"><strong>2nd Coverage</strong></TableCell>
+                                            <TableCell align="center"><strong>{t('calculator.calculated2ndTotal')}</strong></TableCell>
+                                            <TableCell align="center"><strong>{t('calculator.2ndCoverage')}</strong></TableCell>
                                         </>
                                     )}
                                 </TableRow>
@@ -1362,7 +1369,7 @@ const MarkerCalculatorDialog = ({
                                 {/* Total Row */}
                                 <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                                     <TableCell align="center">
-                                        <strong>Total</strong>
+                                        <strong>{t('calculator.total')}</strong>
                                     </TableCell>
                                     <TableCell align="center">
                                         <strong>
@@ -1422,10 +1429,10 @@ const MarkerCalculatorDialog = ({
                     color="primary"
                     disabled={isLoading}
                 >
-                    Save
+                    {t('calculator.save')}
                 </Button>
                 <Button onClick={onClose} variant="outlined">
-                    Close
+                    {t('calculator.close')}
                 </Button>
             </DialogActions>
 
@@ -1441,7 +1448,7 @@ const MarkerCalculatorDialog = ({
                     severity="success"
                     sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}
                 >
-                    Calculator data saved successfully!
+                    {t('calculator.calculatorDataSavedSuccessfully')}
                 </Alert>
             </Snackbar>
 
