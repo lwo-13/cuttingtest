@@ -9,6 +9,7 @@ const AlongTableHeaderReadOnly = () => {
     <TableHead>
       <TableRow>
         <TableCell align="center" sx={{ minWidth: '120px' }}>{t('table.collarettoId')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.pieces')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.usableWidth')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.grossLength')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.collarettoWidth')}</TableCell>
