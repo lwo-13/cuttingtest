@@ -50,11 +50,18 @@ export const useOrderReportPrintStyles = () => {
           display: inline-flex !important;
         }
 
-        /* HIDE PLANNED QUANTITIES BARS IN ORDER REPORT */
-        .planned-quantity-bar,
-        [class*="planned-quantity"],
-        [class*="PlannedQuantity"] {
-          display: none !important;
+        /* SHOW PLANNED QUANTITIES BARS IN ORDER REPORT WHEN PRINTING */
+        .planned-quantity-bar {
+          display: flex !important;
+          background-color: #f5f5f5 !important;
+          border: 1px solid #ddd !important;
+          padding: 4px 8px !important;
+          border-radius: 4px !important;
+          font-size: 14px !important;
+          font-weight: bold !important;
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
 
         /* HIDE CONSUMPTION SUMMARIES IN ORDER REPORT */
