@@ -2,9 +2,12 @@ export const getTablePlannedQuantities = (table) => {
   const plannedQuantities = {};
 
   table.rows.forEach(row => {
-    const layers = parseInt(row.layers_a) || 0;
-
     Object.entries(row.piecesPerSize || {}).forEach(([size, pcs]) => {
+      // Use actual layers (layers_a) if available and different from planned layers for locked rows
+      const isLocked = !row.isEditable;
+      const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+      const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) || 0 : parseInt(row.layers) || 0;
+
       const pieces = parseInt(pcs) || 0;
       plannedQuantities[size] = (plannedQuantities[size] || 0) + (pieces * layers);
     });
@@ -25,7 +28,11 @@ export const getTablePlannedByBagno = (table) => {
   table.rows.forEach(row => {
     const bagno = row.bagno && row.bagno !== 'Unknown' ? row.bagno : 'No Bagno';
 
-    const layers = parseInt(row.layers_a);
+    // Use actual layers (layers_a) if available and different from planned layers for locked rows
+    const isLocked = !row.isEditable;
+    const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+    const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) || 0 : parseInt(row.layers) || 0;
+
     if (isNaN(layers) || layers <= 0) return;
 
     if (!row.piecesPerSize || typeof row.piecesPerSize !== 'object') return;
@@ -84,7 +91,11 @@ export const getWidthsByBagno = (table) => {
     // Skip rows without valid width data
     if (!width || isNaN(width)) return;
 
-    const layers = parseInt(row.layers_a);
+    // Use actual layers (layers_a) if available and different from planned layers for locked rows
+    const isLocked = !row.isEditable;
+    const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+    const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) || 0 : parseInt(row.layers) || 0;
+
     if (isNaN(layers) || layers <= 0) return;
 
     if (!row.piecesPerSize || typeof row.piecesPerSize !== 'object') return;
