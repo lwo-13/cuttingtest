@@ -23,6 +23,8 @@ const AdhesiveRowReadOnly = ({ row, orderSizes }) => {
     return sizeEntries.join('        ');
   };
 
+
+
   return (
     <TableRow>
       {/* Adhesive Name (short display) */}

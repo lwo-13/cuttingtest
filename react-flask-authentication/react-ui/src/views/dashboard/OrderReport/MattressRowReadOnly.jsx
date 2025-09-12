@@ -23,6 +23,8 @@ const MattressRowReadOnly = ({ row, orderSizes }) => {
     return sizeEntries.join('        ');
   };
 
+
+
   return (
     <TableRow>
       {/* Mattress Name (short display) */}
