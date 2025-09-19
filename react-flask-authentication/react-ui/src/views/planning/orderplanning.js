@@ -145,7 +145,11 @@ const OrderPlanning = () => {
     const auditRefetchFunctionRef = useRef(null);
 
     // Temporary fallback functions
-    const clearAllChanges = () => setUnsavedChanges(false);
+    const clearAllChanges = () => {
+        setUnsavedChanges(false);
+        // Reset style comment data to ensure it doesn't trigger unsaved changes
+        setStyleCommentData(null);
+    };
     const getChangeSummary = () => '';
 
     // Enhanced unsaved changes tracking (commented out temporarily)
@@ -799,6 +803,14 @@ const OrderPlanning = () => {
             }
         }
     }, [selectedCombination?.combination_id, combinationComments]);
+
+    // Track style comment changes and update unsaved changes state
+    useEffect(() => {
+        if (styleCommentData?.hasUnsavedChanges) {
+            console.log('✅ Style comment has unsaved changes, setting unsavedChanges to true');
+            setUnsavedChanges(true);
+        }
+    }, [styleCommentData?.hasUnsavedChanges]);
 
 
 
@@ -1992,6 +2004,10 @@ const OrderPlanning = () => {
                                 setTables={setAdhesiveTables}
                                 setUnsavedChanges={setUnsavedChanges}
                                 updateExpectedConsumption={updateAdhesiveExpectedConsumption}
+                                onRefreshMarkers={fetchMarkerData}
+                                refreshingMarkers={refreshingMarkers}
+                                markerOptions={markerOptions}
+                                selectedOrder={selectedOrder}
                             />
 
                             {/* Table Section */}

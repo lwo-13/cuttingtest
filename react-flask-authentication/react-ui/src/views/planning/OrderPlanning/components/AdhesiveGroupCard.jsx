@@ -1,7 +1,10 @@
 import React from 'react';
-import { Grid, Autocomplete, TextField, Box } from '@mui/material';
+import { Grid, Autocomplete, TextField, Box, IconButton, CircularProgress } from '@mui/material';
+import { Refresh } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import ColorFieldWithDescription from 'components/ColorFieldWithDescription';
+import FabricCodeDropdown from './FabricCodeDropdown';
+import useBomFabrics from '../hooks/useBomFabrics';
 
 const AdhesiveGroupCard = ({
   table,
@@ -12,9 +15,21 @@ const AdhesiveGroupCard = ({
   isTableEditable,
   setTables,
   setUnsavedChanges,
-  updateExpectedConsumption
+  updateExpectedConsumption,
+  onRefreshMarkers,
+  refreshingMarkers,
+  markerOptions,
+  selectedOrder
 }) => {
   const { t } = useTranslation();
+
+  // BOM fabrics hook
+  const {
+    bomFabrics,
+    loading: bomLoading,
+    getColorCodeForFabric,
+    fetchBomFabrics
+  } = useBomFabrics(selectedOrder);
   return (
     <Box p={1}>
       {/* Fabric Information */}
@@ -44,43 +59,42 @@ const AdhesiveGroupCard = ({
           />
         </Grid>
 
-        {/* Fabric Code */}
+        {/* Fabric Code (BOM Dropdown) */}
         <Grid item xs={3} sm={2} md={1.8}>
-          <TextField
-            label={t('orderPlanning.fabricCode', 'Fabric Code')}
-            value={table.fabricCode || ''}
+          <FabricCodeDropdown
+            value={table.fabricCode || ""}
             disabled={!isTableEditable(table)}
-            onChange={(e) => {
+            bomFabrics={bomFabrics}
+            loading={bomLoading}
+            getColorCodeForFabric={getColorCodeForFabric}
+            fetchBomFabrics={fetchBomFabrics}
+            onChange={(fabricCode) => {
               setTables(prev =>
                 prev.map(t =>
-                  t.id === table.id ? { ...t, fabricCode: e.target.value } : t
+                  t.id === table.id ? { ...t, fabricCode: fabricCode } : t
                 )
               );
               setUnsavedChanges(true);
+              updateExpectedConsumption(table.id);
             }}
-            fullWidth
-            variant="outlined"
-            sx={{
-              minWidth: '60px',
-              "& .MuiInputBase-input": { fontWeight: 'normal' }
+            onColorChange={(fabricColor) => {
+              setTables(prev =>
+                prev.map(t =>
+                  t.id === table.id ? { ...t, fabricColor: fabricColor } : t
+                )
+              );
+              setUnsavedChanges(true);
             }}
           />
         </Grid>
 
-        {/* Fabric Color */}
+        {/* Fabric Color (Read-only, auto-populated from BOM) */}
         <Grid item xs={3} sm={2} md={1.5}>
           <ColorFieldWithDescription
             label={t('orderPlanning.fabricColor', 'Fabric Color')}
             value={table.fabricColor || ''}
-            readOnly={!isTableEditable(table)}
-            onChange={(e) => {
-              setTables(prev =>
-                prev.map(t =>
-                  t.id === table.id ? { ...t, fabricColor: e.target.value } : t
-                )
-              );
-              setUnsavedChanges(true);
-            }}
+            readOnly={true} // Always read-only since it's auto-populated from BOM
+            onChange={() => {}} // No-op since it's read-only
             debounceMs={400}
             minCharsForSearch={3}
             sx={{
@@ -176,6 +190,29 @@ const AdhesiveGroupCard = ({
             }}
           />
         </Grid>
+
+        {/* Refresh Markers Icon */}
+        {onRefreshMarkers && (
+          <Grid item xs="auto">
+            <IconButton
+              size="small"
+              onClick={onRefreshMarkers}
+              disabled={refreshingMarkers}
+              sx={{
+                color: 'primary.main',
+                '&:hover': { backgroundColor: 'primary.light', color: 'white' },
+                mt: 1
+              }}
+              title="Refresh markers"
+            >
+              {refreshingMarkers ? (
+                <CircularProgress size={20} />
+              ) : (
+                <Refresh fontSize="small" />
+              )}
+            </IconButton>
+          </Grid>
+        )}
 
       </Grid>
     </Box>

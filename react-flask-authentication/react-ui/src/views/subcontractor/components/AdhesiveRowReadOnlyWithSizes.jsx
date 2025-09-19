@@ -166,21 +166,23 @@ const AdhesiveRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDown
         </IconButton>
       </TableCell>
 
-      {/* Change Icon */}
+      {/* Change Icon - Only show if there's a marker */}
       <TableCell sx={{ minWidth: '40px', textAlign: 'center', padding: '2px' }}>
-        <IconButton
-          onClick={() => onChangeMattress && onChangeMattress(row)}
-          color={row.layers_a ? "inherit" : "primary"}
-          size="small"
-          disabled={!!row.layers_a}
-          sx={{
-            padding: '2px',
-            opacity: row.layers_a ? 0.4 : 1,
-            cursor: row.layers_a ? 'not-allowed' : 'pointer'
-          }}
-        >
-          <IconTool size={20} />
-        </IconButton>
+        {row.markerName && row.markerName !== '-' ? (
+          <IconButton
+            onClick={() => onChangeMattress && onChangeMattress(row)}
+            color={row.layers_a ? "inherit" : "primary"}
+            size="small"
+            disabled={!!row.layers_a}
+            sx={{
+              padding: '2px',
+              opacity: row.layers_a ? 0.4 : 1,
+              cursor: row.layers_a ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <IconTool size={20} />
+          </IconButton>
+        ) : null}
       </TableCell>
     </TableRow>
   );

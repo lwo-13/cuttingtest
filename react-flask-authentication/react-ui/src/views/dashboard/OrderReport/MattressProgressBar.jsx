@@ -15,11 +15,14 @@ const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false, oper
   // Extract the phase number from the current phase string (e.g., "2 - ON SPREAD" -> 2)
   const getCurrentPhaseNumber = (phaseString) => {
     if (!phaseString) return 0;
+    // Special handling for "99 - ON HOLD" - treat it as phase 2 (ON SPREAD)
+    if (phaseString === "99 - ON HOLD") return 2;
     const match = phaseString.match(/^(\d+)/);
     return match ? parseInt(match[1]) : 0;
   };
 
   const currentPhaseNumber = getCurrentPhaseNumber(currentPhase);
+  const isOnHold = currentPhase === "99 - ON HOLD";
 
   // Determine if a phase should be colored (completed or current)
   const isPhaseActive = (phaseId) => {
@@ -32,7 +35,11 @@ const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false, oper
       // Completed phases: yellow if pending width change, otherwise green
       return hasPendingWidthChange ? '#ff9800' : '#4caf50';
     } else if (phaseId === currentPhaseNumber) {
-      // Current phase: yellow if pending width change, otherwise blue
+      // Current phase: special handling for ON HOLD
+      if (isOnHold && phaseId === 2) {
+        return '#ff9800'; // Orange for ON HOLD
+      }
+      // Regular current phase: yellow if pending width change, otherwise blue
       return hasPendingWidthChange ? '#ff9800' : '#2196f3';
     } else {
       // Future phases: always gray
@@ -52,7 +59,9 @@ const MattressProgressBar = ({ currentPhase, hasPendingWidthChange = false, oper
         <React.Fragment key={phase.id}>
           <Tooltip
             title={
-              phase.id === 2 && operator
+              phase.id === 2 && isOnHold && phase.id === currentPhaseNumber
+                ? `${phase.id} - ON HOLD${operator ? ` (${operator})` : ''}`
+                : phase.id === 2 && operator
                 ? `${phase.id} - ${phase.label} (${operator})`
                 : `${phase.id} - ${phase.label}`
             }

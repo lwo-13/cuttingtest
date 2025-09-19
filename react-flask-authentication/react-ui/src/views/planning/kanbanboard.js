@@ -5,6 +5,7 @@ import { Paper, Box, Grid, Button, Typography, Alert, Snackbar, IconButton } fro
 import LockIcon from '@mui/icons-material/Lock';
 import ViewStreamIcon from '@mui/icons-material/ViewStream';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
@@ -209,13 +210,10 @@ const KanbanBoard = () => {
     console.log(`   skipOptimisticUpdate: ${skipOptimisticUpdate}`);
     console.log(`   CALL STACK:`, new Error().stack);
 
-    // MS validation: Check if trying to move AS mattress to MS device
+    // MS validation: Allow automatic mattresses (AUTOMATIC) to go to manual machines
+    // Only restrict manual-only mattresses from going to automatic machines
     const mattressToMove = mattresses.find(m => m.id === id);
-    if (mattressToMove && targetDevice === "MS" && mattressToMove.spreading_method !== "MANUAL") {
-      setTransitionMessage("ERROR: Only Manual Spreading (MS) mattresses can be assigned to MS device");
-      setShowTransitionAlert(true);
-      return;
-    }
+    // No restriction for MS device - both AUTOMATIC and MANUAL mattresses can go there
 
     // AS validation: Check if trying to move MS mattress to AS device
     if (mattressToMove && ["SP1", "SP2", "SP3"].includes(targetDevice) && mattressToMove.spreading_method === "MANUAL") {
@@ -256,15 +254,15 @@ const KanbanBoard = () => {
         const updatedMattress = {
           ...mattressToMove,
           device: targetDevice,
-          shift: targetDevice === "MS" ? null : targetShift // MS doesn't use shifts
+          shift: targetDevice === "MS" ? "MS" : targetShift // MS uses special shift value
         };
 
         // Remove from current position
         let result = prev.filter(m => m.id !== id);
 
         // Add to new position
-        if (targetDevice === "SP0" || targetDevice === "MS") {
-          // Moving to unassigned or MS - just add to the list
+        if (targetDevice === "SP0") {
+          // Moving to unassigned - just add to the list
           result.push(updatedMattress);
         } else {
           // Moving to spreader column
@@ -297,7 +295,7 @@ const KanbanBoard = () => {
     // API call using axios instance (respects REACT_APP_BACKEND_SERVER)
     const payload = {
       device: targetDevice,
-      shift: targetShift,
+      shift: targetDevice === "MS" ? "MS" : targetShift, // MS uses special shift value
       day: selectedDay.toLowerCase(),
       operator: username,
       position: targetPosition
@@ -412,8 +410,9 @@ const KanbanBoard = () => {
                       .filter(
                         (m) =>
                           m.device === device &&
-                          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL")
+                          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "99 - ON HOLD" || m.status === "PENDING APPROVAL")
                       )
+                      .sort((a, b) => (a.position || 0) - (b.position || 0)) // Sort by position for proper ordering
               }
               allMattresses={mattresses}
               moveMattress={moveMattress}
@@ -531,7 +530,61 @@ const KanbanColumn = ({ device, mattresses, allMattresses, moveMattress, selecte
   const [{ isOverMS }, dropMS] = useDrop({
     accept: "MATTRESS",
     drop: (item, monitor) => {
-      moveMattress(item.id, "MS", null, null);
+      // Check if drop was already handled by a child (EndDropZone)
+      const dropResult = monitor.getDropResult();
+      if (dropResult && dropResult.handled) {
+        console.log(`🚫 Parent drop handler: Drop already handled by child`);
+        return;
+      }
+
+      console.log(`📍 Parent drop handler (MS): Handling drop`);
+      console.log(`   item.targetPosition: ${item.targetPosition}`);
+      console.log(`   item.fromDevice: ${item.fromDevice}, item.fromShift: ${item.fromShift}`);
+      console.log(`   item.id: ${item.id}`);
+
+      // Check if this is a same-column move
+      const isSameColumn = item.fromDevice === "MS" && item.fromShift === "MS";
+
+      let targetPosition;
+      if (isSameColumn) {
+        if (item.targetPosition !== undefined) {
+          // Same column move with specific target position
+          const originalMattress = allMattresses.find(m => m.id === item.id);
+          const originalPosition = originalMattress ? originalMattress.position : null;
+
+          console.log(`   Same column move - targetPosition: ${item.targetPosition}, originalPosition: ${originalPosition}`);
+
+          if (originalPosition && item.targetPosition === originalPosition) {
+            // This is a same-position drop - don't move
+            console.log(`   Same position drop detected - skipping move`);
+            return;
+          }
+
+          targetPosition = item.targetPosition;
+          console.log(`   Same column move - using targetPosition: ${targetPosition}`);
+        } else {
+          // Same column move but no specific target position (dropping on empty space)
+          console.log(`   Same column move with undefined targetPosition - skipping move (dropping on empty space)`);
+          return;
+        }
+      } else {
+        // Cross-column move - calculate end position like EndDropZone does
+        const currentDay = selectedDay.toLowerCase();
+        const msColumnMattresses = allMattresses.filter(m =>
+          m.device === "MS" &&
+          m.shift === "MS" &&
+          m.day === currentDay &&
+          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "99 - ON HOLD" || m.status === "PENDING APPROVAL")
+        );
+
+        const positions = msColumnMattresses.map(m => m.position || 0);
+        const maxPosition = positions.length > 0 ? Math.max(...positions) : 0;
+        targetPosition = maxPosition + 1;
+
+        console.log(`   Cross-column move - calculated end position: ${targetPosition} (max was ${maxPosition})`);
+      }
+
+      moveMattress(item.id, "MS", "MS", targetPosition);
     },
     collect: (monitor) => ({ isOverMS: !!monitor.isOver() })
   });
@@ -584,8 +637,8 @@ const KanbanColumn = ({ device, mattresses, allMattresses, moveMattress, selecte
             border: (device === "SP0" ? isOverUnassigned : device === "MS" ? isOverMS : isOverFirst) ? "2px dashed #9c27b0" : "2px solid transparent"
           }}
         >
-          {visibleMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={null} device={device} />)}
-          {device !== "SP0" && device !== "MS" && <EndDropZone shift={null} device={device} mattressCount={visibleMattresses.length} moveMattress={moveMattress} mattresses={allMattresses} selectedDay={selectedDay} />}
+          {visibleMattresses.map((m, index) => <KanbanItem key={m.id} mattress={m} index={index} shift={device === "MS" ? "MS" : null} device={device} />)}
+          {device !== "SP0" && <EndDropZone shift={device === "MS" ? "MS" : null} device={device} mattressCount={visibleMattresses.length} moveMattress={moveMattress} mattresses={allMattresses} selectedDay={selectedDay} />}
           {hasMoreMattresses && (
             <Box
               onClick={handleShowMore}
@@ -622,8 +675,8 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
   const { t } = useTranslation();
   const ref = useRef(null);
 
-  // Check if mattress is locked (pending approval or on spread)
-  const isLocked = mattress.status === "PENDING APPROVAL" || mattress.status === "2 - ON SPREAD";
+  // Check if mattress is locked (pending approval, on spread, or on hold)
+  const isLocked = mattress.status === "PENDING APPROVAL" || mattress.status === "2 - ON SPREAD" || mattress.status === "99 - ON HOLD";
 
   const [{ isDragging }, drag] = useDrag({
     type: "MATTRESS",
@@ -735,6 +788,12 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
       {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>{t('common.sizes', 'Sizes')}:</strong> {mattress.sizes}</Box>)}
       <strong>{t('table.consumption')}:</strong> {mattress.consumption} m<br />
       <strong>{t('common.spreadingMethod', 'Spreading Method')}:</strong> {mattress.spreading_method} <br />
+      {mattress.status === "99 - ON HOLD" && (
+        <>
+          <strong style={{ color: '#ff9800' }}>ON HOLD</strong><br />
+          <strong style={{ color: '#ff9800' }}>{(mattress.layers || 0) - (mattress.layers_a || 0)} layers</strong> still to spread<br />
+        </>
+      )}
     </Box>
   );
 
@@ -770,9 +829,9 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           cursor: isLocked ? 'not-allowed' : 'grab',
           transform: isDragging ? 'rotate(5deg) scale(1.05)' : isOver ? 'scale(1.02)' : 'none',
           transition: 'all 0.3s ease',
-          border: isLocked ? (mattress.status === "PENDING APPROVAL" ? '2px solid #ff9800 !important' : '2px solid #2196f3 !important') : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
-          bgcolor: isLocked ? (mattress.status === "PENDING APPROVAL" ? '#fff3e0' : '#e3f2fd') : isOver ? '#f3e5f5' : 'white',
-          boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
+          border: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '2px solid #ff9800 !important' : '2px solid #2196f3 !important') : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
+          bgcolor: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '#fff3e0' : '#e3f2fd') : isOver ? '#f3e5f5' : 'white',
+          boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
           width: '100%',
           height: '90px',
           minHeight: '90px',
@@ -781,7 +840,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           position: 'relative',
           '&:hover': {
             transform: isLocked ? 'none' : isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
-            boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : '0 2px 10px rgba(0,0,0,0.1)'
+            boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : '0 2px 10px rgba(0,0,0,0.1)'
           }
         }}>
       {/* Status icons for locked mattresses */}
@@ -792,7 +851,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           right: 8,
           display: 'flex',
           alignItems: 'center',
-          bgcolor: mattress.status === "PENDING APPROVAL" ? '#ff9800' : '#2196f3',
+          bgcolor: mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '#ff9800' : '#2196f3',
           color: 'white',
           borderRadius: '50%',
           width: 24,
@@ -801,6 +860,8 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
         }}>
           {mattress.status === "PENDING APPROVAL" ? (
             <LockIcon sx={{ fontSize: 14 }} />
+          ) : mattress.status === "99 - ON HOLD" ? (
+            <AccessTimeIcon sx={{ fontSize: 14 }} />
           ) : (
             <ViewStreamIcon sx={{ fontSize: 14 }} />
           )}
@@ -893,7 +954,7 @@ const EndDropZone = ({ shift, device, mattressCount, moveMattress, mattresses, s
         m.shift === shift &&
         m.day === currentDay &&
         m.device !== "SP0" && // Exclude SP0 mattresses (they don't have positions)
-        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL") // Only include active kanban statuses
+        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "99 - ON HOLD" || m.status === "PENDING APPROVAL") // Only include active kanban statuses
       );
 
       // Debug: Show all mattresses that match the basic filter first

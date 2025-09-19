@@ -220,7 +220,7 @@ const SpreaderView = () => {
                     // Filter mattresses assigned to this spreader
                     const filteredMattresses = res.data.data.filter(
                         m => m.device === spreaderDevice &&
-                        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "PENDING APPROVAL")
+                        (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "99 - ON HOLD" || m.status === "PENDING APPROVAL")
                     );
 
                     // Group by shift
@@ -314,7 +314,18 @@ const SpreaderView = () => {
 
     const handleOpenFinishDialog = (mattress) => {
         setSelectedMattress(mattress);
-        setActualLayers(mattress.layers || ''); // Default to planned layers
+
+        // Calculate the recommended layers value
+        let recommendedLayers;
+        if (mattress.layers_a && mattress.layers_a > 0) {
+            // If mattress has already been partially spread, default to remaining layers
+            recommendedLayers = (mattress.layers || 0) - (mattress.layers_a || 0);
+        } else {
+            // If fresh mattress, default to total planned layers
+            recommendedLayers = mattress.layers || '';
+        }
+
+        setActualLayers(recommendedLayers.toString());
         setFinishDialogOpen(true);
     };
 
@@ -373,6 +384,72 @@ const SpreaderView = () => {
                     open: true,
                     message: "Spreading finished successfully",
                     severity: "success"
+                });
+                handleCloseFinishDialog();
+                // Reset active spreading mattress
+                setActiveSpreadingMattress(null);
+                fetchMattresses(false); // Refresh the data in background
+            } else {
+                throw new Error(res.data.message || "Failed to update actual layers");
+            }
+        })
+        .catch((err) => {
+            setSnackbar({
+                open: true,
+                message: "Error: " + (err.message || "Unknown error"),
+                severity: "error"
+            });
+            console.error("API Error:", err);
+        })
+        .finally(() => {
+            setProcessingMattress(null);
+        });
+    };
+
+    const handlePartialComplete = () => {
+        if (!selectedMattress) return;
+
+        // Update activity time
+        updateActivityTime();
+
+        // Validate actual layers input
+        if (!actualLayers || isNaN(actualLayers) || Number(actualLayers) <= 0) {
+            setSnackbar({
+                open: true,
+                message: t('spreader.enterValidLayers'),
+                severity: "error"
+            });
+            return;
+        }
+
+        // Get the selected operator name
+        const selectedOperatorObj = operators.find(op => op.id.toString() === selectedOperator);
+        const operatorName = selectedOperatorObj ? selectedOperatorObj.name : (user?.username || "Unknown");
+
+        setProcessingMattress(selectedMattress.id);
+
+        // Update status to "99 - ON HOLD" to indicate partial completion
+        axios.put(`/mattress/update_status/${selectedMattress.id}`, {
+            status: "99 - ON HOLD",
+            operator: operatorName,
+            device: spreaderDevice
+        })
+        .then((res) => {
+            if (res.data.success) {
+                // Then update the actual layers (layers_a) in mattress_details
+                return axios.put(`/mattress/update_layers_a/${selectedMattress.id}`, {
+                    layers_a: Number(actualLayers)
+                });
+            } else {
+                throw new Error(res.data.message || "Failed to update status");
+            }
+        })
+        .then((res) => {
+            if (res.data.success) {
+                setSnackbar({
+                    open: true,
+                    message: "Mattress marked as partially completed (ON HOLD). Next time only full completion will be available.",
+                    severity: "info"
                 });
                 handleCloseFinishDialog();
                 // Reset active spreading mattress
@@ -640,9 +717,11 @@ const SpreaderView = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 color: mattress.status?.includes('ON SPREAD') ? 'secondary.main' :
-                                       mattress.status === 'PENDING APPROVAL' ? '#ff9800' : 'text.secondary',
+                                       mattress.status === 'PENDING APPROVAL' ? '#ff9800' :
+                                       mattress.status === '99 - ON HOLD' ? '#ff9800' : 'text.secondary',
                                 bgcolor: mattress.status?.includes('ON SPREAD') ? '#f3e5f5' :
-                                         mattress.status === 'PENDING APPROVAL' ? '#fff3e0' : '#ffffff',
+                                         mattress.status === 'PENDING APPROVAL' ? '#fff3e0' :
+                                         mattress.status === '99 - ON HOLD' ? '#fff3e0' : '#ffffff',
                                 px: 1,
                                 py: 1,
                                 borderRadius: 2,
@@ -681,7 +760,10 @@ const SpreaderView = () => {
                             minWidth: 100
                         }}>
                             <Typography variant="h4" color="#9c27b0" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
-                                {mattress.layers || 0} {t('kanban.layers')}
+                                {mattress.layers_a && mattress.layers_a > 0 ?
+                                    `${(mattress.layers || 0) - (mattress.layers_a || 0)} (${mattress.layers || 0})` :
+                                    `${mattress.layers || 0}`
+                                } {t('kanban.layers')}
                             </Typography>
                         </Box>
                     </Box>
@@ -732,37 +814,40 @@ const SpreaderView = () => {
 
                 {/* Action buttons */}
                 {mattress.status === "1 - TO LOAD" && (
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span
-                            onClick={() => {
-                                if (!selectedOperator) {
-                                    setSnackbar({
-                                        open: true,
-                                        message: "Please select an operator before changing width",
-                                        severity: "warning"
-                                    });
-                                    return;
-                                }
-                                if (mattress.status === "PENDING APPROVAL") {
-                                    setSnackbar({
-                                        open: true,
-                                        message: "Cannot change width while approval is pending",
-                                        severity: "warning"
-                                    });
-                                    return;
-                                }
-                                handleOpenWidthChangeDialog(mattress);
-                            }}
-                            title={!selectedOperator ? "Select an operator first" :
-                                   mattress.status === "PENDING APPROVAL" ? "Width change pending approval" : "Change Width"}
-                            style={{
-                                cursor: (!selectedOperator || mattress.status === "PENDING APPROVAL") ? 'not-allowed' : 'pointer',
-                                userSelect: 'none',
-                                opacity: (!selectedOperator || mattress.status === "PENDING APPROVAL") ? 0.5 : 1
-                            }}
-                        >
-                            <IconTool size={20} />
-                        </span>
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: (mattress.marker && mattress.marker.trim() !== '' && (!mattress.layers_a || mattress.layers_a === 0)) ? 'space-between' : 'flex-end', alignItems: 'center', gap: 1 }}>
+                        {/* Only show marker change tool if there's a marker and no layers have been spread yet */}
+                        {mattress.marker && mattress.marker.trim() !== '' && (!mattress.layers_a || mattress.layers_a === 0) && (
+                            <span
+                                onClick={() => {
+                                    if (!selectedOperator) {
+                                        setSnackbar({
+                                            open: true,
+                                            message: "Please select an operator before changing width",
+                                            severity: "warning"
+                                        });
+                                        return;
+                                    }
+                                    if (mattress.status === "PENDING APPROVAL") {
+                                        setSnackbar({
+                                            open: true,
+                                            message: "Cannot change width while approval is pending",
+                                            severity: "warning"
+                                        });
+                                        return;
+                                    }
+                                    handleOpenWidthChangeDialog(mattress);
+                                }}
+                                title={!selectedOperator ? "Select an operator first" :
+                                       mattress.status === "PENDING APPROVAL" ? "Width change pending approval" : "Change Width"}
+                                style={{
+                                    cursor: (!selectedOperator || mattress.status === "PENDING APPROVAL") ? 'not-allowed' : 'pointer',
+                                    userSelect: 'none',
+                                    opacity: (!selectedOperator || mattress.status === "PENDING APPROVAL") ? 0.5 : 1
+                                }}
+                            >
+                                <IconTool size={20} />
+                            </span>
+                        )}
                         <Button
                             variant="contained"
                             color="primary"
@@ -797,6 +882,46 @@ const SpreaderView = () => {
                         <Typography variant="body2" color="warning.main" sx={{ fontStyle: 'italic', fontWeight: 'bold' }}>
                             Width change request pending approval
                         </Typography>
+                    </Box>
+                )}
+                {mattress.status === "99 - ON HOLD" && (
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: (mattress.marker && mattress.marker.trim() !== '' && (!mattress.layers_a || mattress.layers_a === 0)) ? 'space-between' : 'flex-end', alignItems: 'center', gap: 1 }}>
+                        {/* Only show marker change tool if there's a marker and no layers have been spread yet */}
+                        {mattress.marker && mattress.marker.trim() !== '' && (!mattress.layers_a || mattress.layers_a === 0) && (
+                            <span onClick={() => {
+                                if (!selectedOperator) {
+                                    setSnackbar({
+                                        open: true,
+                                        message: "Please select an operator first",
+                                        severity: "warning"
+                                    });
+                                    return;
+                                }
+                                handleOpenWidthChangeDialog(mattress);
+                            }}
+                            title={!selectedOperator ? "Select an operator first" : "Change Width"}
+                            style={{
+                                cursor: !selectedOperator ? 'not-allowed' : 'pointer',
+                                userSelect: 'none',
+                                opacity: !selectedOperator ? 0.5 : 1
+                            }}
+                            >
+                                <IconTool size={20} />
+                            </span>
+                        )}
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            disabled={
+                                processingMattress === mattress.id ||
+                                !selectedOperator ||
+                                activeSpreadingMattress !== null
+                            }
+                            onClick={() => handleStartSpreading(mattress.id)}
+                            title={activeSpreadingMattress ? t('spreader.cannotStartSpreading', { mattress: activeSpreadingMattress.mattress, device: spreaderDevice }) : ""}
+                        >
+                            {processingMattress === mattress.id ? t('spreader.processing') : 'Continue Spreading'}
+                        </Button>
                     </Box>
                 )}
             </Box>
@@ -1075,13 +1200,22 @@ const SpreaderView = () => {
                         {selectedMattress && (
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
                                 <strong>{t('spreader.mattressInfo')}:</strong> {selectedMattress.mattress}<br />
-                                <strong>{t('spreader.plannedLayers')}:</strong> {selectedMattress.layers}<br />
-                                <strong>{t('spreader.plannedConsumption')}:</strong> {selectedMattress.consumption} m<br />
+                                <strong>{t('spreader.plannedLayers')}:</strong> {selectedMattress.layers}
+                                {selectedMattress.layers_a && selectedMattress.layers_a > 0 &&
+                                    ` (${selectedMattress.layers_a} already confirmed)`
+                                }<br />
+                                <strong>{t('spreader.plannedConsumption')}:</strong> {
+                                    selectedMattress.layers_a && selectedMattress.layers_a > 0 ?
+                                    `${selectedMattress.consumption} m (${((selectedMattress.consumption / selectedMattress.layers) * (selectedMattress.layers - selectedMattress.layers_a)).toFixed(2)} m + ${((selectedMattress.consumption / selectedMattress.layers) * selectedMattress.layers_a).toFixed(2)} m already confirmed)` :
+                                    `${selectedMattress.consumption} m`
+                                }<br />
                                 <strong>{t('spreader.estimatedActualConsumption')}:</strong> {
                                     actualLayers && selectedMattress.consumption && selectedMattress.layers ?
-                                    ((selectedMattress.consumption / selectedMattress.layers) * Number(actualLayers)).toFixed(2) :
-                                    '0.00'
-                                } m
+                                    selectedMattress.layers_a && selectedMattress.layers_a > 0 ?
+                                    `${(((selectedMattress.consumption / selectedMattress.layers) * Number(actualLayers)) + ((selectedMattress.consumption / selectedMattress.layers) * selectedMattress.layers_a)).toFixed(2)} m (${((selectedMattress.consumption / selectedMattress.layers) * Number(actualLayers)).toFixed(2)} m + ${((selectedMattress.consumption / selectedMattress.layers) * selectedMattress.layers_a).toFixed(2)} m already confirmed)` :
+                                    `${((selectedMattress.consumption / selectedMattress.layers) * Number(actualLayers)).toFixed(2)} m` :
+                                    '0.00 m'
+                                }
                             </Typography>
                         )}
                     </Box>
@@ -1123,16 +1257,39 @@ const SpreaderView = () => {
                         ▼
                     </Button>
                 </Box>
-                <DialogActions>
-                    <Button onClick={handleCloseFinishDialog}>{t('common.cancel')}</Button>
-                    <Button
-                        onClick={handleFinishSpreading}
-                        variant="contained"
-                        color="secondary"
-                        disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
-                    >
-                        {processingMattress === (selectedMattress?.id) ? t('spreader.processing') : t('common.confirm')}
-                    </Button>
+                <DialogActions sx={{ justifyContent: 'space-between' }}>
+                    {/* Left side - Partial Complete (only if not already partially completed and not declaring all remaining layers) */}
+                    <Box>
+                        {(() => {
+                            const alreadyPartiallyCompleted = selectedMattress?.layers_a && selectedMattress?.layers_a > 0;
+                            const remainingLayers = (selectedMattress?.layers || 0) - (selectedMattress?.layers_a || 0);
+                            const declaringAllRemaining = actualLayers && Number(actualLayers) >= remainingLayers;
+
+                            return !alreadyPartiallyCompleted && actualLayers && !declaringAllRemaining;
+                        })() && (
+                            <Button
+                                onClick={handlePartialComplete}
+                                variant="contained"
+                                color="warning"
+                                disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
+                            >
+                                {processingMattress === (selectedMattress?.id) ? t('spreader.processing') : 'Partial Complete'}
+                            </Button>
+                        )}
+                    </Box>
+
+                    {/* Right side - Cancel and Complete */}
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button onClick={handleCloseFinishDialog}>{t('common.cancel')}</Button>
+                        <Button
+                            onClick={handleFinishSpreading}
+                            variant="contained"
+                            color="secondary"
+                            disabled={!actualLayers || processingMattress === (selectedMattress?.id)}
+                        >
+                            {processingMattress === (selectedMattress?.id) ? t('spreader.processing') : t('common.confirm')}
+                        </Button>
+                    </Box>
                 </DialogActions>
             </Dialog>
 

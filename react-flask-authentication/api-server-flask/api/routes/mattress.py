@@ -762,7 +762,7 @@ class GetKanbanMattressesResource(Resource):
              .outerjoin(MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id) \
              .outerjoin(ProductionCenter, Mattresses.order_commessa == ProductionCenter.order_commessa) \
              .filter(MattressPhase.active == True) \
-             .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "3 - TO CUT", "4 - ON CUT"])) \
+             .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "99 - ON HOLD", "3 - TO CUT", "4 - ON CUT"])) \
              .filter(MattressDetail.bagno_ready == True) \
              .filter(MattressProductionCenter.cutting_room == 'ZALLI')  # Only show mattresses with cutting room ZALLI
 
@@ -772,10 +772,10 @@ class GetKanbanMattressesResource(Resource):
                         db.or_(
                             # Assigned to that day
                             MattressKanban.day == day_filter,
-                            # OR unassigned AND still in status 0
+                            # OR unassigned AND still in status 0 or ON HOLD
                             db.and_(
                                 MattressKanban.day.is_(None),
-                                MattressPhase.status == "0 - NOT SET"
+                                MattressPhase.status.in_(["0 - NOT SET", "99 - ON HOLD"])
                             )
                         )
                     )
@@ -1073,75 +1073,85 @@ class MoveMattressResource(Resource):
         target_position = data.get('position')
         operator = data.get('operator', 'Unknown')
 
+        print(f"🎯 MOVE_MATTRESS API CALLED:")
+        print(f"   Mattress ID: {mattress_id}")
+        print(f"   Target Device: {target_device}")
+        print(f"   Target Day: {target_day}")
+        print(f"   Target Shift: {target_shift}")
+        print(f"   Target Position: {target_position}")
+        print(f"   Operator: {operator}")
+
         if not target_device:
             return {"success": False, "message": "Device is required"}, 400
 
         try:
-            # Start transaction
-            with db.session.begin():
-                # Get mattress info to check spreading method
-                mattress = db.session.query(Mattresses).filter_by(id=mattress_id).first()
-                if not mattress:
-                    return {"success": False, "message": "Mattress not found"}, 404
+            # Get mattress info to check spreading method
+            mattress = db.session.query(Mattresses).filter_by(id=mattress_id).first()
+            if not mattress:
+                return {"success": False, "message": "Mattress not found"}, 404
 
-                # MS (Manual Spreading) validation rules
+            # MS (Manual Spreading) validation rules
+            # Allow both AUTOMATIC and MANUAL mattresses to go to MS device
+            # No restriction needed for MS device
+            if target_device in ["SP1", "SP2", "SP3"]:
+                # Rule: MS mattresses cannot be placed on automatic spreaders
+                if mattress.spreading_method == "MANUAL":
+                    return {"success": False, "message": "Manual Spreading (MS) mattresses cannot be assigned to automatic spreader devices. Use MS device instead."}, 400
+
+            # Get mattress phases
+            all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
+            if not all_phases:
+                return {"success": False, "message": "Mattress phases not found"}, 404
+
+            # Get current kanban entry
+            current_kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
+
+            # Step 1: Handle phase updates
+            for phase in all_phases:
+                phase.active = False
+
+            if target_device == "SP0":
+                # Moving to unassigned
+                not_set_phase = next((p for p in all_phases if p.status == "0 - NOT SET"), None)
+                if not_set_phase:
+                    not_set_phase.active = True
+                    not_set_phase.device = "SP0"
+                    not_set_phase.operator = operator
+
+                # Remove from kanban completely
+                if current_kanban:
+                    self._remove_from_kanban(current_kanban)
+                    db.session.delete(current_kanban)
+
+            else:
+                # Moving to spreader device
+                to_load_phase = next((p for p in all_phases if p.status == "1 - TO LOAD"), None)
+                if to_load_phase:
+                    to_load_phase.active = True
+                    to_load_phase.device = target_device
+                    to_load_phase.operator = operator
+
+                # Handle kanban entry - MS device uses a default shift
                 if target_device == "MS":
-                    # Rule: Only MS mattresses can be placed on MS device
-                    if mattress.spreading_method != "MANUAL":
-                        return {"success": False, "message": "Only Manual Spreading (MS) mattresses can be assigned to MS device"}, 400
-                elif target_device in ["SP1", "SP2", "SP3"]:
-                    # Rule: MS mattresses cannot be placed on automatic spreaders
-                    if mattress.spreading_method == "MANUAL":
-                        return {"success": False, "message": "Manual Spreading (MS) mattresses cannot be assigned to automatic spreader devices. Use MS device instead."}, 400
+                    target_shift = "MS"  # MS uses a special shift value instead of NULL
 
-                # Get mattress phases
-                all_phases = db.session.query(MattressPhase).filter_by(mattress_id=mattress_id).all()
-                if not all_phases:
-                    return {"success": False, "message": "Mattress phases not found"}, 404
-
-                # Get current kanban entry
-                current_kanban = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
-
-                # Step 1: Handle phase updates
-                for phase in all_phases:
-                    phase.active = False
-
-                if target_device == "SP0":
-                    # Moving to unassigned
-                    not_set_phase = next((p for p in all_phases if p.status == "0 - NOT SET"), None)
-                    if not_set_phase:
-                        not_set_phase.active = True
-                        not_set_phase.device = "SP0"
-                        not_set_phase.operator = operator
-
-                    # Remove from kanban completely
-                    if current_kanban:
-                        self._remove_from_kanban(current_kanban)
-                        db.session.delete(current_kanban)
-
+                if current_kanban:
+                    # Update existing kanban entry
+                    self._move_existing_kanban(current_kanban, target_day, target_shift, target_position)
                 else:
-                    # Moving to spreader device
-                    to_load_phase = next((p for p in all_phases if p.status == "1 - TO LOAD"), None)
-                    if to_load_phase:
-                        to_load_phase.active = True
-                        to_load_phase.device = target_device
-                        to_load_phase.operator = operator
+                    # Create new kanban entry
+                    self._create_new_kanban(mattress_id, target_day, target_shift, target_position)
 
-                    # Handle kanban entry - MS device doesn't use shifts
-                    if target_device == "MS":
-                        target_shift = None  # MS doesn't use shifts
-
-                    if current_kanban:
-                        # Update existing kanban entry
-                        self._move_existing_kanban(current_kanban, target_day, target_shift, target_position)
-                    else:
-                        # Create new kanban entry
-                        self._create_new_kanban(mattress_id, target_day, target_shift, target_position)
-
+            # Commit the changes
+            db.session.commit()
             return {"success": True, "message": "Mattress moved successfully"}, 200
 
         except Exception as e:
             db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            print(f"Error in move_mattress: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "message": f"Error: {str(e)}"}, 500
 
     def _remove_from_kanban(self, kanban_entry):
@@ -1241,9 +1251,9 @@ class MoveMattressResource(Resource):
         if not moved_item_inserted:
             new_order.append(kanban_entry)
 
-        # Update all positions
+        # Update all positions (start from 1, not 0)
         for i, item in enumerate(new_order):
-            item.position = i
+            item.position = i + 1
 
 
 
@@ -1303,7 +1313,7 @@ class CleanupKanbanResource(Resource):
                     print(f"Orphaned: Mattress {kanban.mattress_id} should be in SP0 (device: {active_phase.device}, status: {active_phase.status})")
                     db.session.delete(kanban)
                     orphaned_count += 1
-                elif active_phase.status not in ["1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+                elif active_phase.status not in ["1 - TO LOAD", "2 - ON SPREAD", "99 - ON HOLD", "PENDING APPROVAL"]:
                     print(f"Orphaned: Mattress {kanban.mattress_id} has inactive status: {active_phase.status}")
                     db.session.delete(kanban)
                     orphaned_count += 1
@@ -1359,7 +1369,7 @@ class CleanupKanbanResource(Resource):
                 MattressPhase, MattressKanban.mattress_id == MattressPhase.mattress_id
             ).filter(
                 MattressPhase.active == True,
-                ~MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"])
+                ~MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "99 - ON HOLD", "PENDING APPROVAL"])
             ).all()
 
             deleted_count = 0
@@ -1715,16 +1725,16 @@ class ApproveMattressesResource(Resource):
                 if ms_phase:
                     ms_phase.device = "MS"
 
-                    # Create kanban entry for MS device (no shift needed)
+                    # Create kanban entry for MS device (uses MS shift)
                     max_position = db.session.query(db.func.max(MattressKanban.position)).filter(
                         MattressKanban.day == 'today',
-                        MattressKanban.shift.is_(None)  # MS doesn't use shifts
+                        MattressKanban.shift == 'MS'  # MS uses special shift value
                     ).scalar() or 0
 
                     new_kanban = MattressKanban(
                         mattress_id=mattress.id,
                         day='today',
-                        shift=None,  # MS doesn't use shifts
+                        shift='MS',  # MS uses special shift value
                         position=max_position + 1
                     )
                     db.session.add(new_kanban)
@@ -1942,11 +1952,23 @@ class UpdateMattressStatusResource(Resource):
                     current_device = next((p.device for p in all_phases if p.device), None)
                     if current_device:
                         target_phase.device = current_device
+            elif new_status == "99 - ON HOLD":
+                # Dynamically create the "99 - ON HOLD" phase if it doesn't exist
+                print(f"Creating new '99 - ON HOLD' phase for mattress {mattress_id}")
+                new_hold_phase = MattressPhase(
+                    mattress_id=mattress_id,
+                    status="99 - ON HOLD",
+                    active=True,
+                    operator=operator,
+                    device=device or next((p.device for p in all_phases if p.device), None)
+                )
+                db.session.add(new_hold_phase)
+                target_phase = new_hold_phase
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
 
             # AUTO-CLEANUP: Remove from kanban if advancing beyond kanban phases
-            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "99 - ON HOLD", "PENDING APPROVAL"]:
                 kanban_entry = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
                 if kanban_entry:
                     print(f"Auto-removing mattress {mattress_id} from kanban (advanced to {new_status})")
@@ -2110,11 +2132,23 @@ class UpdateStatusAndLayersResource(Resource):
                     current_device = next((p.device for p in all_phases if p.device), None)
                     if current_device:
                         target_phase.device = current_device
+            elif new_status == "99 - ON HOLD":
+                # Dynamically create the "99 - ON HOLD" phase if it doesn't exist
+                print(f"Creating new '99 - ON HOLD' phase for mattress {mattress_id}")
+                new_hold_phase = MattressPhase(
+                    mattress_id=mattress_id,
+                    status="99 - ON HOLD",
+                    active=True,
+                    operator=operator,
+                    device=device or next((p.device for p in all_phases if p.device), None)
+                )
+                db.session.add(new_hold_phase)
+                target_phase = new_hold_phase
             else:
                 return {"success": False, "message": f"Phase with status '{new_status}' not found"}, 404
 
             # AUTO-CLEANUP: Remove from kanban if advancing beyond kanban phases
-            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "PENDING APPROVAL"]:
+            if new_status not in ["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "99 - ON HOLD", "PENDING APPROVAL"]:
                 kanban_entry = db.session.query(MattressKanban).filter_by(mattress_id=mattress_id).first()
                 if kanban_entry:
                     print(f"Auto-removing mattress {mattress_id} from kanban (advanced to {new_status})")
@@ -2165,17 +2199,19 @@ class UpdateLayersAResource(Resource):
             if not mattress_detail:
                 return {"success": False, "message": "Mattress detail not found"}, 404
 
-            # Update the layers_a field
-            mattress_detail.layers_a = layers_a
+            # Update the layers_a field - add to existing value for cumulative total
+            current_layers_a = mattress_detail.layers_a or 0
+            new_total_layers_a = current_layers_a + float(layers_a)
+            mattress_detail.layers_a = new_total_layers_a
 
             # Calculate cons_actual using the same formula as cons_planned
             # If layers is not zero, calculate based on the ratio of cons_planned to layers
             if mattress_detail.layers > 0:
-                # cons_actual = (cons_planned / layers) * layers_a
-                mattress_detail.cons_actual = (mattress_detail.cons_planned / mattress_detail.layers) * float(layers_a)
+                # cons_actual = (cons_planned / layers) * total_layers_a
+                mattress_detail.cons_actual = (mattress_detail.cons_planned / mattress_detail.layers) * new_total_layers_a
             else:
                 # Fallback to direct calculation if layers is zero
-                mattress_detail.cons_actual = mattress_detail.length_mattress * float(layers_a)
+                mattress_detail.cons_actual = mattress_detail.length_mattress * new_total_layers_a
 
             db.session.commit()
 

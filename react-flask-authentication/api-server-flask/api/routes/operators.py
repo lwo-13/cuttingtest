@@ -148,23 +148,18 @@ class ActiveOperatorsResource(Resource):
         """Get all active operators, optionally filtered by type"""
         try:
             operator_type = request.args.get('type')  # Optional filter by type
-            print(f"🔍 ActiveOperators API called with type: {operator_type}")
 
             query = Operator.query.filter_by(active=True)
-            print(f"🔍 Base query created for active operators")
 
             if operator_type:
                 query = query.filter_by(operator_type=operator_type.lower())
-                print(f"🔍 Filtered by operator_type: {operator_type.upper()}")
 
             operators = query.all()
-            print(f"🔍 Found {len(operators)} operators")
 
             result_data = []
             for op in operators:
                 op_dict = op.to_dict()
                 result_data.append(op_dict)
-                print(f"🔍 Operator: {op_dict}")
 
             return {"success": True, "data": result_data}, 200
         except Exception as e:

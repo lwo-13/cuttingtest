@@ -94,8 +94,9 @@ const handleOrderChange = async (newValue, context) => {
 
   try {
     // First, load all basic data in parallel
-    const [mattressRes, markerRes, alongRes, weftRes, biasRes, commentRes] = await Promise.all([
+    const [mattressRes, adhesiveRes, markerRes, alongRes, weftRes, biasRes, commentRes] = await Promise.all([
       axios.get(`/mattress/get_by_order/${newValue.id}`),
+      axios.get(`/mattress/get_adhesive_by_order/${newValue.id}`),
       axios.get(`/markers/marker_headers_planning`, {
         params: {
           style: newValue.style,
@@ -114,6 +115,7 @@ const handleOrderChange = async (newValue, context) => {
       return acc;
     }, {});
 
+    // Process mattress tables
     const tablesById = {};
     for (const mattress of mattressRes.data?.data || []) {
       const tableId = mattress.table_id;
@@ -154,16 +156,54 @@ const handleOrderChange = async (newValue, context) => {
     }
     Object.values(tablesById).forEach(table => table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber));
 
-    // Separate mattress and adhesive tables based on item_type
-    const mattressTables = Object.values(tablesById).filter(table =>
-      table.rows.some(row => row.mattressName && (row.mattressName.includes('-AS-') || row.mattressName.includes('-MS-')))
-    );
-    const adhesiveTables = Object.values(tablesById).filter(table =>
-      table.rows.some(row => row.mattressName && (row.mattressName.includes('-ASA-') || row.mattressName.includes('-MSA-')))
+    setTables(Object.values(tablesById));
+
+    // Process adhesive tables
+    const adhesiveTablesById = {};
+    for (const adhesive of adhesiveRes.data?.data || []) {
+      const tableId = adhesive.table_id;
+      if (!adhesiveTablesById[tableId]) {
+        adhesiveTablesById[tableId] = {
+          id: tableId,
+          // Production center fields
+          productionCenter: adhesive.production_center || "",
+          cuttingRoom: adhesive.cutting_room || "",
+          destination: adhesive.destination || "",
+          fabricType: adhesive.fabric_type,
+          fabricCode: adhesive.fabric_code,
+          fabricColor: adhesive.fabric_color,
+          spreadingMethod: adhesive.spreading_method,
+          allowance: parseFloat(adhesive.allowance) || 0,
+          spreading: adhesive.item_type === "MSA" ? "MANUAL" : "AUTOMATIC",
+          rows: []
+        };
+      }
+      // Use marker data directly from mattress_markers and mattress_sizes tables
+      adhesiveTablesById[tableId].rows.push({
+        id: adhesive.row_id,
+        mattressName: adhesive.mattress, // Add mattress name for adhesive ID display
+        width: adhesive.marker_width || "",  // From mattress_markers table
+        markerName: adhesive.marker_name,    // From mattress_markers table
+        markerLength: adhesive.marker_length || "",  // From mattress_markers table
+        efficiency: adhesive.efficiency || "",  // From mattress_markers table
+        piecesPerSize: adhesive.size_quantities || {},  // From mattress_sizes table
+        layers: adhesive.layers || "",
+        expectedConsumption: adhesive.cons_planned || "", // Planned consumption from DB
+        layers_a: adhesive.layers_a || "",
+        layers_updated_at: adhesive.layers_updated_at || "", // Updated at timestamp for actual layers
+        cons_actual: adhesive.cons_actual || "",
+        cons_real: adhesive.cons_real || "",
+        bagno: adhesive.dye_lot,
+        status: adhesive.bagno_ready ? "ready" : "not_ready", // Load status from bagno_ready field
+        isEditable: adhesive.phase_status === "0 - NOT SET",
+        sequenceNumber: adhesive.sequence_number || 0
+      });
+    }
+    Object.values(adhesiveTablesById).forEach(table =>
+      table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
     );
 
-    setTables(mattressTables);
-    setAdhesiveTables(adhesiveTables);
+    setAdhesiveTables(Object.values(adhesiveTablesById));
 
     const alongTablesById = {};
     for (const along of alongRes.data?.data || []) {
