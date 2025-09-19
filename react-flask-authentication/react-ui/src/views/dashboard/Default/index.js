@@ -14,6 +14,7 @@ import TotalIncomeDarkCard from './TotalIncomeDarkCard';
 import TotalIncomeLightCard from './TotalIncomeLightCard';
 import TotalGrowthBarChart from './TotalGrowthBarChart';
 import TotalMetersSpreadedChart from './TotalMetersSpreadedChart';
+import TotalPiecesSpreadedChart from './TotalPiecesSpreadedChart';
 import { gridSpacing } from './../../../store/constant';
 
 // dashboard components
@@ -75,7 +76,11 @@ const Dashboard = () => {
             <Grid item xs={12}>
                 <Grid container spacing={gridSpacing}>
                     <Grid item xs={12} md={8}>
-                        <TotalMetersSpreadedChart isLoading={isLoading} selectedPeriod={selectedPeriod} />
+                        <TotalMetersSpreadedChart
+                            isLoading={isLoading}
+                            selectedPeriod={selectedPeriod}
+                            onPeriodChange={handlePeriodChange}
+                        />
                     </Grid>
                     <Grid item xs={12} md={4}>
                         <CryptoCard isLoading={isLoading} />
@@ -85,6 +90,22 @@ const Dashboard = () => {
                     {/*<Grid item xs={12} md={4}>
                         <PopularCard isLoading={isLoading} />
                     </Grid>*/}
+                </Grid>
+            </Grid>
+
+            {/* Total Pieces Spreaded Chart */}
+            <Grid item xs={12}>
+                <Grid container spacing={gridSpacing}>
+                    <Grid item xs={12} md={8}>
+                        <TotalPiecesSpreadedChart
+                            isLoading={isLoading}
+                            selectedPeriod={selectedPeriod}
+                            onPeriodChange={handlePeriodChange}
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                        <CryptoCard isLoading={isLoading} />
+                    </Grid>
                 </Grid>
             </Grid>
 

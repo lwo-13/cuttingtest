@@ -77,12 +77,7 @@ const chartData = {
             }
         }
     },
-    series: [
-        {
-            name: 'Meters Spreaded',
-            data: [350, 1250, 350, 350, 350, 800, 350, 200, 350, 450, 150, 750]
-        }
-    ]
+    series: []
 };
 
 export default chartData;

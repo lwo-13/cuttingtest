@@ -176,6 +176,31 @@ export const COMBINATION_KEYS = {
   [`${CUTTING_ROOMS.RILA_TEXTILE}+${DESTINATIONS.RILA_TEXTILE}`]: 'RT'
 };
 
+// Cutting Room Color Configuration
+export const CUTTING_ROOM_COLORS = {
+  [CUTTING_ROOMS.ZALLI]: '#1976d2',        // Strong blue (primary)
+  [CUTTING_ROOMS.VERONA]: '#0d47a1',       // Darker blue (different from ZALLI)
+  [CUTTING_ROOMS.DELICIA]: '#9c27b0',      // Purple
+  [CUTTING_ROOMS.HADJIOLI]: '#424242',     // Dark grey
+  [CUTTING_ROOMS.SINA_STYLE_L]: '#f44336', // Red
+  [CUTTING_ROOMS.TEXCONS]: '#e91e63',      // Pink
+  [CUTTING_ROOMS.VEGATEX]: '#4caf50',      // Green
+  [CUTTING_ROOMS.ZEYNTEX]: '#00bcd4',      // Cyan
+  [CUTTING_ROOMS.SINA_STYLE_D]: '#ff9800', // Orange
+  [CUTTING_ROOMS.VAIDE_MOLA]: '#9e9e9e',   // Light grey
+  [CUTTING_ROOMS.YUMER]: '#795548',        // Brown
+  [CUTTING_ROOMS.RILA_TEXTILE]: '#607d8b'  // Blue grey
+};
+
+/**
+ * Get the color for a cutting room
+ * @param {string} cuttingRoom - The cutting room name
+ * @returns {string} The hex color code for the cutting room
+ */
+export const getCuttingRoomColor = (cuttingRoom) => {
+  return CUTTING_ROOM_COLORS[cuttingRoom] || '#9e9e9e'; // Default grey if not found
+};
+
 // Utility Functions
 
 /**

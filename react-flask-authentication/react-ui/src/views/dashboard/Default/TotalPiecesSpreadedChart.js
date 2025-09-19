@@ -37,15 +37,22 @@ const status = [
     }
 ];
 
-//-----------------------|| DASHBOARD DEFAULT - TOTAL METERS SPREADED BAR CHART ||-----------------------//
+//-----------------------|| DASHBOARD DEFAULT - TOTAL PIECES SPREADED BAR CHART ||-----------------------//
 
-const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange }) => {
+const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange }) => {
     const [value, setValue] = useState(selectedPeriod || 'today');
     const [cuttingRoom, setCuttingRoom] = useState('ALL');
     const [cuttingRooms, setCuttingRooms] = useState([]);
-    const [totalMeters, setTotalMeters] = useState(0);
+    const [totalPieces, setTotalPieces] = useState(0);
     const [chartDataState, setChartDataState] = useState({
         ...chartData,
+        options: {
+            ...chartData.options,
+            chart: {
+                ...chartData.options.chart,
+                id: 'pieces-bar-chart' // Unique ID for pieces chart
+            }
+        },
         series: [] // Start with empty series to avoid showing placeholder data
     });
     const theme = useTheme();
@@ -88,16 +95,16 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
         // Only fetch data if cutting rooms are loaded
         if (cuttingRooms.length === 0) return;
 
-        const fetchMetersData = async () => {
+        const fetchPiecesData = async () => {
             try {
-                const response = await axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${cuttingRoom}&_t=${Date.now()}`);
+                const response = await axios.get(`/dashboard/pieces-spreaded?period=${value}&cutting_room=${cuttingRoom}&_t=${Date.now()}`);
                 if (response.data.success) {
-                    setTotalMeters(response.data.data.total_meters || 0);
+                    setTotalPieces(response.data.data.total_pieces || 0);
 
                     // Debug: Log API response
                     console.log('API Response for period:', value, 'cutting_room:', cuttingRoom);
                     console.log('Chart data from API:', response.data.data.chart_data);
-                    console.log('Total meters:', response.data.data.total_meters);
+                    console.log('Total pieces:', response.data.data.total_pieces);
 
                     // Define x-axis categories based on period
                     let categories = [];
@@ -221,9 +228,9 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
                     }
                 }
             } catch (error) {
-                console.error('Error fetching meters data:', error);
+                console.error('Error fetching pieces data:', error);
                 // Clear chart data on error
-                setTotalMeters(0);
+                setTotalPieces(0);
                 setChartDataState(prev => ({
                     ...prev,
                     series: []
@@ -231,7 +238,7 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
             }
         };
 
-        fetchMetersData();
+        fetchPiecesData();
     }, [value, cuttingRoom, cuttingRooms]);
 
     // Update chart styling (without colors, as colors are handled in data fetch)
@@ -266,7 +273,7 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
                 theme: 'light',
                 y: {
                     formatter: function (val) {
-                        return Math.round(val).toLocaleString() + " meters";
+                        return Math.round(val).toLocaleString() + " pieces";
                     }
                 }
             },
@@ -282,12 +289,12 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
 
         // do not load chart when loading
         if (!isLoading) {
-            ApexCharts.exec(`meters-bar-chart`, 'updateOptions', newChartData);
+            ApexCharts.exec(`pieces-bar-chart`, 'updateOptions', newChartData);
         }
     }, [primary, grey200, isLoading, grey500, chartDataState]);
 
     return (
-        <React.Fragment>
+        <>
             {isLoading ? (
                 <SkeletonTotalGrowthBarChart />
             ) : (
@@ -298,15 +305,15 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
                                 <Grid item>
                                     <Grid container direction="column" spacing={1}>
                                         <Grid item>
-                                            <Typography variant="subtitle2">Total Meters Completed</Typography>
+                                            <Typography variant="subtitle2">Total Pieces Completed</Typography>
                                         </Grid>
                                         <Grid item>
-                                            <Typography variant="h3">{Math.round(totalMeters).toLocaleString()} m</Typography>
+                                            <Typography variant="h3">{totalPieces.toLocaleString()}</Typography>
                                         </Grid>
                                     </Grid>
                                 </Grid>
                                 <Grid item>
-                                    <Grid container spacing={1}>
+                                    <Grid container alignItems="center" justifyContent="space-between" spacing={1}>
                                         <Grid item>
                                             <TextField
                                                 id="standard-select-cutting-room"
@@ -356,12 +363,14 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
                     </Grid>
                 </MainCard>
             )}
-        </React.Fragment>
+        </>
     );
 };
 
-TotalMetersSpreadedChart.propTypes = {
-    isLoading: PropTypes.bool
+TotalPiecesSpreadedChart.propTypes = {
+    isLoading: PropTypes.bool,
+    selectedPeriod: PropTypes.string,
+    onPeriodChange: PropTypes.func
 };
 
-export default TotalMetersSpreadedChart;
+export default TotalPiecesSpreadedChart;

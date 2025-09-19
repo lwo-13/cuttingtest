@@ -548,6 +548,12 @@ class SaveActualLayersResource(Resource):
 
                     mattress_detail.updated_at = db.func.current_timestamp()
 
+                # Update pcs_actual in mattress_sizes table
+                mattress_sizes = MattressSize.query.filter_by(mattress_id=mattress.id).all()
+                for size_record in mattress_sizes:
+                    size_record.pcs_actual = size_record.pcs_layer * layers_a
+                    size_record.updated_at = db.func.current_timestamp()
+
                 # Update mattress phase: set current active phase to FALSE and create/update "5 - COMPLETED" to TRUE
                 # First, set all current active phases to FALSE
                 current_active_phases = MattressPhase.query.filter_by(mattress_id=mattress.id, active=True).all()
@@ -2170,6 +2176,12 @@ class UpdateStatusAndLayersResource(Resource):
                 # Fallback to direct calculation if layers is zero
                 mattress_detail.cons_actual = mattress_detail.length_mattress * float(layers_a)
 
+            # Update pcs_actual in mattress_sizes table
+            mattress_sizes = MattressSize.query.filter_by(mattress_id=mattress_id).all()
+            for size_record in mattress_sizes:
+                size_record.pcs_actual = size_record.pcs_layer * float(layers_a)
+                size_record.updated_at = db.func.current_timestamp()
+
             db.session.commit()
             return {"success": True, "message": f"Status updated to '{new_status}' and layers_a updated to {layers_a}"}, 200
 
@@ -2212,6 +2224,12 @@ class UpdateLayersAResource(Resource):
             else:
                 # Fallback to direct calculation if layers is zero
                 mattress_detail.cons_actual = mattress_detail.length_mattress * new_total_layers_a
+
+            # Update pcs_actual in mattress_sizes table
+            mattress_sizes = MattressSize.query.filter_by(mattress_id=mattress_id).all()
+            for size_record in mattress_sizes:
+                size_record.pcs_actual = size_record.pcs_layer * new_total_layers_a
+                size_record.updated_at = db.func.current_timestamp()
 
             db.session.commit()
 
