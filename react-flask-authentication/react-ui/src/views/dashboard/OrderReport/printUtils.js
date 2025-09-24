@@ -64,9 +64,14 @@ export const useOrderReportPrintStyles = () => {
           print-color-adjust: exact !important;
         }
 
-        /* HIDE CONSUMPTION SUMMARIES IN ORDER REPORT */
+        /* SHOW CONSUMPTION SUMMARIES IN ORDER REPORT */
         .consumption-summary {
-          display: none !important;
+          display: flex !important;
+          gap: 8px !important;
+          font-weight: bold !important;
+          -webkit-print-color-adjust: exact !important;
+          color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
 
         /* HIDE ORDER QUANTITIES WHEN MULTIPLE DESTINATIONS EXIST */
