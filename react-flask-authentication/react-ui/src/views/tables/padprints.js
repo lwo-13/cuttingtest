@@ -663,8 +663,13 @@ const PadPrints = () => {
 
       if (!Array.isArray(data)) throw new Error("Unexpected response format");
 
+      const normalizeBrandForFilter = (b) => {
+        const up = (b || '').toUpperCase().trim();
+        return up === 'INTIMISSIMI UOMO' ? 'INTIMISSIMI' : up;
+      };
+
       const filteredByBrand = brand
-        ? data.filter((item) => item.brand?.toUpperCase() === brand.toUpperCase())
+        ? data.filter((item) => normalizeBrandForFilter(item.brand) === normalizeBrandForFilter(brand))
         : data;
 
       setPadPrints(filteredByBrand);
