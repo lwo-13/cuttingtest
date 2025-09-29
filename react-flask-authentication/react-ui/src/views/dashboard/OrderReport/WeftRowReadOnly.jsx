@@ -29,22 +29,7 @@ const WeftRowReadOnly = ({ row }) => {
 
       {/* Pieces */}
       <TableCell sx={{ minWidth: '60px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
-        <TextField
-          variant="outlined"
-          value={row.pieces || ""}
-          InputProps={{ readOnly: true }}
-          sx={{
-            width: '100%',
-            minWidth: '60px',
-            maxWidth: '80px',
-            textAlign: 'center',
-            "& input": { textAlign: 'center', fontWeight: 'normal' },
-            "& .MuiOutlinedInput-root": {
-              borderRadius: '8px',
-              backgroundColor: '#f5f5f5'
-            }
-          }}
-        />
+        <Typography sx={{ fontWeight: 'normal' }}>{row.pieces || ""}</Typography>
       </TableCell>
 
       {/* Usable Width */}

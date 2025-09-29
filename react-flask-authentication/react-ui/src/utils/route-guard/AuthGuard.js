@@ -52,8 +52,18 @@ const AuthGuard = ({ children }) => {
     }
 
     if (user && user.role === 'Logistic') {
-        // If Logistic is trying to access a non-logistic page, redirect to logistic view
-        if (!location.pathname.startsWith('/logistic')) {
+        // Allow logistic users to access their specific pages
+        const allowedLogisticPaths = [
+            '/logistic',
+            '/collaretto-ops'
+        ];
+
+        const isAllowedPath = allowedLogisticPaths.some(path =>
+            location.pathname.startsWith(path)
+        );
+
+        // If Logistic is trying to access a non-allowed page, redirect to logistic view
+        if (!isAllowedPath) {
             return <Redirect to="/logistic/view" />;
         }
     }

@@ -74,13 +74,13 @@ const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
             <BrowserView>
                 <PerfectScrollbar component="div" className={classes.ScrollHeight}>
                     <MenuList />
-                    {userRole !== 'Subcontractor' && <MenuCard />}
+                    {!['Subcontractor', 'Logistic'].includes(userRole) && <MenuCard />}
                 </PerfectScrollbar>
             </BrowserView>
             <MobileView>
                 <Box sx={{ px: 2 }}>
                     <MenuList />
-                    {userRole !== 'Subcontractor' && <MenuCard />}
+                    {!['Subcontractor', 'Logistic'].includes(userRole) && <MenuCard />}
                 </Box>
             </MobileView>
         </React.Fragment>

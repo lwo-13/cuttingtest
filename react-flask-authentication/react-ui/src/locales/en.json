@@ -283,7 +283,9 @@
     "numberOfRollsShort": "N° Rolls",
     "collarettoId": "Collaretto ID",
     "cons": "Cons. [m]",
-    "progress": "Progress"
+    "progress": "Progress",
+    "all": "ALL",
+    "noBagno": "no bagno"
   },
   "dashboard": {
     "workInProgress": "WORK IN PROGRESS",

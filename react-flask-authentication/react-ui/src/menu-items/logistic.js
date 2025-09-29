@@ -1,5 +1,5 @@
 // assets
-import { IconTruck } from '@tabler/icons';
+import { IconListCheck } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| LOGISTIC MENU ITEMS ||-----------------------//
@@ -11,10 +11,10 @@ const logistic = {
   children: [
     {
       id: 'logistic-view',
-      title: 'Collaretto Plan PXE3',
+      title: 'Collaretto Plan',
       type: 'item',
       url: '/logistic/view',
-      icon: IconTruck,
+      icon: IconListCheck,
       breadcrumbs: false
     }
   ]

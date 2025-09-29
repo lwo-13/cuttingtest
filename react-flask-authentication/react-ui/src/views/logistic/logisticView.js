@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Collapse, Table, TableBody, TableContainer, Paper, Typography } from '@mui/material';
+import { Box, Collapse, Table, TableBody, TableContainer, Paper, Typography, CircularProgress } from '@mui/material';
 import axios from 'utils/axiosInstance';
 
 // UI Components
@@ -8,6 +8,7 @@ import MainCard from 'ui-component/cards/MainCard';
 // Order Components
 import OrderQuantities from 'views/planning/OrderPlanning/components/OrderQuantities';
 import LogisticOrderToolbar from './components/LogisticOrderToolbar';
+import ProductionCenterTabs from 'views/dashboard/OrderReport/ProductionCenterTabs';
 
 // Collaretto Read-Only Components
 import AlongGroupCardReadOnly from 'views/dashboard/OrderReport/AlongGroupCardReadOnly';
@@ -39,20 +40,22 @@ const LogisticView = () => {
     const [selectedSeason, setSelectedSeason] = useState('');
     const [selectedColorCode, setSelectedColorCode] = useState('');
 
-    // Production Center State (not used but needed for compatibility)
+    // Production Center State
     const [selectedProductionCenter, setSelectedProductionCenter] = useState('');
     const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('');
     const [selectedDestination, setSelectedDestination] = useState('');
     const [productionCenterCombinations, setProductionCenterCombinations] = useState([]);
-    const [showProductionCenterFilter, setShowProductionCenterFilter] = useState(false);
+    const [selectedCombination, setSelectedCombination] = useState(null);
+    const [showProductionCenterTabs, setShowProductionCenterTabs] = useState(false);
+    const [productionCenterLoading, setProductionCenterLoading] = useState(false);
     const [filteredCuttingRoom, setFilteredCuttingRoom] = useState('');
     const [filteredDestination, setFilteredDestination] = useState('');
-    const [productionCenterLoading, setProductionCenterLoading] = useState(false);
 
     // Collaretto Tables State
     const [alongTables, setAlongTables] = useState([]);
     const [weftTables, setWeftTables] = useState([]);
     const [biasTables, setBiasTables] = useState([]);
+    const [collarettoLoading, setCollarettoLoading] = useState(false);
 
     // Hooks
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
@@ -82,6 +85,42 @@ const LogisticView = () => {
         });
     };
 
+    // Filter tables based on selected production center combination (like Order Report)
+    const getFilteredTables = (allTables, selectedCombination) => {
+        if (!selectedCombination) return allTables; // Show all if no combination selected
+
+        return allTables.filter(table => {
+            // Show tables that match the selected combination
+            const matchesSelectedCombination = (
+                table.productionCenter === selectedCombination.production_center &&
+                table.cuttingRoom === selectedCombination.cutting_room &&
+                table.destination === selectedCombination.destination
+            );
+
+            // Show tables that don't have production center data yet
+            const hasNoProductionCenter = (
+                !table.productionCenter &&
+                !table.cuttingRoom &&
+                !table.destination
+            );
+
+            return matchesSelectedCombination || hasNoProductionCenter;
+        });
+    };
+
+    // Production Center Configuration Handler (for tabs)
+    const handleCombinationChange = (combination) => {
+        if (!combination) return;
+
+        console.log('🔄 Production center combination changed:', combination);
+        setSelectedCombination(combination);
+
+        // Update production center display info
+        setSelectedProductionCenter(combination.production_center || '');
+        setSelectedCuttingRoom(combination.cutting_room);
+        setSelectedDestination(combination.destination);
+    };
+
     // Order Change Handler
     const { onOrderChange } = useLogisticOrderChange({
         setSelectedOrder,
@@ -94,7 +133,7 @@ const LogisticView = () => {
         setSelectedCuttingRoom,
         setSelectedDestination,
         setProductionCenterCombinations,
-        setShowProductionCenterFilter,
+        setShowProductionCenterTabs,
         setFilteredCuttingRoom,
         setFilteredDestination,
         setProductionCenterLoading,
@@ -103,6 +142,7 @@ const LogisticView = () => {
         setAlongTables,
         setWeftTables,
         setBiasTables,
+        setCollarettoLoading,
         sortSizes,
         clearBrand
     });
@@ -142,9 +182,7 @@ const LogisticView = () => {
     return (
         <>
             {/* Order Selection */}
-            <MainCard title="PXE3 Collaretto Planning" sx={{ mb: 2 }}>
-                {/* Debug: Show if selectedOrder exists */}
-                {console.log("🔍 selectedOrder:", selectedOrder)}
+            <MainCard title="Order Details" sx={{ mb: 2 }}>
 
                 {/* Order Toolbar - Direct order selection */}
                 <LogisticOrderToolbar
@@ -161,10 +199,22 @@ const LogisticView = () => {
                 <OrderQuantities orderSizes={orderSizes} italianRatios={{}} />
             </MainCard>
 
+            {/* Production Center Configuration */}
+            {selectedOrder && showProductionCenterTabs && (
+                <>
+                    <ProductionCenterTabs
+                        combinations={productionCenterCombinations}
+                        selectedCombination={selectedCombination}
+                        onCombinationChange={handleCombinationChange}
+                        loading={productionCenterLoading}
+                    />
 
+                    <Box mt={2} />
+                </>
+            )}
 
             {/* Along Collaretto Tables */}
-            {alongTables.map((table, index) => (
+            {getFilteredTables(alongTables, selectedCombination).map((table, index) => (
                 <React.Fragment key={`along-${table.id}-${index}`}>
                     <MainCard
                         title="Collaretto Along the Grain"
@@ -194,7 +244,7 @@ const LogisticView = () => {
             ))}
 
             {/* Weft Collaretto Tables */}
-            {weftTables.map((table, index) => (
+            {getFilteredTables(weftTables, selectedCombination).map((table, index) => (
                 <React.Fragment key={`weft-${table.id}-${index}`}>
                     <MainCard
                         title="Collaretto Weft"
@@ -224,7 +274,7 @@ const LogisticView = () => {
             ))}
 
             {/* Bias Collaretto Tables */}
-            {biasTables.map((table, index) => (
+            {getFilteredTables(biasTables, selectedCombination).map((table, index) => (
                 <React.Fragment key={`bias-${table.id}-${index}`}>
                     <MainCard
                         title="Collaretto Bias"
@@ -253,8 +303,23 @@ const LogisticView = () => {
                 </React.Fragment>
             ))}
 
-            {/* Show message when no tables are available */}
-            {selectedOrder && alongTables.length === 0 && weftTables.length === 0 && biasTables.length === 0 && (
+            {/* Show loading indicator while fetching collaretto data */}
+            {selectedOrder && collarettoLoading && (
+                <MainCard sx={{ mb: 2 }}>
+                    <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+                        <CircularProgress size={24} sx={{ mr: 2 }} />
+                        <Typography variant="body1" color="textSecondary">
+                            Loading collaretto data...
+                        </Typography>
+                    </Box>
+                </MainCard>
+            )}
+
+            {/* Show message when no tables are available - only after loading is complete */}
+            {selectedOrder && !collarettoLoading &&
+             getFilteredTables(alongTables, selectedCombination).length === 0 &&
+             getFilteredTables(weftTables, selectedCombination).length === 0 &&
+             getFilteredTables(biasTables, selectedCombination).length === 0 && (
                 <MainCard sx={{ mb: 2 }}>
                     <Typography variant="body1" align="center" color="textSecondary">
                         No collaretto tables found for PXE3 production center in this order.

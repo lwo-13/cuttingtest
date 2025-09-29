@@ -59,6 +59,11 @@ const SubcontractorView = Loadable(lazy(() => import('../views/subcontractor/sub
 // logistic routing
 const LogisticView = Loadable(lazy(() => import('../views/logistic/logisticView')));
 
+// collaretto ops routing
+const CollarettoOpsCreate = Loadable(lazy(() => import('../views/collaretto-ops/create')));
+const CollarettoOpsReprint = Loadable(lazy(() => import('../views/collaretto-ops/reprint')));
+const CollarettoOpsDelete = Loadable(lazy(() => import('../views/collaretto-ops/delete')));
+
 // operators routing
 const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
 const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
@@ -70,6 +75,36 @@ const MainRoutes = () => {
 
     return (
         <Switch>
+            {/* Collaretto Ops routes for Logistic users */}
+            <Route path="/collaretto-ops/create">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Logistic']}>
+                            <CollarettoOpsCreate />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
+            </Route>
+
+            <Route path="/collaretto-ops/reprint">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Logistic']}>
+                            <CollarettoOpsReprint />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
+            </Route>
+
+            <Route path="/collaretto-ops/delete">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Logistic']}>
+                            <CollarettoOpsDelete />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
+            </Route>
             <Route
                 path={[
                     '/dashboard/default',
@@ -198,6 +233,8 @@ const MainRoutes = () => {
                     </AuthGuard>
                 </MainLayout>
             </Route>
+
+
         </Switch>
     );
 };

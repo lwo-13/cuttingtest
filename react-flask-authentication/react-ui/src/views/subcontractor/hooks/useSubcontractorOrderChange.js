@@ -148,6 +148,7 @@ const handleOrderChange = async (newValue, {
         cons_actual: mattress.cons_actual || "",
         cons_real: mattress.cons_real || "",
         bagno: mattress.dye_lot,
+        bagno_ready: mattress.bagno_ready || false, // Add bagno_ready field
         sequenceNumber: mattress.sequence_number || 0
       });
     }
@@ -192,6 +193,7 @@ const handleOrderChange = async (newValue, {
         cons_actual: adhesive.cons_actual || "",
         cons_real: adhesive.cons_real || "",
         bagno: adhesive.dye_lot,
+        bagno_ready: adhesive.bagno_ready || false, // Add bagno_ready field
         sequenceNumber: adhesive.sequence_number || 0
       });
     }

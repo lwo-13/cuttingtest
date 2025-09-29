@@ -7,6 +7,7 @@ import spreader from './spreader';
 import cutter from './cutter';
 import subcontractor from './subcontractor';
 import logistic from './logistic';
+import operations from './collaretto-ops';
 import operators from './operators';
 import { utilities } from './utilities';
 import { other } from './other';
@@ -14,7 +15,7 @@ import { other } from './other';
 //-----------------------|| MENU ITEMS ||-----------------------//
 
 const menuItems = {
-    items: [dashboard, planning, todo, tables, importPrintTools, spreader, cutter, subcontractor, logistic, operators]
+    items: [dashboard, planning, todo, tables, importPrintTools, spreader, cutter, subcontractor, logistic, operations, operators]
 };
 
 export default menuItems;

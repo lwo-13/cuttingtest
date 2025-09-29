@@ -30,6 +30,7 @@ const MattressTableHeaderWithSizes = ({ orderSizes }) => {
         <TableCell align="center" sx={{ minWidth: '40px' }}></TableCell>
         <TableCell align="center" sx={{ minWidth: '40px' }}></TableCell>
         <TableCell align="center" sx={{ minWidth: '40px' }}></TableCell>
+        <TableCell align="center" sx={{ minWidth: '40px' }}></TableCell>
 
       </TableRow>
     </TableHead>

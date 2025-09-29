@@ -11,7 +11,7 @@ const handleOrderChange = async (newValue, {
   setSelectedCuttingRoom,
   setSelectedDestination,
   setProductionCenterCombinations,
-  setShowProductionCenterFilter,
+  setShowProductionCenterTabs,
   setFilteredCuttingRoom,
   setFilteredDestination,
   setProductionCenterLoading,
@@ -20,6 +20,7 @@ const handleOrderChange = async (newValue, {
   setAlongTables,
   setWeftTables,
   setBiasTables,
+  setCollarettoLoading,
   sortSizes,
   clearBrand
 }) => {
@@ -34,18 +35,25 @@ const handleOrderChange = async (newValue, {
     setSelectedCuttingRoom('');
     setSelectedDestination('');
     setProductionCenterCombinations([]);
-    setShowProductionCenterFilter(false);
+    setShowProductionCenterTabs(false);
     setFilteredCuttingRoom('');
     setFilteredDestination('');
     setAlongTables([]);
     setWeftTables([]);
     setBiasTables([]);
+    setCollarettoLoading(false);
     clearBrand();
     return;
   }
 
   console.log("📊 Logistic Order Change - Selected Order:", newValue);
   setSelectedOrder(newValue);
+
+  // Set loading state immediately when order is selected and clear previous data
+  setCollarettoLoading(true);
+  setAlongTables([]);
+  setWeftTables([]);
+  setBiasTables([]);
 
   // First, fetch the order details from order_lines to get style, season, colorCode, and sizes
   try {
@@ -96,11 +104,19 @@ const handleOrderChange = async (newValue, {
       sizes: sortedSizes
     });
 
+    // Fetch production center combinations for this order
+    await fetchProductionCenterCombinations(newValue.id, {
+      setProductionCenterCombinations,
+      setShowProductionCenterTabs,
+      setProductionCenterLoading
+    });
+
     // Fetch collaretto data for PXE3 production center
     await fetchLogisticCollarettoData(newValue.id, {
       setAlongTables,
       setWeftTables,
-      setBiasTables
+      setBiasTables,
+      setCollarettoLoading
     });
 
   } catch (error) {
@@ -108,13 +124,15 @@ const handleOrderChange = async (newValue, {
     setAlongTables([]);
     setWeftTables([]);
     setBiasTables([]);
+    setCollarettoLoading(false);
   }
 };
 
 const fetchLogisticCollarettoData = async (orderCommessa, {
   setAlongTables,
   setWeftTables,
-  setBiasTables
+  setBiasTables,
+  setCollarettoLoading
 }) => {
   try {
     console.log("📊 Fetching collaretto data for PXE3 production center...");
@@ -140,11 +158,93 @@ const fetchLogisticCollarettoData = async (orderCommessa, {
       console.log("📊 Bias tables loaded:", biasRes.data.data?.length || 0);
     }
 
+    // Fetch production center data for all collaretto tables (like Order Report)
+    const allCollarettoTables = [
+      ...(alongRes.data.success ? alongRes.data.data || [] : []),
+      ...(weftRes.data.success ? weftRes.data.data || [] : []),
+      ...(biasRes.data.success ? biasRes.data.data || [] : [])
+    ];
+
+    console.log("📊 Fetching production center data for", allCollarettoTables.length, "collaretto tables");
+
+    // Fetch production center data for each collaretto table
+    const productionCenterPromises = allCollarettoTables.map(table =>
+      axios.get(`/mattress/production_center/get/${table.id}`)
+        .then(response => {
+          if (response.data.success && response.data.data) {
+            table.productionCenter = response.data.data.production_center || "";
+            table.cuttingRoom = response.data.data.cutting_room || "";
+            table.destination = response.data.data.destination || "";
+          }
+          return table;
+        })
+        .catch(error => {
+          console.warn(`Failed to load production center data for table ${table.id}:`, error);
+          return table;
+        })
+    );
+
+    // Wait for all production center data to load
+    await Promise.all(productionCenterPromises);
+
+    // Update the state with production center data
+    if (alongRes.data.success) {
+      setAlongTables(alongRes.data.data || []);
+    }
+    if (weftRes.data.success) {
+      setWeftTables(weftRes.data.data || []);
+    }
+    if (biasRes.data.success) {
+      setBiasTables(biasRes.data.data || []);
+    }
+
+    console.log("📊 Production center data loaded for all collaretto tables");
+
   } catch (error) {
     console.error("❌ Error fetching collaretto data:", error);
     setAlongTables([]);
     setWeftTables([]);
     setBiasTables([]);
+  } finally {
+    setCollarettoLoading(false);
+  }
+};
+
+const fetchProductionCenterCombinations = async (orderCommessa, {
+  setProductionCenterCombinations,
+  setShowProductionCenterTabs,
+  setProductionCenterLoading
+}) => {
+  try {
+    setProductionCenterLoading(true);
+    console.log("📊 Fetching production center combinations for order:", orderCommessa);
+
+    // Fetch production center combinations for this order (same as Order Report)
+    const response = await axios.get(`/orders/production_center_combinations/get/${orderCommessa}`);
+
+    if (response.data.success) {
+      const combinations = response.data.data || [];
+      console.log("📊 Production center combinations loaded:", combinations);
+
+      setProductionCenterCombinations(combinations);
+
+      // Show tabs if there are combinations available
+      if (combinations.length > 0) {
+        setShowProductionCenterTabs(true);
+      } else {
+        setShowProductionCenterTabs(false);
+      }
+    } else {
+      console.warn("Failed to fetch production center combinations");
+      setProductionCenterCombinations([]);
+      setShowProductionCenterTabs(false);
+    }
+  } catch (error) {
+    console.error("❌ Error fetching production center combinations:", error);
+    setProductionCenterCombinations([]);
+    setShowProductionCenterTabs(false);
+  } finally {
+    setProductionCenterLoading(false);
   }
 };
 

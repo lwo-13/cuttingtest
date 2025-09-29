@@ -929,3 +929,161 @@ class CuttingRoomsData(Resource):
 
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
+
+
+
+
+
+
+
+@dashboard_api.route('/top-orders-test')
+class TopOrdersData(Resource):
+    def get(self):
+        """Get top orders by completed meters for the selected timeframe"""
+        print("🚀 TOP ORDERS FLASK-RESTX ROUTE WAS CALLED!")
+        try:
+            period = request.args.get('period', 'today')
+            limit = int(request.args.get('limit', 5))
+
+            print(f"🔍 TOP ORDERS DEBUG - Period: {period}, Limit: {limit}")
+
+            # STEP 1: Test basic connection
+            total_mattresses = db.session.query(func.count(Mattresses.id)).scalar()
+            print(f"📊 Total mattresses in database: {total_mattresses}")
+
+            # STEP 2: Test completed mattresses
+            completed_count = db.session.query(func.count(Mattresses.id)).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).filter(
+                MattressPhase.status == '5 - COMPLETED'
+            ).scalar()
+            print(f"✅ Completed mattresses: {completed_count}")
+
+            # STEP 3: Simple query for top orders
+            simple_query = db.session.query(
+                Mattresses.order_commessa,
+                func.count(Mattresses.id).label('mattress_count')
+            ).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).filter(
+                MattressPhase.status == '5 - COMPLETED'
+            ).group_by(
+                Mattresses.order_commessa
+            ).order_by(
+                func.count(Mattresses.id).desc()
+            ).limit(limit)
+
+            results = simple_query.all()
+            print(f"🎯 Query returned {len(results)} results")
+
+            # Format simple results
+            top_orders = []
+            for result in results:
+                top_orders.append({
+                    'order_commessa': result.order_commessa,
+                    'style': 'Test Style',
+                    'season': 'Test Season',
+                    'color_code': 'Test Color',
+                    'total_meters': 1000.0,  # Dummy value for testing
+                    'mattress_count': result.mattress_count
+                })
+
+            print(f"📋 Returning {len(top_orders)} orders")
+
+            return {
+                "success": True,
+                "data": top_orders,
+                "period": period,
+                "note": "FLASK-RESTX VERSION - using dummy data",
+                "total_found": len(top_orders),
+                "debug_info": {
+                    "total_mattresses": total_mattresses,
+                    "completed_mattresses": completed_count
+                }
+            }, 200
+
+        except Exception as e:
+            print(f"❌ ERROR in top-orders endpoint: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e), "error_type": type(e).__name__}, 500
+
+@dashboard_api.route('/top-orders-debug')
+class TopOrdersDebug(Resource):
+    def get(self):
+        """Debug version to check what data is available"""
+        try:
+            period = request.args.get('period', 'today')
+            start_date, end_date = get_date_range(period)
+
+            # Step 1: Check basic completed mattresses
+            completed_mattresses = db.session.query(
+                Mattresses.id,
+                Mattresses.order_commessa,
+                MattressPhase.status,
+                MattressPhase.operator,
+                MattressPhase.updated_at,
+                MattressDetail.cons_actual
+            ).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).join(
+                MattressDetail, MattressDetail.mattress_id == Mattresses.id
+            ).filter(
+                MattressPhase.status == '5 - COMPLETED'
+            ).limit(10).all()
+
+            # Step 2: Check date range
+            date_filtered = db.session.query(
+                func.count(Mattresses.id)
+            ).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).filter(
+                MattressPhase.status == '5 - COMPLETED',
+                MattressPhase.updated_at >= start_date,
+                MattressPhase.updated_at <= end_date
+            ).scalar()
+
+            # Step 3: Check with cons_actual filter
+            with_cons_actual = db.session.query(
+                func.count(Mattresses.id)
+            ).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).join(
+                MattressDetail, MattressDetail.mattress_id == Mattresses.id
+            ).filter(
+                MattressPhase.status == '5 - COMPLETED',
+                MattressPhase.updated_at >= start_date,
+                MattressPhase.updated_at <= end_date,
+                MattressDetail.cons_actual.isnot(None),
+                MattressDetail.cons_actual > 0
+            ).scalar()
+
+            return {
+                "success": True,
+                "debug_info": {
+                    "period": period,
+                    "date_range": {
+                        "start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
+                        "end": end_date.strftime('%Y-%m-%d %H:%M:%S')
+                    },
+                    "completed_mattresses_sample": [
+                        {
+                            "id": m.id,
+                            "order": m.order_commessa,
+                            "status": m.status,
+                            "operator": m.operator,
+                            "updated_at": m.updated_at.strftime('%Y-%m-%d %H:%M:%S') if m.updated_at else None,
+                            "cons_actual": float(m.cons_actual) if m.cons_actual else None
+                        } for m in completed_mattresses
+                    ],
+                    "counts": {
+                        "date_filtered": date_filtered,
+                        "with_cons_actual": with_cons_actual
+                    }
+                }
+            }, 200
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+
+

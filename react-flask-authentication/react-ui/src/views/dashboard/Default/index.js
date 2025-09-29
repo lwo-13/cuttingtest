@@ -8,7 +8,7 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 // project imports
 import EarningCard from './EarningCard';
 import PopularCard from './PopularCard';
-import CryptoCard from './CryptoCard';
+import TopOrdersCard from './TopOrdersCard';
 import TotalOrderLineChartCard from './TotalOrderLineChartCard';
 import TotalIncomeDarkCard from './TotalIncomeDarkCard';
 import TotalIncomeLightCard from './TotalIncomeLightCard';
@@ -83,7 +83,7 @@ const Dashboard = () => {
                         />
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <CryptoCard isLoading={isLoading} />
+                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} />
                     </Grid>
 
                     {/* Commented out Popular Stocks Card */}
@@ -104,7 +104,7 @@ const Dashboard = () => {
                         />
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <CryptoCard isLoading={isLoading} />
+                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} />
                     </Grid>
                 </Grid>
             </Grid>

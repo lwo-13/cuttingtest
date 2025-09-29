@@ -998,7 +998,9 @@ class GetLogisticAlongByOrder(Resource):
                     tables[table_id]["rows"].append({
                         "id": collaretto.row_id,
                         "collarettoId": collaretto_id_suffix,
+                        "pieces": detail.pieces,
                         "usableWidth": detail.usable_width,
+                        "theoreticalConsumption": detail.gross_length,
                         "collarettoWidth": detail.roll_width,
                         "scrapRoll": detail.scrap_rolls,
                         "rolls": detail.rolls_planned,
@@ -1093,6 +1095,7 @@ class GetLogisticWeftByOrder(Resource):
                     tables[table_id]["rows"].append({
                         "id": collaretto.row_id,
                         "collarettoId": collaretto_id_suffix,
+                        "pieces": detail.pieces,
                         "usableWidth": detail.usable_width,
                         "pcsSeamtoSeam": detail.pcs_seam,
                         "rewoundWidth": detail.gross_length,  # Use gross_length as rewound width
@@ -1182,6 +1185,7 @@ class GetLogisticBiasByOrder(Resource):
                     tables[table_id]["rows"].append({
                         "id": collaretto.row_id,
                         "collarettoId": collaretto_id_suffix,
+                        "pieces": detail.pieces,
                         "usableWidth": detail.usable_width,
                         "pcsSeam": detail.pcs_seam,
                         "rollWidth": detail.roll_width,

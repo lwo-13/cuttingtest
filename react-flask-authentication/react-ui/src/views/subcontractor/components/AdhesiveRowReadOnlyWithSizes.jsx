@@ -1,6 +1,6 @@
 import React from 'react';
 import { TableRow, TableCell, TextField, Typography, IconButton, Tooltip } from '@mui/material';
-import { Print, Download } from '@mui/icons-material';
+import { Print, Download, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 import { IconTool } from '@tabler/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -140,6 +140,20 @@ const AdhesiveRowReadOnlyWithSizes = ({ row, orderSizes, onPrintMattress, onDown
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.bagno || '-'}
         </Typography>
+      </TableCell>
+
+      {/* Bagno Ready Status Icon */}
+      <TableCell sx={{ minWidth: '40px', textAlign: 'center', padding: '2px' }}>
+        <IconButton
+          size="small"
+          sx={{
+            padding: '2px',
+            color: row.bagno_ready ? 'success.main' : 'grey.400'
+          }}
+          disabled
+        >
+          {row.bagno_ready ? <CheckCircle fontSize="small" /> : <RadioButtonUnchecked fontSize="small" />}
+        </IconButton>
       </TableCell>
 
       {/* Print Icon */}

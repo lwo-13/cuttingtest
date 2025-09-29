@@ -48,7 +48,7 @@ const WeftGroupCardReadOnly = ({ table }) => {
         {/* Fabric Color */}
         <Grid item xs={3} sm={2} md={2}>
           <ColorFieldWithDescription
-            label={t('table.fabricColor')}
+            label={t('orderPlanning.fabricColor', 'Fabric Color')}
             value={table.fabricColor || ''}
             readOnly={true}
             sx={{ width: '100%' }}
