@@ -1030,10 +1030,38 @@ const OrderPlanning = () => {
                                     }, 0);
                                 }
 
-                                return {
-                                    ...row,
-                                    pieces: rowSpecificPieces.toString()
-                                };
+                                // ✅ Recalculate consumption and meters when pieces change
+                                const updatedRow = { ...row, pieces: rowSpecificPieces.toString() };
+
+                                // Recalculate rolls, panels, and consumption
+                                const rewoundWidth = parseFloat(updatedRow.rewoundWidth);
+                                const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                const collWidthM = collWidthMM / 1000;
+
+                                updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
+                                    ? Math.floor(rewoundWidth / collWidthM) - scrap
+                                    : "";
+
+                                const pieces = parseFloat(updatedRow.pieces);
+                                const rolls = parseFloat(updatedRow.rolls);
+                                const extra = parseFloat(table.weftExtra) || 0;
+                                const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                    const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                    updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                } else {
+                                    updatedRow.panels = "";
+                                }
+
+                                const panels = parseFloat(updatedRow.panels);
+                                updatedRow.consumption = !isNaN(panels) && !isNaN(rewoundWidth)
+                                    ? (panels * rewoundWidth).toFixed(2)
+                                    : "";
+
+                                return updatedRow;
                             }
                             return row;
                         })
@@ -1072,10 +1100,38 @@ const OrderPlanning = () => {
                                     }, 0);
                                 }
 
-                                return {
-                                    ...row,
-                                    pieces: rowSpecificPieces.toString()
-                                };
+                                // ✅ Recalculate consumption and meters when pieces change
+                                const updatedRow = { ...row, pieces: rowSpecificPieces.toString() };
+
+                                // Recalculate rolls, panels, and consumption
+                                const panelLength = parseFloat(updatedRow.panelLength);
+                                const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                const collWidthM = collWidthMM / 1000;
+
+                                updatedRow.rolls = !isNaN(panelLength) && !isNaN(collWidthM) && !isNaN(scrap)
+                                    ? Math.floor(panelLength / collWidthM) - scrap
+                                    : "";
+
+                                const pieces = parseFloat(updatedRow.pieces);
+                                const rolls = parseFloat(updatedRow.rolls);
+                                const extra = parseFloat(table.biasExtra) || 0;
+                                const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                    const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                    updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                } else {
+                                    updatedRow.panels = "";
+                                }
+
+                                const panels = parseFloat(updatedRow.panels);
+                                updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
+                                    ? (panels * panelLength).toFixed(2)
+                                    : "";
+
+                                return updatedRow;
                             }
                             return row;
                         })
@@ -1114,10 +1170,24 @@ const OrderPlanning = () => {
                                     }, 0);
                                 }
 
-                                return {
-                                    ...row,
-                                    pieces: rowSpecificPieces.toString()
-                                };
+                                // ✅ Recalculate consumption and meters when pieces change
+                                const updatedRow = { ...row, pieces: rowSpecificPieces.toString() };
+
+                                // Recalculate rolls, metersCollaretto, and consumption
+                                const pieces = parseFloat(updatedRow.pieces) || 0;
+                                const width = parseFloat(updatedRow.usableWidth) || 0;
+                                const collWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10;
+                                const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                const theoCons = parseFloat(updatedRow.theoreticalConsumption) || 0;
+                                const extra = 1 + (parseFloat(table.alongExtra) / 100 || 0);
+
+                                updatedRow.rolls = collWidth > 0 ? Math.floor(width / collWidth) - scrap : 0;
+                                updatedRow.metersCollaretto = (pieces * theoCons * extra).toFixed(2);
+                                updatedRow.consumption = updatedRow.rolls > 0
+                                    ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(2)
+                                    : "0";
+
+                                return updatedRow;
                             }
                             return row;
                         })
@@ -1198,8 +1268,8 @@ const OrderPlanning = () => {
                 }
             }
 
-            // Update collaretto tables with the new piece quantities
-            const updateCollarettoTables = (prevTables) => {
+            // Update weft tables with the new piece quantities and recalculate consumption
+            const updateWeftTables = (prevTables) => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
 
@@ -1212,10 +1282,36 @@ const OrderPlanning = () => {
                             ...table,
                             rows: table.rows.map(row => {
                                 if (row.bagno === bagno) {
-                                    return {
-                                        ...row,
-                                        pieces: "0"
-                                    };
+                                    const updatedRow = { ...row, pieces: "0" };
+                                    // Recalculate with 0 pieces
+                                    const rewoundWidth = parseFloat(updatedRow.rewoundWidth);
+                                    const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                    const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                    const collWidthM = collWidthMM / 1000;
+
+                                    updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
+                                        ? Math.floor(rewoundWidth / collWidthM) - scrap
+                                        : "";
+
+                                    const pieces = 0;
+                                    const rolls = parseFloat(updatedRow.rolls);
+                                    const extra = parseFloat(table.weftExtra) || 0;
+                                    const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                    const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                    if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                        const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                        updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                    } else {
+                                        updatedRow.panels = "";
+                                    }
+
+                                    const panels = parseFloat(updatedRow.panels);
+                                    updatedRow.consumption = !isNaN(panels) && !isNaN(rewoundWidth)
+                                        ? (panels * rewoundWidth).toFixed(2)
+                                        : "";
+
+                                    return updatedRow;
                                 }
                                 return row;
                             })
@@ -1252,11 +1348,38 @@ const OrderPlanning = () => {
                                     }, 0);
                                 }
 
+                                // ✅ Recalculate consumption and meters when pieces change
+                                const updatedRow = { ...row, pieces: rowSpecificPieces.toString() };
 
-                                return {
-                                    ...row,
-                                    pieces: rowSpecificPieces.toString()
-                                };
+                                // Recalculate rolls, panels, and consumption
+                                const rewoundWidth = parseFloat(updatedRow.rewoundWidth);
+                                const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                const collWidthM = collWidthMM / 1000;
+
+                                updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
+                                    ? Math.floor(rewoundWidth / collWidthM) - scrap
+                                    : "";
+
+                                const pieces = parseFloat(updatedRow.pieces);
+                                const rolls = parseFloat(updatedRow.rolls);
+                                const extra = parseFloat(table.weftExtra) || 0;
+                                const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                    const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                    updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                } else {
+                                    updatedRow.panels = "";
+                                }
+
+                                const panels = parseFloat(updatedRow.panels);
+                                updatedRow.consumption = !isNaN(panels) && !isNaN(rewoundWidth)
+                                    ? (panels * rewoundWidth).toFixed(2)
+                                    : "";
+
+                                return updatedRow;
                             }
                             return row;
                         })
@@ -1264,9 +1387,183 @@ const OrderPlanning = () => {
                 });
             };
 
-            setWeftTables(updateCollarettoTables);
-            setBiasTables(updateCollarettoTables);
-            setAlongTables(updateCollarettoTables);
+            // Update bias tables with the new piece quantities and recalculate consumption
+            const updateBiasTables = (prevTables) => {
+                return prevTables.map(table => {
+                    const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+
+                    if (!hasMatchingBagno) return table;
+
+                    // If totalPiecesForBagno is 0, update rows with 0 pieces
+                    if (totalPiecesForBagno === 0) {
+                        return {
+                            ...table,
+                            rows: table.rows.map(row => {
+                                if (row.bagno === bagno) {
+                                    const updatedRow = { ...row, pieces: "0" };
+                                    // Recalculate with 0 pieces
+                                    const panelLength = parseFloat(updatedRow.panelLength);
+                                    const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                    const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                    const collWidthM = collWidthMM / 1000;
+
+                                    updatedRow.rolls = !isNaN(panelLength) && !isNaN(collWidthM) && !isNaN(scrap)
+                                        ? Math.floor(panelLength / collWidthM) - scrap
+                                        : "";
+
+                                    updatedRow.panels = "";
+                                    updatedRow.consumption = "";
+
+                                    return updatedRow;
+                                }
+                                return row;
+                            })
+                        };
+                    }
+
+                    // If we have pieces, check for matching configuration
+                    const hasMatchingConfig = table.destination === mattressDestination &&
+                                           table.productionCenter === mattressProductionCenter &&
+                                           table.cuttingRoom === mattressCuttingRoom &&
+                                           table.fabricCode === mattressFabricCode &&
+                                           table.fabricColor === mattressFabricColor;
+
+                    if (!hasMatchingConfig) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.bagno === bagno) {
+                                // Calculate size-aware pieces
+                                let rowSpecificPieces = 0;
+                                const rowSizes = row.sizes || 'ALL';
+
+                                if (rowSizes === 'ALL') {
+                                    rowSpecificPieces = totalPiecesForBagno;
+                                } else {
+                                    const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
+                                    rowSpecificPieces = targetSizes.reduce((sum, size) => {
+                                        return sum + (piecesPerSizeForBagno[size] || 0);
+                                    }, 0);
+                                }
+
+                                // ✅ Recalculate consumption and meters when pieces change
+                                const updatedRow = { ...row, pieces: rowSpecificPieces.toString() };
+
+                                // Recalculate rolls, panels, and consumption (bias uses panelLength)
+                                const panelLength = parseFloat(updatedRow.panelLength);
+                                const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                const collWidthM = collWidthMM / 1000;
+
+                                updatedRow.rolls = !isNaN(panelLength) && !isNaN(collWidthM) && !isNaN(scrap)
+                                    ? Math.floor(panelLength / collWidthM) - scrap
+                                    : "";
+
+                                const pieces = parseFloat(updatedRow.pieces);
+                                const rolls = parseFloat(updatedRow.rolls);
+                                const extra = parseFloat(table.biasExtra) || 0;
+                                const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                    const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                    updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                } else {
+                                    updatedRow.panels = "";
+                                }
+
+                                const panels = parseFloat(updatedRow.panels);
+                                updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
+                                    ? (panels * panelLength).toFixed(2)
+                                    : "";
+
+                                return updatedRow;
+                            }
+                            return row;
+                        })
+                    };
+                });
+            };
+
+            // Update along tables with the new piece quantities and recalculate consumption
+            const updateAlongTables = (prevTables) => {
+                return prevTables.map(table => {
+                    const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
+
+                    if (!hasMatchingBagno) return table;
+
+                    // If totalPiecesForBagno is 0, update rows with 0 pieces
+                    if (totalPiecesForBagno === 0) {
+                        return {
+                            ...table,
+                            rows: table.rows.map(row => {
+                                if (row.bagno === bagno) {
+                                    const updatedRow = { ...row, pieces: "0" };
+                                    // Recalculate with 0 pieces
+                                    updatedRow.metersCollaretto = "0.00";
+                                    updatedRow.consumption = "0";
+                                    return updatedRow;
+                                }
+                                return row;
+                            })
+                        };
+                    }
+
+                    // If we have pieces, check for matching configuration
+                    const hasMatchingConfig = table.destination === mattressDestination &&
+                                           table.productionCenter === mattressProductionCenter &&
+                                           table.cuttingRoom === mattressCuttingRoom &&
+                                           table.fabricCode === mattressFabricCode &&
+                                           table.fabricColor === mattressFabricColor;
+
+                    if (!hasMatchingConfig) return table;
+
+                    return {
+                        ...table,
+                        rows: table.rows.map(row => {
+                            if (row.bagno === bagno) {
+                                // Calculate size-aware pieces
+                                let rowSpecificPieces = 0;
+                                const rowSizes = row.sizes || 'ALL';
+
+                                if (rowSizes === 'ALL') {
+                                    rowSpecificPieces = totalPiecesForBagno;
+                                } else {
+                                    const targetSizes = rowSizes.split('-').map(s => s.trim()).filter(s => s);
+                                    rowSpecificPieces = targetSizes.reduce((sum, size) => {
+                                        return sum + (piecesPerSizeForBagno[size] || 0);
+                                    }, 0);
+                                }
+
+                                // ✅ Recalculate consumption and meters when pieces change
+                                const updatedRow = { ...row, pieces: rowSpecificPieces.toString() };
+
+                                // Recalculate rolls, metersCollaretto, and consumption (along has different formula)
+                                const pieces = parseFloat(updatedRow.pieces) || 0;
+                                const width = parseFloat(updatedRow.usableWidth) || 0;
+                                const collWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10;
+                                const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                const theoCons = parseFloat(updatedRow.theoreticalConsumption) || 0;
+                                const extra = 1 + (parseFloat(table.alongExtra) / 100 || 0);
+
+                                updatedRow.rolls = collWidth > 0 ? Math.floor(width / collWidth) - scrap : 0;
+                                updatedRow.metersCollaretto = (pieces * theoCons * extra).toFixed(2);
+                                updatedRow.consumption = updatedRow.rolls > 0
+                                    ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(2)
+                                    : "0";
+
+                                return updatedRow;
+                            }
+                            return row;
+                        })
+                    };
+                });
+            };
+
+            setWeftTables(updateWeftTables);
+            setBiasTables(updateBiasTables);
+            setAlongTables(updateAlongTables);
 
             // Mark as unsaved changes
             setUnsavedChanges(true);
@@ -1382,33 +1679,135 @@ const OrderPlanning = () => {
             setOpenInfo(true);
             setTimeout(() => setOpenInfo(false), 3000);
 
-            // Update the specific collaretto table and row
-            const updateSpecificCollarettoRow = (prevTables) => {
-                return prevTables.map(table => {
-                    if (table.id !== tableId) return table;
-
-                    return {
-                        ...table,
-                        rows: table.rows.map(row => {
-                            if (row.id === rowId) {
-                                return {
-                                    ...row,
-                                    pieces: totalPiecesForBagno.toString()
-                                };
-                            }
-                            return row;
-                        })
-                    };
-                });
-            };
-
+            // Update the specific collaretto table and row with recalculation
             // Update the appropriate table type
             if (tableType === 'weft') {
-                setWeftTables(updateSpecificCollarettoRow);
+                setWeftTables(prevTables => {
+                    return prevTables.map(table => {
+                        if (table.id !== tableId) return table;
+
+                        return {
+                            ...table,
+                            rows: table.rows.map(row => {
+                                if (row.id === rowId) {
+                                    // ✅ Recalculate consumption and meters when pieces change
+                                    const updatedRow = { ...row, pieces: totalPiecesForBagno.toString() };
+
+                                    // Recalculate rolls, panels, and consumption
+                                    const rewoundWidth = parseFloat(updatedRow.rewoundWidth);
+                                    const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                    const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                    const collWidthM = collWidthMM / 1000;
+
+                                    updatedRow.rolls = !isNaN(rewoundWidth) && !isNaN(collWidthM) && !isNaN(scrap)
+                                        ? Math.floor(rewoundWidth / collWidthM) - scrap
+                                        : "";
+
+                                    const pieces = parseFloat(updatedRow.pieces);
+                                    const rolls = parseFloat(updatedRow.rolls);
+                                    const extra = parseFloat(table.weftExtra) || 0;
+                                    const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                    const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                    if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                        const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                        updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                    } else {
+                                        updatedRow.panels = "";
+                                    }
+
+                                    const panels = parseFloat(updatedRow.panels);
+                                    updatedRow.consumption = !isNaN(panels) && !isNaN(rewoundWidth)
+                                        ? (panels * rewoundWidth).toFixed(2)
+                                        : "";
+
+                                    return updatedRow;
+                                }
+                                return row;
+                            })
+                        };
+                    });
+                });
             } else if (tableType === 'bias') {
-                setBiasTables(updateSpecificCollarettoRow);
+                setBiasTables(prevTables => {
+                    return prevTables.map(table => {
+                        if (table.id !== tableId) return table;
+
+                        return {
+                            ...table,
+                            rows: table.rows.map(row => {
+                                if (row.id === rowId) {
+                                    // ✅ Recalculate consumption and meters when pieces change
+                                    const updatedRow = { ...row, pieces: totalPiecesForBagno.toString() };
+
+                                    // Recalculate rolls, panels, and consumption (bias uses panelLength)
+                                    const panelLength = parseFloat(updatedRow.panelLength);
+                                    const collWidthMM = parseFloat(updatedRow.collarettoWidth);
+                                    const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                    const collWidthM = collWidthMM / 1000;
+
+                                    updatedRow.rolls = !isNaN(panelLength) && !isNaN(collWidthM) && !isNaN(scrap)
+                                        ? Math.floor(panelLength / collWidthM) - scrap
+                                        : "";
+
+                                    const pieces = parseFloat(updatedRow.pieces);
+                                    const rolls = parseFloat(updatedRow.rolls);
+                                    const extra = parseFloat(table.biasExtra) || 0;
+                                    const pcsSeam = parseFloat(updatedRow.pcsSeamtoSeam);
+
+                                    const panelsCalculation = (pieces * (1 + extra / 100)) / (rolls * pcsSeam);
+                                    if (!isNaN(pieces) && !isNaN(rolls) && !isNaN(pcsSeam) && rolls > 0 && pcsSeam > 0) {
+                                        const decimalPart = panelsCalculation - Math.floor(panelsCalculation);
+                                        updatedRow.panels = decimalPart > 0.15 ? Math.ceil(panelsCalculation) : Math.floor(panelsCalculation);
+                                    } else {
+                                        updatedRow.panels = "";
+                                    }
+
+                                    const panels = parseFloat(updatedRow.panels);
+                                    updatedRow.consumption = !isNaN(panels) && !isNaN(panelLength)
+                                        ? (panels * panelLength).toFixed(2)
+                                        : "";
+
+                                    return updatedRow;
+                                }
+                                return row;
+                            })
+                        };
+                    });
+                });
             } else if (tableType === 'along') {
-                setAlongTables(updateSpecificCollarettoRow);
+                setAlongTables(prevTables => {
+                    return prevTables.map(table => {
+                        if (table.id !== tableId) return table;
+
+                        return {
+                            ...table,
+                            rows: table.rows.map(row => {
+                                if (row.id === rowId) {
+                                    // ✅ Recalculate consumption and meters when pieces change
+                                    const updatedRow = { ...row, pieces: totalPiecesForBagno.toString() };
+
+                                    // Recalculate rolls, metersCollaretto, and consumption (along has different formula)
+                                    const pieces = parseFloat(updatedRow.pieces) || 0;
+                                    const width = parseFloat(updatedRow.usableWidth) || 0;
+                                    const collWidth = (parseFloat(updatedRow.collarettoWidth) || 1) / 10;
+                                    const scrap = parseFloat(updatedRow.scrapRoll) || 0;
+                                    const theoCons = parseFloat(updatedRow.theoreticalConsumption) || 0;
+                                    const extra = 1 + (parseFloat(table.alongExtra) / 100 || 0);
+
+                                    updatedRow.rolls = collWidth > 0 ? Math.floor(width / collWidth) - scrap : 0;
+                                    updatedRow.metersCollaretto = (pieces * theoCons * extra).toFixed(2);
+                                    updatedRow.consumption = updatedRow.rolls > 0
+                                        ? (updatedRow.metersCollaretto / updatedRow.rolls).toFixed(2)
+                                        : "0";
+
+                                    return updatedRow;
+                                }
+                                return row;
+                            })
+                        };
+                    });
+                });
             }
 
             // Mark as unsaved changes

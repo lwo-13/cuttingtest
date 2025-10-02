@@ -23,6 +23,7 @@ const AdhesiveTableHeader = ({ orderSizes }) => {
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.length')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '70px' }}>{t('table.efficiency')}</TableCell>
         <TableCell align="center">{t('table.layers')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '65px' }}>{t('table.pcs')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.consumption')}</TableCell>
         <TableCell align="center">{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '60px' }}>{t('table.status')}</TableCell>
