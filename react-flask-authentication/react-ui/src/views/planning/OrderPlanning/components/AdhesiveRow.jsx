@@ -5,7 +5,8 @@ import {
   TextField,
   Typography,
   IconButton,
-  Autocomplete
+  Autocomplete,
+  Tooltip
 } from '@mui/material';
 import { DeleteOutline, CheckCircle, RadioButtonUnchecked } from '@mui/icons-material';
 import LockOutlined from '@mui/icons-material/LockOutlined';
@@ -23,6 +24,26 @@ const AdhesiveRow = ({
   setUnsavedChanges
 }) => {
   const editable = row.isEditable !== false;
+
+  // Helper function to create tooltip content showing size breakdown
+  const createSizeBreakdownTooltip = (piecesPerSize, layers) => {
+    if (!piecesPerSize || !layers) return null;
+
+    const layerCount = parseInt(layers) || 0;
+    if (layerCount === 0) return null;
+
+    const sizeEntries = Object.entries(piecesPerSize)
+      .filter(([, pieces]) => (parseInt(pieces) || 0) > 0)
+      .map(([size, pieces]) => {
+        const piecesPerLayer = parseInt(pieces) || 0;
+        const totalPieces = piecesPerLayer * layerCount;
+        return `${size}: ${totalPieces}`;
+      });
+
+    if (sizeEntries.length === 0) return null;
+
+    return sizeEntries.join('        ');
+  };
 
   return (
     <TableRow key={rowId}>
@@ -162,6 +183,39 @@ const AdhesiveRow = ({
             "& input": { textAlign: 'center', fontWeight: 'normal' }
           }}
         />
+      </TableCell>
+
+      {/* Pcs - Only show for saved rows (rows with mattressName from database) */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '70px', textAlign: 'center', padding: '4px' }}>
+        {row.mattressName && row.piecesPerSize && row.layers ? (
+          (() => {
+            const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
+            const layers = parseInt(row.layers) || 0;
+            const totalPcs = totalPieces * layers;
+            const tooltipContent = createSizeBreakdownTooltip(row.piecesPerSize, row.layers);
+
+            return (
+              <Tooltip
+                title={tooltipContent || ''}
+                arrow
+                placement="top"
+                enterDelay={300}
+                leaveDelay={200}
+              >
+                <Typography sx={{
+                  fontWeight: 'normal',
+                  textAlign: 'center'
+                }}>
+                  {totalPcs}
+                </Typography>
+              </Tooltip>
+            );
+          })()
+        ) : (
+          <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+            -
+          </Typography>
+        )}
       </TableCell>
 
       {/* Expected Consumption */}
