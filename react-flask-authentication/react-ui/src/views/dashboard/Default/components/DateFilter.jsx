@@ -31,17 +31,17 @@ const DateFilter = ({ selectedPeriod, onPeriodChange, sx = {} }) => {
         },
         {
             value: 'week',
-            label: t('dashboard.thisWeek', 'This Week'),
+            label: t('dashboard.last7Days', 'Last 7 Days'),
             icon: <IconCalendarEvent size={16} />
         },
         {
             value: 'month',
-            label: t('dashboard.thisMonth', 'This Month'),
+            label: t('dashboard.last30Days', 'Last 30 Days'),
             icon: <IconCalendar size={16} />
         },
         {
             value: 'year',
-            label: t('dashboard.thisYear', 'This Year'),
+            label: t('dashboard.last365Days', 'Last 365 Days'),
             icon: <IconChartBar size={16} />
         }
     ];

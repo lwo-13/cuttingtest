@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
-from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, MattressProductionCenter, SystemSettings, WidthChangeRequest
+from api.models import Mattresses, db, MattressPhase, MattressDetail, MattressMarker, MarkerHeader, MattressSize, MattressKanban, CollarettoDetail, ProductionCenter, MattressProductionCenter, SystemSettings, WidthChangeRequest, Users
 from flask_restx import Namespace, Resource
 from sqlalchemy import func
 from collections import defaultdict
 import time
 from datetime import datetime, date, timedelta
 from sqlalchemy.exc import OperationalError
+import jwt
+from api.config import BaseConfig
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
@@ -513,8 +515,24 @@ class SaveActualLayersResource(Resource):
     def post(self):
         """Save actual layers for subcontractors and update mattress phase to completed"""
         try:
-            data = request.get_json()
-            updates = data.get('updates', [])
+            # Extract username from JWT token (without verification - we just need the username)
+            token = request.headers.get("Authorization")
+            operator_name = "Unknown"  # Default fallback
+
+            if token:
+                try:
+                    token = token.replace("Bearer ", "").strip('"')
+                    # Decode WITHOUT verification - we just need the username
+                    token_data = jwt.decode(token, options={"verify_signature": False})
+                    operator_name = token_data.get("username", "Unknown")
+                    print(f"DEBUG: Operator name from token: {operator_name}")
+                except Exception as e:
+                    print(f"DEBUG: Could not decode token, using 'Unknown': {e}")
+                    operator_name = "Unknown"
+
+            request_data = request.get_json()
+            updates = request_data.get('updates', [])
+            print(f"DEBUG: Received {len(updates)} updates")
 
             if not updates:
                 return {"success": False, "message": "No updates provided"}, 400
@@ -564,15 +582,17 @@ class SaveActualLayersResource(Resource):
                 # Check if "5 - COMPLETED" phase already exists
                 completed_phase = MattressPhase.query.filter_by(mattress_id=mattress.id, status="5 - COMPLETED").first()
                 if completed_phase:
-                    # Update existing completed phase to active
+                    # Update existing completed phase to active and set operator
                     completed_phase.active = True
+                    completed_phase.operator = operator_name  # Set the operator to current user
                     completed_phase.updated_at = db.func.current_timestamp()
                 else:
-                    # Create new completed phase
+                    # Create new completed phase with operator
                     new_completed_phase = MattressPhase(
                         mattress_id=mattress.id,
                         status="5 - COMPLETED",
                         active=True,
+                        operator=operator_name,  # Set the operator to current user
                         device="SUBCONTRACTOR",
                         created_at=db.func.current_timestamp(),
                         updated_at=db.func.current_timestamp()
@@ -592,6 +612,9 @@ class SaveActualLayersResource(Resource):
 
         except Exception as e:
             db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            print(f"ERROR in save_actual_layers: {str(e)}")
             return {"success": False, "message": str(e)}, 500
 
 @mattress_api.route('/delete/<string:mattress_name>', methods=['DELETE'])

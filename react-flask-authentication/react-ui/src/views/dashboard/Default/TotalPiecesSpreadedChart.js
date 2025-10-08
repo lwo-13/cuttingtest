@@ -25,15 +25,15 @@ const status = [
     },
     {
         value: 'week',
-        label: 'This Week'
+        label: 'Last 7 Days'
     },
     {
         value: 'month',
-        label: 'This Month'
+        label: 'Last 30 Days'
     },
     {
         value: 'year',
-        label: 'This Year'
+        label: 'Last 365 Days'
     }
 ];
 

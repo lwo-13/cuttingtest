@@ -25,23 +25,23 @@ const status = [
     },
     {
         value: 'week',
-        label: 'This Week'
+        label: 'Last 7 Days'
     },
     {
         value: 'month',
-        label: 'This Month'
+        label: 'Last 30 Days'
     },
     {
         value: 'year',
-        label: 'This Year'
+        label: 'Last 365 Days'
     }
 ];
 
 //-----------------------|| DASHBOARD DEFAULT - TOTAL METERS SPREADED BAR CHART ||-----------------------//
 
-const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange }) => {
+const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, selectedCuttingRoom, onCuttingRoomChange }) => {
     const [value, setValue] = useState(selectedPeriod || 'today');
-    const [cuttingRoom, setCuttingRoom] = useState('ALL');
+    const [cuttingRoom, setCuttingRoom] = useState(selectedCuttingRoom || 'ALL');
     const [cuttingRooms, setCuttingRooms] = useState([]);
     const [totalMeters, setTotalMeters] = useState(0);
     const [chartDataState, setChartDataState] = useState({
@@ -64,6 +64,13 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
             setValue(selectedPeriod);
         }
     }, [selectedPeriod]);
+
+    // Sync cutting room with global dashboard cutting room filter
+    useEffect(() => {
+        if (selectedCuttingRoom) {
+            setCuttingRoom(selectedCuttingRoom);
+        }
+    }, [selectedCuttingRoom]);
 
     // Fetch cutting rooms on component mount
     useEffect(() => {
@@ -90,133 +97,135 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
 
         const fetchMetersData = async () => {
             try {
-                const response = await axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${cuttingRoom}&_t=${Date.now()}`);
-                if (response.data.success) {
-                    setTotalMeters(response.data.data.total_meters || 0);
-
-                    // Debug: Log API response
-                    console.log('API Response for period:', value, 'cutting_room:', cuttingRoom);
-                    console.log('Chart data from API:', response.data.data.chart_data);
-                    console.log('Total meters:', response.data.data.total_meters);
-
-                    // Define x-axis categories based on period
-                    let categories = [];
-                    switch (value) {
-                        case 'today':
-                            categories = ['Today'];
-                            break;
-                        case 'week':
-                            // Last 7 days
-                            categories = [];
-                            for (let i = 6; i >= 0; i--) {
-                                const date = new Date();
-                                date.setDate(date.getDate() - i);
-                                categories.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
-                            }
-                            break;
-                        case 'month':
-                            // Last 4 weeks
-                            categories = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-                            break;
-                        case 'year':
-                            categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                            break;
-                        default:
-                            categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    }
-
-                    // Update chart data with real data
-                    if (response.data.data.chart_data && response.data.data.chart_data.length > 0) {
-                        // Calculate colors for the current selection
-                        const allRooms = cuttingRooms.filter(room => room !== 'ALL').sort();
-                        const colorMap = {};
-                        allRooms.forEach((room) => {
-                            colorMap[room] = getCuttingRoomColor(room);
-                        });
-
-                        let colors;
-                        let series;
-
-                        if (cuttingRoom === 'ALL') {
-                            // For ALL view, show stacked data with Zalli real data and others as 0
-                            const otherCuttingRooms = cuttingRooms.filter(room => room !== 'ALL' && room !== 'ZALLI');
-                            series = [
-                                {
-                                    name: 'ZALLI',
-                                    data: response.data.data.chart_data
-                                }
-                            ];
-
-                            // Add all other cutting rooms with 0 data
-                            otherCuttingRooms.forEach(room => {
-                                series.push({
-                                    name: room,
-                                    data: Array(response.data.data.chart_data.length).fill(0)
-                                });
-                            });
-
-                            // For ALL view, match the series order: ZALLI first, then others alphabetically
-                            const otherRooms = allRooms.filter(room => room !== 'ZALLI').sort();
-                            const seriesOrder = ['ZALLI', ...otherRooms];
-                            colors = seriesOrder.map(room => colorMap[room]);
-
-                            setChartDataState(prev => ({
-                                ...prev,
-                                options: {
-                                    ...prev.options,
-                                    chart: {
-                                        ...prev.options.chart,
-                                        stacked: true
-                                    },
-                                    legend: {
-                                        ...prev.options.legend,
-                                        show: true
-                                    },
-                                    colors: colors,
-                                    xaxis: {
-                                        ...prev.options.xaxis,
-                                        categories: categories
-                                    }
-                                },
-                                series: series
-                            }));
-                        } else {
-                            // Show single series for specific cutting room
-                            series = [
-                                {
-                                    name: cuttingRoom,
-                                    data: response.data.data.chart_data
-                                }
-                            ];
-                            colors = [colorMap[cuttingRoom]];
-
-                            setChartDataState(prev => ({
-                                ...prev,
-                                options: {
-                                    ...prev.options,
-                                    chart: {
-                                        ...prev.options.chart,
-                                        stacked: false
-                                    },
-                                    legend: {
-                                        ...prev.options.legend,
-                                        show: true
-                                    },
-                                    colors: colors,
-                                    xaxis: {
-                                        ...prev.options.xaxis,
-                                        categories: categories
-                                    }
-                                },
-                                series: series
-                            }));
+                // Define x-axis categories based on period
+                let categories = [];
+                switch (value) {
+                    case 'today':
+                        categories = ['Today'];
+                        break;
+                    case 'week':
+                        // Last 7 days
+                        categories = [];
+                        for (let i = 6; i >= 0; i--) {
+                            const date = new Date();
+                            date.setDate(date.getDate() - i);
+                            categories.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
                         }
-                    } else {
-                        // No chart data available, clear the chart
-                        console.log('No chart data available, clearing chart');
+                        break;
+                    case 'month':
+                        // Last 4 weeks
+                        categories = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+                        break;
+                    case 'year':
+                        categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        break;
+                    default:
+                        categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                }
+
+                // Calculate colors for all cutting rooms
+                const allRooms = cuttingRooms.filter(room => room !== 'ALL').sort();
+                const colorMap = {};
+                allRooms.forEach((room) => {
+                    colorMap[room] = getCuttingRoomColor(room);
+                });
+
+                let colors;
+                let series;
+                let totalMetersSum = 0;
+
+                if (cuttingRoom === 'ALL') {
+                    // For ALL view, fetch data for each cutting room separately and stack them
+                    const roomsToFetch = cuttingRooms.filter(room => room !== 'ALL');
+
+                    // Fetch data for all cutting rooms in parallel
+                    const promises = roomsToFetch.map(room =>
+                        axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${room}&_t=${Date.now()}`)
+                    );
+
+                    const responses = await Promise.all(promises);
+
+                    // Build series data from responses
+                    series = [];
+                    responses.forEach((response, index) => {
+                        if (response.data.success) {
+                            const roomName = roomsToFetch[index];
+                            const roomData = response.data.data.chart_data || [];
+
+                            // Only add series if there's actual data (not all zeros)
+                            const hasData = roomData.some(val => val > 0);
+                            if (hasData) {
+                                series.push({
+                                    name: roomName,
+                                    data: roomData
+                                });
+                                totalMetersSum += (response.data.data.total_meters || 0);
+                            }
+                        }
+                    });
+
+                    // Sort series alphabetically for consistent display
+                    series.sort((a, b) => a.name.localeCompare(b.name));
+
+                    // Set colors to match series order
+                    colors = series.map(s => colorMap[s.name]);
+
+                    setTotalMeters(totalMetersSum);
+
+                    setChartDataState(prev => ({
+                        ...prev,
+                        options: {
+                            ...prev.options,
+                            chart: {
+                                ...prev.options.chart,
+                                stacked: true
+                            },
+                            legend: {
+                                ...prev.options.legend,
+                                show: true
+                            },
+                            colors: colors,
+                            xaxis: {
+                                ...prev.options.xaxis,
+                                categories: categories
+                            }
+                        },
+                        series: series
+                    }));
+                } else {
+                    // Show single series for specific cutting room
+                    const response = await axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${cuttingRoom}&_t=${Date.now()}`);
+
+                    if (response.data.success) {
+                        setTotalMeters(response.data.data.total_meters || 0);
+
+                        series = [
+                            {
+                                name: cuttingRoom,
+                                data: response.data.data.chart_data || []
+                            }
+                        ];
+                        colors = [colorMap[cuttingRoom]];
+
                         setChartDataState(prev => ({
                             ...prev,
-                            series: []
+                            options: {
+                                ...prev.options,
+                                chart: {
+                                    ...prev.options.chart,
+                                    stacked: false
+                                },
+                                legend: {
+                                    ...prev.options.legend,
+                                    show: true
+                                },
+                                colors: colors,
+                                xaxis: {
+                                    ...prev.options.xaxis,
+                                    categories: categories
+                                }
+                            },
+                            series: series
                         }));
                     }
                 }
@@ -312,7 +321,14 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
                                                 id="standard-select-cutting-room"
                                                 select
                                                 value={cuttingRoom}
-                                                onChange={(e) => setCuttingRoom(e.target.value)}
+                                                onChange={(e) => {
+                                                    const newCuttingRoom = e.target.value;
+                                                    setCuttingRoom(newCuttingRoom);
+                                                    // Notify parent component
+                                                    if (onCuttingRoomChange) {
+                                                        onCuttingRoomChange(newCuttingRoom);
+                                                    }
+                                                }}
                                                 size="small"
                                                 sx={{ minWidth: 120 }}
                                             >
@@ -361,7 +377,11 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
 };
 
 TotalMetersSpreadedChart.propTypes = {
-    isLoading: PropTypes.bool
+    isLoading: PropTypes.bool,
+    selectedPeriod: PropTypes.string,
+    onPeriodChange: PropTypes.func,
+    selectedCuttingRoom: PropTypes.string,
+    onCuttingRoomChange: PropTypes.func
 };
 
 export default TotalMetersSpreadedChart;

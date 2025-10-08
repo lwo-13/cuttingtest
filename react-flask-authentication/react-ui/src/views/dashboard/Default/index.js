@@ -27,6 +27,7 @@ const Dashboard = () => {
     const { t } = useTranslation();
     const [isLoading, setLoading] = useState(true);
     const [selectedPeriod, setSelectedPeriod] = useState('today');
+    const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('ALL');
 
     useEffect(() => {
         setLoading(false);
@@ -34,6 +35,10 @@ const Dashboard = () => {
 
     const handlePeriodChange = (period) => {
         setSelectedPeriod(period);
+    };
+
+    const handleCuttingRoomChange = (cuttingRoom) => {
+        setSelectedCuttingRoom(cuttingRoom);
     };
 
     return (
@@ -80,10 +85,12 @@ const Dashboard = () => {
                             isLoading={isLoading}
                             selectedPeriod={selectedPeriod}
                             onPeriodChange={handlePeriodChange}
+                            selectedCuttingRoom={selectedCuttingRoom}
+                            onCuttingRoomChange={handleCuttingRoomChange}
                         />
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} />
+                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} selectedCuttingRoom={selectedCuttingRoom} />
                     </Grid>
 
                     {/* Commented out Popular Stocks Card */}

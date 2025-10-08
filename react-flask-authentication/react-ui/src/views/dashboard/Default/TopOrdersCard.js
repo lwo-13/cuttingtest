@@ -58,7 +58,7 @@ const useStyles = makeStyles((theme) => ({
 
 //-----------------------|| DASHBOARD DEFAULT - TOP ORDERS CARD ||-----------------------//
 
-const TopOrdersCard = ({ isLoading, selectedPeriod }) => {
+const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
     const classes = useStyles();
     const [topOrdersData, setTopOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -100,7 +100,8 @@ const TopOrdersCard = ({ isLoading, selectedPeriod }) => {
         const fetchTopOrdersData = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`/dashboard/top-orders-test?period=${selectedPeriod}&limit=5`);
+                const cuttingRoomParam = selectedCuttingRoom || 'ALL';
+                const response = await axios.get(`/api/dashboard/top-orders-test?period=${selectedPeriod}&limit=6&cutting_room=${cuttingRoomParam}`);
 
                 if (response.data.success) {
                     console.log('✅ Top Orders API Response:', response.data);
@@ -122,15 +123,12 @@ const TopOrdersCard = ({ isLoading, selectedPeriod }) => {
         };
 
         fetchTopOrdersData();
-    }, [selectedPeriod]);
+    }, [selectedPeriod, selectedCuttingRoom]);
 
     // Helper function to format meters
     const formatMeters = (meters) => {
-        if (meters < 1000) {
-            return `${meters}m`;
-        } else {
-            return `${(meters / 1000).toFixed(1)}km`;
-        }
+        // Always show in meters, rounded to 1 decimal place
+        return `${meters.toFixed(1)}m`;
     };
 
     // Helper function to format percentage (placeholder for future use)
@@ -144,8 +142,8 @@ const TopOrdersCard = ({ isLoading, selectedPeriod }) => {
             {isLoading || loading ? (
                 <SkeletonPopularCard />
             ) : (
-                <MainCard content={false}>
-                    <CardContent>
+                <MainCard content={false} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                         <Grid container spacing={gridSpacing}>
                             <Grid item xs={12}>
                                 <Grid container alignContent="center" justifyContent="space-between">
@@ -349,7 +347,8 @@ const TopOrdersCard = ({ isLoading, selectedPeriod }) => {
 
 TopOrdersCard.propTypes = {
     isLoading: PropTypes.bool,
-    selectedPeriod: PropTypes.string
+    selectedPeriod: PropTypes.string,
+    selectedCuttingRoom: PropTypes.string
 };
 
 export default TopOrdersCard;
