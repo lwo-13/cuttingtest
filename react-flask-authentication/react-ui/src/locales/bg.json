@@ -265,8 +265,16 @@
     "plannedTotalCons": "Планирана обща конс.",
     "expectedAvgCons": "Очаквана средна конс.",
     "expectedTotalCons": "Очаквана обща конс.",
-    "plannedConsShort": "Планирана конс."
+    "plannedConsShort": "Планирана конс.",
+    "currentActualLayers": "Текущи действителни катове"
 
+  },
+  "orderReport": {
+    "updateActualLayers": "Актуализиране на действителни катове",
+    "invalidActualLayers": "Моля, въведете валиден брой катове",
+    "actualLayersUpdated": "Действителните катове са актуализирани успешно",
+    "updateFailed": "Неуспешно актуализиране на действителните катове",
+    "updateError": "Възникна грешка при актуализиране на действителните катове"
   },
   "dashboard": {
     "workInProgress": "В ПРОЦЕС НА РАЗРАБОТКА",

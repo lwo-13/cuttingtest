@@ -35,6 +35,7 @@ const MattressTableHeader = ({ orderSizes }) => {
 
         <TableCell align="center">{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '150px' }}>{t('table.progress')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '50px' }}></TableCell>
 
       </TableRow>
     </TableHead>

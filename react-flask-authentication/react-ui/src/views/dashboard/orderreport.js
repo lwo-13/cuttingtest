@@ -58,6 +58,9 @@ import BiasTableHeaderReadOnly from 'views/dashboard/OrderReport/BiasTableHeader
 import BiasRowReadOnly from 'views/dashboard/OrderReport/BiasRowReadOnly';
 import BiasActionRowReadOnly from 'views/dashboard/OrderReport/BiasActionRowReadOnly';
 
+// Update Actual Layers Dialog
+import UpdateActualLayersDialog from 'views/dashboard/OrderReport/UpdateActualLayersDialog';
+
 // Weft Components
 import WeftGroupCard from 'views/planning/OrderPlanning/components/WeftGroupCard';
 import WeftTableHeader from 'views/planning/OrderPlanning/components/WeftTableHeader';
@@ -173,6 +176,10 @@ const OrderReport = () => {
     const [alongTables, setAlongTables] = useState([]);
     const [weftTables, setWeftTables] = useState([]);
     const [biasTables, setBiasTables] = useState([]);
+
+    // Update Actual Layers Dialog state
+    const [updateLayersDialogOpen, setUpdateLayersDialogOpen] = useState(false);
+    const [selectedRowForUpdate, setSelectedRowForUpdate] = useState(null);
 
     // Order Change
     const { onOrderChange, cancelPendingRequests } = useHandleOrderChange({
@@ -450,6 +457,26 @@ const OrderReport = () => {
         setShowProductionCenterTabs(true);
     };
 
+    // Handle opening the update actual layers dialog
+    const handleEditActualLayers = (row) => {
+        setSelectedRowForUpdate(row);
+        setUpdateLayersDialogOpen(true);
+    };
+
+    // Handle closing the update actual layers dialog
+    const handleCloseUpdateLayersDialog = () => {
+        setUpdateLayersDialogOpen(false);
+        setSelectedRowForUpdate(null);
+    };
+
+    // Handle successful update of actual layers
+    const handleActualLayersUpdateSuccess = () => {
+        // Refresh the order data to show updated values
+        if (selectedOrder) {
+            onOrderChange(selectedOrder);
+        }
+    };
+
     return (
         <>
             {/* Loading Overlay - Only for order data loading */}
@@ -585,6 +612,7 @@ const OrderReport = () => {
                                     getMetersByBagno={getMetersByBagno}
                                     getWidthsByBagno={getWidthsByBagno}
                                     showHelpers={false}
+                                    showActualQuantities={true}
                                 />
                             </Box>
 
@@ -630,6 +658,7 @@ const OrderReport = () => {
                                                 key={row.id}
                                                 row={row}
                                                 orderSizes={orderSizes}
+                                                onEditActualLayers={handleEditActualLayers}
                                                 />
                                             ));
                                         })()}
@@ -667,6 +696,7 @@ const OrderReport = () => {
                                     getMetersByBagno={getMetersByBagno}
                                     getWidthsByBagno={getWidthsByBagno}
                                     showHelpers={false}
+                                    showActualQuantities={true}
                                 />
                             </Box>
 
@@ -712,6 +742,7 @@ const OrderReport = () => {
                                                 key={row.id}
                                                 row={row}
                                                 orderSizes={orderSizes}
+                                                onEditActualLayers={handleEditActualLayers}
                                                 />
                                             ));
                                         })()}
@@ -947,6 +978,14 @@ const OrderReport = () => {
                     {successMessage}
                 </Alert>
             </Snackbar>*/}
+
+            {/* Update Actual Layers Dialog */}
+            <UpdateActualLayersDialog
+                open={updateLayersDialogOpen}
+                onClose={handleCloseUpdateLayersDialog}
+                row={selectedRowForUpdate}
+                onSuccess={handleActualLayersUpdateSuccess}
+            />
 
         </>
     );

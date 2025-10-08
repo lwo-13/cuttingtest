@@ -541,7 +541,7 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
           padding: "4px 8px",
           borderRadius: "8px",
           flexWrap: "wrap",
-          maxWidth: "50%",
+          maxWidth: "100%",
           justifyContent: "flex-end",
           overflow: "hidden",
           textOverflow: "ellipsis",

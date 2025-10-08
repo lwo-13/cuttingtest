@@ -2264,6 +2264,73 @@ class UpdateLayersAResource(Resource):
             traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
 
+@mattress_api.route('/update_actual_layers_only')
+class UpdateActualLayersOnlyResource(Resource):
+    def post(self):
+        """Update actual layers without changing phase status - for manual corrections in Order Report"""
+        try:
+            request_data = request.get_json()
+            updates = request_data.get('updates', [])
+
+            if not updates:
+                return {"success": False, "message": "No updates provided"}, 400
+
+            updated_count = 0
+
+            for update in updates:
+                row_id = update.get('row_id')
+                layers_a = update.get('layers_a')
+
+                if not row_id or layers_a is None:
+                    continue
+
+                # Find the mattress by row_id
+                mattress = Mattresses.query.filter_by(row_id=row_id).first()
+                if not mattress:
+                    continue
+
+                # Update mattress_details with actual layers (REPLACE, not add)
+                mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress.id).first()
+                if mattress_detail:
+                    mattress_detail.layers_a = float(layers_a)
+
+                    # Calculate actual consumption based on actual layers
+                    # Formula: (planned_consumption / planned_layers) * actual_layers
+                    if mattress_detail.layers and mattress_detail.layers > 0:
+                        consumption_per_layer = mattress_detail.cons_planned / mattress_detail.layers
+                        mattress_detail.cons_actual = consumption_per_layer * float(layers_a)
+                    else:
+                        mattress_detail.cons_actual = 0
+
+                    mattress_detail.updated_at = db.func.current_timestamp()
+
+                # Update pcs_actual in mattress_sizes table
+                mattress_sizes = MattressSize.query.filter_by(mattress_id=mattress.id).all()
+                for size_record in mattress_sizes:
+                    size_record.pcs_actual = size_record.pcs_layer * float(layers_a)
+                    size_record.updated_at = db.func.current_timestamp()
+
+                # NOTE: We do NOT update the phase status here - that's the key difference
+                # from the /save_actual_layers endpoint
+
+                updated_count += 1
+
+            # Commit all changes
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": f"Successfully updated {updated_count} mattresses",
+                "updated_count": updated_count
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            print(f"ERROR in update_actual_layers_only: {str(e)}")
+            return {"success": False, "message": str(e)}, 500
+
 @mattress_api.route('/order_ids')
 class MattressOrderIdsResource(Resource):
     def get(self):

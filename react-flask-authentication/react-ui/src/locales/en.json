@@ -285,7 +285,15 @@
     "cons": "Cons. [m]",
     "progress": "Progress",
     "all": "ALL",
-    "noBagno": "no bagno"
+    "noBagno": "no bagno",
+    "currentActualLayers": "Current Actual Layers"
+  },
+  "orderReport": {
+    "updateActualLayers": "Update Actual Layers",
+    "invalidActualLayers": "Please enter a valid number of layers",
+    "actualLayersUpdated": "Actual layers updated successfully",
+    "updateFailed": "Failed to update actual layers",
+    "updateError": "An error occurred while updating actual layers"
   },
   "dashboard": {
     "workInProgress": "WORK IN PROGRESS",

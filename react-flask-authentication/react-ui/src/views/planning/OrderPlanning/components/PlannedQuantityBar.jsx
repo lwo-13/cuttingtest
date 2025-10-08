@@ -2,7 +2,7 @@ import React, { useState, Fragment } from 'react';
 import {
   Box, Typography, Dialog, DialogContent, DialogActions,
   Button, Table, TableBody, TableCell, TableHead, TableRow, TextField,
-  IconButton, Collapse, FormControlLabel, Switch
+  IconButton, Collapse, FormControlLabel, Switch, Divider
 } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
 
@@ -14,6 +14,7 @@ const PlannedQuantityBar = ({
   getMetersByBagno,
   getWidthsByBagno,
   showHelpers = true,
+  showActualQuantities = false, // New prop to enable actual quantities display
   // New props for fabric consumption
   alongTables = [],
   weftTables = [],
@@ -46,6 +47,155 @@ const PlannedQuantityBar = ({
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+
+  // Calculate actual quantities using actual layers (layers_a)
+  const getTableActualQuantities = (table) => {
+    const actualQuantities = {};
+    let actualTotal = 0;
+
+    // Initialize actual quantities for each size
+    orderSizes.forEach(sizeObj => {
+      actualQuantities[sizeObj.size] = 0;
+    });
+
+    // Calculate actual quantities using actual layers
+    if (table.rows) {
+      table.rows.forEach(row => {
+        if (row.piecesPerSize) {
+          Object.entries(row.piecesPerSize).forEach(([size, quantity]) => {
+            const numQuantity = parseInt(quantity) || 0;
+            const actualLayers = parseFloat(row.layers_a) || 0;
+            const actualPieces = numQuantity * actualLayers;
+
+            if (actualQuantities.hasOwnProperty(size)) {
+              actualQuantities[size] += actualPieces;
+            }
+            actualTotal += actualPieces;
+          });
+        }
+      });
+    }
+
+    return { ...actualQuantities, total: actualTotal };
+  };
+
+  // Calculate actual quantities by bagno
+  const getTableActualByBagno = (table) => {
+    const bagnoMap = {};
+    const bagnoOrder = [];
+
+    if (!table.rows) return { bagnoMap, bagnoOrder };
+
+    table.rows.forEach(row => {
+      const bagno = row.bagno || 'Unknown';
+
+      if (!bagnoMap[bagno]) {
+        bagnoMap[bagno] = {};
+        bagnoOrder.push(bagno);
+
+        // Initialize sizes for this bagno
+        orderSizes.forEach(sizeObj => {
+          bagnoMap[bagno][sizeObj.size] = 0;
+        });
+      }
+
+      if (row.piecesPerSize) {
+        Object.entries(row.piecesPerSize).forEach(([size, quantity]) => {
+          const numQuantity = parseInt(quantity) || 0;
+          const actualLayers = parseFloat(row.layers_a) || 0;
+          const actualPieces = numQuantity * actualLayers;
+
+          if (bagnoMap[bagno].hasOwnProperty(size)) {
+            bagnoMap[bagno][size] += actualPieces;
+          }
+        });
+      }
+    });
+
+    return { bagnoMap, bagnoOrder };
+  };
+
+  // Calculate actual consumption by bagno
+  const getActualMetersByBagno = (table) => {
+    const bagnoMeters = {};
+    const bagnoOrder = [];
+
+    if (!table.rows) return { bagnoMeters, bagnoOrder };
+
+    table.rows.forEach(row => {
+      const bagno = row.bagno || 'Unknown';
+
+      if (!bagnoMeters[bagno]) {
+        bagnoMeters[bagno] = 0;
+        bagnoOrder.push(bagno);
+      }
+
+      const actualCons = parseFloat(row.cons_actual) || 0;
+      bagnoMeters[bagno] += actualCons;
+    });
+
+    return { bagnoMeters, bagnoOrder };
+  };
+
+  // Calculate actual widths by bagno
+  const getTableActualWidthsByBagno = (table) => {
+    const bagnoWidths = {};
+    const bagnoOrder = [];
+
+    if (!table || !table.rows) {
+      return { bagnoWidths, bagnoOrder };
+    }
+
+    table.rows.forEach(row => {
+      const bagno = row.bagno || 'Unknown';
+      const width = row.width ? parseFloat(row.width) : null;
+
+      if (!width || !row.piecesPerSize || typeof row.piecesPerSize !== 'object') {
+        return;
+      }
+
+      const actualLayers = parseFloat(row.layers_a) || 0;
+      if (actualLayers <= 0) return;
+
+      const consumption = parseFloat(row.cons_actual) || 0;
+
+      if (!bagnoWidths[bagno]) {
+        bagnoWidths[bagno] = {};
+        if (!bagnoOrder.includes(bagno)) {
+          bagnoOrder.push(bagno);
+        }
+      }
+
+      if (!bagnoWidths[bagno][width]) {
+        bagnoWidths[bagno][width] = {
+          sizeMap: {},
+          consumption: 0
+        };
+
+        orderSizes.forEach(sizeObj => {
+          bagnoWidths[bagno][width].sizeMap[sizeObj.size] = 0;
+        });
+      }
+
+      Object.entries(row.piecesPerSize).forEach(([size, quantity]) => {
+        const numQuantity = parseInt(quantity) || 0;
+        const actualPieces = numQuantity * actualLayers;
+
+        if (bagnoWidths[bagno][width].sizeMap.hasOwnProperty(size)) {
+          bagnoWidths[bagno][width].sizeMap[size] += actualPieces;
+        }
+      });
+
+      bagnoWidths[bagno][width].consumption += consumption;
+    });
+
+    return { bagnoWidths, bagnoOrder };
+  };
+
+  const actualQuantities = showActualQuantities ? getTableActualQuantities(table) : {};
+  const { bagnoMap: actualByBagno, bagnoOrder: actualBagnoOrder } = showActualQuantities ? getTableActualByBagno(table) : { bagnoMap: {}, bagnoOrder: [] };
+  const { bagnoMeters: actualMetersByBagno } = showActualQuantities ? getActualMetersByBagno(table) : { bagnoMeters: {} };
+  const { bagnoWidths: actualWidthsByBagno } = showActualQuantities ? getTableActualWidthsByBagno(table) : { bagnoWidths: {} };
 
   // Format numbers for better readability
   const formatNumber = (num) => {
@@ -589,6 +739,201 @@ const PlannedQuantityBar = ({
     );
   };
 
+  // Render actual quantities table (similar to planned but with actual data)
+  const renderActualBagnoTable = () => {
+    if (!showActualQuantities) return null;
+
+    const totalPerSize = {};
+    const plannedTotalPerSize = {};
+
+    // Calculate total per size across all bagni for actual
+    if (actualByBagno && typeof actualByBagno === 'object') {
+      Object.values(actualByBagno).forEach(sizeMap => {
+        if (sizeMap && typeof sizeMap === 'object') {
+          Object.entries(sizeMap).forEach(([size, qty]) => {
+            totalPerSize[size] = (totalPerSize[size] || 0) + qty;
+          });
+        }
+      });
+    }
+
+    // Calculate planned totals for percentage calculation
+    if (plannedByBagno && typeof plannedByBagno === 'object') {
+      Object.values(plannedByBagno).forEach(sizeMap => {
+        if (sizeMap && typeof sizeMap === 'object') {
+          Object.entries(sizeMap).forEach(([size, qty]) => {
+            plannedTotalPerSize[size] = (plannedTotalPerSize[size] || 0) + qty;
+          });
+        }
+      });
+    }
+
+    const getOrderedQty = (size) => {
+      const found = orderSizes.find(s => s.size === size);
+      return found ? found.qty : 0;
+    };
+
+    const totalActualMeters = (actualMetersByBagno && typeof actualMetersByBagno === 'object')
+      ? Object.values(actualMetersByBagno).reduce((sum, val) => sum + val, 0)
+      : 0;
+
+    const totalPlannedMeters = (metersByBagno && typeof metersByBagno === 'object')
+      ? Object.values(metersByBagno).reduce((sum, val) => sum + val, 0)
+      : 0;
+
+    // Build expanded rows with width breakdown if enabled
+    const expandedActualRows = [];
+    actualBagnoOrder.forEach(bagno => {
+      if (showWidthColumn && actualWidthsByBagno[bagno]) {
+        const widths = Object.keys(actualWidthsByBagno[bagno]).sort((a, b) => parseFloat(a) - parseFloat(b));
+        const bagnoRowSpan = widths.length;
+
+        widths.forEach((width, widthIndex) => {
+          const widthData = actualWidthsByBagno[bagno][width];
+          expandedActualRows.push({
+            bagno,
+            width,
+            sizeMap: widthData.sizeMap,
+            consumption: widthData.consumption,
+            isWidthRow: true,
+            isFirstWidthRow: widthIndex === 0,
+            bagnoRowSpan
+          });
+        });
+      } else {
+        const sizeMap = actualByBagno[bagno] || {};
+        const consumption = actualMetersByBagno[bagno] || 0;
+        expandedActualRows.push({
+          bagno,
+          width: null,
+          sizeMap,
+          consumption,
+          isWidthRow: false,
+          isFirstWidthRow: true,
+          bagnoRowSpan: 1
+        });
+      }
+    });
+
+    // Build header cells
+    const headerCells = [
+      <TableCell key="bagno" align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
+    ];
+
+    if (showWidthColumn) {
+      headerCells.push(
+        <TableCell key="width" align="center" sx={{ fontWeight: 'bold' }}>Width [cm]</TableCell>
+      );
+    }
+
+    headerCells.push(
+      ...uniqueSizes.map(size => (
+        <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
+      )),
+      <TableCell key="total" align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>,
+      <TableCell key="cons" align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
+    );
+
+    return (
+      <Table size="small" sx={{ mt: 2 }}>
+        <TableHead>
+          <TableRow>{headerCells}</TableRow>
+        </TableHead>
+        <TableBody>
+          {expandedActualRows.map((row, index) => {
+            const { bagno, width, sizeMap, consumption, isWidthRow, isFirstWidthRow, bagnoRowSpan } = row;
+            const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
+
+            const rowCells = [];
+
+            if (isFirstWidthRow) {
+              rowCells.push(
+                <TableCell
+                  key="bagno"
+                  align="center"
+                  rowSpan={bagnoRowSpan}
+                  sx={{
+                    fontWeight: 500,
+                    verticalAlign: 'middle'
+                  }}
+                >
+                  {bagno}
+                </TableCell>
+              );
+            }
+
+            if (showWidthColumn) {
+              rowCells.push(
+                <TableCell key="width" align="center">
+                  {width ? width : '-'}
+                </TableCell>
+              );
+            }
+
+            rowCells.push(
+              ...uniqueSizes.map(size => (
+                <TableCell key={size} align="center">
+                  {formatNumber(sizeMap[size] || 0)}
+                </TableCell>
+              )),
+              <TableCell key="total" align="center" sx={{ fontWeight: 500 }}>
+                {formatNumber(total)}
+              </TableCell>,
+              <TableCell key="cons" align="center" sx={{ fontWeight: 500 }}>
+                {formatNumber(consumption)}
+              </TableCell>
+            );
+
+            return <TableRow key={`actual-${bagno}-${width || 'main'}-${index}`}>{rowCells}</TableRow>;
+          })}
+
+          {/* Totals Row */}
+          {(() => {
+            const totalRowCells = [
+              <TableCell key="total-label" align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+            ];
+
+            if (showWidthColumn) {
+              totalRowCells.push(
+                <TableCell key="total-width" align="center" sx={{ fontWeight: 'bold' }}>-</TableCell>
+              );
+            }
+
+            totalRowCells.push(
+              ...uniqueSizes.map(size => {
+                const actualTotal = totalPerSize[size] || 0;
+                const plannedTotal = plannedTotalPerSize[size] || 0;
+                const percentage = plannedTotal > 0 ? ((actualTotal / plannedTotal) * 100).toFixed(1) : '0.0';
+                return (
+                  <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
+                    {formatNumber(actualTotal)} ({percentage}%)
+                  </TableCell>
+                );
+              }),
+              <TableCell key="total-pcs" align="center" sx={{ fontWeight: 'bold' }}>
+                {(() => {
+                  const actualGrandTotal = Object.values(totalPerSize).reduce((sum, val) => sum + val, 0);
+                  const plannedGrandTotal = Object.values(plannedTotalPerSize).reduce((sum, val) => sum + val, 0);
+                  const totalPercentage = plannedGrandTotal > 0 ? ((actualGrandTotal / plannedGrandTotal) * 100).toFixed(1) : '0.0';
+                  return `${formatNumber(actualGrandTotal)} (${totalPercentage}%)`;
+                })()}
+              </TableCell>,
+              <TableCell key="total-cons" align="center" sx={{ fontWeight: 'bold' }}>
+                {formatNumber(totalActualMeters)}
+              </TableCell>
+            );
+
+            return (
+              <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                {totalRowCells}
+              </TableRow>
+            );
+          })()}
+        </TableBody>
+      </Table>
+    );
+  };
+
   return (
     <>
       <Box
@@ -601,7 +946,7 @@ const PlannedQuantityBar = ({
           padding: "4px 8px",
           borderRadius: "8px",
           flexWrap: "wrap",
-          maxWidth: "50%",
+          maxWidth: "100%",
           justifyContent: "flex-end",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -654,7 +999,29 @@ const PlannedQuantityBar = ({
             />
           </Box>
 
+          {/* Planned Quantities Table */}
+          {showActualQuantities && (
+            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2 }}>
+              Planned Quantities
+            </Typography>
+          )}
           {renderBagnoTable()}
+
+          {/* Actual Quantities Section - Only show when showActualQuantities is true */}
+          {showActualQuantities && (
+            <>
+              <Box mt={3}>
+                <Divider />
+              </Box>
+
+              <Box mt={3}>
+                <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2 }}>
+                  Actual Quantities
+                </Typography>
+                {renderActualBagnoTable()}
+              </Box>
+            </>
+          )}
 
           {/* Helpers Section - Only show in order planning and when not in fabric cons mode */}
           {showHelpers && !fabricConsMode && (
