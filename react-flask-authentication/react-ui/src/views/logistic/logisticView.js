@@ -87,9 +87,18 @@ const LogisticView = () => {
 
     // Filter tables based on selected production center combination (like Order Report)
     const getFilteredTables = (allTables, selectedCombination) => {
-        if (!selectedCombination) return allTables; // Show all if no combination selected
+        console.log("🔍 Filtering tables:", {
+            totalTables: allTables.length,
+            selectedCombination,
+            tables: allTables.map(t => ({ id: t.id, pc: t.productionCenter, cr: t.cuttingRoom, dest: t.destination }))
+        });
 
-        return allTables.filter(table => {
+        if (!selectedCombination) {
+            console.log("✅ No combination selected, showing all", allTables.length, "tables");
+            return allTables; // Show all if no combination selected
+        }
+
+        const filtered = allTables.filter(table => {
             // Show tables that match the selected combination
             const matchesSelectedCombination = (
                 table.productionCenter === selectedCombination.production_center &&
@@ -104,8 +113,14 @@ const LogisticView = () => {
                 !table.destination
             );
 
-            return matchesSelectedCombination || hasNoProductionCenter;
+            const shouldShow = matchesSelectedCombination || hasNoProductionCenter;
+            console.log(`🔍 Table ${table.id}: matches=${matchesSelectedCombination}, noPC=${hasNoProductionCenter}, show=${shouldShow}`);
+
+            return shouldShow;
         });
+
+        console.log("✅ Filtered to", filtered.length, "tables");
+        return filtered;
     };
 
     // Production Center Configuration Handler (for tabs)
@@ -312,18 +327,6 @@ const LogisticView = () => {
                             Loading collaretto data...
                         </Typography>
                     </Box>
-                </MainCard>
-            )}
-
-            {/* Show message when no tables are available - only after loading is complete */}
-            {selectedOrder && !collarettoLoading &&
-             getFilteredTables(alongTables, selectedCombination).length === 0 &&
-             getFilteredTables(weftTables, selectedCombination).length === 0 &&
-             getFilteredTables(biasTables, selectedCombination).length === 0 && (
-                <MainCard sx={{ mb: 2 }}>
-                    <Typography variant="body1" align="center" color="textSecondary">
-                        No collaretto tables found for PXE3 production center in this order.
-                    </Typography>
                 </MainCard>
             )}
         </>

@@ -137,68 +137,28 @@ const fetchLogisticCollarettoData = async (orderCommessa, {
   try {
     console.log("📊 Fetching collaretto data for PXE3 production center...");
 
-    // Fetch Along tables
+    // Fetch Along tables - backend already filters by PXE3 and includes production center data
     const alongRes = await axios.get(`/collaretto/logistic/along_by_order/${orderCommessa}`);
-    if (alongRes.data.success) {
-      setAlongTables(alongRes.data.data || []);
-      console.log("📊 Along tables loaded:", alongRes.data.data?.length || 0);
-    }
+    const alongTables = alongRes.data.success ? (alongRes.data.data || []) : [];
+    console.log("📊 Along tables loaded:", alongTables.length);
+    console.log("📊 Along tables:", alongTables.map(t => ({ id: t.id, pc: t.productionCenter, cr: t.cuttingRoom, dest: t.destination })));
 
-    // Fetch Weft tables
+    // Fetch Weft tables - backend already filters by PXE3 and includes production center data
     const weftRes = await axios.get(`/collaretto/logistic/weft_by_order/${orderCommessa}`);
-    if (weftRes.data.success) {
-      setWeftTables(weftRes.data.data || []);
-      console.log("📊 Weft tables loaded:", weftRes.data.data?.length || 0);
-    }
+    const weftTables = weftRes.data.success ? (weftRes.data.data || []) : [];
+    console.log("📊 Weft tables loaded:", weftTables.length);
+    console.log("📊 Weft tables:", weftTables.map(t => ({ id: t.id, pc: t.productionCenter, cr: t.cuttingRoom, dest: t.destination })));
 
-    // Fetch Bias tables
+    // Fetch Bias tables - backend already filters by PXE3 and includes production center data
     const biasRes = await axios.get(`/collaretto/logistic/bias_by_order/${orderCommessa}`);
-    if (biasRes.data.success) {
-      setBiasTables(biasRes.data.data || []);
-      console.log("📊 Bias tables loaded:", biasRes.data.data?.length || 0);
-    }
+    const biasTables = biasRes.data.success ? (biasRes.data.data || []) : [];
+    console.log("📊 Bias tables loaded:", biasTables.length);
+    console.log("📊 Bias tables:", biasTables.map(t => ({ id: t.id, pc: t.productionCenter, cr: t.cuttingRoom, dest: t.destination })));
 
-    // Fetch production center data for all collaretto tables (like Order Report)
-    const allCollarettoTables = [
-      ...(alongRes.data.success ? alongRes.data.data || [] : []),
-      ...(weftRes.data.success ? weftRes.data.data || [] : []),
-      ...(biasRes.data.success ? biasRes.data.data || [] : [])
-    ];
-
-    console.log("📊 Fetching production center data for", allCollarettoTables.length, "collaretto tables");
-
-    // Fetch production center data for each collaretto table
-    const productionCenterPromises = allCollarettoTables.map(table =>
-      axios.get(`/mattress/production_center/get/${table.id}`)
-        .then(response => {
-          if (response.data.success && response.data.data) {
-            table.productionCenter = response.data.data.production_center || "";
-            table.cuttingRoom = response.data.data.cutting_room || "";
-            table.destination = response.data.data.destination || "";
-          }
-          return table;
-        })
-        .catch(error => {
-          console.warn(`Failed to load production center data for table ${table.id}:`, error);
-          return table;
-        })
-    );
-
-    // Wait for all production center data to load
-    await Promise.all(productionCenterPromises);
-
-    // Update the state with production center data
-    if (alongRes.data.success) {
-      setAlongTables(alongRes.data.data || []);
-    }
-    if (weftRes.data.success) {
-      setWeftTables(weftRes.data.data || []);
-    }
-    if (biasRes.data.success) {
-      setBiasTables(biasRes.data.data || []);
-    }
-
-    console.log("📊 Production center data loaded for all collaretto tables");
+    // Backend already includes production center data, so we can directly set the state
+    setAlongTables(alongTables);
+    setWeftTables(weftTables);
+    setBiasTables(biasTables);
 
   } catch (error) {
     console.error("❌ Error fetching collaretto data:", error);
@@ -219,17 +179,21 @@ const fetchProductionCenterCombinations = async (orderCommessa, {
     setProductionCenterLoading(true);
     console.log("📊 Fetching production center combinations for order:", orderCommessa);
 
-    // Fetch production center combinations for this order (same as Order Report)
+    // Fetch production center combinations for this order
     const response = await axios.get(`/orders/production_center_combinations/get/${orderCommessa}`);
 
     if (response.data.success) {
-      const combinations = response.data.data || [];
-      console.log("📊 Production center combinations loaded:", combinations);
+      const allCombinations = response.data.data || [];
+      console.log("📊 All production center combinations:", allCombinations);
 
-      setProductionCenterCombinations(combinations);
+      // Filter to only show PXE3 combinations for logistic view
+      const pxe3Combinations = allCombinations.filter(combo => combo.production_center === 'PXE3');
+      console.log("📊 PXE3 production center combinations:", pxe3Combinations);
 
-      // Show tabs if there are combinations available
-      if (combinations.length > 0) {
+      setProductionCenterCombinations(pxe3Combinations);
+
+      // Show tabs if there are PXE3 combinations available
+      if (pxe3Combinations.length > 0) {
         setShowProductionCenterTabs(true);
       } else {
         setShowProductionCenterTabs(false);
