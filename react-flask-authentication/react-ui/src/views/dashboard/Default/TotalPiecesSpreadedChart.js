@@ -39,9 +39,9 @@ const status = [
 
 //-----------------------|| DASHBOARD DEFAULT - TOTAL PIECES SPREADED BAR CHART ||-----------------------//
 
-const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange }) => {
+const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, selectedCuttingRoom, hideCuttingRoomSelector }) => {
     const [value, setValue] = useState(selectedPeriod || 'today');
-    const [cuttingRoom, setCuttingRoom] = useState('ALL');
+    const [cuttingRoom, setCuttingRoom] = useState(selectedCuttingRoom || 'ALL');
     const [cuttingRooms, setCuttingRooms] = useState([]);
     const [totalPieces, setTotalPieces] = useState(0);
     const [chartDataState, setChartDataState] = useState({
@@ -71,6 +71,13 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
             setValue(selectedPeriod);
         }
     }, [selectedPeriod]);
+
+    // Sync cutting room with prop
+    useEffect(() => {
+        if (selectedCuttingRoom) {
+            setCuttingRoom(selectedCuttingRoom);
+        }
+    }, [selectedCuttingRoom]);
 
     // Fetch cutting rooms on component mount
     useEffect(() => {
@@ -314,22 +321,24 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
                                 </Grid>
                                 <Grid item>
                                     <Grid container alignItems="center" justifyContent="space-between" spacing={1}>
-                                        <Grid item>
-                                            <TextField
-                                                id="standard-select-cutting-room"
-                                                select
-                                                value={cuttingRoom}
-                                                onChange={(e) => setCuttingRoom(e.target.value)}
-                                                size="small"
-                                                sx={{ minWidth: 120 }}
-                                            >
-                                                {cuttingRooms.map((room) => (
-                                                    <MenuItem key={room} value={room}>
-                                                        {room}
-                                                    </MenuItem>
-                                                ))}
-                                            </TextField>
-                                        </Grid>
+                                        {!hideCuttingRoomSelector && (
+                                            <Grid item>
+                                                <TextField
+                                                    id="standard-select-cutting-room"
+                                                    select
+                                                    value={cuttingRoom}
+                                                    onChange={(e) => setCuttingRoom(e.target.value)}
+                                                    size="small"
+                                                    sx={{ minWidth: 120 }}
+                                                >
+                                                    {cuttingRooms.map((room) => (
+                                                        <MenuItem key={room} value={room}>
+                                                            {room}
+                                                        </MenuItem>
+                                                    ))}
+                                                </TextField>
+                                            </Grid>
+                                        )}
                                         <Grid item>
                                             <TextField
                                                 id="standard-select-period"
@@ -370,7 +379,9 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange })
 TotalPiecesSpreadedChart.propTypes = {
     isLoading: PropTypes.bool,
     selectedPeriod: PropTypes.string,
-    onPeriodChange: PropTypes.func
+    onPeriodChange: PropTypes.func,
+    selectedCuttingRoom: PropTypes.string,
+    hideCuttingRoomSelector: PropTypes.bool
 };
 
 export default TotalPiecesSpreadedChart;

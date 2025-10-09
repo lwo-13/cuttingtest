@@ -4,7 +4,7 @@ from sqlalchemy import func, and_, or_
 from datetime import datetime, timedelta
 from api.models import (
     db, Mattresses, MarkerHeader, MattressProductionCenter,
-    OrderLinesView, MattressDetail, MattressMarker, MattressPhase, MattressSize
+    OrderLinesView, MattressDetail, MattressMarker, MattressPhase, MattressSize, ZalliItemsView
 )
 
 # Create Blueprint and API instance
@@ -378,22 +378,38 @@ def get_meters_for_period(start_date, end_date, cutting_room='ALL'):
     """
     Helper function to get total meters for a specific period and cutting room.
     Supports all cutting rooms, not just ZALLI.
+    Uses operator/device from "2 - ON SPREAD" phase, falls back to "5 - COMPLETED" if empty.
     """
+    # Subquery to get operator from "2 - ON SPREAD" phase
+    spread_phase_subquery = db.session.query(
+        MattressPhase.mattress_id,
+        MattressPhase.operator.label('spread_operator'),
+        MattressPhase.device.label('spread_device')
+    ).filter(
+        MattressPhase.status == '2 - ON SPREAD'
+    ).subquery()
+
+    # Main query joins with completed phase and spread phase
     base_query = db.session.query(func.sum(MattressDetail.cons_actual)).join(
         Mattresses, Mattresses.id == MattressDetail.mattress_id
     ).join(
         MattressPhase, MattressPhase.mattress_id == Mattresses.id
+    ).outerjoin(
+        spread_phase_subquery, spread_phase_subquery.c.mattress_id == Mattresses.id
     ).join(
         MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
     ).filter(
         MattressPhase.active == True,  # Only active phases
         MattressPhase.status == '5 - COMPLETED',
-        MattressPhase.operator.isnot(None),
-        MattressPhase.operator != '',
         MattressPhase.updated_at >= start_date,
         MattressPhase.updated_at <= end_date,
         MattressDetail.cons_actual.isnot(None),
-        MattressDetail.cons_actual > 0
+        MattressDetail.cons_actual > 0,
+        # Use operator from spread phase if available, otherwise from completed phase
+        or_(
+            and_(spread_phase_subquery.c.spread_operator.isnot(None), spread_phase_subquery.c.spread_operator != ''),
+            and_(MattressPhase.operator.isnot(None), MattressPhase.operator != '')
+        )
     )
 
     # Apply cutting room filter
@@ -402,6 +418,195 @@ def get_meters_for_period(start_date, end_date, cutting_room='ALL'):
 
     return base_query.scalar() or 0
 
+def get_meters_with_breakdown(start_date, end_date, cutting_room='ALL', breakdown=None):
+    """
+    Helper function to get meters grouped by breakdown dimension.
+    Returns a dictionary with breakdown values as keys and meters as values.
+    """
+    # Build base query
+    if breakdown == 'brand':
+        # First, get a subquery to get unique style per order (to avoid duplication from OrderLinesView)
+        style_subquery = db.session.query(
+            OrderLinesView.order_commessa,
+            func.max(OrderLinesView.style).label('style')
+        ).group_by(OrderLinesView.order_commessa).subquery()
+
+        # Join with style subquery to get style, then lookup brand
+        query = db.session.query(
+            style_subquery.c.style,
+            func.sum(MattressDetail.cons_actual).label('total_meters')
+        ).select_from(MattressDetail).join(
+            Mattresses, Mattresses.id == MattressDetail.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).join(
+            style_subquery, Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == style_subquery.c.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.operator.isnot(None),
+            MattressPhase.operator != '',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressDetail.cons_actual.isnot(None),
+            MattressDetail.cons_actual > 0
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(style_subquery.c.style)
+        results = query.all()
+
+        # Map styles to brands
+        breakdown_data = {}
+        for style, meters in results:
+            # Lookup brand for this style
+            brand_item = ZalliItemsView.query.filter_by(item_no=style).first()
+            brand = brand_item.brand if brand_item and brand_item.brand else 'Unknown'
+
+            # Normalize brand name
+            brand = brand.upper().strip()
+            if brand == 'INTIMISSIM':
+                brand = 'INTIMISSIMI'
+
+            if brand in breakdown_data:
+                breakdown_data[brand] += float(meters or 0)
+            else:
+                breakdown_data[brand] = float(meters or 0)
+
+        return breakdown_data
+
+    elif breakdown == 'style':
+        # First, get a subquery to get unique style per order (to avoid duplication from OrderLinesView)
+        style_subquery = db.session.query(
+            OrderLinesView.order_commessa,
+            func.max(OrderLinesView.style).label('style')
+        ).group_by(OrderLinesView.order_commessa).subquery()
+
+        query = db.session.query(
+            style_subquery.c.style,
+            func.sum(MattressDetail.cons_actual).label('total_meters')
+        ).select_from(MattressDetail).join(
+            Mattresses, Mattresses.id == MattressDetail.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).join(
+            style_subquery, Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == style_subquery.c.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.operator.isnot(None),
+            MattressPhase.operator != '',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressDetail.cons_actual.isnot(None),
+            MattressDetail.cons_actual > 0
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(style_subquery.c.style)
+        results = query.all()
+
+        return {style: float(meters or 0) for style, meters in results}
+
+    elif breakdown == 'spreader':
+        # Subquery to get device from "2 - ON SPREAD" phase
+        spread_phase_subquery = db.session.query(
+            MattressPhase.mattress_id,
+            MattressPhase.device.label('spread_device')
+        ).filter(
+            MattressPhase.status == '2 - ON SPREAD'
+        ).subquery()
+
+        # Use COALESCE to prioritize spread phase device over completed phase device
+        query = db.session.query(
+            func.coalesce(spread_phase_subquery.c.spread_device, MattressPhase.device).label('device'),
+            func.sum(MattressDetail.cons_actual).label('total_meters')
+        ).select_from(MattressDetail).join(
+            Mattresses, Mattresses.id == MattressDetail.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).outerjoin(
+            spread_phase_subquery, spread_phase_subquery.c.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressDetail.cons_actual.isnot(None),
+            MattressDetail.cons_actual > 0,
+            # Ensure we have a device from either phase
+            or_(
+                and_(spread_phase_subquery.c.spread_device.isnot(None), spread_phase_subquery.c.spread_device != ''),
+                and_(MattressPhase.device.isnot(None), MattressPhase.device != '')
+            )
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(func.coalesce(spread_phase_subquery.c.spread_device, MattressPhase.device))
+        results = query.all()
+
+        return {device or 'Unknown': float(meters or 0) for device, meters in results}
+
+    elif breakdown == 'operator':
+        # Subquery to get operator from "2 - ON SPREAD" phase
+        spread_phase_subquery = db.session.query(
+            MattressPhase.mattress_id,
+            MattressPhase.operator.label('spread_operator')
+        ).filter(
+            MattressPhase.status == '2 - ON SPREAD'
+        ).subquery()
+
+        # Use COALESCE to prioritize spread phase operator over completed phase operator
+        query = db.session.query(
+            func.coalesce(spread_phase_subquery.c.spread_operator, MattressPhase.operator).label('operator'),
+            func.sum(MattressDetail.cons_actual).label('total_meters')
+        ).select_from(MattressDetail).join(
+            Mattresses, Mattresses.id == MattressDetail.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).outerjoin(
+            spread_phase_subquery, spread_phase_subquery.c.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressDetail.cons_actual.isnot(None),
+            MattressDetail.cons_actual > 0,
+            # Ensure we have an operator from either phase
+            or_(
+                and_(spread_phase_subquery.c.spread_operator.isnot(None), spread_phase_subquery.c.spread_operator != ''),
+                and_(MattressPhase.operator.isnot(None), MattressPhase.operator != '')
+            )
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(func.coalesce(spread_phase_subquery.c.spread_operator, MattressPhase.operator))
+        results = query.all()
+
+        return {operator: float(meters or 0) for operator, meters in results}
+
+    else:
+        # No breakdown, return total
+        total = get_meters_for_period(start_date, end_date, cutting_room)
+        return {'Total': total}
+
 @dashboard_api.route('/meters-spreaded')
 class MetersSpreadedData(Resource):
     def get(self):
@@ -409,9 +614,10 @@ class MetersSpreadedData(Resource):
         try:
             period = request.args.get('period', 'month')  # today, week, month, year
             cutting_room = request.args.get('cutting_room', 'ALL')  # Add cutting room filter
+            breakdown = request.args.get('breakdown', None)  # Add breakdown parameter
             start_date, end_date = get_date_range(period)
 
-            print(f"DEBUG meters-spreaded: period={period}, cutting_room={cutting_room}")
+            print(f"DEBUG meters-spreaded: period={period}, cutting_room={cutting_room}, breakdown={breakdown}")
             print(f"DEBUG date range: {start_date} to {end_date}")
 
             # Calculate total meters spreaded in the period using helper function
@@ -419,59 +625,221 @@ class MetersSpreadedData(Resource):
             print(f"DEBUG total_meters: {total_meters}")
 
             # Generate chart data based on period
-            chart_data = []
-            if period == 'year':
-                # Monthly data for the current calendar year (Jan-Dec of current year)
-                current_year = datetime.now().year
-                for month in range(1, 13):  # January (1) to December (12)
-                    month_start = datetime(current_year, month, 1, 0, 0, 0, 0)
-                    if month == 12:
-                        month_end = datetime(current_year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
-                    else:
-                        month_end = datetime(current_year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+            if breakdown:
+                # With breakdown, return multiple series
+                breakdown_series = {}
+                all_keys = set()  # Track all unique breakdown keys across all periods
+                period_data = []  # Store breakdown data for each period
 
-                    month_meters = get_meters_for_period(month_start, month_end, cutting_room)
-                    chart_data.append(float(month_meters))
+                if period == 'year':
+                    # Monthly data for the current calendar year (Jan-Dec of current year)
+                    current_year = datetime.now().year
+                    for month in range(1, 13):  # January (1) to December (12)
+                        month_start = datetime(current_year, month, 1, 0, 0, 0, 0)
+                        if month == 12:
+                            month_end = datetime(current_year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                        else:
+                            month_end = datetime(current_year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
 
-            elif period == 'month':
-                # Weekly data for the last 4 weeks
-                for i in range(3, -1, -1):
-                    week_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(weeks=i, days=datetime.now().weekday())
-                    week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+                        month_breakdown = get_meters_with_breakdown(month_start, month_end, cutting_room, breakdown)
+                        period_data.append(month_breakdown)
+                        all_keys.update(month_breakdown.keys())
 
-                    week_meters = get_meters_for_period(week_start, week_end, cutting_room)
-                    chart_data.append(float(week_meters))
+                elif period == 'month':
+                    # Weekly data for the last 4 weeks
+                    for i in range(3, -1, -1):
+                        week_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(weeks=i, days=datetime.now().weekday())
+                        week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
 
-            elif period == 'week':
-                # Daily data for the last 7 days
-                for i in range(6, -1, -1):
-                    day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
-                    day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
+                        week_breakdown = get_meters_with_breakdown(week_start, week_end, cutting_room, breakdown)
+                        period_data.append(week_breakdown)
+                        all_keys.update(week_breakdown.keys())
 
-                    day_meters = get_meters_for_period(day_start, day_end, cutting_room)
-                    chart_data.append(float(day_meters))
-            else:  # today
-                # Single data point for the entire day
-                today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                today_end = today_start + timedelta(days=1) - timedelta(microseconds=1)
+                elif period == 'week':
+                    # Daily data for the last 7 days
+                    for i in range(6, -1, -1):
+                        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
+                        day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
 
-                today_meters = get_meters_for_period(today_start, today_end, cutting_room)
-                chart_data.append(float(today_meters))
+                        day_breakdown = get_meters_with_breakdown(day_start, day_end, cutting_room, breakdown)
+                        period_data.append(day_breakdown)
+                        all_keys.update(day_breakdown.keys())
+                else:  # today
+                    # Single data point for the entire day
+                    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                    today_end = today_start + timedelta(days=1) - timedelta(microseconds=1)
+
+                    today_breakdown = get_meters_with_breakdown(today_start, today_end, cutting_room, breakdown)
+                    period_data.append(today_breakdown)
+                    all_keys.update(today_breakdown.keys())
+
+                # Now build the series ensuring all keys have values for all periods
+                for key in all_keys:
+                    breakdown_series[key] = []
+                    for period_breakdown in period_data:
+                        breakdown_series[key].append(float(period_breakdown.get(key, 0)))
+
+                return {
+                    "success": True,
+                    "data": {
+                        "total_meters": round(float(total_meters)),
+                        "breakdown_series": {k: [round(float(v)) for v in vals] for k, vals in breakdown_series.items()}
+                    },
+                    "period": period,
+                    "date_range": {
+                        "start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
+                        "end": end_date.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                }, 200
+            else:
+                # Without breakdown, return single series
+                chart_data = []
+                if period == 'year':
+                    # Monthly data for the current calendar year (Jan-Dec of current year)
+                    current_year = datetime.now().year
+                    for month in range(1, 13):  # January (1) to December (12)
+                        month_start = datetime(current_year, month, 1, 0, 0, 0, 0)
+                        if month == 12:
+                            month_end = datetime(current_year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                        else:
+                            month_end = datetime(current_year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+
+                        month_meters = get_meters_for_period(month_start, month_end, cutting_room)
+                        chart_data.append(float(month_meters))
+
+                elif period == 'month':
+                    # Weekly data for the last 4 weeks
+                    for i in range(3, -1, -1):
+                        week_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(weeks=i, days=datetime.now().weekday())
+                        week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+
+                        week_meters = get_meters_for_period(week_start, week_end, cutting_room)
+                        chart_data.append(float(week_meters))
+
+                elif period == 'week':
+                    # Daily data for the last 7 days
+                    for i in range(6, -1, -1):
+                        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
+                        day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
+
+                        day_meters = get_meters_for_period(day_start, day_end, cutting_room)
+                        chart_data.append(float(day_meters))
+                else:  # today
+                    # Single data point for the entire day
+                    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                    today_end = today_start + timedelta(days=1) - timedelta(microseconds=1)
+
+                    today_meters = get_meters_for_period(today_start, today_end, cutting_room)
+                    chart_data.append(float(today_meters))
+
+                return {
+                    "success": True,
+                    "data": {
+                        "total_meters": round(float(total_meters)),
+                        "chart_data": [round(float(value)) for value in chart_data]
+                    },
+                    "period": period,
+                    "date_range": {
+                        "start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
+                        "end": end_date.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                }, 200
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+
+@dashboard_api.route('/meters-raw-data')
+class MetersRawData(Resource):
+    def get(self):
+        """Get raw mattress data for frontend filtering and aggregation"""
+        try:
+            period = request.args.get('period', 'month')
+            cutting_room = request.args.get('cutting_room', 'ALL')
+            start_date, end_date = get_date_range(period)
+
+            print(f"DEBUG meters-raw-data: period={period}, cutting_room={cutting_room}")
+            print(f"DEBUG date range: {start_date} to {end_date}")
+
+            # Build base query for completed mattresses
+            base_query = db.session.query(
+                Mattresses.id,
+                Mattresses.order_commessa,
+                Mattresses.created_at,
+                Mattresses.fabric_code,
+                MattressDetail.cons_actual,
+                MattressPhase.phase_date,
+                MattressProductionCenter.production_center,
+                MattressProductionCenter.spreader,
+                MattressProductionCenter.operator
+            ).join(
+                MattressDetail, Mattresses.id == MattressDetail.mattress_id
+            ).join(
+                MattressPhase, Mattresses.id == MattressPhase.mattress_id
+            ).join(
+                MattressProductionCenter, Mattresses.id == MattressProductionCenter.mattress_id
+            ).filter(
+                MattressPhase.phase_name == '5 - COMPLETED',
+                MattressPhase.active == True,
+                MattressPhase.phase_date >= start_date,
+                MattressPhase.phase_date <= end_date
+            )
+
+            # Apply cutting room filter
+            if cutting_room != 'ALL':
+                base_query = base_query.filter(
+                    MattressProductionCenter.production_center.collate('SQL_Latin1_General_CP1_CI_AS') == cutting_room
+                )
+
+            # Execute query
+            results = base_query.all()
+
+            # Get brand and style info using subquery to avoid duplication
+            order_info_subquery = db.session.query(
+                OrderLinesView.order_commessa,
+                func.max(OrderLinesView.brand).label('brand'),
+                func.max(OrderLinesView.style).label('style')
+            ).group_by(OrderLinesView.order_commessa).subquery()
+
+            # Join to get brand and style
+            mattress_data = []
+            for row in results:
+                # Get brand and style for this order
+                order_info = db.session.query(
+                    order_info_subquery.c.brand,
+                    order_info_subquery.c.style
+                ).filter(
+                    order_info_subquery.c.order_commessa == row.order_commessa
+                ).first()
+
+                mattress_data.append({
+                    'mattress_id': row.id,
+                    'order_commessa': row.order_commessa,
+                    'cons_actual': float(row.cons_actual or 0),
+                    'phase_date': row.phase_date.strftime('%Y-%m-%d %H:%M:%S') if row.phase_date else None,
+                    'production_center': row.production_center,
+                    'spreader': row.spreader,
+                    'operator': row.operator,
+                    'brand': order_info.brand if order_info else None,
+                    'style': order_info.style if order_info else None,
+                    'fabric_code': row.fabric_code
+                })
 
             return {
                 "success": True,
-                "data": {
-                    "total_meters": round(float(total_meters)),
-                    "chart_data": [round(float(value)) for value in chart_data]
-                },
+                "data": mattress_data,
                 "period": period,
+                "cutting_room": cutting_room,
                 "date_range": {
                     "start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
                     "end": end_date.strftime('%Y-%m-%d %H:%M:%S')
-                }
+                },
+                "total_records": len(mattress_data)
             }, 200
 
         except Exception as e:
+            print(f"ERROR in meters-raw-data: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {"success": False, "message": str(e)}, 500
 
 @dashboard_api.route('/cutting-rooms')
@@ -770,6 +1138,107 @@ class CuttingRoomsData(Resource):
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
 
+@dashboard_api.route('/top-fabrics')
+class TopFabrics(Resource):
+    def get(self):
+        """Get top fabrics by total meters spreaded"""
+        try:
+            period = request.args.get('period', 'today')
+            cutting_room = request.args.get('cuttingRoom', 'ALL')
+            limit = int(request.args.get('limit', 10))
+
+            print(f"🔍 Top Fabrics Request - Period: {period}, Cutting Room: {cutting_room}, Limit: {limit}")
+
+            start_date, end_date = get_date_range(period)
+
+            # First, get fabric codes with total meters
+            fabric_totals_query = db.session.query(
+                Mattresses.fabric_code,
+                func.sum(MattressDetail.cons_actual).label('total_meters')
+            ).join(
+                MattressDetail, MattressDetail.mattress_id == Mattresses.id
+            ).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).join(
+                MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+            )
+
+            # Apply filters
+            filters = [
+                MattressPhase.status == '5 - COMPLETED',
+                MattressPhase.operator.isnot(None),
+                MattressPhase.operator != '',
+                MattressPhase.updated_at >= start_date,
+                MattressPhase.updated_at <= end_date,
+                MattressDetail.cons_actual.isnot(None),
+                MattressDetail.cons_actual > 0
+            ]
+
+            # Add cutting room filter if not 'ALL'
+            if cutting_room != 'ALL':
+                filters.append(MattressProductionCenter.cutting_room == cutting_room)
+
+            fabric_totals = fabric_totals_query.filter(*filters).group_by(
+                Mattresses.fabric_code
+            ).order_by(
+                func.sum(MattressDetail.cons_actual).desc()
+            ).limit(limit).all()
+
+            print(f"🎯 Query returned {len(fabric_totals)} fabric results")
+
+            # For each fabric, get the unique styles
+            top_fabrics = []
+            for fabric_result in fabric_totals:
+                fabric_code = fabric_result.fabric_code
+                total_meters = fabric_result.total_meters
+
+                # Get unique styles for this fabric
+                # Need to join with OrderLinesView to get style info
+                styles_query = db.session.query(
+                    func.distinct(OrderLinesView.style)
+                ).join(
+                    Mattresses,
+                    Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == OrderLinesView.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
+                ).join(
+                    MattressDetail, MattressDetail.mattress_id == Mattresses.id
+                ).join(
+                    MattressPhase, MattressPhase.mattress_id == Mattresses.id
+                ).join(
+                    MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+                ).filter(
+                    Mattresses.fabric_code == fabric_code,
+                    *filters
+                ).all()
+
+                # Extract style names and join them
+                styles = [s[0] for s in styles_query if s[0]]
+                styles_str = ', '.join(sorted(set(styles))) if styles else 'N/A'
+
+                top_fabrics.append({
+                    'fabric_code': fabric_code,
+                    'name': fabric_code,
+                    'total_meters': round(float(total_meters)) if total_meters else 0,
+                    'styles': styles_str
+                })
+
+            print(f"📋 Returning {len(top_fabrics)} fabrics with real data")
+
+            return {
+                "success": True,
+                "data": top_fabrics,
+                "period": period,
+                "date_range": {
+                    "start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
+                    "end": end_date.strftime('%Y-%m-%d %H:%M:%S')
+                },
+                "total_found": len(top_fabrics)
+            }, 200
+
+        except Exception as e:
+            print(f"❌ ERROR in top-fabrics endpoint: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": str(e), "error_type": type(e).__name__}, 500
 
 
 
@@ -796,12 +1265,20 @@ class TopOrdersData(Resource):
             # Join Mattresses -> MattressPhase -> MattressDetail -> OrderLinesView -> MattressProductionCenter
             # Filter dynamically based on cutting_room parameter
 
+            # Create subquery to get unique style, season, color_code per order (to avoid duplication from OrderLinesView)
+            order_info_subquery = db.session.query(
+                OrderLinesView.order_commessa,
+                func.max(OrderLinesView.style).label('style'),
+                func.max(OrderLinesView.season).label('season'),
+                func.max(OrderLinesView.color_code).label('color_code')
+            ).group_by(OrderLinesView.order_commessa).subquery()
+
             # Build base query
             base_query = db.session.query(
                 Mattresses.order_commessa,
-                OrderLinesView.style,
-                OrderLinesView.season,
-                OrderLinesView.color_code,
+                order_info_subquery.c.style,
+                order_info_subquery.c.season,
+                order_info_subquery.c.color_code,
                 func.sum(MattressDetail.cons_actual).label('total_meters'),
                 func.count(func.distinct(Mattresses.id)).label('mattress_count')
             ).join(
@@ -809,8 +1286,8 @@ class TopOrdersData(Resource):
             ).join(
                 MattressDetail, MattressDetail.mattress_id == Mattresses.id
             ).join(
-                OrderLinesView,
-                Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == OrderLinesView.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
+                order_info_subquery,
+                Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == order_info_subquery.c.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
             ).join(
                 MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
             )
@@ -833,9 +1310,9 @@ class TopOrdersData(Resource):
 
             top_orders_query = base_query.filter(*filters).group_by(
                 Mattresses.order_commessa,
-                OrderLinesView.style,
-                OrderLinesView.season,
-                OrderLinesView.color_code
+                order_info_subquery.c.style,
+                order_info_subquery.c.season,
+                order_info_subquery.c.color_code
             ).order_by(
                 func.sum(MattressDetail.cons_actual).desc()
             ).limit(limit)
@@ -851,7 +1328,7 @@ class TopOrdersData(Resource):
                     'style': result.style or 'N/A',
                     'season': result.season or 'N/A',
                     'color_code': result.color_code or 'N/A',
-                    'total_meters': round(float(result.total_meters), 2) if result.total_meters else 0.0,
+                    'total_meters': round(float(result.total_meters)) if result.total_meters else 0,
                     'mattress_count': result.mattress_count
                 })
 

@@ -11,6 +11,8 @@ import RoleGuard from './../utils/route-guard/RoleGuard';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
+const KpiAllCuttingRooms = Loadable(lazy(() => import('../views/dashboard/KpiAllCuttingRooms')));
+const KpiZalli = Loadable(lazy(() => import('../views/dashboard/KpiZalli')));
 const ConsumptionAnalytics = Loadable(lazy(() => import('../views/dashboard/ConsumptionAnalytics')));
 const OrderReport = Loadable(lazy(() => import('../views/dashboard/orderreport')));
 
@@ -108,6 +110,7 @@ const MainRoutes = () => {
             <Route
                 path={[
                     '/dashboard/default',
+                    '/dashboard/zalli',
                     '/dashboard/consumption-analytics',
                     '/dashboard/orderreport',
 
@@ -143,7 +146,8 @@ const MainRoutes = () => {
                 <MainLayout>
                     <Switch location={location} key={location.pathname}>
                         <AuthGuard>
-                            <Route path="/dashboard/default" component={DashboardDefault} />
+                            <Route path="/dashboard/default" component={KpiAllCuttingRooms} />
+                            <Route path="/dashboard/zalli" component={KpiZalli} />
                             <Route path="/dashboard/consumption-analytics" component={ConsumptionAnalytics} />
                             <Route path="/dashboard/orderreport" component={OrderReport} />
 

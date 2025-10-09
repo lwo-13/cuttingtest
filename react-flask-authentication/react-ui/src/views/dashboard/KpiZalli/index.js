@@ -6,28 +6,29 @@ import { Box, Grid, Typography } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
 
 // project imports
-import EarningCard from './EarningCard';
-import PopularCard from './PopularCard';
-import TopOrdersCard from './TopOrdersCard';
-import TotalOrderLineChartCard from './TotalOrderLineChartCard';
-import TotalIncomeDarkCard from './TotalIncomeDarkCard';
-import TotalIncomeLightCard from './TotalIncomeLightCard';
-import TotalGrowthBarChart from './TotalGrowthBarChart';
-import TotalMetersSpreadedChart from './TotalMetersSpreadedChart';
-import TotalPiecesSpreadedChart from './TotalPiecesSpreadedChart';
-import { gridSpacing } from './../../../store/constant';
+import EarningCard from '../Default/EarningCard';
+import PopularCard from '../Default/PopularCard';
+import TopOrdersCard from '../Default/TopOrdersCard';
+import TotalOrderLineChartCard from '../Default/TotalOrderLineChartCard';
+import TotalIncomeDarkCard from '../Default/TotalIncomeDarkCard';
+import TotalIncomeLightCard from '../Default/TotalIncomeLightCard';
+import TotalGrowthBarChart from '../Default/TotalGrowthBarChart';
+import TotalMetersSpreadedChart from '../Default/TotalMetersSpreadedChart';
+import TotalPiecesSpreadedChart from '../Default/TotalPiecesSpreadedChart';
+import { gridSpacing } from '../../../store/constant';
 
 // dashboard components
-import DateFilter from './components/DateFilter';
-import StatisticsCards from './components/StatisticsCards';
+import DateFilter from '../Default/components/DateFilter';
+import StatisticsCards from '../Default/components/StatisticsCards';
 
-//-----------------------|| DEFAULT DASHBOARD ||-----------------------//
+//-----------------------|| KPI ZALLI DASHBOARD ||-----------------------//
 
-const Dashboard = () => {
+const KpiZalli = () => {
     const { t } = useTranslation();
     const [isLoading, setLoading] = useState(true);
     const [selectedPeriod, setSelectedPeriod] = useState('today');
-    const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('ALL');
+    // Hardcode cutting room to ZALLI for this dashboard
+    const selectedCuttingRoom = 'ZALLI';
     const [totalMetersCompleted, setTotalMetersCompleted] = useState(0);
 
     useEffect(() => {
@@ -38,12 +39,8 @@ const Dashboard = () => {
         setSelectedPeriod(period);
     };
 
-    const handleCuttingRoomChange = (cuttingRoom) => {
-        setSelectedCuttingRoom(cuttingRoom);
-    };
-
     const handleTotalMetersChange = (meters) => {
-        console.log('📊 Dashboard - Total meters changed to:', meters);
+        console.log('📊 KpiZalli - Total meters changed to:', meters);
         setTotalMetersCompleted(meters);
     };
 
@@ -92,8 +89,7 @@ const Dashboard = () => {
                             selectedPeriod={selectedPeriod}
                             onPeriodChange={handlePeriodChange}
                             selectedCuttingRoom={selectedCuttingRoom}
-                            onCuttingRoomChange={handleCuttingRoomChange}
-                            isAllCuttingRoomsPage={true}
+                            hideCuttingRoomSelector={true}
                             onTotalMetersChange={handleTotalMetersChange}
                         />
                     </Grid>
@@ -116,10 +112,12 @@ const Dashboard = () => {
                             isLoading={isLoading}
                             selectedPeriod={selectedPeriod}
                             onPeriodChange={handlePeriodChange}
+                            selectedCuttingRoom={selectedCuttingRoom}
+                            hideCuttingRoomSelector={true}
                         />
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} />
+                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} selectedCuttingRoom={selectedCuttingRoom} />
                     </Grid>
                 </Grid>
             </Grid>
@@ -139,4 +137,5 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default KpiZalli;
+

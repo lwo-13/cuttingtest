@@ -1,6 +1,5 @@
 import PropTypes from 'prop-types';
-import React, { useState, useEffect } from 'react';
-import axios from 'utils/axiosInstance';
+import React from 'react';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
@@ -60,24 +59,10 @@ const useStyles = makeStyles((theme) => ({
 
 //-----------------------|| DASHBOARD - TOTAL CONSUMPTION CARD ||-----------------------//
 
-const TotalConsumptionCard = ({ isLoading, selectedPeriod }) => {
+const TotalConsumptionCard = ({ isLoading, selectedPeriod, totalMetersCompleted }) => {
     const classes = useStyles();
-    const [consumption, setConsumption] = useState(0);
 
-    useEffect(() => {
-        const fetchConsumption = async () => {
-            try {
-                const response = await axios.get(`/dashboard/statistics?period=${selectedPeriod}`);
-                if (response.data.success) {
-                    setConsumption(response.data.data.total_consumption_planned || 0);
-                }
-            } catch (error) {
-                console.error('Error fetching consumption:', error);
-            }
-        };
-
-        fetchConsumption();
-    }, [selectedPeriod]);
+    console.log('🔍 TotalConsumptionCard - totalMetersCompleted:', totalMetersCompleted);
 
     return (
         <React.Fragment>
@@ -98,7 +83,7 @@ const TotalConsumptionCard = ({ isLoading, selectedPeriod }) => {
                                     mb: 0.45
                                 }}
                                 className={classes.padding}
-                                primary={<Typography variant="h4">{Math.round(consumption).toLocaleString('fr-FR')} m</Typography>}
+                                primary={<Typography variant="h4">{Math.round(totalMetersCompleted || 0).toLocaleString()} m</Typography>}
                                 secondary={
                                     <Typography variant="subtitle2" className={classes.secondary}>
                                         Total Consumption
@@ -115,7 +100,8 @@ const TotalConsumptionCard = ({ isLoading, selectedPeriod }) => {
 
 TotalConsumptionCard.propTypes = {
     isLoading: PropTypes.bool,
-    selectedPeriod: PropTypes.string
+    selectedPeriod: PropTypes.string,
+    totalMetersCompleted: PropTypes.number
 };
 
 export default TotalConsumptionCard;

@@ -28,12 +28,14 @@ import LongMattressCard from '../LongMattressCard';
 import TotalConsumptionCard from '../TotalConsumptionCard';
 import OrdersWorkedOnCard from '../OrdersWorkedOnCard';
 
-const StatisticsCards = ({ selectedPeriod }) => {
+const StatisticsCards = ({ selectedPeriod, totalMetersCompleted }) => {
     const { t } = useTranslation();
     const theme = useTheme();
     const [statistics, setStatistics] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    console.log(`📦 StatisticsCards - Received totalMetersCompleted:`, totalMetersCompleted);
 
     const fetchStatistics = async () => {
         setLoading(true);
@@ -129,6 +131,7 @@ const StatisticsCards = ({ selectedPeriod }) => {
                         <TotalConsumptionCard
                             isLoading={loading}
                             selectedPeriod={selectedPeriod}
+                            totalMetersCompleted={totalMetersCompleted}
                         />
                     </Grid>
                 </Grid>

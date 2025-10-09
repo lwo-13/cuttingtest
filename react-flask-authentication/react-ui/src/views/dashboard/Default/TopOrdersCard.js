@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
-import { Avatar, Button, CardActions, CardContent, Divider, Grid, Menu, MenuItem, Typography, Tabs, Tab, Box } from '@mui/material';
+import { CardContent, Divider, Grid, Menu, MenuItem, Typography, Tabs, Tab } from '@mui/material';
 
 // project imports
 import MainCard from './../../../ui-component/cards/MainCard';
@@ -12,10 +12,9 @@ import SkeletonPopularCard from './../../../ui-component/cards/Skeleton/PopularC
 import { gridSpacing } from './../../../store/constant';
 
 // assets
-import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined';
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
-import KeyboardArrowUpOutlinedIcon from '@mui/icons-material/KeyboardArrowUpOutlined';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 
 // style constant
 const useStyles = makeStyles((theme) => ({
@@ -32,27 +31,29 @@ const useStyles = makeStyles((theme) => ({
         marginTop: '12px',
         marginBottom: '12px'
     },
-    avatarSuccess: {
-        width: '16px',
-        height: '16px',
-        borderRadius: '5px',
-        backgroundColor: theme.palette.success.light,
-        color: theme.palette.success.dark,
-        marginLeft: '15px'
+    firstPlace: {
+        backgroundColor: '#FFF9E6',
+        borderLeft: '4px solid #FFD700',
+        padding: '12px',
+        borderRadius: '8px',
+        marginBottom: '12px'
     },
-    successDark: {
-        color: theme.palette.success.dark
+    secondPlace: {
+        backgroundColor: '#F5F5F5',
+        borderLeft: '4px solid #C0C0C0',
+        padding: '12px',
+        borderRadius: '8px',
+        marginBottom: '12px'
     },
-    avatarError: {
-        width: '16px',
-        height: '16px',
-        borderRadius: '5px',
-        backgroundColor: theme.palette.orange.light,
-        color: theme.palette.orange.dark,
-        marginLeft: '15px'
+    firstPlaceIcon: {
+        color: '#FFD700',
+        fontSize: '1.5rem',
+        marginRight: '8px'
     },
-    errorDark: {
-        color: theme.palette.orange.dark
+    secondPlaceIcon: {
+        color: '#C0C0C0',
+        fontSize: '1.5rem',
+        marginRight: '8px'
     }
 }));
 
@@ -61,6 +62,7 @@ const useStyles = makeStyles((theme) => ({
 const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
     const classes = useStyles();
     const [topOrdersData, setTopOrdersData] = useState([]);
+    const [stylesData, setStylesData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [anchorEl, setAnchorEl] = React.useState(null);
     const [activeTab, setActiveTab] = useState(0);
@@ -77,23 +79,8 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
         setActiveTab(newValue);
     };
 
-    // Dummy data for styles
-    const stylesData = [
-        { name: 'CLASSIC-FIT', orders: 45, change: 12.5 },
-        { name: 'SLIM-MODERN', orders: 38, change: -2.1 },
-        { name: 'COMFORT-PLUS', orders: 32, change: 8.3 },
-        { name: 'ATHLETIC-CUT', orders: 28, change: 15.7 },
-        { name: 'VINTAGE-STYLE', orders: 22, change: -5.2 }
-    ];
-
-    // Dummy data for fabrics
-    const fabricsData = [
-        { name: 'Cotton Blend', meters: 1250, change: 18.2 },
-        { name: 'Polyester Mix', meters: 980, change: -3.4 },
-        { name: 'Denim Classic', meters: 875, change: 22.1 },
-        { name: 'Wool Premium', meters: 650, change: 7.8 },
-        { name: 'Silk Touch', meters: 420, change: -8.9 }
-    ];
+    // State for fabrics data
+    const [fabricsData, setFabricData] = useState([]);
 
     // Fetch top orders data from API
     useEffect(() => {
@@ -106,11 +93,35 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                 if (response.data.success) {
                     console.log('✅ Top Orders API Response:', response.data);
                     console.log('📊 Orders data:', response.data.data);
-                    setTopOrdersData(response.data.data);
+                    const ordersData = response.data.data;
+                    setTopOrdersData(ordersData);
+
+                    // Process styles data by grouping orders by style
+                    const styleGroups = {};
+                    ordersData.forEach(order => {
+                        const styleName = order.style || 'N/A';
+                        if (!styleGroups[styleName]) {
+                            styleGroups[styleName] = {
+                                name: styleName,
+                                total_meters: 0,
+                                order_count: 0
+                            };
+                        }
+                        styleGroups[styleName].total_meters += order.total_meters || 0;
+                        styleGroups[styleName].order_count += 1;
+                    });
+
+                    // Convert to array and sort by total meters
+                    const stylesArray = Object.values(styleGroups)
+                        .sort((a, b) => b.total_meters - a.total_meters)
+                        .slice(0, 6); // Limit to top 6 styles
+
+                    setStylesData(stylesArray);
                 } else {
                     console.error('❌ Failed to fetch top orders data:', response.data.message);
                     // Fallback to empty array
                     setTopOrdersData([]);
+                    setStylesData([]);
                 }
                 setLoading(false);
             } catch (error) {
@@ -118,6 +129,7 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                 console.error('❌ Error details:', error.response?.data || error.message);
                 // Fallback to empty array on error
                 setTopOrdersData([]);
+                setStylesData([]);
                 setLoading(false);
             }
         };
@@ -125,16 +137,71 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
         fetchTopOrdersData();
     }, [selectedPeriod, selectedCuttingRoom]);
 
-    // Helper function to format meters
+    // Fetch top fabrics data from API
+    useEffect(() => {
+        const fetchTopFabricsData = async () => {
+            try {
+                const cuttingRoomParam = selectedCuttingRoom || 'ALL';
+                const response = await axios.get(`/api/dashboard/top-fabrics?period=${selectedPeriod}&limit=6&cuttingRoom=${cuttingRoomParam}`);
+
+                if (response.data.success) {
+                    console.log('✅ Top Fabrics API Response:', response.data);
+                    const fabricsArray = response.data.data;
+                    setFabricData(fabricsArray);
+                } else {
+                    console.error('❌ Failed to fetch top fabrics data:', response.data.message);
+                    setFabricData([]);
+                }
+            } catch (error) {
+                console.error('❌ Error fetching top fabrics data:', error);
+                console.error('❌ Error details:', error.response?.data || error.message);
+                setFabricData([]);
+            }
+        };
+
+        fetchTopFabricsData();
+    }, [selectedPeriod, selectedCuttingRoom]);
+
+    // Calculate total meters across all orders
+    const totalMeters = topOrdersData.reduce((sum, order) => sum + (order.total_meters || 0), 0);
+
+    // Helper function to format meters as integer
     const formatMeters = (meters) => {
-        // Always show in meters, rounded to 1 decimal place
-        return `${meters.toFixed(1)}m`;
+        return `${Math.round(meters)}m`;
     };
 
-    // Helper function to format percentage (placeholder for future use)
-    const formatPercentage = (percentage) => {
-        const sign = percentage >= 0 ? '+' : '';
-        return `${sign}${percentage.toFixed(1)}%`;
+    // Helper function to calculate and format percentage (for orders tab)
+    const calculatePercentage = (meters) => {
+        if (totalMeters === 0) return '0%';
+        const percentage = Math.round((meters / totalMeters) * 100);
+        return `${percentage}%`;
+    };
+
+    // Helper function to get place styling
+    const getPlaceClass = (index) => {
+        if (index === 0) return classes.firstPlace;
+        if (index === 1) return classes.secondPlace;
+        return '';
+    };
+
+    // Helper function to get place icon class
+    const getPlaceIconClass = (index) => {
+        if (index === 0) return classes.firstPlaceIcon;
+        if (index === 1) return classes.secondPlaceIcon;
+        return '';
+    };
+
+    // Helper function to get the appropriate icon component
+    const getPlaceIcon = (index) => {
+        const iconClass = getPlaceIconClass(index);
+        if (index === 0) {
+            // 1st place - Gold trophy
+            return <EmojiEventsIcon className={iconClass} />;
+        } else if (index === 1) {
+            // 2nd place - Silver medal
+            return <WorkspacePremiumIcon className={iconClass} />;
+        }
+        return null;
     };
 
     return (
@@ -198,24 +265,38 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                             <Grid item xs={12}>
                                 {activeTab === 0 && (
                                     topOrdersData.length > 0 ? (
-                                        topOrdersData.map((order, index) => (
+                                        topOrdersData.slice(0, 6).map((order, index) => (
                                     <React.Fragment key={order.order_commessa}>
-                                        <Grid container direction="column">
+                                        <Grid container direction="column" className={getPlaceClass(index)}>
                                             <Grid item>
                                                 <Grid container alignItems="center" justifyContent="space-between">
                                                     <Grid item>
-                                                        <Typography variant="subtitle1" color="inherit">
-                                                            {order.order_commessa}
-                                                        </Typography>
-                                                        <Typography variant="caption" color="textSecondary">
-                                                            {order.style} - {order.color_code}
-                                                        </Typography>
+                                                        <Grid container alignItems="center">
+                                                            {index < 2 && (
+                                                                <Grid item>
+                                                                    {getPlaceIcon(index)}
+                                                                </Grid>
+                                                            )}
+                                                            <Grid item>
+                                                                <Typography variant="subtitle1" color="inherit">
+                                                                    {order.order_commessa}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="textSecondary">
+                                                                    {order.style} - {order.color_code}
+                                                                </Typography>
+                                                            </Grid>
+                                                        </Grid>
                                                     </Grid>
                                                     <Grid item>
-                                                        <Grid container alignItems="center" justifyContent="space-between">
+                                                        <Grid container alignItems="center" spacing={1}>
                                                             <Grid item>
                                                                 <Typography variant="subtitle1" color="inherit">
                                                                     {formatMeters(order.total_meters)}
+                                                                </Typography>
+                                                            </Grid>
+                                                            <Grid item>
+                                                                <Typography variant="caption" color="textSecondary">
+                                                                    ({calculatePercentage(order.total_meters)})
                                                                 </Typography>
                                                             </Grid>
                                                         </Grid>
@@ -223,7 +304,7 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                                 </Grid>
                                             </Grid>
                                         </Grid>
-                                            {index < topOrdersData.length - 1 && <Divider className={classes.divider} />}
+                                            {index < Math.min(topOrdersData.length, 6) - 1 && <Divider className={classes.divider} />}
                                         </React.Fragment>
                                         ))
                                     ) : (
@@ -238,107 +319,118 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                     )
                                 )}
 
-                                {activeTab === 1 && stylesData.map((style, index) => (
-                                    <React.Fragment key={style.name}>
-                                        <Grid container direction="column">
-                                            <Grid item>
-                                                <Grid container alignItems="center" justifyContent="space-between">
-                                                    <Grid item>
-                                                        <Typography variant="subtitle1" color="inherit">
-                                                            {style.name}
-                                                        </Typography>
-                                                    </Grid>
+                                {activeTab === 1 && (
+                                    stylesData.length > 0 ? (
+                                        stylesData.slice(0, 6).map((style, index) => (
+                                            <React.Fragment key={style.name}>
+                                                <Grid container direction="column" className={getPlaceClass(index)}>
                                                     <Grid item>
                                                         <Grid container alignItems="center" justifyContent="space-between">
                                                             <Grid item>
-                                                                <Typography variant="subtitle1" color="inherit">
-                                                                    {style.orders} orders
-                                                                </Typography>
+                                                                <Grid container alignItems="center">
+                                                                    {index < 2 && (
+                                                                        <Grid item>
+                                                                            {getPlaceIcon(index)}
+                                                                        </Grid>
+                                                                    )}
+                                                                    <Grid item>
+                                                                        <Typography variant="subtitle1" color="inherit">
+                                                                            {style.name}
+                                                                        </Typography>
+                                                                        <Typography variant="caption" color="textSecondary">
+                                                                            {style.order_count} {style.order_count === 1 ? 'order' : 'orders'}
+                                                                        </Typography>
+                                                                    </Grid>
+                                                                </Grid>
                                                             </Grid>
                                                             <Grid item>
-                                                                <Avatar
-                                                                    variant="rounded"
-                                                                    className={style.change >= 0 ? classes.avatarSuccess : classes.avatarError}
-                                                                >
-                                                                    {style.change >= 0 ? (
-                                                                        <KeyboardArrowUpOutlinedIcon fontSize="small" color="inherit" />
-                                                                    ) : (
-                                                                        <KeyboardArrowDownOutlinedIcon fontSize="small" color="inherit" />
-                                                                    )}
-                                                                </Avatar>
+                                                                <Grid container alignItems="center" spacing={1}>
+                                                                    <Grid item>
+                                                                        <Typography variant="subtitle1" color="inherit">
+                                                                            {formatMeters(style.total_meters)}
+                                                                        </Typography>
+                                                                    </Grid>
+                                                                    <Grid item>
+                                                                        <Typography variant="caption" color="textSecondary">
+                                                                            ({calculatePercentage(style.total_meters)})
+                                                                        </Typography>
+                                                                    </Grid>
+                                                                </Grid>
                                                             </Grid>
                                                         </Grid>
                                                     </Grid>
                                                 </Grid>
-                                            </Grid>
-                                            <Grid item>
-                                                <Typography
-                                                    variant="subtitle2"
-                                                    className={style.change >= 0 ? classes.successDark : classes.errorDark}
-                                                >
-                                                    {formatPercentage(style.change)}
-                                                </Typography>
-                                            </Grid>
+                                                {index < Math.min(stylesData.length, 6) - 1 && <Divider className={classes.divider} />}
+                                            </React.Fragment>
+                                        ))
+                                    ) : (
+                                        <Grid container direction="column" alignItems="center" sx={{ py: 2 }}>
+                                            <Typography variant="body2" color="textSecondary">
+                                                No styles found
+                                            </Typography>
+                                            <Typography variant="caption" color="textSecondary">
+                                                Try selecting a different time period
+                                            </Typography>
                                         </Grid>
-                                        {index < stylesData.length - 1 && <Divider className={classes.divider} />}
-                                    </React.Fragment>
-                                ))}
+                                    )
+                                )}
 
-                                {activeTab === 2 && fabricsData.map((fabric, index) => (
-                                    <React.Fragment key={fabric.name}>
-                                        <Grid container direction="column">
-                                            <Grid item>
-                                                <Grid container alignItems="center" justifyContent="space-between">
-                                                    <Grid item>
-                                                        <Typography variant="subtitle1" color="inherit">
-                                                            {fabric.name}
-                                                        </Typography>
-                                                    </Grid>
+                                {activeTab === 2 && (
+                                    fabricsData.length > 0 ? (
+                                        fabricsData.slice(0, 6).map((fabric, index) => (
+                                            <React.Fragment key={fabric.fabric_code}>
+                                                <Grid container direction="column" className={getPlaceClass(index)}>
                                                     <Grid item>
                                                         <Grid container alignItems="center" justifyContent="space-between">
                                                             <Grid item>
-                                                                <Typography variant="subtitle1" color="inherit">
-                                                                    {fabric.meters}m
-                                                                </Typography>
+                                                                <Grid container alignItems="center">
+                                                                    {index < 2 && (
+                                                                        <Grid item>
+                                                                            {getPlaceIcon(index)}
+                                                                        </Grid>
+                                                                    )}
+                                                                    <Grid item>
+                                                                        <Typography variant="subtitle1" color="inherit">
+                                                                            {fabric.fabric_code}
+                                                                        </Typography>
+                                                                        <Typography variant="caption" color="textSecondary">
+                                                                            {fabric.styles}
+                                                                        </Typography>
+                                                                    </Grid>
+                                                                </Grid>
                                                             </Grid>
                                                             <Grid item>
-                                                                <Avatar
-                                                                    variant="rounded"
-                                                                    className={fabric.change >= 0 ? classes.avatarSuccess : classes.avatarError}
-                                                                >
-                                                                    {fabric.change >= 0 ? (
-                                                                        <KeyboardArrowUpOutlinedIcon fontSize="small" color="inherit" />
-                                                                    ) : (
-                                                                        <KeyboardArrowDownOutlinedIcon fontSize="small" color="inherit" />
-                                                                    )}
-                                                                </Avatar>
+                                                                <Grid container alignItems="center" spacing={1}>
+                                                                    <Grid item>
+                                                                        <Typography variant="subtitle1" color="inherit">
+                                                                            {formatMeters(fabric.total_meters)}
+                                                                        </Typography>
+                                                                    </Grid>
+                                                                    <Grid item>
+                                                                        <Typography variant="caption" color="textSecondary">
+                                                                            ({calculatePercentage(fabric.total_meters)})
+                                                                        </Typography>
+                                                                    </Grid>
+                                                                </Grid>
                                                             </Grid>
                                                         </Grid>
                                                     </Grid>
                                                 </Grid>
-                                            </Grid>
-                                            <Grid item>
-                                                <Typography
-                                                    variant="subtitle2"
-                                                    className={fabric.change >= 0 ? classes.successDark : classes.errorDark}
-                                                >
-                                                    {formatPercentage(fabric.change)}
-                                                </Typography>
-                                            </Grid>
+                                                {index < Math.min(fabricsData.length, 6) - 1 && <Divider className={classes.divider} />}
+                                            </React.Fragment>
+                                        ))
+                                    ) : (
+                                        <Grid container direction="column" alignItems="center" sx={{ py: 2 }}>
+                                            <Typography variant="body2" color="textSecondary">
+                                                No fabric data available for this period
+                                            </Typography>
                                         </Grid>
-                                        {index < fabricsData.length - 1 && <Divider className={classes.divider} />}
-                                    </React.Fragment>
-                                ))}
+                                    )
+                                )}
 
                             </Grid>
                         </Grid>
                     </CardContent>
-                    <CardActions className={classes.cardAction}>
-                        <Button size="small" disableElevation>
-                            View All
-                            <ChevronRightOutlinedIcon />
-                        </Button>
-                    </CardActions>
                 </MainCard>
             )}
         </React.Fragment>

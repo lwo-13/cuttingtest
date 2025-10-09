@@ -6,24 +6,24 @@ import { Box, Grid, Typography } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
 
 // project imports
-import EarningCard from './EarningCard';
-import PopularCard from './PopularCard';
-import TopOrdersCard from './TopOrdersCard';
-import TotalOrderLineChartCard from './TotalOrderLineChartCard';
-import TotalIncomeDarkCard from './TotalIncomeDarkCard';
-import TotalIncomeLightCard from './TotalIncomeLightCard';
-import TotalGrowthBarChart from './TotalGrowthBarChart';
-import TotalMetersSpreadedChart from './TotalMetersSpreadedChart';
-import TotalPiecesSpreadedChart from './TotalPiecesSpreadedChart';
-import { gridSpacing } from './../../../store/constant';
+import EarningCard from '../Default/EarningCard';
+import PopularCard from '../Default/PopularCard';
+import TopOrdersCard from '../Default/TopOrdersCard';
+import TotalOrderLineChartCard from '../Default/TotalOrderLineChartCard';
+import TotalIncomeDarkCard from '../Default/TotalIncomeDarkCard';
+import TotalIncomeLightCard from '../Default/TotalIncomeLightCard';
+import TotalGrowthBarChart from '../Default/TotalGrowthBarChart';
+import TotalMetersSpreadedChart from '../Default/TotalMetersSpreadedChart';
+import TotalPiecesSpreadedChart from '../Default/TotalPiecesSpreadedChart';
+import { gridSpacing } from '../../../store/constant';
 
 // dashboard components
-import DateFilter from './components/DateFilter';
-import StatisticsCards from './components/StatisticsCards';
+import DateFilter from '../Default/components/DateFilter';
+import StatisticsCards from '../Default/components/StatisticsCards';
 
-//-----------------------|| DEFAULT DASHBOARD ||-----------------------//
+//-----------------------|| KPI ALL CUTTING ROOMS DASHBOARD ||-----------------------//
 
-const Dashboard = () => {
+const KpiAllCuttingRooms = () => {
     const { t } = useTranslation();
     const [isLoading, setLoading] = useState(true);
     const [selectedPeriod, setSelectedPeriod] = useState('today');
@@ -43,7 +43,7 @@ const Dashboard = () => {
     };
 
     const handleTotalMetersChange = (meters) => {
-        console.log('📊 Dashboard - Total meters changed to:', meters);
+        console.log('📊 KpiAllCuttingRooms - Total meters changed to:', meters);
         setTotalMetersCompleted(meters);
     };
 
@@ -139,4 +139,5 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default KpiAllCuttingRooms;
+

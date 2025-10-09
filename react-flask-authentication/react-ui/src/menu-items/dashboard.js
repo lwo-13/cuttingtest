@@ -1,5 +1,5 @@
 // assets
-import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar, IconClipboardList, IconClipboardCheck } from '@tabler/icons';
+import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar, IconClipboardList, IconClipboardCheck, IconBuilding, IconBuildingFactory } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| DASHBOARD MENU ITEMS ||-----------------------//
@@ -12,10 +12,28 @@ export const dashboard = {
         {
             id: 'default',
             title: i18n.t('sidebar.kpiDashboard'),
-            type: 'item',
-            url: '/dashboard/default',
+            type: 'collapse',
             icon: IconDashboard,
-            breadcrumbs: false
+            disabled: false, // Allow clicking to expand/collapse
+            url: null, // No URL - prevents navigation
+            children: [
+                {
+                    id: 'kpi-all-cutting-rooms',
+                    title: 'All Cutting Rooms',
+                    type: 'item',
+                    url: '/dashboard/default',
+                    icon: IconBuildingFactory,
+                    breadcrumbs: false
+                },
+                {
+                    id: 'kpi-zalli',
+                    title: 'Zalli',
+                    type: 'item',
+                    url: '/dashboard/zalli',
+                    icon: IconBuilding,
+                    breadcrumbs: false
+                }
+            ]
         },
         {
             id: 'consumption-analytics',
