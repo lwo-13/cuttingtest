@@ -91,8 +91,6 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                 const response = await axios.get(`/api/dashboard/top-orders-test?period=${selectedPeriod}&limit=6&cutting_room=${cuttingRoomParam}`);
 
                 if (response.data.success) {
-                    console.log('✅ Top Orders API Response:', response.data);
-                    console.log('📊 Orders data:', response.data.data);
                     const ordersData = response.data.data;
                     setTopOrdersData(ordersData);
 
@@ -145,11 +143,9 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                 const response = await axios.get(`/api/dashboard/top-fabrics?period=${selectedPeriod}&limit=6&cuttingRoom=${cuttingRoomParam}`);
 
                 if (response.data.success) {
-                    console.log('✅ Top Fabrics API Response:', response.data);
                     const fabricsArray = response.data.data;
                     setFabricData(fabricsArray);
                 } else {
-                    console.error('❌ Failed to fetch top fabrics data:', response.data.message);
                     setFabricData([]);
                 }
             } catch (error) {

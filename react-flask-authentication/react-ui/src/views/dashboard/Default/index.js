@@ -43,7 +43,6 @@ const Dashboard = () => {
     };
 
     const handleTotalMetersChange = (meters) => {
-        console.log('📊 Dashboard - Total meters changed to:', meters);
         setTotalMetersCompleted(meters);
     };
 

@@ -60,7 +60,6 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
 
     // Notify parent when total meters changes
     useEffect(() => {
-        console.log(`🔔 TotalMetersSpreadedChart - Notifying parent: totalMeters=${totalMeters}`);
         if (onTotalMetersChange) {
             onTotalMetersChange(totalMeters);
         }
@@ -134,18 +133,14 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
         const fetchRawData = async () => {
             setIsLoadingRawData(true);
             try {
-                console.log(`🔄 Fetching raw mattress data: period=${value}, cutting_room=${cuttingRoom}`);
                 const response = await axios.get(`/dashboard/meters-raw-data?period=${value}&cutting_room=${cuttingRoom}`);
 
                 if (response.data.success) {
-                    console.log(`✅ Fetched ${response.data.total_records} mattress records`);
                     setRawMattressData(response.data.data);
                 } else {
-                    console.error('Failed to fetch raw data:', response.data.message);
                     setRawMattressData([]);
                 }
             } catch (error) {
-                console.error('Error fetching raw data:', error);
                 setRawMattressData([]);
             } finally {
                 setIsLoadingRawData(false);
@@ -199,35 +194,22 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                 let series;
                 let totalMetersSum = 0;
 
-                console.log(`🔍 Data fetch logic: breakdown=${selectedBreakdown}, cuttingRoom=${cuttingRoom}`);
-
                 // Build breakdown query parameter
                 const breakdownParam = selectedBreakdown !== 'none'
                     ? `&breakdown=${selectedBreakdown}`
                     : '';
 
                 if (selectedBreakdown !== 'none') {
-                    console.log(`📊 Branch: WITH breakdown`);
-
                     // Check cache first
                     const cacheKey = `${value}_${cuttingRoom}_${selectedBreakdown}`;
-                    console.log(`🔑 Cache key: ${cacheKey}`);
-                    console.log(`📦 Current cache keys:`, Object.keys(apiCache));
                     let response;
 
                     if (apiCache[cacheKey]) {
-                        console.log(`✅ Using cached data for ${cacheKey}`);
                         response = apiCache[cacheKey];
                     } else {
-                        console.log(`🔄 Fetching data for ${cacheKey} (cache miss)`);
                         response = await axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${cuttingRoom}${breakdownParam}`);
                         // Cache the response
-                        console.log(`💾 Storing in cache: ${cacheKey}`);
-                        setApiCache(prev => {
-                            const newCache = { ...prev, [cacheKey]: response };
-                            console.log(`📦 New cache keys:`, Object.keys(newCache));
-                            return newCache;
-                        });
+                        setApiCache(prev => ({ ...prev, [cacheKey]: response }));
                     }
 
                     if (response.data.success) {
@@ -339,7 +321,6 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                         }));
                     }
                 } else if (cuttingRoom === 'ALL') {
-                    console.log(`📊 Branch: ALL cutting rooms (no breakdown)`);
                     // For ALL view, fetch data for each cutting room separately and stack them
                     const roomsToFetch = cuttingRooms.filter(room => room !== 'ALL');
 
@@ -347,10 +328,8 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                     const promises = roomsToFetch.map(room => {
                         const cacheKey = `${value}_${room}_none`;
                         if (apiCache[cacheKey]) {
-                            console.log(`✅ Using cached data for ${cacheKey}`);
                             return Promise.resolve(apiCache[cacheKey]);
                         } else {
-                            console.log(`🔄 Fetching data for ${cacheKey}`);
                             return axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${room}`).then(response => {
                                 setApiCache(prev => ({ ...prev, [cacheKey]: response }));
                                 return response;
@@ -385,7 +364,6 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                     // Set colors to match series order
                     colors = series.map(s => colorMap[s.name]);
 
-                    console.log(`✅ Setting totalMeters to ${totalMetersSum} for ALL cutting rooms`);
                     setTotalMeters(totalMetersSum);
 
                     setChartDataState(prev => ({
@@ -409,16 +387,13 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                         series: series
                     }));
                 } else {
-                    console.log(`📊 Branch: Single cutting room (no breakdown)`);
                     // Show single series for specific cutting room
                     const cacheKey = `${value}_${cuttingRoom}_none`;
                     let response;
 
                     if (apiCache[cacheKey]) {
-                        console.log(`✅ Using cached data for ${cacheKey}`);
                         response = apiCache[cacheKey];
                     } else {
-                        console.log(`🔄 Fetching data for ${cacheKey}`);
                         response = await axios.get(`/dashboard/meters-spreaded?period=${value}&cutting_room=${cuttingRoom}`);
                         setApiCache(prev => ({ ...prev, [cacheKey]: response }));
                     }

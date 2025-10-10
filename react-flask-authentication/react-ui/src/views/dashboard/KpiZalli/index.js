@@ -40,7 +40,6 @@ const KpiZalli = () => {
     };
 
     const handleTotalMetersChange = (meters) => {
-        console.log('📊 KpiZalli - Total meters changed to:', meters);
         setTotalMetersCompleted(meters);
     };
 

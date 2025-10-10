@@ -108,10 +108,7 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                 if (response.data.success) {
                     setTotalPieces(response.data.data.total_pieces || 0);
 
-                    // Debug: Log API response
-                    console.log('API Response for period:', value, 'cutting_room:', cuttingRoom);
-                    console.log('Chart data from API:', response.data.data.chart_data);
-                    console.log('Total pieces:', response.data.data.total_pieces);
+
 
                     // Define x-axis categories based on period
                     let categories = [];

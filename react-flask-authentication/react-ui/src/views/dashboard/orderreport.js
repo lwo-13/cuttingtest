@@ -627,7 +627,7 @@ const OrderReport = () => {
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
-                                    <MattressTableHeader orderSizes={orderSizes} />
+                                    <MattressTableHeader orderSizes={orderSizes} isClosedOrder={selectedBreadcrumb === 'closed'} productionCenter={table.productionCenter} />
                                     <TableBody>
                                         {(() => {
                                             // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
@@ -659,6 +659,8 @@ const OrderReport = () => {
                                                 row={row}
                                                 orderSizes={orderSizes}
                                                 onEditActualLayers={handleEditActualLayers}
+                                                isClosedOrder={selectedBreadcrumb === 'closed'}
+                                                productionCenter={table.productionCenter}
                                                 />
                                             ));
                                         })()}
@@ -711,7 +713,7 @@ const OrderReport = () => {
                         <Box>
                             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
                                 <Table>
-                                    <AdhesiveTableHeaderReadOnly orderSizes={orderSizes} />
+                                    <AdhesiveTableHeaderReadOnly orderSizes={orderSizes} isClosedOrder={selectedBreadcrumb === 'closed'} productionCenter={table.productionCenter} />
                                     <TableBody>
                                         {(() => {
                                             // Group rows by bagno and sort by sequence number (last part of ID: 001, 002, 003) within each group
@@ -743,6 +745,8 @@ const OrderReport = () => {
                                                 row={row}
                                                 orderSizes={orderSizes}
                                                 onEditActualLayers={handleEditActualLayers}
+                                                isClosedOrder={selectedBreadcrumb === 'closed'}
+                                                productionCenter={table.productionCenter}
                                                 />
                                             ));
                                         })()}

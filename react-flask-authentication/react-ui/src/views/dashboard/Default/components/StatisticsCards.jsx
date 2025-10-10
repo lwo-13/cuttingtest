@@ -35,8 +35,6 @@ const StatisticsCards = ({ selectedPeriod, totalMetersCompleted }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    console.log(`📦 StatisticsCards - Received totalMetersCompleted:`, totalMetersCompleted);
-
     const fetchStatistics = async () => {
         setLoading(true);
         setError(null);

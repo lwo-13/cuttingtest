@@ -43,7 +43,6 @@ const KpiAllCuttingRooms = () => {
     };
 
     const handleTotalMetersChange = (meters) => {
-        console.log('📊 KpiAllCuttingRooms - Total meters changed to:', meters);
         setTotalMetersCompleted(meters);
     };
 
