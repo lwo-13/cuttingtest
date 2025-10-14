@@ -331,11 +331,22 @@ const SubcontractorView = () => {
         return result;
     };
 
-    // Clear selected destination if it's no longer available (doesn't have quantities)
+    // Auto-select first destination or clear if no longer available
     useEffect(() => {
-        if (isDeliciaCuttingRoom && selectedDestination && tables.length > 0) {
+        if (isDeliciaCuttingRoom && tables.length > 0) {
             const availableDestinations = getDestinationsWithQuantities();
-            if (!availableDestinations.includes(selectedDestination)) {
+
+            if (availableDestinations.length > 0) {
+                // If no destination is selected, auto-select the first one
+                if (!selectedDestination) {
+                    setSelectedDestination(availableDestinations[0]);
+                }
+                // If current destination is no longer available, switch to first available
+                else if (!availableDestinations.includes(selectedDestination)) {
+                    setSelectedDestination(availableDestinations[0]);
+                }
+            } else {
+                // No destinations available, clear selection
                 setSelectedDestination('');
             }
         }
@@ -795,7 +806,7 @@ const SubcontractorView = () => {
 
                 return (
                     <Box mt={2}>
-                        <MainCard title="Destination Selection">
+                        <MainCard title="Destination">
                             {/* Tab-style destination selector */}
                             <Tabs
                                 value={selectedDestination || false}

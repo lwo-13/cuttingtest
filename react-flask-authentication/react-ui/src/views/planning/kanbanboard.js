@@ -816,7 +816,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
       {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>{t('common.sizes', 'Sizes')}:</strong> {mattress.sizes}</Box>)}
       <strong>{t('table.consumption')}:</strong> {mattress.consumption} m<br />
       <strong>{t('common.spreadingMethod', 'Spreading Method')}:</strong> {mattress.spreading_method} <br />
-      {daysSinceCreation !== null && (
+      {daysSinceCreation !== null && daysSinceCreation >= 30 && (
         <><strong>{t('common.created', 'Created')}:</strong> {daysSinceCreation} {daysSinceCreation === 1 ? t('common.dayAgo', 'day ago') : t('common.daysAgo', 'days ago')} <br /></>
       )}
       {isOld && (
