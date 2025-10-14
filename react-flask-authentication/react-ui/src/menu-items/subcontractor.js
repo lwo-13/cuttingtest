@@ -1,5 +1,5 @@
 // assets
-import { IconClipboardList, IconRuler2, IconTool } from '@tabler/icons';
+import { IconClipboardList, IconRuler2, IconTool, IconDashboard } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| SUBCONTRACTOR MENU ITEMS ||-----------------------//
@@ -9,6 +9,14 @@ const subcontractor = {
   title: i18n.t('subcontractor.menu', 'Subcontractor Menu'),
   type: 'group',
   children: [
+    {
+      id: 'subcontractor-kpi-dashboard',
+      title: i18n.t('subcontractor.kpiDashboard', 'KPI Dashboard'),
+      type: 'item',
+      url: '/subcontractor/kpi-dashboard',
+      icon: IconDashboard,
+      breadcrumbs: false
+    },
     {
       id: 'subcontractor-view',
       title: i18n.t('subcontractor.orderMattressPlan', 'Order Mattress Plan'),

@@ -15,6 +15,7 @@ import MainCard from './../../../ui-component/cards/MainCard';
 import { gridSpacing } from './../../../store/constant';
 import { getCuttingRoomColor } from '../../../utils/productionCenterConfig';
 import { createChartSeries, getSeriesColors, getBrandColor } from '../../../utils/dashboardDataProcessor';
+import { getConsistentColors, getBrandColor as getConsistentBrandColor } from '../../../utils/colorUtils';
 
 // chart data
 import chartData from './chart-data/total-meters-spreaded-chart';
@@ -48,11 +49,14 @@ const allBreakdownOptions = [
 
 //-----------------------|| DASHBOARD DEFAULT - TOTAL METERS SPREADED BAR CHART ||-----------------------//
 
-const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, selectedCuttingRoom, onCuttingRoomChange, hideCuttingRoomSelector, isAllCuttingRoomsPage, onTotalMetersChange }) => {
+const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, selectedCuttingRoom, onCuttingRoomChange, hideCuttingRoomSelector, isAllCuttingRoomsPage, onTotalMetersChange, selectedBreakdown, onBreakdownChange }) => {
     const [value, setValue] = useState(selectedPeriod || 'today');
     const [cuttingRoom, setCuttingRoom] = useState(selectedCuttingRoom || 'ALL');
     const [cuttingRooms, setCuttingRooms] = useState([]);
-    const [selectedBreakdown, setSelectedBreakdown] = useState('none');
+    const [internalBreakdown, setInternalBreakdown] = useState(selectedBreakdown || 'none');
+
+    // Use external breakdown if provided, otherwise use internal state
+    const currentBreakdown = selectedBreakdown !== undefined ? selectedBreakdown : internalBreakdown;
     const [totalMeters, setTotalMeters] = useState(0);
     const [apiCache, setApiCache] = useState({}); // Cache API responses
     const [rawMattressData, setRawMattressData] = useState(null); // Cache raw mattress data
@@ -105,10 +109,14 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
 
     // Reset breakdown if on "All Cutting Rooms" page and current breakdown is spreader or operator
     useEffect(() => {
-        if (isAllCuttingRoomsPage && (selectedBreakdown === 'spreader' || selectedBreakdown === 'operator')) {
-            setSelectedBreakdown('none');
+        if (isAllCuttingRoomsPage && (currentBreakdown === 'spreader' || currentBreakdown === 'operator')) {
+            if (onBreakdownChange) {
+                onBreakdownChange('none');
+            } else {
+                setInternalBreakdown('none');
+            }
         }
-    }, [isAllCuttingRoomsPage, selectedBreakdown]);
+    }, [isAllCuttingRoomsPage, currentBreakdown, onBreakdownChange]);
 
     // Fetch cutting rooms on component mount
     useEffect(() => {
@@ -195,13 +203,13 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                 let totalMetersSum = 0;
 
                 // Build breakdown query parameter
-                const breakdownParam = selectedBreakdown !== 'none'
-                    ? `&breakdown=${selectedBreakdown}`
+                const breakdownParam = currentBreakdown !== 'none'
+                    ? `&breakdown=${currentBreakdown}`
                     : '';
 
-                if (selectedBreakdown !== 'none') {
+                if (currentBreakdown !== 'none') {
                     // Check cache first
-                    const cacheKey = `${value}_${cuttingRoom}_${selectedBreakdown}`;
+                    const cacheKey = `${value}_${cuttingRoom}_${currentBreakdown}`;
                     let response;
 
                     if (apiCache[cacheKey]) {
@@ -233,25 +241,12 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                         };
 
                         // Generate colors for breakdown series
-                        if (selectedBreakdown === 'brand') {
-                            // Use hardcoded brand colors
-                            colors = series.map(s => {
-                                return brandColors[s.name] || theme.palette.grey[500];
-                            });
+                        if (currentBreakdown === 'brand') {
+                            // Use consistent brand colors
+                            colors = series.map(s => getConsistentBrandColor(s.name));
                         } else {
-                            // Use color palette for other breakdowns
-                            colors = series.map((_, index) => {
-                                const colorPalette = [
-                                    theme.palette.primary.main,
-                                    theme.palette.secondary.main,
-                                    theme.palette.success.main,
-                                    theme.palette.warning.main,
-                                    theme.palette.error.main,
-                                    theme.palette.info.main,
-                                    '#9c27b0', '#ff9800', '#795548', '#607d8b'
-                                ];
-                                return colorPalette[index % colorPalette.length];
-                            });
+                            // Use consistent colors for other breakdowns (style, operator, spreader)
+                            colors = getConsistentColors(series.map(s => s.name));
                         }
 
                         setChartDataState(prev => ({
@@ -443,7 +438,7 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
         };
 
         fetchMetersData();
-    }, [value, cuttingRoom, cuttingRooms, selectedBreakdown]);
+    }, [value, cuttingRoom, cuttingRooms, currentBreakdown]);
 
     // Update chart styling (without colors, as colors are handled in data fetch)
     useEffect(() => {
@@ -547,8 +542,15 @@ const TotalMetersSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                                             <TextField
                                                 id="standard-select-breakdown"
                                                 select
-                                                value={selectedBreakdown}
-                                                onChange={(e) => setSelectedBreakdown(e.target.value)}
+                                                value={currentBreakdown}
+                                                onChange={(e) => {
+                                                    const newBreakdown = e.target.value;
+                                                    if (onBreakdownChange) {
+                                                        onBreakdownChange(newBreakdown);
+                                                    } else {
+                                                        setInternalBreakdown(newBreakdown);
+                                                    }
+                                                }}
                                                 size="small"
                                                 sx={{ minWidth: 180 }}
                                             >
@@ -604,7 +606,9 @@ TotalMetersSpreadedChart.propTypes = {
     onCuttingRoomChange: PropTypes.func,
     hideCuttingRoomSelector: PropTypes.bool,
     isAllCuttingRoomsPage: PropTypes.bool,
-    onTotalMetersChange: PropTypes.func
+    onTotalMetersChange: PropTypes.func,
+    selectedBreakdown: PropTypes.string,
+    onBreakdownChange: PropTypes.func
 };
 
 export default TotalMetersSpreadedChart;

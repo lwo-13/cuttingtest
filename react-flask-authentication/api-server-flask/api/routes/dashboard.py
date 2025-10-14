@@ -492,6 +492,50 @@ def get_meters_for_period(start_date, end_date, cutting_room='ALL'):
 
     return base_query.scalar() or 0
 
+def get_pieces_for_period(start_date, end_date, cutting_room='ALL'):
+    """
+    Helper function to get total pieces for a specific period and cutting room.
+    Supports all cutting rooms, similar to get_meters_for_period but using pcs_actual.
+    Uses operator/device from "2 - ON SPREAD" phase, falls back to "5 - COMPLETED" if empty.
+    """
+    # Subquery to get operator from "2 - ON SPREAD" phase
+    spread_phase_subquery = db.session.query(
+        MattressPhase.mattress_id,
+        MattressPhase.operator.label('spread_operator'),
+        MattressPhase.device.label('spread_device')
+    ).filter(
+        MattressPhase.status == '2 - ON SPREAD'
+    ).subquery()
+
+    # Main query joins with completed phase and spread phase
+    base_query = db.session.query(func.sum(MattressSize.pcs_actual)).join(
+        Mattresses, Mattresses.id == MattressSize.mattress_id
+    ).join(
+        MattressPhase, MattressPhase.mattress_id == Mattresses.id
+    ).outerjoin(
+        spread_phase_subquery, spread_phase_subquery.c.mattress_id == Mattresses.id
+    ).join(
+        MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+    ).filter(
+        MattressPhase.active == True,  # Only active phases
+        MattressPhase.status == '5 - COMPLETED',
+        MattressPhase.updated_at >= start_date,
+        MattressPhase.updated_at <= end_date,
+        MattressSize.pcs_actual.isnot(None),
+        MattressSize.pcs_actual > 0,
+        # Use operator from spread phase if available, otherwise from completed phase
+        or_(
+            and_(spread_phase_subquery.c.spread_operator.isnot(None), spread_phase_subquery.c.spread_operator != ''),
+            and_(MattressPhase.operator.isnot(None), MattressPhase.operator != '')
+        )
+    )
+
+    # Apply cutting room filter
+    if cutting_room != 'ALL':
+        base_query = base_query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+    return base_query.scalar() or 0
+
 def get_meters_with_breakdown(start_date, end_date, cutting_room='ALL', breakdown=None):
     """
     Helper function to get meters grouped by breakdown dimension.
@@ -679,6 +723,195 @@ def get_meters_with_breakdown(start_date, end_date, cutting_room='ALL', breakdow
     else:
         # No breakdown, return total
         total = get_meters_for_period(start_date, end_date, cutting_room)
+        return {'Total': total}
+
+def get_pieces_with_breakdown(start_date, end_date, cutting_room='ALL', breakdown=None):
+    """
+    Helper function to get pieces grouped by breakdown dimension.
+    Returns a dictionary with breakdown values as keys and pieces as values.
+    """
+    # Build base query
+    if breakdown == 'brand':
+        # First, get a subquery to get unique style per order (to avoid duplication from OrderLinesView)
+        style_subquery = db.session.query(
+            OrderLinesView.order_commessa,
+            func.max(OrderLinesView.style).label('style')
+        ).group_by(OrderLinesView.order_commessa).subquery()
+
+        # Join with style subquery to get style, then lookup brand
+        query = db.session.query(
+            style_subquery.c.style,
+            func.sum(MattressSize.pcs_actual).label('total_pieces')
+        ).select_from(MattressSize).join(
+            Mattresses, Mattresses.id == MattressSize.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).join(
+            style_subquery, Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == style_subquery.c.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.operator.isnot(None),
+            MattressPhase.operator != '',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressSize.pcs_actual.isnot(None),
+            MattressSize.pcs_actual > 0
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(style_subquery.c.style)
+        results = query.all()
+
+        # Map styles to brands
+        breakdown_data = {}
+        for style, pieces in results:
+            # Lookup brand for this style
+            brand_item = ZalliItemsView.query.filter_by(item_no=style).first()
+            brand = brand_item.brand if brand_item and brand_item.brand else 'Unknown'
+
+            # Normalize brand name
+            brand = brand.upper().strip()
+            if brand == 'INTIMISSIM':
+                brand = 'INTIMISSIMI'
+
+            if brand in breakdown_data:
+                breakdown_data[brand] += float(pieces or 0)
+            else:
+                breakdown_data[brand] = float(pieces or 0)
+
+        return breakdown_data
+
+    elif breakdown == 'style':
+        # First, get a subquery to get unique style per order (to avoid duplication from OrderLinesView)
+        style_subquery = db.session.query(
+            OrderLinesView.order_commessa,
+            func.max(OrderLinesView.style).label('style')
+        ).group_by(OrderLinesView.order_commessa).subquery()
+
+        query = db.session.query(
+            style_subquery.c.style,
+            func.sum(MattressSize.pcs_actual).label('total_pieces')
+        ).select_from(MattressSize).join(
+            Mattresses, Mattresses.id == MattressSize.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).join(
+            style_subquery, Mattresses.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS') == style_subquery.c.order_commessa.collate('SQL_Latin1_General_CP1_CI_AS')
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.operator.isnot(None),
+            MattressPhase.operator != '',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressSize.pcs_actual.isnot(None),
+            MattressSize.pcs_actual > 0
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(style_subquery.c.style)
+        results = query.all()
+
+        return {style: float(pieces or 0) for style, pieces in results}
+
+    elif breakdown == 'spreader':
+        # Subquery to get device from "2 - ON SPREAD" phase
+        spread_phase_subquery = db.session.query(
+            MattressPhase.mattress_id,
+            MattressPhase.device.label('spread_device')
+        ).filter(
+            MattressPhase.status == '2 - ON SPREAD'
+        ).subquery()
+
+        # Use COALESCE to prioritize spread phase device over completed phase device
+        query = db.session.query(
+            func.coalesce(spread_phase_subquery.c.spread_device, MattressPhase.device).label('device'),
+            func.sum(MattressSize.pcs_actual).label('total_pieces')
+        ).select_from(MattressSize).join(
+            Mattresses, Mattresses.id == MattressSize.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).outerjoin(
+            spread_phase_subquery, spread_phase_subquery.c.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressSize.pcs_actual.isnot(None),
+            MattressSize.pcs_actual > 0,
+            # Ensure we have a device from either phase
+            or_(
+                and_(spread_phase_subquery.c.spread_device.isnot(None), spread_phase_subquery.c.spread_device != ''),
+                and_(MattressPhase.device.isnot(None), MattressPhase.device != '')
+            )
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(func.coalesce(spread_phase_subquery.c.spread_device, MattressPhase.device))
+        results = query.all()
+
+        return {device or 'Unknown': float(pieces or 0) for device, pieces in results}
+
+    elif breakdown == 'operator':
+        # Subquery to get operator from "2 - ON SPREAD" phase
+        spread_phase_subquery = db.session.query(
+            MattressPhase.mattress_id,
+            MattressPhase.operator.label('spread_operator')
+        ).filter(
+            MattressPhase.status == '2 - ON SPREAD'
+        ).subquery()
+
+        # Use COALESCE to prioritize spread phase operator over completed phase operator
+        query = db.session.query(
+            func.coalesce(spread_phase_subquery.c.spread_operator, MattressPhase.operator).label('operator'),
+            func.sum(MattressSize.pcs_actual).label('total_pieces')
+        ).select_from(MattressSize).join(
+            Mattresses, Mattresses.id == MattressSize.mattress_id
+        ).join(
+            MattressPhase, MattressPhase.mattress_id == Mattresses.id
+        ).outerjoin(
+            spread_phase_subquery, spread_phase_subquery.c.mattress_id == Mattresses.id
+        ).join(
+            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
+        ).filter(
+            MattressPhase.active == True,
+            MattressPhase.status == '5 - COMPLETED',
+            MattressPhase.updated_at >= start_date,
+            MattressPhase.updated_at <= end_date,
+            MattressSize.pcs_actual.isnot(None),
+            MattressSize.pcs_actual > 0,
+            # Ensure we have an operator from either phase
+            or_(
+                and_(spread_phase_subquery.c.spread_operator.isnot(None), spread_phase_subquery.c.spread_operator != ''),
+                and_(MattressPhase.operator.isnot(None), MattressPhase.operator != '')
+            )
+        )
+
+        if cutting_room != 'ALL':
+            query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+
+        query = query.group_by(func.coalesce(spread_phase_subquery.c.spread_operator, MattressPhase.operator))
+        results = query.all()
+
+        return {operator: float(pieces or 0) for operator, pieces in results}
+
+    else:
+        # No breakdown, return total
+        total = get_pieces_for_period(start_date, end_date, cutting_room)
         return {'Total': total}
 
 @dashboard_api.route('/meters-spreaded')
@@ -928,267 +1161,125 @@ class CuttingRoomsData(Resource):
         except Exception as e:
             return {"success": False, "message": str(e)}, 500
 
-    @dashboard_bp.route('/pieces-spreaded', methods=['GET'])
-    def get_pieces_spreaded():
-        """Get pieces completed data for dashboard chart - EXACT COPY of meters logic but using pcs_actual"""
+@dashboard_api.route('/pieces-spreaded')
+class PiecesSpreadedData(Resource):
+    def get(self):
+        """Get pieces completed data for dashboard chart with breakdown support"""
         try:
             period = request.args.get('period', 'today')
             cutting_room = request.args.get('cutting_room', 'ALL')
+            breakdown = request.args.get('breakdown', None)  # Add breakdown parameter
+            start_date, end_date = get_date_range(period)
 
-            # Calculate total pieces for the entire period
-            if period == 'today':
-                start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                end_date = start_date + timedelta(days=1) - timedelta(microseconds=1)
-            elif period == 'week':
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=7)
-            elif period == 'month':
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=30)
-            elif period == 'year':
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=365)
+            # Calculate total pieces for the period using helper function
+            total_pieces = get_pieces_for_period(start_date, end_date, cutting_room)
+
+            # Generate chart data based on period
+            if breakdown:
+                # With breakdown, return multiple series
+                breakdown_series = {}
+                all_keys = set()  # Track all unique breakdown keys across all periods
+                period_data = []  # Store breakdown data for each period
+
+                if period == 'year':
+                    # Monthly data for the current calendar year (Jan-Dec of current year)
+                    current_year = datetime.now().year
+                    for month in range(1, 13):  # January (1) to December (12)
+                        month_start = datetime(current_year, month, 1, 0, 0, 0, 0)
+                        if month == 12:
+                            month_end = datetime(current_year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                        else:
+                            month_end = datetime(current_year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+
+                        month_breakdown = get_pieces_with_breakdown(month_start, month_end, cutting_room, breakdown)
+                        period_data.append(month_breakdown)
+                        all_keys.update(month_breakdown.keys())
+
+                elif period == 'month':
+                    # Weekly data for the last 4 weeks
+                    for i in range(3, -1, -1):
+                        week_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(weeks=i, days=datetime.now().weekday())
+                        week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+
+                        week_breakdown = get_pieces_with_breakdown(week_start, week_end, cutting_room, breakdown)
+                        period_data.append(week_breakdown)
+                        all_keys.update(week_breakdown.keys())
+
+                elif period == 'week':
+                    # Daily data for the last 7 days
+                    for i in range(6, -1, -1):
+                        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
+                        day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
+
+                        day_breakdown = get_pieces_with_breakdown(day_start, day_end, cutting_room, breakdown)
+                        period_data.append(day_breakdown)
+                        all_keys.update(day_breakdown.keys())
+
+                else:  # today
+                    # Single data point for the entire day
+                    today_breakdown = get_pieces_with_breakdown(start_date, end_date, cutting_room, breakdown)
+                    period_data.append(today_breakdown)
+                    all_keys.update(today_breakdown.keys())
+
+                # Convert to series format
+                for key in all_keys:
+                    breakdown_series[key] = []
+                    for period_breakdown in period_data:
+                        breakdown_series[key].append(int(period_breakdown.get(key, 0)))
+
+                return {
+                    "success": True,
+                    "data": {
+                        "total_pieces": int(total_pieces),
+                        "breakdown_data": get_pieces_with_breakdown(start_date, end_date, cutting_room, breakdown),
+                        "chart_data": breakdown_series
+                    }
+                }, 200
+
             else:
-                # Default to today
-                start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                end_date = start_date + timedelta(days=1) - timedelta(microseconds=1)
+                # Without breakdown, return simple chart data
+                chart_data = []
+                if period == 'year':
+                    # Monthly data for the current calendar year (Jan-Dec of current year)
+                    current_year = datetime.now().year
+                    for month in range(1, 13):  # January (1) to December (12)
+                        month_start = datetime(current_year, month, 1, 0, 0, 0, 0)
+                        if month == 12:
+                            month_end = datetime(current_year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                        else:
+                            month_end = datetime(current_year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
 
-            # Calculate total pieces for the period - SAME LOGIC AS METERS
-            if cutting_room == 'ZALLI':
-                zalli_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                    Mattresses, Mattresses.id == MattressSize.mattress_id
-                ).join(
-                    MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                ).join(
-                    MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                ).filter(
-                    MattressPhase.status == '5 - COMPLETED',
-                    MattressPhase.operator.isnot(None),
-                    MattressPhase.operator != '',
-                    MattressPhase.updated_at >= start_date,
-                    MattressPhase.updated_at <= end_date,
-                    MattressProductionCenter.cutting_room == 'ZALLI',
-                    MattressSize.pcs_actual.isnot(None),
-                    MattressSize.pcs_actual > 0
-                ).scalar() or 0
-                total_pieces = zalli_pieces  # Other cutting rooms contribute 0
-            elif cutting_room == 'ALL':
-                # For ALL view, get Zalli data + 0 for others
-                zalli_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                    Mattresses, Mattresses.id == MattressSize.mattress_id
-                ).join(
-                    MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                ).join(
-                    MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                ).filter(
-                    MattressPhase.status == '5 - COMPLETED',
-                    MattressPhase.operator.isnot(None),
-                    MattressPhase.operator != '',
-                    MattressPhase.updated_at >= start_date,
-                    MattressPhase.updated_at <= end_date,
-                    MattressProductionCenter.cutting_room == 'ZALLI',
-                    MattressSize.pcs_actual.isnot(None),
-                    MattressSize.pcs_actual > 0
-                ).scalar() or 0
-                total_pieces = zalli_pieces  # Other cutting rooms contribute 0
-            else:
-                # For other cutting rooms, return 0
-                total_pieces = 0
+                        month_pieces = get_pieces_for_period(month_start, month_end, cutting_room)
+                        chart_data.append(float(month_pieces))
 
-            # Generate chart data based on period - SAME LOGIC AS METERS
-            chart_data = []
-            if period == 'year':
-                # Monthly data for the current calendar year (Jan-Dec of current year)
-                current_year = datetime.now().year
-                for month in range(1, 13):  # January (1) to December (12)
-                    month_start = datetime(current_year, month, 1, 0, 0, 0, 0)
-                    if month == 12:
-                        month_end = datetime(current_year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
-                    else:
-                        month_end = datetime(current_year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                elif period == 'month':
+                    # Weekly data for the last 4 weeks
+                    for i in range(3, -1, -1):
+                        week_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(weeks=i, days=datetime.now().weekday())
+                        week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
 
-                    if cutting_room == 'ZALLI':
-                        month_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                            Mattresses, Mattresses.id == MattressSize.mattress_id
-                        ).join(
-                            MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                        ).join(
-                            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                        ).filter(
-                            MattressPhase.status == '5 - COMPLETED',
-                            MattressPhase.operator.isnot(None),
-                            MattressPhase.operator != '',
-                            MattressPhase.updated_at >= month_start,
-                            MattressPhase.updated_at <= month_end,
-                            MattressProductionCenter.cutting_room == 'ZALLI',
-                            MattressSize.pcs_actual.isnot(None),
-                            MattressSize.pcs_actual > 0
-                        ).scalar() or 0
-                    elif cutting_room == 'ALL':
-                        # For ALL view, get Zalli data
-                        month_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                            Mattresses, Mattresses.id == MattressSize.mattress_id
-                        ).join(
-                            MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                        ).join(
-                            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                        ).filter(
-                            MattressPhase.status == '5 - COMPLETED',
-                            MattressPhase.operator.isnot(None),
-                            MattressPhase.operator != '',
-                            MattressPhase.updated_at >= month_start,
-                            MattressPhase.updated_at <= month_end,
-                            MattressProductionCenter.cutting_room == 'ZALLI',
-                            MattressSize.pcs_actual.isnot(None),
-                            MattressSize.pcs_actual > 0
-                        ).scalar() or 0
-                    else:
-                        month_pieces = 0
+                        week_pieces = get_pieces_for_period(week_start, week_end, cutting_room)
+                        chart_data.append(float(week_pieces))
+                elif period == 'week':
+                    # Daily data for the last 7 days
+                    for i in range(6, -1, -1):
+                        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
+                        day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
 
-                    chart_data.append(float(month_pieces))
+                        day_pieces = get_pieces_for_period(day_start, day_end, cutting_room)
+                        chart_data.append(float(day_pieces))
+                else:  # today
+                    # Single data point for the entire day
+                    today_pieces = total_pieces  # Use the already calculated total for today
+                    chart_data.append(float(today_pieces))
 
-            elif period == 'month':
-                # Weekly data for the last 4 weeks
-                for i in range(3, -1, -1):
-                    week_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(weeks=i, days=datetime.now().weekday())
-                    week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
-
-                    if cutting_room == 'ZALLI':
-                        week_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                            Mattresses, Mattresses.id == MattressSize.mattress_id
-                        ).join(
-                            MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                        ).join(
-                            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                        ).filter(
-                            MattressPhase.status == '5 - COMPLETED',
-                            MattressPhase.operator.isnot(None),
-                            MattressPhase.operator != '',
-                            MattressPhase.updated_at >= week_start,
-                            MattressPhase.updated_at <= week_end,
-                            MattressProductionCenter.cutting_room == 'ZALLI',
-                            MattressSize.pcs_actual.isnot(None),
-                            MattressSize.pcs_actual > 0
-                        ).scalar() or 0
-                    elif cutting_room == 'ALL':
-                        # For ALL view, get Zalli data
-                        week_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                            Mattresses, Mattresses.id == MattressSize.mattress_id
-                        ).join(
-                            MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                        ).join(
-                            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                        ).filter(
-                            MattressPhase.status == '5 - COMPLETED',
-                            MattressPhase.operator.isnot(None),
-                            MattressPhase.operator != '',
-                            MattressPhase.updated_at >= week_start,
-                            MattressPhase.updated_at <= week_end,
-                            MattressProductionCenter.cutting_room == 'ZALLI',
-                            MattressSize.pcs_actual.isnot(None),
-                            MattressSize.pcs_actual > 0
-                        ).scalar() or 0
-                    else:
-                        week_pieces = 0
-
-                    chart_data.append(float(week_pieces))
-            elif period == 'week':
-                # Daily data for the last 7 days
-                for i in range(6, -1, -1):
-                    day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
-                    day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
-
-                    if cutting_room == 'ZALLI':
-                        day_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                            Mattresses, Mattresses.id == MattressSize.mattress_id
-                        ).join(
-                            MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                        ).join(
-                            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                        ).filter(
-                            MattressPhase.status == '5 - COMPLETED',
-                            MattressPhase.operator.isnot(None),
-                            MattressPhase.operator != '',
-                            MattressPhase.updated_at >= day_start,
-                            MattressPhase.updated_at <= day_end,
-                            MattressProductionCenter.cutting_room == 'ZALLI',
-                            MattressSize.pcs_actual.isnot(None),
-                            MattressSize.pcs_actual > 0
-                        ).scalar() or 0
-                    elif cutting_room == 'ALL':
-                        # For ALL view, get Zalli data
-                        day_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                            Mattresses, Mattresses.id == MattressSize.mattress_id
-                        ).join(
-                            MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                        ).join(
-                            MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                        ).filter(
-                            MattressPhase.status == '5 - COMPLETED',
-                            MattressPhase.operator.isnot(None),
-                            MattressPhase.operator != '',
-                            MattressPhase.updated_at >= day_start,
-                            MattressPhase.updated_at <= day_end,
-                            MattressProductionCenter.cutting_room == 'ZALLI',
-                            MattressSize.pcs_actual.isnot(None),
-                            MattressSize.pcs_actual > 0
-                        ).scalar() or 0
-                    else:
-                        day_pieces = 0
-
-                    chart_data.append(float(day_pieces))
-            else:  # today
-                # Single data point for the entire day
-                today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                today_end = today_start + timedelta(days=1) - timedelta(microseconds=1)
-
-                if cutting_room == 'ZALLI':
-                    today_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                        Mattresses, Mattresses.id == MattressSize.mattress_id
-                    ).join(
-                        MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                    ).join(
-                        MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                    ).filter(
-                        MattressPhase.status == '5 - COMPLETED',
-                        MattressPhase.operator.isnot(None),
-                        MattressPhase.operator != '',
-                        MattressPhase.updated_at >= today_start,
-                        MattressPhase.updated_at <= today_end,
-                        MattressProductionCenter.cutting_room == 'ZALLI',
-                        MattressSize.pcs_actual.isnot(None),
-                        MattressSize.pcs_actual > 0
-                    ).scalar() or 0
-                elif cutting_room == 'ALL':
-                    # For ALL view, get Zalli data
-                    today_pieces = db.session.query(func.sum(MattressSize.pcs_actual)).join(
-                        Mattresses, Mattresses.id == MattressSize.mattress_id
-                    ).join(
-                        MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                    ).join(
-                        MattressProductionCenter, MattressProductionCenter.table_id == Mattresses.table_id
-                    ).filter(
-                        MattressPhase.status == '5 - COMPLETED',
-                        MattressPhase.operator.isnot(None),
-                        MattressPhase.operator != '',
-                        MattressPhase.updated_at >= today_start,
-                        MattressPhase.updated_at <= today_end,
-                        MattressProductionCenter.cutting_room == 'ZALLI',
-                        MattressSize.pcs_actual.isnot(None),
-                        MattressSize.pcs_actual > 0
-                    ).scalar() or 0
-                else:
-                    today_pieces = 0
-
-                chart_data.append(float(today_pieces))
-
-            return {
-                "success": True,
-                "data": {
-                    "total_pieces": int(total_pieces),
-                    "chart_data": [int(x) for x in chart_data]  # Round to integers for pieces
-                }
-            }, 200
+                return {
+                    "success": True,
+                    "data": {
+                        "total_pieces": int(total_pieces),
+                        "chart_data": [int(x) for x in chart_data]  # Round to integers for pieces
+                    }
+                }, 200
 
         except Exception as e:
             return {"success": False, "message": str(e)}, 500

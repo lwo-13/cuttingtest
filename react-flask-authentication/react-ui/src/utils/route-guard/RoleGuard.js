@@ -41,7 +41,7 @@ const RoleGuard = ({ children, allowedRoles }) => {
     } else if (user.role === 'Cutter') {
         return <Redirect to="/cutter/view" />;
     } else if (user.role === 'Subcontractor') {
-        return <Redirect to="/subcontractor/view" />;
+        return <Redirect to="/subcontractor/kpi-dashboard" />;
     } else if (user.role === 'Logistic') {
         return <Redirect to="/logistic/view" />;
     } else {

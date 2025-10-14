@@ -98,6 +98,7 @@
   "subcontractor": {
     "title": "Подизпълнител",
     "menu": "Меню за подизпълнители",
+    "kpiDashboard": "KPI Табло",
     "orderMattressPlan": "План за настили на поръчка",
     "markerRequests": "Заявки за маркери",
     "widthChangeRequests": "Заявки за промяна на ширина",
