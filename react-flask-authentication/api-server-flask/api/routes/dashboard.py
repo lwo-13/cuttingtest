@@ -1146,7 +1146,7 @@ class CuttingRoomsData(Resource):
 
             # Add all cutting rooms from config to ensure complete list
             all_cutting_rooms = [
-                'ZALLI', 'VERONA', 'TEXCONS', 'VEGATEX', 'SINA STYLE L', 'SINA STYLE D',
+                'ZALLI', 'VERONA', 'TEXCONS', 'VEGATEX', 'SINA STYLE',
                 'ZEYNTEX', 'DELICIA', 'VAIDE MOLA', 'HADJIOLI', 'YUMER', 'RILA TEXTILE'
             ]
 

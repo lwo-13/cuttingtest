@@ -901,54 +901,52 @@ const OrderPlanning = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         const handleMattressLayersChanged = (event) => {
-            const { bagno, newLayers } = event.detail;
+            const { bagno, newLayers, tableId } = event.detail;
 
             if (!bagno || bagno === 'Unknown' || !newLayers || newLayers <= 0) {
                 return;
             }
 
-            // Calculate total pieces for this bagno from all mattress tables
+            // ✅ Get configuration from the specific mattress table that changed
+            const changedTable = tables.find(t => t.id === tableId);
+            if (!changedTable) return;
+
+            const mattressDestination = changedTable.destination;
+            const mattressProductionCenter = changedTable.productionCenter;
+            const mattressCuttingRoom = changedTable.cuttingRoom;
+            const mattressFabricCode = changedTable.fabricCode;
+            const mattressFabricColor = changedTable.fabricColor;
+
+            // ✅ Calculate total pieces for this bagno ONLY from mattress tables with matching configuration
             let totalPiecesForBagno = 0;
             let piecesPerSizeForBagno = {};
 
             tables.forEach(table => {
-                table.rows.forEach(row => {
-                    if (row.bagno === bagno && row.layers && row.piecesPerSize) {
-                        const layers = parseInt(row.layers) || 0;
-                        Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
-                            const pcs = parseInt(pieces) || 0;
-                            const totalForSize = pcs * layers;
-                            piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
-                            totalPiecesForBagno += totalForSize;
-                        });
-                    }
-                });
+                // ✅ Only include mattress tables with exact matching configuration
+                const hasMatchingConfig = table.destination === mattressDestination &&
+                                        table.productionCenter === mattressProductionCenter &&
+                                        table.cuttingRoom === mattressCuttingRoom &&
+                                        table.fabricCode === mattressFabricCode &&
+                                        table.fabricColor === mattressFabricColor;
+
+                if (hasMatchingConfig) {
+                    table.rows.forEach(row => {
+                        if (row.bagno === bagno && row.layers && row.piecesPerSize) {
+                            const layers = parseInt(row.layers) || 0;
+                            Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
+                                const pcs = parseInt(pieces) || 0;
+                                const totalForSize = pcs * layers;
+                                piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
+                                totalPiecesForBagno += totalForSize;
+                            });
+                        }
+                    });
+                }
             });
 
             if (totalPiecesForBagno === 0) {
                 // Don't return early - we still want to update collaretto tables to show 0 pieces
             }
-
-
-
-            // Get the destination and fabric info from the mattress table that has this bagno
-            let mattressDestination = null;
-            let mattressProductionCenter = null;
-            let mattressCuttingRoom = null;
-            let mattressFabricCode = null;
-            let mattressFabricColor = null;
-
-            tables.forEach(table => {
-                table.rows.forEach(row => {
-                    if (row.bagno === bagno) {
-                        mattressDestination = table.destination;
-                        mattressProductionCenter = table.productionCenter;
-                        mattressCuttingRoom = table.cuttingRoom;
-                        mattressFabricCode = table.fabricCode;
-                        mattressFabricColor = table.fabricColor;
-                    }
-                });
-            });
 
             // Check if there are any collaretto tables that will actually be updated
             let hasMatchingCollarettoTables = false;
@@ -1200,7 +1198,7 @@ const OrderPlanning = () => {
         };
 
         const handleMattressPiecesChanged = (event) => {
-            const { bagno } = event.detail;
+            const { bagno, tableId } = event.detail;
 
             if (!bagno || bagno === 'Unknown') {
                 return;
@@ -1209,48 +1207,68 @@ const OrderPlanning = () => {
             // Don't show notification for pieces being reset to 0 (old bagno cleanup)
             // Only mattressLayersChanged should show notifications for new bagno updates
 
-            // ✅ Calculate total pieces for this bagno from ALL mattress tables (not just the event data)
-            let totalPiecesForBagno = 0;
-            let piecesPerSizeForBagno = {};
-
-            tables.forEach(table => {
-                table.rows.forEach(row => {
-                    if (row.bagno === bagno && row.layers && row.piecesPerSize) {
-                        const layers = parseInt(row.layers) || 0;
-                        Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
-                            const pcs = parseInt(pieces) || 0;
-                            const totalForSize = pcs * layers;
-                            piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
-                            totalPiecesForBagno += totalForSize;
-                        });
-                    }
-                });
-            });
-
-            if (totalPiecesForBagno === 0) {
-                // Don't return here - we still want to update collaretto to show 0 pieces
-            }
-
-            // Get the destination and fabric info from the mattress table that has this bagno
-            // If no mattress table has this bagno, get it from collaretto tables that have this bagno
+            // ✅ Get configuration from the specific mattress table that changed (if provided)
             let mattressDestination = null;
             let mattressProductionCenter = null;
             let mattressCuttingRoom = null;
             let mattressFabricCode = null;
             let mattressFabricColor = null;
 
-            // First try to find from mattress tables
-            tables.forEach(table => {
-                table.rows.forEach(row => {
-                    if (row.bagno === bagno) {
-                        mattressDestination = table.destination;
-                        mattressProductionCenter = table.productionCenter;
-                        mattressCuttingRoom = table.cuttingRoom;
-                        mattressFabricCode = table.fabricCode;
-                        mattressFabricColor = table.fabricColor;
-                    }
+            if (tableId) {
+                // ✅ Use the specific table that triggered the event
+                const changedTable = tables.find(t => t.id === tableId);
+                if (changedTable) {
+                    mattressDestination = changedTable.destination;
+                    mattressProductionCenter = changedTable.productionCenter;
+                    mattressCuttingRoom = changedTable.cuttingRoom;
+                    mattressFabricCode = changedTable.fabricCode;
+                    mattressFabricColor = changedTable.fabricColor;
+                }
+            } else {
+                // ✅ Fallback: find from any mattress table with this bagno (for backward compatibility)
+                tables.forEach(table => {
+                    table.rows.forEach(row => {
+                        if (row.bagno === bagno && !mattressDestination) {
+                            mattressDestination = table.destination;
+                            mattressProductionCenter = table.productionCenter;
+                            mattressCuttingRoom = table.cuttingRoom;
+                            mattressFabricCode = table.fabricCode;
+                            mattressFabricColor = table.fabricColor;
+                        }
+                    });
                 });
+            }
+
+            // ✅ Calculate total pieces for this bagno ONLY from mattress tables with matching configuration
+            let totalPiecesForBagno = 0;
+            let piecesPerSizeForBagno = {};
+
+            tables.forEach(table => {
+                // ✅ Only include mattress tables with exact matching configuration
+                const hasMatchingConfig = table.destination === mattressDestination &&
+                                        table.productionCenter === mattressProductionCenter &&
+                                        table.cuttingRoom === mattressCuttingRoom &&
+                                        table.fabricCode === mattressFabricCode &&
+                                        table.fabricColor === mattressFabricColor;
+
+                if (hasMatchingConfig) {
+                    table.rows.forEach(row => {
+                        if (row.bagno === bagno && row.layers && row.piecesPerSize) {
+                            const layers = parseInt(row.layers) || 0;
+                            Object.entries(row.piecesPerSize).forEach(([size, pieces]) => {
+                                const pcs = parseInt(pieces) || 0;
+                                const totalForSize = pcs * layers;
+                                piecesPerSizeForBagno[size] = (piecesPerSizeForBagno[size] || 0) + totalForSize;
+                                totalPiecesForBagno += totalForSize;
+                            });
+                        }
+                    });
+                }
             });
+
+            if (totalPiecesForBagno === 0) {
+                // Don't return here - we still want to update collaretto to show 0 pieces
+            }
 
             // If not found in mattress tables, get from collaretto tables that have this bagno
             if (!mattressDestination) {

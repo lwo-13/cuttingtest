@@ -23,7 +23,7 @@ import DateFilter from '../dashboard/Default/components/DateFilter';
 import StatisticsCards from '../dashboard/Default/components/StatisticsCards';
 
 // Production center configuration
-import { CUTTING_ROOMS } from 'utils/productionCenterConfig';
+import { CUTTING_ROOMS, getCuttingRoomFromUsername } from 'utils/productionCenterConfig';
 
 //-----------------------|| SUBCONTRACTOR KPI DASHBOARD ||-----------------------//
 
@@ -39,21 +39,7 @@ const SubcontractorKpiDashboard = () => {
     const currentUser = account?.user;
     const username = currentUser?.username; // Username might be like "DELICIA2"
 
-    // Extract the base cutting room from username (handle cases like "DELICIA2" -> "DELICIA")
-    const getCuttingRoomFromUsername = (username) => {
-        if (!username) return null;
-
-        // Check if username starts with any known cutting room name
-        const cuttingRoomNames = Object.values(CUTTING_ROOMS);
-        for (const roomName of cuttingRoomNames) {
-            if (username.toUpperCase().startsWith(roomName.toUpperCase())) {
-                return roomName;
-            }
-        }
-
-        // If no match found, return the username as-is (backward compatibility)
-        return username;
-    };
+    // Use the shared utility function to extract cutting room from username
 
     const selectedCuttingRoom = getCuttingRoomFromUsername(username);
 

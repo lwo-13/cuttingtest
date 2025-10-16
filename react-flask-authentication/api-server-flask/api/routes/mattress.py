@@ -2375,8 +2375,7 @@ class GetProductionCenterOptions(Resource):
                 {"production_center": "PXE3", "cutting_room": "VEGATEX", "destination": "VEGATEX"},
 
                 # PXE3 - SINA STYLE combinations
-                {"production_center": "PXE3", "cutting_room": "SINA STYLE L", "destination": "SINA STYLE L"},
-                {"production_center": "PXE3", "cutting_room": "SINA STYLE D", "destination": "SINA STYLE D"},
+                {"production_center": "PXE3", "cutting_room": "SINA STYLE", "destination": "SINA STYLE"},
 
                 # PXE3 - ZEYNTEX combinations
                 {"production_center": "PXE3", "cutting_room": "ZEYNTEX", "destination": "ZEYNTEX"},
