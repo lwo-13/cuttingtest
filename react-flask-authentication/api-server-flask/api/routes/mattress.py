@@ -1634,6 +1634,66 @@ class GetOrdersWithProductionCenter(Resource):
 
             return {"success": False, "msg": str(e)}, 500
 
+@mattress_api.route('/marker_summary/<string:order_commessa>')
+class GetMarkerSummaryByOrder(Resource):
+    def get(self, order_commessa):
+        """Get marker summary for a specific order, filtered by production center, cutting room, and destination"""
+        try:
+            # Get query parameters for filtering
+            production_center = request.args.get('production_center')
+            cutting_room = request.args.get('cutting_room')
+            destination = request.args.get('destination')
+
+            # Query all mattresses for the order with the specified filters
+            # Join with MattressMarker to get marker information
+            # Join with MattressProductionCenter to filter by production center, cutting room, destination
+            query = db.session.query(
+                MattressMarker.marker_name,
+                MattressMarker.marker_width,
+                MattressMarker.marker_length,
+                func.count(MattressMarker.id).label('times_used')
+            ).join(
+                Mattresses, MattressMarker.mattress_id == Mattresses.id
+            ).join(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).filter(
+                Mattresses.order_commessa == order_commessa
+            )
+
+            # Apply filters only if they are provided
+            if production_center:
+                query = query.filter(MattressProductionCenter.production_center == production_center)
+            if cutting_room:
+                query = query.filter(MattressProductionCenter.cutting_room == cutting_room)
+            if destination:
+                query = query.filter(MattressProductionCenter.destination == destination)
+
+            query = query.group_by(
+                MattressMarker.marker_name,
+                MattressMarker.marker_width,
+                MattressMarker.marker_length
+            ).order_by(
+                MattressMarker.marker_name
+            )
+
+            results = query.all()
+
+            # Format the results
+            marker_summary = [
+                {
+                    "marker_name": result.marker_name,
+                    "marker_width": result.marker_width,
+                    "marker_length": result.marker_length,
+                    "times_used": result.times_used
+                }
+                for result in results
+            ]
+
+            return {"success": True, "data": marker_summary}, 200
+
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
 @mattress_api.route('/production_center/orders_by_cutting_room/<string:cutting_room>', methods=['GET'])
 class GetOrdersByCuttingRoom(Resource):
     def get(self, cutting_room):

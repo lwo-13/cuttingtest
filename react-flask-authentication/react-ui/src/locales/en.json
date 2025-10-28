@@ -440,6 +440,7 @@
     "orderQty": "Order Qty",
     "total": "Total",
     "originalOrderQuantities": "Original Order Quantities",
+    "calculated": "Calculated",
     "usingOriginalOrderQuantities": "Using original order quantities",
     "usingOutputFrom": "Using output from {{label}}",
     "baseline": "Baseline",

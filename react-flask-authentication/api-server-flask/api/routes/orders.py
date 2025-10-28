@@ -53,13 +53,13 @@ class OrderLines(Resource):
 class OrdersWithoutRatios(Resource):
     def get(self):
         try:
-            # Step 1: Get all orders starting with '25' and their styles
+            # Step 1: Get all orders starting with '25' and onwards (25, 26, 27, etc.) and their styles
             all_order_pairs = db.session.query(
                 OrderLinesView.order_commessa,
                 OrderLinesView.style
             ).filter(
-                OrderLinesView.order_commessa.like('25%')
-            ).distinct().all()  # Ex: [('25ABC', 'STYLE1'), ('25DEF', 'STYLE2')]
+                OrderLinesView.order_commessa >= '25'
+            ).distinct().all()  # Ex: [('25ABC', 'STYLE1'), ('26DEF', 'STYLE2')]
 
             all_orders_dict = {
                 order_commessa: style
@@ -108,9 +108,9 @@ class UpdateOrderRatios(Resource):
 class OrdersWithoutRatiosCount(Resource):
     def get(self):
         try:
-            # All order_commessa starting with '25'
+            # All order_commessa starting with '25' and onwards (25, 26, 27, etc.)
             all_order_ids = db.session.query(OrderLinesView.order_commessa).filter(
-                OrderLinesView.order_commessa.like('25%')
+                OrderLinesView.order_commessa >= '25'
             ).distinct().all()
             all_order_set = {row[0] for row in all_order_ids}
 

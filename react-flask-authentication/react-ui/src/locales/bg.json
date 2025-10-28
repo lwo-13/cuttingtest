@@ -428,6 +428,7 @@
     "orderQty": "Количество от поръчката",
     "total": "Общо",
     "originalOrderQuantities": "Оригинални количества от поръчката",
+    "calculated": "Изчислени",
     "usingOriginalOrderQuantities": "Използват се оригинални количества от поръчката",
     "usingOutputFrom": "Използва се количества от {{label}}",
     "baseline": "Базова линия",

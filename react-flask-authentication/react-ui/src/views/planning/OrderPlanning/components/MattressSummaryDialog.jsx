@@ -15,10 +15,14 @@ import {
     Typography,
     Box,
     Chip,
-    Divider
+    Divider,
+    IconButton,
+    Tooltip
 } from '@mui/material';
+import { Email } from '@mui/icons-material';
+import axios from 'utils/axiosInstance';
 
-const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
+const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, productionCenter, cuttingRoom, destination }) => {
     if (!table || !table.rows) {
         return null;
     }
@@ -55,6 +59,74 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
     const markerSummaryArray = Object.values(markerSummary).sort((a, b) =>
         a.markerName.localeCompare(b.markerName)
     );
+
+    // Function to handle email composition
+    const handleEmailSummary = async () => {
+        // Prepare email subject - only the order number
+        const subject = orderNumber || 'Marker Usage Summary';
+
+        // Prepare email recipients
+        const recipients = [];
+
+        // Fetch subcontractor email if cutting room is a subcontractor
+        if (cuttingRoom) {
+            try {
+                const response = await axios.get(`/users/email_by_cutting_room/${cuttingRoom}`);
+                if (response.data.success && response.data.email) {
+                    recipients.push(response.data.email);
+                }
+            } catch (error) {
+                console.error('Error fetching cutting room email:', error);
+                // Continue without the cutting room email
+            }
+        }
+
+        // Add fixed email addresses
+        recipients.push('boykov@pirintex.com');
+        recipients.push('georgieva@pirintex.com');
+
+        // Join recipients with semicolon (correct mailto format)
+        const toField = recipients.join(';');
+
+        // Fetch ALL markers for the order filtered by production center, cutting room, and destination
+        let body = '';
+        try {
+            // Build query parameters
+            const params = new URLSearchParams();
+            if (productionCenter) params.append('production_center', productionCenter);
+            if (cuttingRoom) params.append('cutting_room', cuttingRoom);
+            if (destination) params.append('destination', destination);
+
+            const response = await axios.get(`/mattress/marker_summary/${orderNumber}?${params.toString()}`);
+            if (response.data.success && response.data.data.length > 0) {
+                // Use API data for email body - include marker name, width (cm), length (m), and times used
+                response.data.data.forEach((marker) => {
+                    const width = marker.marker_width ? Math.round(marker.marker_width) : '-';
+                    const length = marker.marker_length ? marker.marker_length.toFixed(2) : '-';
+                    body += `${marker.marker_name} (${width}cm x ${length}m) - x${marker.times_used}\n`;
+                });
+            } else {
+                // Fallback to table data if API fails
+                markerSummaryArray.forEach((marker) => {
+                    const width = marker.width ? Math.round(marker.width) : '-';
+                    body += `${marker.markerName} (${width}cm) - x${marker.occurrences}\n`;
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching marker summary for email:', error);
+            // Fallback to table data if API fails
+            markerSummaryArray.forEach((marker) => {
+                const width = marker.width ? Math.round(marker.width) : '-';
+                body += `${marker.markerName} (${width}cm) - x${marker.occurrences}\n`;
+            });
+        }
+
+        // Create mailto link with recipients
+        const mailtoLink = `mailto:${toField}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        // Open email client
+        window.location.href = mailtoLink;
+    };
 
     return (
         <Dialog
@@ -201,7 +273,32 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType }) => {
                 )}
             </DialogContent>
 
+            <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+                {/* Email Button on the left */}
+                <Tooltip title="Send summary via email">
+                    <IconButton
+                        onClick={handleEmailSummary}
+                        disabled={validRows.length === 0}
+                        sx={{
+                            color: 'primary.main',
+                            '&:hover': {
+                                backgroundColor: 'primary.light',
+                                color: 'white'
+                            },
+                            '&:disabled': {
+                                color: 'grey.400'
+                            }
+                        }}
+                    >
+                        <Email />
+                    </IconButton>
+                </Tooltip>
 
+                {/* Close Button on the right */}
+                <Button onClick={onClose} variant="contained" color="primary">
+                    Close
+                </Button>
+            </DialogActions>
         </Dialog>
     );
 };
