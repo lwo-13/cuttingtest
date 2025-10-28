@@ -2,7 +2,7 @@ import React from 'react';
 import { TableCell, TableHead, TableRow } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
-const AdhesiveTableHeaderReadOnly = ({ orderSizes }) => {
+const AdhesiveTableHeaderReadOnly = ({ orderSizes, isClosedOrder = false, productionCenter = '' }) => {
   const { t } = useTranslation();
 
   return (
@@ -26,7 +26,7 @@ const AdhesiveTableHeaderReadOnly = ({ orderSizes }) => {
 
         <TableCell align="center">{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '150px' }}>{t('table.progress')}</TableCell>
-        <TableCell align="center" sx={{ minWidth: '50px' }}></TableCell>
+        {!isClosedOrder && productionCenter !== 'PXE3' && <TableCell align="center" sx={{ minWidth: '50px' }}></TableCell>}
 
       </TableRow>
     </TableHead>

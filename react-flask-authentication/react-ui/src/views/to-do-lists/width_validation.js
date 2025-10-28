@@ -19,7 +19,8 @@ import {
   AccordionDetails,
   Button,
   IconButton,
-  Collapse
+  Collapse,
+  TextField
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -36,6 +37,7 @@ const WidthValidation = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedHandlingUnits, setExpandedHandlingUnits] = useState({});
+  const [orderFilter, setOrderFilter] = useState('');
 
   const { refreshWidthValidationCount } = useBadgeCount();
 
@@ -143,6 +145,12 @@ const WidthValidation = () => {
     }));
   };
 
+  // Filter validation data based on order filter
+  const filteredValidationData = validationData.filter(item => {
+    if (!orderFilter.trim()) return true;
+    return item.order_commessa?.toLowerCase().includes(orderFilter.toLowerCase());
+  });
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -181,23 +189,60 @@ const WidthValidation = () => {
         Width Change Notifications
       </Typography>
 
-
-
-
+      {/* Filter Section */}
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <TextField
+          label="Filter by Order"
+          variant="outlined"
+          size="small"
+          value={orderFilter}
+          onChange={(e) => setOrderFilter(e.target.value)}
+          placeholder="Enter order number..."
+          sx={{
+            minWidth: 250,
+            '& input': { fontWeight: 'normal' }
+          }}
+        />
+        {orderFilter && (
+          <Button
+            variant="outlined"
+            onClick={() => setOrderFilter('')}
+            size="small"
+            sx={{ color: '#673ab7', borderColor: '#673ab7', '&:hover': { borderColor: '#5e35b1', bgcolor: 'rgba(103, 58, 183, 0.04)' } }}
+          >
+            Clear
+          </Button>
+        )}
+        <Button
+          variant="contained"
+          onClick={fetchWidthValidation}
+          startIcon={<RefreshIcon />}
+          sx={{ bgcolor: '#673ab7', '&:hover': { bgcolor: '#5e35b1' } }}
+        >
+          Refresh
+        </Button>
+      </Box>
 
       {/* Validation Results */}
       <Card>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Validation Results
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              Validation Results
+            </Typography>
+            {validationData.length > 0 && (
+              <Typography variant="body2" color="text.secondary">
+                Showing {filteredValidationData.length} of {validationData.length} orders
+              </Typography>
+            )}
+          </Box>
 
-          {validationData.length === 0 ? (
+          {filteredValidationData.length === 0 ? (
             <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
-              No validation data available
+              {validationData.length === 0 ? 'No validation data available' : 'No orders match the filter criteria'}
             </Typography>
           ) : (
-            validationData.map((item, index) => (
+            filteredValidationData.map((item, index) => (
               <Accordion key={index} sx={{ mb: 1 }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>

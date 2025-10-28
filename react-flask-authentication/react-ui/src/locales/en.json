@@ -127,6 +127,7 @@
   "subcontractor": {
     "title": "Subcontractor",
     "menu": "Subcontractor Menu",
+    "kpiDashboard": "KPI Dashboard",
     "orderMattressPlan": "Order Mattress Plan",
     "markerRequests": "Marker Requests",
     "widthChangeRequests": "Width Change Requests",

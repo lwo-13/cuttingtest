@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
-import { CardContent, Divider, Grid, Menu, MenuItem, Typography, Tabs, Tab } from '@mui/material';
+import { CardContent, Divider, Grid, Menu, MenuItem, Typography, Tabs, Tab, Button, Box } from '@mui/material';
 
 // project imports
 import MainCard from './../../../ui-component/cards/MainCard';
@@ -88,11 +88,9 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
             try {
                 setLoading(true);
                 const cuttingRoomParam = selectedCuttingRoom || 'ALL';
-                const response = await axios.get(`/api/dashboard/top-orders-test?period=${selectedPeriod}&limit=6&cutting_room=${cuttingRoomParam}`);
+                const response = await axios.get(`/api/dashboard/top-orders-test?period=${selectedPeriod}&limit=7&cutting_room=${cuttingRoomParam}`);
 
                 if (response.data.success) {
-                    console.log('✅ Top Orders API Response:', response.data);
-                    console.log('📊 Orders data:', response.data.data);
                     const ordersData = response.data.data;
                     setTopOrdersData(ordersData);
 
@@ -113,8 +111,8 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
 
                     // Convert to array and sort by total meters
                     const stylesArray = Object.values(styleGroups)
-                        .sort((a, b) => b.total_meters - a.total_meters)
-                        .slice(0, 6); // Limit to top 6 styles
+                        .sort((a, b) => b.total_meters - a.total_meters);
+                        // Keep all styles to determine if there are more than 5
 
                     setStylesData(stylesArray);
                 } else {
@@ -142,14 +140,12 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
         const fetchTopFabricsData = async () => {
             try {
                 const cuttingRoomParam = selectedCuttingRoom || 'ALL';
-                const response = await axios.get(`/api/dashboard/top-fabrics?period=${selectedPeriod}&limit=6&cuttingRoom=${cuttingRoomParam}`);
+                const response = await axios.get(`/api/dashboard/top-fabrics?period=${selectedPeriod}&limit=7&cuttingRoom=${cuttingRoomParam}`);
 
                 if (response.data.success) {
-                    console.log('✅ Top Fabrics API Response:', response.data);
                     const fabricsArray = response.data.data;
                     setFabricData(fabricsArray);
                 } else {
-                    console.error('❌ Failed to fetch top fabrics data:', response.data.message);
                     setFabricData([]);
                 }
             } catch (error) {
@@ -265,7 +261,7 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                             <Grid item xs={12}>
                                 {activeTab === 0 && (
                                     topOrdersData.length > 0 ? (
-                                        topOrdersData.slice(0, 6).map((order, index) => (
+                                        topOrdersData.slice(0, 5).map((order, index) => (
                                     <React.Fragment key={order.order_commessa}>
                                         <Grid container direction="column" className={getPlaceClass(index)}>
                                             <Grid item>
@@ -304,7 +300,7 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                                 </Grid>
                                             </Grid>
                                         </Grid>
-                                            {index < Math.min(topOrdersData.length, 6) - 1 && <Divider className={classes.divider} />}
+                                            {index < Math.min(topOrdersData.length, 5) - 1 && <Divider className={classes.divider} />}
                                         </React.Fragment>
                                         ))
                                     ) : (
@@ -319,9 +315,25 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                     )
                                 )}
 
+                                {/* See All button for Orders tab */}
+                                {activeTab === 0 && topOrdersData.length >= 7 && (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                                        <Button
+                                            variant="text"
+                                            size="small"
+                                            onClick={() => {
+                                                // TODO: Navigate to full orders page
+                                                console.log('Navigate to all orders');
+                                            }}
+                                        >
+                                            See All Orders
+                                        </Button>
+                                    </Box>
+                                )}
+
                                 {activeTab === 1 && (
                                     stylesData.length > 0 ? (
-                                        stylesData.slice(0, 6).map((style, index) => (
+                                        stylesData.slice(0, 5).map((style, index) => (
                                             <React.Fragment key={style.name}>
                                                 <Grid container direction="column" className={getPlaceClass(index)}>
                                                     <Grid item>
@@ -360,7 +372,7 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                                         </Grid>
                                                     </Grid>
                                                 </Grid>
-                                                {index < Math.min(stylesData.length, 6) - 1 && <Divider className={classes.divider} />}
+                                                {index < Math.min(stylesData.length, 5) - 1 && <Divider className={classes.divider} />}
                                             </React.Fragment>
                                         ))
                                     ) : (
@@ -375,9 +387,25 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                     )
                                 )}
 
+                                {/* See All button for Styles tab */}
+                                {activeTab === 1 && stylesData.length > 5 && (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                                        <Button
+                                            variant="text"
+                                            size="small"
+                                            onClick={() => {
+                                                // TODO: Navigate to full styles page
+                                                console.log('Navigate to all styles');
+                                            }}
+                                        >
+                                            See All Styles
+                                        </Button>
+                                    </Box>
+                                )}
+
                                 {activeTab === 2 && (
                                     fabricsData.length > 0 ? (
-                                        fabricsData.slice(0, 6).map((fabric, index) => (
+                                        fabricsData.slice(0, 5).map((fabric, index) => (
                                             <React.Fragment key={fabric.fabric_code}>
                                                 <Grid container direction="column" className={getPlaceClass(index)}>
                                                     <Grid item>
@@ -416,7 +444,7 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                                         </Grid>
                                                     </Grid>
                                                 </Grid>
-                                                {index < Math.min(fabricsData.length, 6) - 1 && <Divider className={classes.divider} />}
+                                                {index < Math.min(fabricsData.length, 5) - 1 && <Divider className={classes.divider} />}
                                             </React.Fragment>
                                         ))
                                     ) : (
@@ -426,6 +454,22 @@ const TopOrdersCard = ({ isLoading, selectedPeriod, selectedCuttingRoom }) => {
                                             </Typography>
                                         </Grid>
                                     )
+                                )}
+
+                                {/* See All button for Fabrics tab */}
+                                {activeTab === 2 && fabricsData.length >= 7 && (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                                        <Button
+                                            variant="text"
+                                            size="small"
+                                            onClick={() => {
+                                                // TODO: Navigate to full fabrics page
+                                                console.log('Navigate to all fabrics');
+                                            }}
+                                        >
+                                            See All Fabrics
+                                        </Button>
+                                    </Box>
                                 )}
 
                             </Grid>

@@ -6,7 +6,7 @@ import axios from 'utils/axiosInstance';
 import { useTranslation } from 'react-i18next';
 
 // Production center configuration
-import { CUTTING_ROOMS } from 'utils/productionCenterConfig';
+import { CUTTING_ROOMS, getCuttingRoomFromUsername } from 'utils/productionCenterConfig';
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
@@ -240,21 +240,7 @@ const SubcontractorView = () => {
     const currentUser = account?.user;
     const username = currentUser?.username; // Username might be like "DELICIA2"
 
-    // Extract the base cutting room from username (handle cases like "DELICIA2" -> "DELICIA")
-    const getCuttingRoomFromUsername = (username) => {
-        if (!username) return null;
-
-        // Check if username starts with any known cutting room name
-        const cuttingRoomNames = Object.values(CUTTING_ROOMS);
-        for (const roomName of cuttingRoomNames) {
-            if (username.toUpperCase().startsWith(roomName.toUpperCase())) {
-                return roomName;
-            }
-        }
-
-        // If no match found, return the username as-is (backward compatibility)
-        return username;
-    };
+    // Use the shared utility function to extract cutting room from username
 
     const cuttingRoom = getCuttingRoomFromUsername(username);
 
@@ -331,11 +317,22 @@ const SubcontractorView = () => {
         return result;
     };
 
-    // Clear selected destination if it's no longer available (doesn't have quantities)
+    // Auto-select first destination or clear if no longer available
     useEffect(() => {
-        if (isDeliciaCuttingRoom && selectedDestination && tables.length > 0) {
+        if (isDeliciaCuttingRoom && tables.length > 0) {
             const availableDestinations = getDestinationsWithQuantities();
-            if (!availableDestinations.includes(selectedDestination)) {
+
+            if (availableDestinations.length > 0) {
+                // If no destination is selected, auto-select the first one
+                if (!selectedDestination) {
+                    setSelectedDestination(availableDestinations[0]);
+                }
+                // If current destination is no longer available, switch to first available
+                else if (!availableDestinations.includes(selectedDestination)) {
+                    setSelectedDestination(availableDestinations[0]);
+                }
+            } else {
+                // No destinations available, clear selection
                 setSelectedDestination('');
             }
         }
@@ -795,7 +792,7 @@ const SubcontractorView = () => {
 
                 return (
                     <Box mt={2}>
-                        <MainCard title="Destination Selection">
+                        <MainCard title="Destination">
                             {/* Tab-style destination selector */}
                             <Tabs
                                 value={selectedDestination || false}

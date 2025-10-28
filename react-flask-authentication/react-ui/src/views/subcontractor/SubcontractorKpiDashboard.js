@@ -1,27 +1,47 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 
 // material-ui
-import { Grid } from '@mui/material';
+import { Box, Grid, Typography } from '@mui/material';
+import ConstructionIcon from '@mui/icons-material/Construction';
 
 // project imports
-import TopOrdersCard from '../Default/TopOrdersCard';
-import TotalMetersSpreadedChart from '../Default/TotalMetersSpreadedChart';
-import TotalPiecesSpreadedChart from '../Default/TotalPiecesSpreadedChart';
-import { gridSpacing } from '../../../store/constant';
+import EarningCard from '../dashboard/Default/EarningCard';
+import PopularCard from '../dashboard/Default/PopularCard';
+import TopOrdersCard from '../dashboard/Default/TopOrdersCard';
+import TotalOrderLineChartCard from '../dashboard/Default/TotalOrderLineChartCard';
+import TotalIncomeDarkCard from '../dashboard/Default/TotalIncomeDarkCard';
+import TotalIncomeLightCard from '../dashboard/Default/TotalIncomeLightCard';
+import TotalGrowthBarChart from '../dashboard/Default/TotalGrowthBarChart';
+import TotalMetersSpreadedChart from '../dashboard/Default/TotalMetersSpreadedChart';
+import TotalPiecesSpreadedChart from '../dashboard/Default/TotalPiecesSpreadedChart';
+import { gridSpacing } from '../../store/constant';
 
 // dashboard components
-import DateFilter from '../Default/components/DateFilter';
-import StatisticsCards from '../Default/components/StatisticsCards';
+import DateFilter from '../dashboard/Default/components/DateFilter';
+import StatisticsCards from '../dashboard/Default/components/StatisticsCards';
 
-//-----------------------|| KPI ZALLI DASHBOARD ||-----------------------//
+// Production center configuration
+import { CUTTING_ROOMS, getCuttingRoomFromUsername } from 'utils/productionCenterConfig';
 
-const KpiZalli = () => {
+//-----------------------|| SUBCONTRACTOR KPI DASHBOARD ||-----------------------//
+
+const SubcontractorKpiDashboard = () => {
+    const { t } = useTranslation();
     const [isLoading, setLoading] = useState(true);
     const [selectedPeriod, setSelectedPeriod] = useState('today');
-    // Hardcode cutting room to ZALLI for this dashboard
-    const selectedCuttingRoom = 'ZALLI';
     const [totalMetersCompleted, setTotalMetersCompleted] = useState(0);
     const [selectedBreakdown, setSelectedBreakdown] = useState('none'); // Shared breakdown state
+
+    // Get current user info
+    const account = useSelector((state) => state.account);
+    const currentUser = account?.user;
+    const username = currentUser?.username; // Username might be like "DELICIA2"
+
+    // Use the shared utility function to extract cutting room from username
+
+    const selectedCuttingRoom = getCuttingRoomFromUsername(username);
 
     useEffect(() => {
         setLoading(false);
@@ -39,6 +59,20 @@ const KpiZalli = () => {
         setSelectedBreakdown(breakdown);
     };
 
+    // If no cutting room is determined, show error message
+    if (!selectedCuttingRoom) {
+        return (
+            <Box p={3}>
+                <Typography variant="h6" color="error">
+                    Unable to determine cutting room from username: {username}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                    Please contact an administrator to resolve this issue.
+                </Typography>
+            </Box>
+        );
+    }
+
     return (
         <Grid container spacing={gridSpacing}>
             {/* Date Filter */}
@@ -49,32 +83,6 @@ const KpiZalli = () => {
                 />
             </Grid>
 
-            {/* Statistics Cards */}
-            <Grid item xs={12}>
-                <StatisticsCards selectedPeriod={selectedPeriod} totalMetersCompleted={totalMetersCompleted} />
-            </Grid>
-
-            {/* Additional Dashboard Components - Commented Out */}
-            {/*<Grid item xs={12}>
-                <Grid container spacing={gridSpacing}>
-                    <Grid item lg={4} md={6} sm={6} xs={12}>
-                        <EarningCard isLoading={isLoading} />
-                    </Grid>
-                    <Grid item lg={4} md={6} sm={6} xs={12}>
-                        <TotalOrderLineChartCard isLoading={isLoading} />
-                    </Grid>
-                    <Grid item lg={4} md={12} sm={12} xs={12}>
-                        <Grid container spacing={gridSpacing}>
-                            <Grid item sm={6} xs={12} md={6} lg={12}>
-                                <TotalIncomeDarkCard isLoading={isLoading} />
-                            </Grid>
-                            <Grid item sm={6} xs={12} md={6} lg={12}>
-                                <TotalIncomeLightCard isLoading={isLoading} />
-                            </Grid>
-                        </Grid>
-                    </Grid>
-                </Grid>
-            </Grid>*/}
             {/* Total Meters Spreaded Chart */}
             <Grid item xs={12}>
                 <Grid container spacing={gridSpacing}>
@@ -88,16 +96,12 @@ const KpiZalli = () => {
                             onTotalMetersChange={handleTotalMetersChange}
                             selectedBreakdown={selectedBreakdown}
                             onBreakdownChange={handleBreakdownChange}
+                            isAllCuttingRoomsPage={true}
                         />
                     </Grid>
                     <Grid item xs={12} md={4}>
                         <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} selectedCuttingRoom={selectedCuttingRoom} />
                     </Grid>
-
-                    {/* Commented out Popular Stocks Card */}
-                    {/*<Grid item xs={12} md={4}>
-                        <PopularCard isLoading={isLoading} />
-                    </Grid>*/}
                 </Grid>
             </Grid>
 
@@ -113,25 +117,13 @@ const KpiZalli = () => {
                             hideCuttingRoomSelector={true}
                             selectedBreakdown={selectedBreakdown}
                             onBreakdownChange={handleBreakdownChange}
+                            isAllCuttingRoomsPage={true}
                         />
                     </Grid>
                 </Grid>
             </Grid>
-
-            {/* Commented out Total Growth Bar Chart */}
-            {/*<Grid item xs={12}>
-                <Grid container spacing={gridSpacing}>
-                    <Grid item xs={12} md={8}>
-                        <TotalGrowthBarChart isLoading={isLoading} />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <PopularCard isLoading={isLoading} />
-                    </Grid>
-                </Grid>
-            </Grid>*/}
         </Grid>
     );
 };
 
-export default KpiZalli;
-
+export default SubcontractorKpiDashboard;

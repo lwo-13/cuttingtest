@@ -62,8 +62,6 @@ const useStyles = makeStyles((theme) => ({
 const TotalConsumptionCard = ({ isLoading, selectedPeriod, totalMetersCompleted }) => {
     const classes = useStyles();
 
-    console.log('🔍 TotalConsumptionCard - totalMetersCompleted:', totalMetersCompleted);
-
     return (
         <React.Fragment>
             {isLoading ? (

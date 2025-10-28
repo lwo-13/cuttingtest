@@ -29,6 +29,7 @@ const Dashboard = () => {
     const [selectedPeriod, setSelectedPeriod] = useState('today');
     const [selectedCuttingRoom, setSelectedCuttingRoom] = useState('ALL');
     const [totalMetersCompleted, setTotalMetersCompleted] = useState(0);
+    const [selectedBreakdown, setSelectedBreakdown] = useState('none'); // Shared breakdown state
 
     useEffect(() => {
         setLoading(false);
@@ -43,8 +44,11 @@ const Dashboard = () => {
     };
 
     const handleTotalMetersChange = (meters) => {
-        console.log('📊 Dashboard - Total meters changed to:', meters);
         setTotalMetersCompleted(meters);
+    };
+
+    const handleBreakdownChange = (breakdown) => {
+        setSelectedBreakdown(breakdown);
     };
 
     return (
@@ -95,6 +99,8 @@ const Dashboard = () => {
                             onCuttingRoomChange={handleCuttingRoomChange}
                             isAllCuttingRoomsPage={true}
                             onTotalMetersChange={handleTotalMetersChange}
+                            selectedBreakdown={selectedBreakdown}
+                            onBreakdownChange={handleBreakdownChange}
                         />
                     </Grid>
                     <Grid item xs={12} md={4}>
@@ -116,10 +122,11 @@ const Dashboard = () => {
                             isLoading={isLoading}
                             selectedPeriod={selectedPeriod}
                             onPeriodChange={handlePeriodChange}
+                            selectedCuttingRoom={selectedCuttingRoom}
+                            selectedBreakdown={selectedBreakdown}
+                            onBreakdownChange={handleBreakdownChange}
+                            isAllCuttingRoomsPage={true}
                         />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <TopOrdersCard isLoading={isLoading} selectedPeriod={selectedPeriod} />
                     </Grid>
                 </Grid>
             </Grid>

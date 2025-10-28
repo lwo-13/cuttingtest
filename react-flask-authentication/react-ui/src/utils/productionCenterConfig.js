@@ -16,8 +16,7 @@ export const CUTTING_ROOMS = {
   VERONA: 'VERONA',
   TEXCONS: 'TEXCONS',
   VEGATEX: 'VEGATEX',
-  SINA_STYLE_L: 'SINA STYLE L',
-  SINA_STYLE_D: 'SINA STYLE D',
+  SINA_STYLE: 'SINA STYLE',
   ZEYNTEX: 'ZEYNTEX',
   DELICIA: 'DELICIA',
   VAIDE_MOLA: 'VAIDE MOLA',
@@ -37,8 +36,7 @@ export const DESTINATIONS = {
   TEXCONS: 'TEXCONS',
   DELICIA: 'DELICIA',
   VEGATEX: 'VEGATEX',
-  SINA_STYLE_L: 'SINA STYLE L',
-  SINA_STYLE_D: 'SINA STYLE D',
+  SINA_STYLE: 'SINA STYLE',
   ZEYNTEX: 'ZEYNTEX',
   VAIDE_MOLA: 'VAIDE MOLA',
   HADJIOLI: 'HADJIOLI',
@@ -61,8 +59,7 @@ export const PRODUCTION_CENTER_CUTTING_ROOMS = {
   ],
   [PRODUCTION_CENTERS.PXE3]: [
     CUTTING_ROOMS.VEGATEX,
-    CUTTING_ROOMS.SINA_STYLE_L,
-    CUTTING_ROOMS.SINA_STYLE_D,
+    CUTTING_ROOMS.SINA_STYLE,
     CUTTING_ROOMS.ZEYNTEX,
     CUTTING_ROOMS.DELICIA,
     CUTTING_ROOMS.VAIDE_MOLA,
@@ -98,11 +95,8 @@ export const CUTTING_ROOM_DESTINATIONS = {
   [CUTTING_ROOMS.VEGATEX]: [
     DESTINATIONS.VEGATEX
   ],
-  [CUTTING_ROOMS.SINA_STYLE_L]: [
-    DESTINATIONS.SINA_STYLE_L
-  ],
-  [CUTTING_ROOMS.SINA_STYLE_D]: [
-    DESTINATIONS.SINA_STYLE_D
+  [CUTTING_ROOMS.SINA_STYLE]: [
+    DESTINATIONS.SINA_STYLE
   ],
   [CUTTING_ROOMS.ZEYNTEX]: [
     DESTINATIONS.ZEYNTEX
@@ -151,8 +145,7 @@ export const COMBINATION_KEYS = {
   [`${CUTTING_ROOMS.VEGATEX}+${DESTINATIONS.VEGATEX}`]: 'VGT',
 
   // PXE3 - SINA STYLE combinations
-  [`${CUTTING_ROOMS.SINA_STYLE_L}+${DESTINATIONS.SINA_STYLE_L}`]: 'SSL',
-  [`${CUTTING_ROOMS.SINA_STYLE_D}+${DESTINATIONS.SINA_STYLE_D}`]: 'SSD',
+  [`${CUTTING_ROOMS.SINA_STYLE}+${DESTINATIONS.SINA_STYLE}`]: 'SS',
 
   // PXE3 - ZEYNTEX combinations
   [`${CUTTING_ROOMS.ZEYNTEX}+${DESTINATIONS.ZEYNTEX}`]: 'ZT',
@@ -182,11 +175,10 @@ export const CUTTING_ROOM_COLORS = {
   [CUTTING_ROOMS.VERONA]: '#0d47a1',       // Darker blue (different from ZALLI)
   [CUTTING_ROOMS.DELICIA]: '#9c27b0',      // Purple
   [CUTTING_ROOMS.HADJIOLI]: '#424242',     // Dark grey
-  [CUTTING_ROOMS.SINA_STYLE_L]: '#f44336', // Red
+  [CUTTING_ROOMS.SINA_STYLE]: '#f44336',   // Red
   [CUTTING_ROOMS.TEXCONS]: '#e91e63',      // Pink
   [CUTTING_ROOMS.VEGATEX]: '#4caf50',      // Green
   [CUTTING_ROOMS.ZEYNTEX]: '#00bcd4',      // Cyan
-  [CUTTING_ROOMS.SINA_STYLE_D]: '#ff9800', // Orange
   [CUTTING_ROOMS.VAIDE_MOLA]: '#9e9e9e',   // Light grey
   [CUTTING_ROOMS.YUMER]: '#795548',        // Brown
   [CUTTING_ROOMS.RILA_TEXTILE]: '#607d8b'  // Blue grey
@@ -301,4 +293,36 @@ export const getAutoSelectedDestination = (cuttingRoom) => {
     return destinations[0];
   }
   return null;
+};
+
+/**
+ * Extract the base cutting room from username
+ * Handles cases like "DELICIA2" -> "DELICIA", "SINASTYLE_D" -> "SINA STYLE"
+ * @param {string} username - The username to extract cutting room from
+ * @returns {string|null} The cutting room name or username if no match found
+ */
+export const getCuttingRoomFromUsername = (username) => {
+  if (!username) return null;
+
+  const usernameUpper = username.toUpperCase();
+  const cuttingRoomNames = Object.values(CUTTING_ROOMS);
+
+  for (const roomName of cuttingRoomNames) {
+    const roomNameUpper = roomName.toUpperCase();
+
+    // First try exact prefix match (handles cases like "DELICIA2" -> "DELICIA")
+    if (usernameUpper.startsWith(roomNameUpper)) {
+      return roomName;
+    }
+
+    // Then try normalized match (remove spaces and check if username starts with it)
+    // This handles cases like "SINASTYLE_D" -> "SINA STYLE"
+    const normalizedRoomName = roomNameUpper.replace(/\s+/g, '');
+    if (usernameUpper.startsWith(normalizedRoomName)) {
+      return roomName;
+    }
+  }
+
+  // If no match found, return the username as-is (backward compatibility)
+  return username;
 };

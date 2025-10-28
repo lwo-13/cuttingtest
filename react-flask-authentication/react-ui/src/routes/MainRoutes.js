@@ -11,7 +11,6 @@ import RoleGuard from './../utils/route-guard/RoleGuard';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default')));
-const KpiAllCuttingRooms = Loadable(lazy(() => import('../views/dashboard/KpiAllCuttingRooms')));
 const KpiZalli = Loadable(lazy(() => import('../views/dashboard/KpiZalli')));
 const ConsumptionAnalytics = Loadable(lazy(() => import('../views/dashboard/ConsumptionAnalytics')));
 const OrderReport = Loadable(lazy(() => import('../views/dashboard/orderreport')));
@@ -57,6 +56,7 @@ const CutterView = Loadable(lazy(() => import('../views/operators_view/cutterVie
 
 // subcontractor routing
 const SubcontractorView = Loadable(lazy(() => import('../views/subcontractor/subcontractorView')));
+const SubcontractorKpiDashboard = Loadable(lazy(() => import('../views/subcontractor/SubcontractorKpiDashboard')));
 
 // logistic routing
 const LogisticView = Loadable(lazy(() => import('../views/logistic/logisticView')));
@@ -146,7 +146,7 @@ const MainRoutes = () => {
                 <MainLayout>
                     <Switch location={location} key={location.pathname}>
                         <AuthGuard>
-                            <Route path="/dashboard/default" component={KpiAllCuttingRooms} />
+                            <Route path="/dashboard/default" component={DashboardDefault} />
                             <Route path="/dashboard/zalli" component={KpiZalli} />
                             <Route path="/dashboard/consumption-analytics" component={ConsumptionAnalytics} />
                             <Route path="/dashboard/orderreport" component={OrderReport} />
@@ -216,12 +216,22 @@ const MainRoutes = () => {
                 </HeaderOnlyLayout>
             </Route>
 
-            {/* Subcontractor route with MainLayout (full layout with sidebar) */}
+            {/* Subcontractor routes with MainLayout (full layout with sidebar) */}
             <Route path="/subcontractor/view">
                 <MainLayout>
                     <AuthGuard>
                         <RoleGuard allowedRoles={['Subcontractor']}>
                             <SubcontractorView />
+                        </RoleGuard>
+                    </AuthGuard>
+                </MainLayout>
+            </Route>
+
+            <Route path="/subcontractor/kpi-dashboard">
+                <MainLayout>
+                    <AuthGuard>
+                        <RoleGuard allowedRoles={['Subcontractor']}>
+                            <SubcontractorKpiDashboard />
                         </RoleGuard>
                     </AuthGuard>
                 </MainLayout>

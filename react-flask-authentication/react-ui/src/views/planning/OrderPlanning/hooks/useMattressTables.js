@@ -84,7 +84,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           uniqueBagnos.forEach(bagno => {
             window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
               detail: {
-                bagno: bagno
+                bagno: bagno,
+                tableId: id  // ✅ Include tableId for proper configuration matching
                 // ✅ Removed piecesPerSize - let the handler recalculate from remaining tables
               }
             }));
@@ -336,7 +337,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
               detail: {
-                bagno: rowToDelete.bagno
+                bagno: rowToDelete.bagno,
+                tableId: tableId  // ✅ Include tableId for proper configuration matching
                 // ✅ Removed piecesPerSize - let the handler recalculate from remaining tables
               }
             }));
@@ -493,7 +495,8 @@ const useMattressTables = ({ orderSizeNames, setUnsavedChanges, setDeletedMattre
                 if (originalBagnoValue && originalBagnoValue !== 'Unknown' && originalBagnoValue !== finalBagnoValueFromInput) {
                   window.dispatchEvent(new CustomEvent('mattressPiecesChanged', {
                     detail: {
-                      bagno: originalBagnoValue
+                      bagno: originalBagnoValue,
+                      tableId: tableId  // ✅ Include tableId for proper configuration matching
                     }
                   }));
                 }

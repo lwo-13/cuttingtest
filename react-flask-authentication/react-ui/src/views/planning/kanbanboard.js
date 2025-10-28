@@ -6,6 +6,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import ViewStreamIcon from '@mui/icons-material/ViewStream';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import WarningIcon from '@mui/icons-material/Warning';
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
@@ -678,6 +679,21 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
   // Check if mattress is locked (pending approval, on spread, or on hold)
   const isLocked = mattress.status === "PENDING APPROVAL" || mattress.status === "2 - ON SPREAD" || mattress.status === "99 - ON HOLD";
 
+  // Check if mattress is more than 30 days old (only for "To Assign" column)
+  const isOld = device === "SP0" && (() => {
+    if (!mattress.created_at) return false;
+
+    try {
+      const createdDate = new Date(mattress.created_at);
+      const now = new Date();
+      const daysDifference = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+      return daysDifference > 30;
+    } catch (error) {
+      console.error('Error parsing created_at date:', error);
+      return false;
+    }
+  })();
+
   const [{ isDragging }, drag] = useDrag({
     type: "MATTRESS",
     canDrag: !isLocked, // Disable dragging for locked mattresses
@@ -774,6 +790,18 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
     drop(ref);
   }
 
+  // Calculate days since creation for tooltip
+  const daysSinceCreation = (() => {
+    if (!mattress.created_at) return null;
+    try {
+      const createdDate = new Date(mattress.created_at);
+      const now = new Date();
+      return Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+    } catch (error) {
+      return null;
+    }
+  })();
+
   const tooltipContent = (
     <Box>
       <strong>{t('common.order', 'Order')}:</strong> {mattress.order_commessa} <br />
@@ -788,6 +816,12 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
       {mattress.sizes && mattress.sizes !== '--' && (<Box><strong>{t('common.sizes', 'Sizes')}:</strong> {mattress.sizes}</Box>)}
       <strong>{t('table.consumption')}:</strong> {mattress.consumption} m<br />
       <strong>{t('common.spreadingMethod', 'Spreading Method')}:</strong> {mattress.spreading_method} <br />
+      {daysSinceCreation !== null && daysSinceCreation >= 30 && (
+        <><strong>{t('common.created', 'Created')}:</strong> {daysSinceCreation} {daysSinceCreation === 1 ? t('common.dayAgo', 'day ago') : t('common.daysAgo', 'days ago')} <br /></>
+      )}
+      {isOld && (
+        <><strong style={{ color: '#d32f2f' }}>⚠️ OLD MATTRESS</strong> - More than 30 days old<br /></>
+      )}
       {mattress.status === "99 - ON HOLD" && (
         <>
           <strong style={{ color: '#ff9800' }}>ON HOLD</strong><br />
@@ -829,9 +863,9 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           cursor: isLocked ? 'not-allowed' : 'grab',
           transform: isDragging ? 'rotate(5deg) scale(1.05)' : isOver ? 'scale(1.02)' : 'none',
           transition: 'all 0.3s ease',
-          border: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '2px solid #ff9800 !important' : '2px solid #2196f3 !important') : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
-          bgcolor: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '#fff3e0' : '#e3f2fd') : isOver ? '#f3e5f5' : 'white',
-          boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
+          border: isOld ? '2px solid #d32f2f !important' : isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '2px solid #ff9800 !important' : '2px solid #2196f3 !important') : isOver ? '3px solid #9c27b0' : '1px solid #e0e0e0',
+          bgcolor: isOld ? '#ffebee' : isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '#fff3e0' : '#e3f2fd') : isOver ? '#f3e5f5' : 'white',
+          boxShadow: isOld ? '0 2px 8px rgba(211, 47, 47, 0.3)' : isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : isOver ? '0 4px 20px rgba(156, 39, 176, 0.3)' : isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
           width: '100%',
           height: '90px',
           minHeight: '90px',
@@ -840,7 +874,7 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           position: 'relative',
           '&:hover': {
             transform: isLocked ? 'none' : isDragging ? 'rotate(5deg) scale(1.05)' : 'scale(1.01)',
-            boxShadow: isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : '0 2px 10px rgba(0,0,0,0.1)'
+            boxShadow: isOld ? '0 2px 8px rgba(211, 47, 47, 0.3)' : isLocked ? (mattress.status === "PENDING APPROVAL" || mattress.status === "99 - ON HOLD" ? '0 2px 8px rgba(255, 152, 0, 0.3)' : '0 2px 8px rgba(33, 150, 243, 0.3)') : '0 2px 10px rgba(0,0,0,0.1)'
           }
         }}>
       {/* Status icons for locked mattresses */}
@@ -865,6 +899,25 @@ const KanbanItem = ({ mattress, index, shift, device }) => {
           ) : (
             <ViewStreamIcon sx={{ fontSize: 14 }} />
           )}
+        </Box>
+      )}
+
+      {/* Warning icon for old mattresses (30+ days) */}
+      {isOld && !isLocked && (
+        <Box sx={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          display: 'flex',
+          alignItems: 'center',
+          bgcolor: '#d32f2f',
+          color: 'white',
+          borderRadius: '50%',
+          width: 24,
+          height: 24,
+          justifyContent: 'center'
+        }}>
+          <WarningIcon sx={{ fontSize: 14 }} />
         </Box>
       )}
 

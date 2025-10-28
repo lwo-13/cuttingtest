@@ -3,7 +3,7 @@ import { TableRow, TableCell, TextField, Typography, Tooltip, IconButton } from 
 import { IconEdit } from '@tabler/icons';
 import MattressProgressBar from './MattressProgressBar';
 
-const MattressRowReadOnly = ({ row, orderSizes, onEditActualLayers }) => {
+const MattressRowReadOnly = ({ row, orderSizes, onEditActualLayers, isClosedOrder = false, productionCenter = '' }) => {
   // Helper function to create tooltip content showing size breakdown
   const createSizeBreakdownTooltip = (piecesPerSize, layers, isActual = false) => {
     if (!piecesPerSize || !layers) return null;
@@ -266,33 +266,35 @@ const MattressRowReadOnly = ({ row, orderSizes, onEditActualLayers }) => {
       </TableCell>
 
       {/* Edit Actual Layers Icon */}
-      <TableCell sx={{ minWidth: '50px', textAlign: 'center', padding: '4px' }}>
-        {(() => {
-          const isCompleted = row.phase_status === '5 - COMPLETED';
+      {!isClosedOrder && productionCenter !== 'PXE3' && (
+        <TableCell sx={{ minWidth: '50px', textAlign: 'center', padding: '4px' }}>
+          {(() => {
+            const isCompleted = row.phase_status === '5 - COMPLETED';
 
-          return (
-            <IconButton
-              onClick={() => isCompleted && onEditActualLayers && onEditActualLayers(row)}
-              disabled={!isCompleted}
-              color={isCompleted ? "primary" : "default"}
-              size="small"
-              sx={{
-                padding: '6px',
-                cursor: isCompleted ? 'pointer' : 'not-allowed',
-                '&:hover': isCompleted ? {
-                  backgroundColor: 'primary.light',
-                  color: 'primary.dark'
-                } : {},
-                '&.Mui-disabled': {
-                  color: 'grey.400'
-                }
-              }}
-            >
-              <IconEdit size={20} />
-            </IconButton>
-          );
-        })()}
-      </TableCell>
+            return (
+              <IconButton
+                onClick={() => isCompleted && onEditActualLayers && onEditActualLayers(row)}
+                disabled={!isCompleted}
+                color={isCompleted ? "primary" : "default"}
+                size="small"
+                sx={{
+                  padding: '6px',
+                  cursor: isCompleted ? 'pointer' : 'not-allowed',
+                  '&:hover': isCompleted ? {
+                    backgroundColor: 'primary.light',
+                    color: 'primary.dark'
+                  } : {},
+                  '&.Mui-disabled': {
+                    color: 'grey.400'
+                  }
+                }}
+              >
+                <IconEdit size={20} />
+              </IconButton>
+            );
+          })()}
+        </TableCell>
+      )}
     </TableRow>
   );
 };

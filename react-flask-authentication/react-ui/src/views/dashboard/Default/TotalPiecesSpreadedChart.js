@@ -14,6 +14,7 @@ import SkeletonTotalGrowthBarChart from './../../../ui-component/cards/Skeleton/
 import MainCard from './../../../ui-component/cards/MainCard';
 import { gridSpacing } from './../../../store/constant';
 import { getCuttingRoomColor } from '../../../utils/productionCenterConfig';
+import { getConsistentColors, getBrandColor as getConsistentBrandColor } from '../../../utils/colorUtils';
 
 // chart data
 import chartData from './chart-data/total-meters-spreaded-chart';
@@ -37,13 +38,22 @@ const status = [
     }
 ];
 
+const allBreakdownOptions = [
+    { value: 'none', label: 'None' },
+    { value: 'brand', label: 'Brand' },
+    { value: 'style', label: 'Style' },
+    { value: 'spreader', label: 'Spreader' },
+    { value: 'operator', label: 'Operator' }
+];
+
 //-----------------------|| DASHBOARD DEFAULT - TOTAL PIECES SPREADED BAR CHART ||-----------------------//
 
-const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, selectedCuttingRoom, hideCuttingRoomSelector }) => {
+const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, selectedCuttingRoom, hideCuttingRoomSelector, selectedBreakdown, onBreakdownChange, isAllCuttingRoomsPage }) => {
     const [value, setValue] = useState(selectedPeriod || 'today');
     const [cuttingRoom, setCuttingRoom] = useState(selectedCuttingRoom || 'ALL');
     const [cuttingRooms, setCuttingRooms] = useState([]);
     const [totalPieces, setTotalPieces] = useState(0);
+    const [apiCache, setApiCache] = useState({}); // Cache API responses
     const [chartDataState, setChartDataState] = useState({
         ...chartData,
         options: {
@@ -79,6 +89,11 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
         }
     }, [selectedCuttingRoom]);
 
+    // Filter breakdown options based on cutting room context
+    const breakdownOptions = isAllCuttingRoomsPage
+        ? allBreakdownOptions.filter(option => option.value !== 'spreader' && option.value !== 'operator')
+        : allBreakdownOptions;
+
     // Fetch cutting rooms on component mount
     useEffect(() => {
         const fetchCuttingRooms = async () => {
@@ -104,135 +119,185 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
 
         const fetchPiecesData = async () => {
             try {
-                const response = await axios.get(`/dashboard/pieces-spreaded?period=${value}&cutting_room=${cuttingRoom}&_t=${Date.now()}`);
-                if (response.data.success) {
-                    setTotalPieces(response.data.data.total_pieces || 0);
+                // Use external breakdown if provided, otherwise default to 'none'
+                const currentBreakdown = selectedBreakdown || 'none';
 
-                    // Debug: Log API response
-                    console.log('API Response for period:', value, 'cutting_room:', cuttingRoom);
-                    console.log('Chart data from API:', response.data.data.chart_data);
-                    console.log('Total pieces:', response.data.data.total_pieces);
+                // Build breakdown query parameter
+                const breakdownParam = currentBreakdown !== 'none'
+                    ? `&breakdown=${currentBreakdown}`
+                    : '';
 
-                    // Define x-axis categories based on period
-                    let categories = [];
-                    switch (value) {
-                        case 'today':
-                            categories = ['Today'];
-                            break;
-                        case 'week':
-                            // Last 7 days
-                            categories = [];
-                            for (let i = 6; i >= 0; i--) {
-                                const date = new Date();
-                                date.setDate(date.getDate() - i);
-                                categories.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
-                            }
-                            break;
-                        case 'month':
-                            // Last 4 weeks
-                            categories = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-                            break;
-                        case 'year':
-                            categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                            break;
-                        default:
-                            categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                let colors;
+                let series;
+                let totalPiecesSum = 0;
+                let response; // Declare response variable at the top level
+
+                if (currentBreakdown !== 'none') {
+                    // Check cache first
+                    const cacheKey = `${value}_${cuttingRoom}_${currentBreakdown}`;
+
+                    if (apiCache[cacheKey]) {
+                        response = apiCache[cacheKey];
+                    } else {
+                        response = await axios.get(`/dashboard/pieces-spreaded?period=${value}&cutting_room=${cuttingRoom}${breakdownParam}`);
+                        // Cache the response
+                        setApiCache(prev => ({ ...prev, [cacheKey]: response }));
                     }
 
-                    // Update chart data with real data
-                    if (response.data.data.chart_data && response.data.data.chart_data.length > 0) {
-                        // Calculate colors for the current selection
+                    if (response.data.success) {
+                        setTotalPieces(response.data.data.total_pieces || 0);
+
+                        const breakdownSeries = response.data.data.chart_data || {};
+                        series = Object.keys(breakdownSeries).map(key => ({
+                            name: key,
+                            data: breakdownSeries[key]
+                        }));
+
+                        // Generate colors for breakdown series
+                        if (currentBreakdown === 'brand') {
+                            // Use consistent brand colors
+                            colors = series.map(s => getConsistentBrandColor(s.name));
+                        } else {
+                            // Use consistent colors for other breakdowns (style, operator, spreader)
+                            colors = getConsistentColors(series.map(s => s.name));
+                        }
+                    }
+                } else if (cuttingRoom === 'ALL') {
+                    // For ALL view, fetch data for each cutting room separately and stack them (same as meters chart)
+                    const roomsToFetch = cuttingRooms.filter(room => room !== 'ALL');
+
+                    // Fetch data for all cutting rooms in parallel with caching
+                    const promises = roomsToFetch.map(room => {
+                        const cacheKey = `${value}_${room}_none`;
+                        if (apiCache[cacheKey]) {
+                            return Promise.resolve(apiCache[cacheKey]);
+                        } else {
+                            return axios.get(`/dashboard/pieces-spreaded?period=${value}&cutting_room=${room}`).then(response => {
+                                setApiCache(prev => ({ ...prev, [cacheKey]: response }));
+                                return response;
+                            });
+                        }
+                    });
+
+                    const responses = await Promise.all(promises);
+
+                    // Calculate colors for all cutting rooms
+                    const allRooms = cuttingRooms.filter(room => room !== 'ALL').sort();
+                    const colorMap = {};
+                    allRooms.forEach((room) => {
+                        colorMap[room] = getCuttingRoomColor(room);
+                    });
+
+                    // Build series data from responses
+                    series = [];
+                    let totalPiecesSum = 0;
+                    responses.forEach((response, index) => {
+                        if (response.data.success) {
+                            const roomName = roomsToFetch[index];
+                            const roomData = response.data.data.chart_data || [];
+
+                            // Only add series if there's actual data (not all zeros)
+                            const hasData = roomData.some(val => val > 0);
+                            if (hasData) {
+                                series.push({
+                                    name: roomName,
+                                    data: roomData
+                                });
+                                totalPiecesSum += (response.data.data.total_pieces || 0);
+                            }
+                        }
+                    });
+
+                    // Sort series alphabetically for consistent display
+                    series.sort((a, b) => a.name.localeCompare(b.name));
+
+                    // Set colors to match series order
+                    colors = series.map(s => colorMap[s.name]);
+
+                    setTotalPieces(totalPiecesSum);
+                } else {
+                    // No breakdown - use simple API call for specific cutting room
+                    response = await axios.get(`/dashboard/pieces-spreaded?period=${value}&cutting_room=${cuttingRoom}&_t=${Date.now()}`);
+                    if (response.data.success) {
+                        setTotalPieces(response.data.data.total_pieces || 0);
+
+                        // Calculate colors for the current selection (same as meters chart)
                         const allRooms = cuttingRooms.filter(room => room !== 'ALL').sort();
                         const colorMap = {};
                         allRooms.forEach((room) => {
                             colorMap[room] = getCuttingRoomColor(room);
                         });
 
-                        let colors;
-                        let series;
-
-                        if (cuttingRoom === 'ALL') {
-                            // For ALL view, show stacked data with Zalli real data and others as 0
-                            const otherCuttingRooms = cuttingRooms.filter(room => room !== 'ALL' && room !== 'ZALLI');
-                            series = [
-                                {
-                                    name: 'ZALLI',
-                                    data: response.data.data.chart_data
-                                }
-                            ];
-
-                            // Add all other cutting rooms with 0 data
-                            otherCuttingRooms.forEach(room => {
-                                series.push({
-                                    name: room,
-                                    data: Array(response.data.data.chart_data.length).fill(0)
-                                });
-                            });
-
-                            // For ALL view, match the series order: ZALLI first, then others alphabetically
-                            const otherRooms = allRooms.filter(room => room !== 'ZALLI').sort();
-                            const seriesOrder = ['ZALLI', ...otherRooms];
-                            colors = seriesOrder.map(room => colorMap[room]);
-
-                            setChartDataState(prev => ({
-                                ...prev,
-                                options: {
-                                    ...prev.options,
-                                    chart: {
-                                        ...prev.options.chart,
-                                        stacked: true
-                                    },
-                                    legend: {
-                                        ...prev.options.legend,
-                                        show: true
-                                    },
-                                    colors: colors,
-                                    xaxis: {
-                                        ...prev.options.xaxis,
-                                        categories: categories
-                                    }
-                                },
-                                series: series
-                            }));
-                        } else {
-                            // Show single series for specific cutting room
-                            series = [
-                                {
-                                    name: cuttingRoom,
-                                    data: response.data.data.chart_data
-                                }
-                            ];
-                            colors = [colorMap[cuttingRoom]];
-
-                            setChartDataState(prev => ({
-                                ...prev,
-                                options: {
-                                    ...prev.options,
-                                    chart: {
-                                        ...prev.options.chart,
-                                        stacked: false
-                                    },
-                                    legend: {
-                                        ...prev.options.legend,
-                                        show: true
-                                    },
-                                    colors: colors,
-                                    xaxis: {
-                                        ...prev.options.xaxis,
-                                        categories: categories
-                                    }
-                                },
-                                series: series
-                            }));
-                        }
-                    } else {
-                        // No chart data available, clear the chart
-                        console.log('No chart data available, clearing chart');
-                        setChartDataState(prev => ({
-                            ...prev,
-                            series: []
-                        }));
+                        series = [{
+                            name: cuttingRoom,
+                            data: response.data.data.chart_data || []
+                        }];
+                        colors = [colorMap[cuttingRoom] || primaryDark];
                     }
+                }
+
+                // Define x-axis categories based on period
+                let categories = [];
+                switch (value) {
+                    case 'today':
+                        categories = ['Today'];
+                        break;
+                    case 'week':
+                        // Last 7 days
+                        categories = [];
+                        for (let i = 6; i >= 0; i--) {
+                            const date = new Date();
+                            date.setDate(date.getDate() - i);
+                            categories.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+                        }
+                        break;
+                    case 'month':
+                        // Last 4 weeks
+                        categories = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+                        break;
+                    case 'year':
+                        categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        break;
+                    default:
+                        categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                }
+
+                // Update chart data with real data
+                if ((currentBreakdown === 'none' && series && series.length > 0) ||
+                    (currentBreakdown !== 'none' && series && series.length > 0)) {
+
+                    // For breakdown === 'none', series and colors are already set above
+                    // For breakdown !== 'none', series and colors are set in the breakdown section
+
+                    // Update chart state
+                    setChartDataState(prev => ({
+                        ...prev,
+                        options: {
+                            ...prev.options,
+                            chart: {
+                                ...prev.options.chart,
+                                stacked: currentBreakdown !== 'none' || cuttingRoom === 'ALL'
+                            },
+                            legend: {
+                                ...prev.options.legend,
+                                show: currentBreakdown !== 'none' || cuttingRoom === 'ALL'
+                            },
+                            colors: colors,
+                            xaxis: {
+                                ...prev.options.xaxis,
+                                categories: categories
+                            }
+                        },
+                        series: series
+                    }));
+
+                } else {
+                    // No chart data available, clear the chart
+                    console.log('No chart data available, clearing chart');
+                    setChartDataState(prev => ({
+                        ...prev,
+                        series: []
+                    }));
                 }
             } catch (error) {
                 console.error('Error fetching pieces data:', error);
@@ -246,7 +311,7 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
         };
 
         fetchPiecesData();
-    }, [value, cuttingRoom, cuttingRooms]);
+    }, [value, cuttingRoom, cuttingRooms, selectedBreakdown]);
 
     // Update chart styling (without colors, as colors are handled in data fetch)
     useEffect(() => {
@@ -341,6 +406,27 @@ const TotalPiecesSpreadedChart = ({ isLoading, selectedPeriod, onPeriodChange, s
                                         )}
                                         <Grid item>
                                             <TextField
+                                                id="standard-select-breakdown"
+                                                select
+                                                value={selectedBreakdown}
+                                                onChange={(e) => {
+                                                    const newBreakdown = e.target.value;
+                                                    if (onBreakdownChange) {
+                                                        onBreakdownChange(newBreakdown);
+                                                    }
+                                                }}
+                                                size="small"
+                                                sx={{ minWidth: 180 }}
+                                            >
+                                                {breakdownOptions.map((option) => (
+                                                    <MenuItem key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        </Grid>
+                                        <Grid item>
+                                            <TextField
                                                 id="standard-select-period"
                                                 select
                                                 value={value}
@@ -381,7 +467,10 @@ TotalPiecesSpreadedChart.propTypes = {
     selectedPeriod: PropTypes.string,
     onPeriodChange: PropTypes.func,
     selectedCuttingRoom: PropTypes.string,
-    hideCuttingRoomSelector: PropTypes.bool
+    hideCuttingRoomSelector: PropTypes.bool,
+    selectedBreakdown: PropTypes.string,
+    onBreakdownChange: PropTypes.func,
+    isAllCuttingRoomsPage: PropTypes.bool
 };
 
 export default TotalPiecesSpreadedChart;

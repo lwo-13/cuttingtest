@@ -23,7 +23,7 @@ def set_bagno_ready():
         print()
         
         # List of mattress IDs to update
-        mattress_ids = [9255, 9254, 9256]
+        mattress_ids = [9001]
         
         print(f"Mattress IDs to update: {mattress_ids}")
         print()

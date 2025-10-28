@@ -86,17 +86,30 @@ const NavItem = ({ item, level }) => {
         matchesSM && dispatch({ type: SET_MENU, opened: false });
     };
 
-    // active menu item on page load
+    // active menu item on page load and navigation
     React.useEffect(() => {
-        const currentIndex = document.location.pathname
-            .toString()
-            .split('/')
-            .findIndex((id) => id === item.id);
-        if (currentIndex > -1) {
-            dispatch({ type: MENU_OPEN, id: item.id });
+        // Check if current URL matches this item's URL (including query parameters)
+        if (item.url) {
+            try {
+                const itemUrl = new URL(item.url, window.location.origin);
+                const currentUrl = new URL(location.pathname + location.search, window.location.origin);
+
+                if (currentUrl.pathname === itemUrl.pathname && currentUrl.search === itemUrl.search) {
+                    dispatch({ type: MENU_OPEN, id: item.id });
+                }
+            } catch (e) {
+                // Fallback to old logic if URL parsing fails
+                const currentIndex = document.location.pathname
+                    .toString()
+                    .split('/')
+                    .findIndex((id) => id === item.id);
+                if (currentIndex > -1) {
+                    dispatch({ type: MENU_OPEN, id: item.id });
+                }
+            }
         }
         // eslint-disable-next-line
-    }, []);
+    }, [location.pathname, location.search]);
 
     return (
         <ListItemButton
