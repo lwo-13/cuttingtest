@@ -2942,6 +2942,7 @@ const OrderPlanning = () => {
                     getTablePlannedQuantities={getTablePlannedQuantities}
                     selectedOrder={selectedOrder}
                     selectedCombinationId={selectedCombination?.combination_id}
+                    combinationQuantity={0} // TODO: Implement state management for combination quantity
                 />
             )}
 
@@ -2952,6 +2953,10 @@ const OrderPlanning = () => {
                     onClose={handleCloseSummary}
                     table={selectedTableForSummary}
                     fabricType={selectedTableForSummary.fabricType}
+                    orderNumber={selectedOrder?.id}
+                    productionCenter={selectedTableForSummary.productionCenter}
+                    cuttingRoom={selectedTableForSummary.cuttingRoom}
+                    destination={selectedTableForSummary.destination}
                 />
             )}
 

@@ -32,6 +32,8 @@ import { v4 as uuidv4 } from 'uuid';
 import axios from 'utils/axiosInstance';
 import { useTranslation } from 'react-i18next';
 
+// Marker Calculator Dialog Component
+
 const MarkerCalculatorDialog = ({
     open,
     onClose,
@@ -41,7 +43,8 @@ const MarkerCalculatorDialog = ({
     tables,
     getTablePlannedQuantities,
     selectedOrder,
-    selectedCombinationId
+    selectedCombinationId,
+    combinationQuantity = 0 // New prop for calculated quantities
 }) => {
     const { t } = useTranslation();
 
@@ -246,6 +249,27 @@ const MarkerCalculatorDialog = ({
 
         if (currentBaseline === 'original') {
             return orderSizes;
+        } else if (currentBaseline === 'calculated') {
+            // Use calculated quantities based on combination quantity
+            if (!combinationQuantity || combinationQuantity === 0) {
+                return orderSizes;
+            }
+
+            // Calculate total original order quantity
+            const totalOriginalQty = orderSizes.reduce((sum, size) => sum + size.qty, 0);
+            if (totalOriginalQty === 0) {
+                return orderSizes;
+            }
+
+            // Calculate quantities based on original percentages
+            return orderSizes.map(size => {
+                const percentage = (size.qty / totalOriginalQty) * 100;
+                const calculatedQty = Math.round((combinationQuantity * percentage) / 100);
+                return {
+                    size: size.size,
+                    qty: calculatedQty
+                };
+            });
         } else if (currentBaseline.startsWith('calc_tab_')) {
             // Use another calculator tab's totals
             const tabValue = currentBaseline.replace('calc_tab_', '');
@@ -272,6 +296,50 @@ const MarkerCalculatorDialog = ({
         }
     };
 
+    // Calculate totals for ALL calculator tabs (not just current one)
+    // This must be defined BEFORE baselineOptions since it's used there
+    const totalsByTab = useMemo(() => {
+        const allTotals = {};
+
+        calculatorTabs.forEach(tab => {
+            const tabMarkers = testMarkersByMaterial[tab.value] || [];
+            const calculatedTotals = {
+                bySize: {},
+                totalPieces: 0,
+                totalPiecesWithLayers: 0
+            };
+
+            // Initialize size totals
+            orderSizeNames.forEach(sizeName => {
+                calculatedTotals.bySize[sizeName] = 0;
+            });
+
+            // Sum up quantities from all markers in this tab
+            tabMarkers.forEach(marker => {
+                const markerLayers = parseInt(marker.layers) || 1;
+                orderSizeNames.forEach(sizeName => {
+                    const qty = parseInt(marker.quantities[sizeName]) || 0;
+                    const qtyWithLayers = qty * markerLayers;
+                    calculatedTotals.bySize[sizeName] += qtyWithLayers;
+                    calculatedTotals.totalPiecesWithLayers += qtyWithLayers;
+                });
+            });
+
+            allTotals[tab.value] = calculatedTotals;
+        });
+
+        return allTotals;
+    }, [testMarkersByMaterial, orderSizeNames, calculatorTabs]);
+
+    // Calculate totals for current tab
+    const totals = useMemo(() => {
+        return totalsByTab[currentMaterialType] || {
+            bySize: {},
+            totalPieces: 0,
+            totalPiecesWithLayers: 0
+        };
+    }, [totalsByTab, currentMaterialType]);
+
     const effectiveOrderSizes = getEffectiveOrderQuantities();
 
     // Get effective order quantities for right table (always uses left table's calculated output)
@@ -288,6 +356,27 @@ const MarkerCalculatorDialog = ({
         const options = [
             { value: 'original', label: t('calculator.originalOrderQuantities') }
         ];
+
+        // Add "Calculated" option if combination quantity is set
+        if (combinationQuantity && combinationQuantity > 0) {
+            options.push({
+                value: 'calculated',
+                label: t('calculator.calculated', 'Calculated')
+            });
+        }
+
+        // Add other calculator tabs as baseline options (exclude current tab)
+        calculatorTabs.forEach((tab) => {
+            if (tab.value !== currentMaterialType) {
+                const tabTotals = totalsByTab[tab.value];
+                const hasData = tabTotals && tabTotals.totalPiecesWithLayers > 0;
+
+                options.push({
+                    value: `calc_tab_${tab.value}`,
+                    label: `Calculator Tab ${tab.label}${hasData ? ` (${tabTotals.totalPiecesWithLayers} pcs)` : ''}`
+                });
+            }
+        });
 
         // Add table options with fabric information
         tables.forEach((table) => {
@@ -313,7 +402,7 @@ const MarkerCalculatorDialog = ({
         });
 
         return options;
-    }, [tables, t]);
+    }, [tables, t, combinationQuantity, calculatorTabs, currentMaterialType, totalsByTab]);
 
     // Helper to update markers for current material type
     const setTestMarkers = useCallback((markersOrUpdater) => {
@@ -770,33 +859,6 @@ const MarkerCalculatorDialog = ({
         setSplitViewMode(false);
         onClose();
     };
-
-    // Calculate totals using useMemo to ensure recalculation when dependencies change
-    const totals = useMemo(() => {
-        const calculatedTotals = {
-            bySize: {},
-            totalPieces: 0,
-            totalPiecesWithLayers: 0
-        };
-
-        // Initialize size totals
-        orderSizeNames.forEach(sizeName => {
-            calculatedTotals.bySize[sizeName] = 0;
-        });
-
-        // Sum up quantities from all markers
-        testMarkers.forEach(marker => {
-            const markerLayers = parseInt(marker.layers) || 1;
-            orderSizeNames.forEach(sizeName => {
-                const qty = parseInt(marker.quantities[sizeName]) || 0;
-                const qtyWithLayers = qty * markerLayers;
-                calculatedTotals.bySize[sizeName] += qtyWithLayers;
-                calculatedTotals.totalPiecesWithLayers += qtyWithLayers;
-            });
-        });
-
-        return calculatedTotals;
-    }, [testMarkers, orderSizeNames]);
 
     // Calculate totals for right table (split view only)
     const rightTotals = useMemo(() => {

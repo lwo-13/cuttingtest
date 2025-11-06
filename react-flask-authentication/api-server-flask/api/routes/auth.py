@@ -142,7 +142,7 @@ class LogoutUser(Resource):
     @token_required
     def post(self, current_user):
         _jwt_token = request.headers.get("Authorization")
-        
+
         if not _jwt_token:
             # Token missing, maybe session expired, consider this a successful logout
             return {"success": True, "message": "No token found, already logged out"}, 200
@@ -155,5 +155,24 @@ class LogoutUser(Resource):
         self.save()
 
         return {"success": True}, 200
+
+# Get user email by cutting room (for subcontractors)
+@auth_api.route('/email_by_cutting_room/<string:cutting_room>')
+class GetUserEmailByCuttingRoom(Resource):
+    """
+       Get user email where role='Subcontractor' and username matches cutting room name
+    """
+    def get(self, cutting_room):
+        try:
+            # Query for user with role='Subcontractor' and username matching cutting room
+            user = Users.query.filter_by(username=cutting_room, role='Subcontractor').first()
+
+            if user and user.email:
+                return {"success": True, "email": user.email}, 200
+            else:
+                return {"success": True, "email": None}, 200
+
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
 
 
