@@ -7,7 +7,7 @@
 // Production Center Options
 export const PRODUCTION_CENTERS = {
   PXE1: 'PXE1',
-  PXE3: 'PXE3'
+  PXE3: 'PXE3',
 };
 
 // Cutting Room Options
@@ -22,7 +22,7 @@ export const CUTTING_ROOMS = {
   VAIDE_MOLA: 'VAIDE MOLA',
   HADJIOLI: 'HADJIOLI',
   YUMER: 'YUMER',
-  RILA_TEXTILE: 'RILA TEXTILE'
+  RILA_TEXTILE: 'RILA TEXTILE',
 };
 
 // Destination Options
@@ -47,7 +47,7 @@ export const DESTINATIONS = {
   SABRI89: 'SABRI89',
   INTERTOP: 'INTERTOP',
   SANIA: 'SANIA',
-  CUTTING_SECTION: 'CUTTING SECTION'
+  CUTTING_SECTION: 'CUTTING SECTION',
 };
 
 // Production Center to Cutting Room mapping
@@ -55,7 +55,7 @@ export const PRODUCTION_CENTER_CUTTING_ROOMS = {
   [PRODUCTION_CENTERS.PXE1]: [
     CUTTING_ROOMS.ZALLI,
     CUTTING_ROOMS.VERONA,
-    CUTTING_ROOMS.TEXCONS
+    CUTTING_ROOMS.TEXCONS,
   ],
   [PRODUCTION_CENTERS.PXE3]: [
     CUTTING_ROOMS.VEGATEX,
@@ -65,13 +65,12 @@ export const PRODUCTION_CENTER_CUTTING_ROOMS = {
     CUTTING_ROOMS.VAIDE_MOLA,
     CUTTING_ROOMS.HADJIOLI,
     CUTTING_ROOMS.YUMER,
-    CUTTING_ROOMS.RILA_TEXTILE
-  ]
+    CUTTING_ROOMS.RILA_TEXTILE,
+  ],
 };
 
 // Cutting Room to Destination mapping
 export const CUTTING_ROOM_DESTINATIONS = {
-  // PXE1 cutting rooms
   [CUTTING_ROOMS.ZALLI]: [
     DESTINATIONS.ZALLI_1_SECTOR_1,
     DESTINATIONS.ZALLI_1_SECTOR_2,
@@ -82,48 +81,45 @@ export const CUTTING_ROOM_DESTINATIONS = {
     DESTINATIONS.VERONA,
     DESTINATIONS.INTERTOP,
     DESTINATIONS.SANIA,
-    DESTINATIONS.CUTTING_SECTION
+    DESTINATIONS.CUTTING_SECTION,
   ],
   [CUTTING_ROOMS.VERONA]: [
-    DESTINATIONS.VERONA
+    DESTINATIONS.VERONA,
   ],
   [CUTTING_ROOMS.TEXCONS]: [
-    DESTINATIONS.TEXCONS
+    DESTINATIONS.TEXCONS,
   ],
-
-  // PXE3 cutting rooms - each connected to its own destination
   [CUTTING_ROOMS.VEGATEX]: [
-    DESTINATIONS.VEGATEX
+    DESTINATIONS.VEGATEX,
   ],
   [CUTTING_ROOMS.SINA_STYLE]: [
-    DESTINATIONS.SINA_STYLE
+    DESTINATIONS.SINA_STYLE,
   ],
   [CUTTING_ROOMS.ZEYNTEX]: [
-    DESTINATIONS.ZEYNTEX
+    DESTINATIONS.ZEYNTEX,
   ],
   [CUTTING_ROOMS.DELICIA]: [
     DESTINATIONS.DELICIA,
     DESTINATIONS.SUNAI,
     DESTINATIONS.NADJI,
-    DESTINATIONS.SABRI89
+    DESTINATIONS.SABRI89,
   ],
   [CUTTING_ROOMS.VAIDE_MOLA]: [
-    DESTINATIONS.VAIDE_MOLA
+    DESTINATIONS.VAIDE_MOLA,
   ],
   [CUTTING_ROOMS.HADJIOLI]: [
-    DESTINATIONS.HADJIOLI
+    DESTINATIONS.HADJIOLI,
   ],
   [CUTTING_ROOMS.YUMER]: [
-    DESTINATIONS.YUMER
+    DESTINATIONS.YUMER,
   ],
   [CUTTING_ROOMS.RILA_TEXTILE]: [
-    DESTINATIONS.RILA_TEXTILE
-  ]
+    DESTINATIONS.RILA_TEXTILE,
+  ],
 };
 
 // Cutting Room + Destination combination keys
 export const COMBINATION_KEYS = {
-  // PXE1 - ZALLI combinations
   [`${CUTTING_ROOMS.ZALLI}+${DESTINATIONS.ZALLI_1_SECTOR_1}`]: 'Z11',
   [`${CUTTING_ROOMS.ZALLI}+${DESTINATIONS.ZALLI_1_SECTOR_2}`]: 'Z12',
   [`${CUTTING_ROOMS.ZALLI}+${DESTINATIONS.ZALLI_1_SECTOR_3}`]: 'Z13',
@@ -134,54 +130,75 @@ export const COMBINATION_KEYS = {
   [`${CUTTING_ROOMS.ZALLI}+${DESTINATIONS.INTERTOP}`]: 'ZI',
   [`${CUTTING_ROOMS.ZALLI}+${DESTINATIONS.SANIA}`]: 'ZS',
   [`${CUTTING_ROOMS.ZALLI}+${DESTINATIONS.CUTTING_SECTION}`]: 'ZC',
-
-  // PXE1 - VERONA combinations
   [`${CUTTING_ROOMS.VERONA}+${DESTINATIONS.VERONA}`]: 'VV',
-
-  // PXE1 - TEXCONS combinations
   [`${CUTTING_ROOMS.TEXCONS}+${DESTINATIONS.TEXCONS}`]: 'TT',
-
-  // PXE3 - VEGATEX combinations
   [`${CUTTING_ROOMS.VEGATEX}+${DESTINATIONS.VEGATEX}`]: 'VGT',
-
-  // PXE3 - SINA STYLE combinations
   [`${CUTTING_ROOMS.SINA_STYLE}+${DESTINATIONS.SINA_STYLE}`]: 'SS',
-
-  // PXE3 - ZEYNTEX combinations
   [`${CUTTING_ROOMS.ZEYNTEX}+${DESTINATIONS.ZEYNTEX}`]: 'ZT',
-
-  // PXE3 - DELICIA combinations
   [`${CUTTING_ROOMS.DELICIA}+${DESTINATIONS.DELICIA}`]: 'DD',
   [`${CUTTING_ROOMS.DELICIA}+${DESTINATIONS.SUNAI}`]: 'DSU',
   [`${CUTTING_ROOMS.DELICIA}+${DESTINATIONS.NADJI}`]: 'DN',
   [`${CUTTING_ROOMS.DELICIA}+${DESTINATIONS.SABRI89}`]: 'DS89',
-
-  // PXE3 - VAIDE MOLA combinations
   [`${CUTTING_ROOMS.VAIDE_MOLA}+${DESTINATIONS.VAIDE_MOLA}`]: 'VM',
-
-  // PXE3 - HADJIOLI combinations
   [`${CUTTING_ROOMS.HADJIOLI}+${DESTINATIONS.HADJIOLI}`]: 'HDJ',
-
-  // PXE3 - YUMER combinations
   [`${CUTTING_ROOMS.YUMER}+${DESTINATIONS.YUMER}`]: 'YM',
-
-  // PXE3 - RILA TEXTILE combinations
-  [`${CUTTING_ROOMS.RILA_TEXTILE}+${DESTINATIONS.RILA_TEXTILE}`]: 'RT'
+  [`${CUTTING_ROOMS.RILA_TEXTILE}+${DESTINATIONS.RILA_TEXTILE}`]: 'RT',
 };
 
 // Cutting Room Color Configuration
 export const CUTTING_ROOM_COLORS = {
-  [CUTTING_ROOMS.ZALLI]: '#1976d2',        // Strong blue (primary)
-  [CUTTING_ROOMS.VERONA]: '#0d47a1',       // Darker blue (different from ZALLI)
-  [CUTTING_ROOMS.DELICIA]: '#9c27b0',      // Purple
-  [CUTTING_ROOMS.HADJIOLI]: '#424242',     // Dark grey
-  [CUTTING_ROOMS.SINA_STYLE]: '#f44336',   // Red
-  [CUTTING_ROOMS.TEXCONS]: '#e91e63',      // Pink
-  [CUTTING_ROOMS.VEGATEX]: '#4caf50',      // Green
-  [CUTTING_ROOMS.ZEYNTEX]: '#00bcd4',      // Cyan
-  [CUTTING_ROOMS.VAIDE_MOLA]: '#9e9e9e',   // Light grey
-  [CUTTING_ROOMS.YUMER]: '#795548',        // Brown
-  [CUTTING_ROOMS.RILA_TEXTILE]: '#607d8b'  // Blue grey
+  [CUTTING_ROOMS.ZALLI]: '#1976d2',
+  [CUTTING_ROOMS.VERONA]: '#0d47a1',
+  [CUTTING_ROOMS.DELICIA]: '#9c27b0',
+  [CUTTING_ROOMS.HADJIOLI]: '#424242',
+  [CUTTING_ROOMS.SINA_STYLE]: '#f44336',
+  [CUTTING_ROOMS.TEXCONS]: '#e91e63',
+  [CUTTING_ROOMS.VEGATEX]: '#4caf50',
+  [CUTTING_ROOMS.ZEYNTEX]: '#00bcd4',
+  [CUTTING_ROOMS.VAIDE_MOLA]: '#9e9e9e',
+  [CUTTING_ROOMS.YUMER]: '#795548',
+  [CUTTING_ROOMS.RILA_TEXTILE]: '#607d8b',
+};
+
+// Cutting Room Machine Specifications
+// Each cutting room can have multiple machines with different capacities
+// percentage: % of total capacity, length: max length in meters, width: max width in cm
+export const CUTTING_ROOM_MACHINES = {
+  [CUTTING_ROOMS.VEGATEX]: [
+    { percentage: 70, length: 12, width: 220 },
+    { percentage: 30, length: 10, width: 220 },
+  ],
+  [CUTTING_ROOMS.ZEYNTEX]: [
+    { percentage: 100, length: 6.5, width: 220 },
+  ],
+  [CUTTING_ROOMS.VAIDE_MOLA]: [
+    { percentage: 100, length: 12, width: 220 },
+  ],
+  [CUTTING_ROOMS.ZALLI]: [
+    { percentage: 100, length: 12, width: 220 },
+  ],
+  [CUTTING_ROOMS.VERONA]: [
+    { percentage: 100, length: 6, width: 220 },
+  ],
+  [CUTTING_ROOMS.TEXCONS]: [
+    { percentage: 100, length: 10, width: 220 },
+  ],
+  [CUTTING_ROOMS.SINA_STYLE]: [
+    { percentage: 100, length: 12, width: 220 },
+  ],
+  [CUTTING_ROOMS.DELICIA]: [
+    { percentage: 70, length: 10.5, width: 170 },
+    { percentage: 30, length: 7.7, width: 200 },
+  ],
+  [CUTTING_ROOMS.HADJIOLI]: [
+    { percentage: 100, length: 6, width: 220 },
+  ],
+  [CUTTING_ROOMS.YUMER]: [
+    { percentage: 100, length: 8, width: 220 },
+  ],
+  [CUTTING_ROOMS.RILA_TEXTILE]: [
+    { percentage: 100, length: 12, width: 220 },
+  ],
 };
 
 /**
@@ -191,6 +208,49 @@ export const CUTTING_ROOM_COLORS = {
  */
 export const getCuttingRoomColor = (cuttingRoom) => {
   return CUTTING_ROOM_COLORS[cuttingRoom] || '#9e9e9e'; // Default grey if not found
+};
+
+/**
+ * Get machine specifications for a cutting room
+ * @param {string} cuttingRoom - The cutting room name
+ * @returns {Array} Array of machine specs with {percentage, length, width}
+ */
+export const getMachineSpecs = (cuttingRoom) => {
+  return CUTTING_ROOM_MACHINES[cuttingRoom] || [];
+};
+
+/**
+ * Get the maximum length available for a cutting room
+ * @param {string} cuttingRoom - The cutting room name
+ * @returns {number} Maximum length in meters
+ */
+export const getMaxLength = (cuttingRoom) => {
+  const machines = getMachineSpecs(cuttingRoom);
+  if (machines.length === 0) return 0;
+  return Math.max(...machines.map(m => m.length));
+};
+
+/**
+ * Get the maximum width available for a cutting room
+ * @param {string} cuttingRoom - The cutting room name
+ * @returns {number} Maximum width in cm
+ */
+export const getMaxWidth = (cuttingRoom) => {
+  const machines = getMachineSpecs(cuttingRoom);
+  if (machines.length === 0) return 0;
+  return Math.max(...machines.map(m => m.width));
+};
+
+/**
+ * Check if a marker fits any machine in the cutting room
+ * @param {string} cuttingRoom - The cutting room name
+ * @param {number} markerLength - Marker length in meters
+ * @param {number} markerWidth - Marker width in cm
+ * @returns {boolean} True if marker fits at least one machine
+ */
+export const markerFitsMachine = (cuttingRoom, markerLength, markerWidth) => {
+  const machines = getMachineSpecs(cuttingRoom);
+  return machines.some(m => markerLength <= m.length && markerWidth <= m.width);
 };
 
 // Utility Functions

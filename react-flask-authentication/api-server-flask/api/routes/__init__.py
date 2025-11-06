@@ -19,6 +19,7 @@ from .width_change_requests import width_change_requests_bp, width_change_reques
 from .marker_requests import marker_requests_bp, marker_requests_api  # Marker requests module
 from .navision import navision_bp, navision_api  # Navision integration module
 from .dashboard import dashboard_bp, dashboard_api  # Dashboard analytics module
+from .config_management import config_management_bp, config_management_api  # Configuration management module
 # VPN uses existing Flask-RESTX endpoints, no separate blueprint needed
 
 # Define the main RESTx API with Swagger documentation settings
@@ -54,6 +55,7 @@ def register_blueprints(app):
     app.register_blueprint(marker_requests_bp, url_prefix="/api/marker_requests")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(navision_bp, url_prefix="/api/navision")
+    app.register_blueprint(config_management_bp, url_prefix="/api/config")
 
     # VPN API requests are now handled by proxy in the VPN route
     print("🔥🔥🔥 VPN API REQUESTS WILL BE PROXIED TO REGULAR API ROUTES")
@@ -78,5 +80,6 @@ def register_blueprints(app):
     rest_api.add_namespace(marker_requests_api, path="/api/marker_requests")
     rest_api.add_namespace(dashboard_api, path="/api/dashboard")
     rest_api.add_namespace(navision_api, path="/api/navision")
+    rest_api.add_namespace(config_management_api, path="/api/config")
 
     print("✅ API ROUTES REGISTERED - VPN REQUESTS WILL BE PROXIED")

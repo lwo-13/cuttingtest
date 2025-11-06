@@ -70,6 +70,9 @@ const CollarettoOpsDelete = Loadable(lazy(() => import('../views/collaretto-ops/
 const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
 const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
 
+// configuration routing
+const ConfigurationManagement = Loadable(lazy(() => import('../views/configuration')));
+
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
 const MainRoutes = () => {
@@ -140,7 +143,9 @@ const MainRoutes = () => {
                     '/network-diagnostics',
 
                     '/operators/spreader-management',
-                    '/operators/cutter-management'
+                    '/operators/cutter-management',
+
+                    '/configuration/production-centers'
                 ]}
             >
                 <MainLayout>
@@ -187,6 +192,12 @@ const MainRoutes = () => {
                             <Route path="/operators/cutter-management">
                                 <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
                                     <CutterOperatorManagement />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/production-centers">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <ConfigurationManagement />
                                 </RoleGuard>
                             </Route>
                         </AuthGuard>
