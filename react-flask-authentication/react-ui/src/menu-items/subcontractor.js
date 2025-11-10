@@ -1,5 +1,5 @@
 // assets
-import { IconClipboardList, IconRuler2, IconTool, IconDashboard } from '@tabler/icons';
+import { IconClipboardList, IconRuler2, IconTool, IconDashboard, IconClipboardCheck } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| SUBCONTRACTOR MENU ITEMS ||-----------------------//
@@ -20,10 +20,28 @@ const subcontractor = {
     {
       id: 'subcontractor-view',
       title: i18n.t('subcontractor.orderMattressPlan', 'Order Mattress Plan'),
-      type: 'item',
-      url: '/subcontractor/view',
+      type: 'collapse',
       icon: IconClipboardList,
-      breadcrumbs: false
+      disabled: false,
+      url: null,
+      children: [
+        {
+          id: 'subcontractor-view-open',
+          title: i18n.t('sidebar.openOrders', 'Open Orders'),
+          type: 'item',
+          url: '/subcontractor/view?type=open',
+          icon: IconClipboardList,
+          breadcrumbs: false
+        },
+        {
+          id: 'subcontractor-view-closed',
+          title: i18n.t('sidebar.closedOrders', 'Closed Orders'),
+          type: 'item',
+          url: '/subcontractor/view?type=closed',
+          icon: IconClipboardCheck,
+          breadcrumbs: false
+        }
+      ]
     },
     {
       id: 'subcontractor-marker-requests',

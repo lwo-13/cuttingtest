@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { Print, Save } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 
 // Production center configuration
 import { CUTTING_ROOMS, getCuttingRoomFromUsername } from 'utils/productionCenterConfig';
@@ -50,6 +51,10 @@ import SubcontractorWidthChangeDialog from './components/SubcontractorWidthChang
 
 const SubcontractorView = () => {
     const { t } = useTranslation();
+    const location = useLocation();
+
+    // Track which page we're on (open or closed)
+    const [pageType, setPageType] = useState('open');
 
     // State for orders and selection
     const [orders, setOrders] = useState([]);
@@ -631,15 +636,47 @@ const SubcontractorView = () => {
         handleCloseWidthChangeDialog();
     };
 
+    // Listen for URL parameter changes (when navigating via sidebar)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(location.search);
+        const typeParam = urlParams.get('type');
+        const newPageType = typeParam === 'closed' ? 'closed' : 'open';
+
+        if (newPageType !== pageType) {
+            setPageType(newPageType);
+
+            // Clear all state when switching between order types
+            setOrders([]); // Clear orders immediately to prevent showing old data
+            setSelectedOrder(null);
+            setSelectedStyle("");
+            setSelectedSeason("");
+            setSelectedColorCode("");
+            setOrderSizes([]);
+            setTables([]);
+            setAdhesiveTables([]);
+            setSelectedDestination('');
+            setEditableActualLayers({});
+            setUnsavedChanges(false);
+
+            // Clear other related state
+            clearPadPrintInfo();
+            clearBrand();
+
+            console.log(`🔄 Switched to ${newPageType} orders page - state cleared`);
+        }
+    }, [location.search, pageType, clearPadPrintInfo, clearBrand]);
+
     // Fetch orders assigned to this subcontractor's cutting room
     useEffect(() => {
         if (!cuttingRoom) {
             return;
         }
 
-        // Get orders assigned to this cutting room via mattress production center
-        axios.get(`/mattress/production_center/orders_by_cutting_room/${cuttingRoom}`)
-            .then(ordersRes => {
+        const fetchOrders = async () => {
+            try {
+                // Get orders assigned to this cutting room via mattress production center
+                const ordersRes = await axios.get(`/mattress/production_center/orders_by_cutting_room/${cuttingRoom}`);
+
                 if (!ordersRes.data.success) {
                     return;
                 }
@@ -647,39 +684,93 @@ const SubcontractorView = () => {
                 // Convert order IDs to order objects for the dropdown
                 const assignedOrderIds = ordersRes.data.data || [];
 
-                // Create order objects with just the order ID for now
-                // We'll fetch the full order details when an order is selected
-                const ordersArray = assignedOrderIds.map(item => ({
-                    id: item.order_commessa,
-                    style: '', // Will be populated when order is selected
-                    season: '', // Will be populated when order is selected
-                    colorCode: '', // Will be populated when order is selected
-                    sizes: [] // Will be populated when order is selected
-                }));
+                // If we're on the closed orders page, filter by status = 4
+                if (pageType === 'closed') {
+                    // Fetch order lines to get status information
+                    const orderLinesRes = await axios.get('/orders/order_lines');
+                    const allOrderLines = orderLinesRes.data.success ? orderLinesRes.data.data : [];
 
-                setOrders(ordersArray);
-            })
-            .catch(error => {
-                // Fallback to all mattress orders if the specific endpoint fails
-                axios.get('/mattress/order_ids')
-                    .then(mattressRes => {
-                        if (mattressRes.data.success) {
-                            const mattressOrderIds = mattressRes.data.data || [];
-                            const ordersArray = mattressOrderIds.map(item => ({
-                                id: item.order_commessa,
-                                style: '',
-                                season: '',
-                                colorCode: '',
-                                sizes: []
-                            }));
-                            setOrders(ordersArray);
+                    // First, create a set of assigned order IDs for quick lookup
+                    const assignedOrderSet = new Set(assignedOrderIds.map(item => item.order_commessa));
+
+                    // Get unique order IDs with status = 4 that are ALSO in assignedOrderIds
+                    const closedOrderIds = new Set();
+                    allOrderLines.forEach(line => {
+                        if (line.status === 4 && assignedOrderSet.has(line.order_commessa)) {
+                            closedOrderIds.add(line.order_commessa);
                         }
-                    })
-                    .catch(fallbackError => {
-                        // Silent fallback failure
                     });
-            });
-    }, [cuttingRoom]);
+
+                    // Filter assigned orders to only include those with status = 4
+                    const filteredOrderIds = assignedOrderIds.filter(item =>
+                        closedOrderIds.has(item.order_commessa)
+                    );
+
+                    const ordersArray = filteredOrderIds.map(item => ({
+                        id: item.order_commessa,
+                        style: '', // Will be populated when order is selected
+                        season: '', // Will be populated when order is selected
+                        colorCode: '', // Will be populated when order is selected
+                        sizes: [] // Will be populated when order is selected
+                    }));
+
+                    setOrders(ordersArray);
+                } else {
+                    // Open orders page - filter by status = 3
+                    // Fetch order lines to get status information
+                    const orderLinesRes = await axios.get('/orders/order_lines');
+                    const allOrderLines = orderLinesRes.data.success ? orderLinesRes.data.data : [];
+
+                    // First, create a set of assigned order IDs for quick lookup
+                    const assignedOrderSet = new Set(assignedOrderIds.map(item => item.order_commessa));
+
+                    // Get unique order IDs with status = 3 that are ALSO in assignedOrderIds
+                    const openOrderIds = new Set();
+                    allOrderLines.forEach(line => {
+                        if (line.status === 3 && assignedOrderSet.has(line.order_commessa)) {
+                            openOrderIds.add(line.order_commessa);
+                        }
+                    });
+
+                    // Filter assigned orders to only include those with status = 3
+                    const filteredOrderIds = assignedOrderIds.filter(item =>
+                        openOrderIds.has(item.order_commessa)
+                    );
+
+                    const ordersArray = filteredOrderIds.map(item => ({
+                        id: item.order_commessa,
+                        style: '', // Will be populated when order is selected
+                        season: '', // Will be populated when order is selected
+                        colorCode: '', // Will be populated when order is selected
+                        sizes: [] // Will be populated when order is selected
+                    }));
+
+                    setOrders(ordersArray);
+                }
+            } catch (error) {
+                console.error('Error fetching orders:', error);
+                // Fallback to all mattress orders if the specific endpoint fails
+                try {
+                    const mattressRes = await axios.get('/mattress/order_ids');
+                    if (mattressRes.data.success) {
+                        const mattressOrderIds = mattressRes.data.data || [];
+                        const ordersArray = mattressOrderIds.map(item => ({
+                            id: item.order_commessa,
+                            style: '',
+                            season: '',
+                            colorCode: '',
+                            sizes: []
+                        }));
+                        setOrders(ordersArray);
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback order fetch failed:', fallbackError);
+                }
+            }
+        };
+
+        fetchOrders();
+    }, [cuttingRoom, pageType]);
 
     return (
         <>

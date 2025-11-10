@@ -45,9 +45,9 @@ const AuthGuard = ({ children }) => {
             location.pathname.startsWith(path)
         );
 
-        // If Subcontractor is trying to access a non-allowed page, redirect to subcontractor KPI dashboard
+        // If Subcontractor is trying to access a non-allowed page, redirect to subcontractor open orders
         if (!isAllowedPath) {
-            return <Redirect to="/subcontractor/kpi-dashboard" />;
+            return <Redirect to="/subcontractor/view?type=open" />;
         }
     }
 

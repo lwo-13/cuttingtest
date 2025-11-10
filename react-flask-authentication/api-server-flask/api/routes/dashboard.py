@@ -322,15 +322,18 @@ class DashboardStatistics(Resource):
 @dashboard_api.route('/long-mattress-percentage')
 class LongMattressPercentage(Resource):
     def get(self):
-        """Get percentage of completed mattresses with item_type='AS' and length > threshold meters"""
+        """Get percentage breakdown of completed mattresses with item_type='AS' by length ranges"""
         try:
             period = request.args.get('period', 'today')  # today, week, month, year
             threshold = int(request.args.get('threshold', 8))  # 6, 8, or 10 meters
             start_date, end_date = get_date_range(period)
 
-            # Helper function to get percentage for a date range
-            def get_percentage_for_range(range_start, range_end):
-                total = db.session.query(func.count(Mattresses.id)).join(
+            # Helper function to get breakdown for a date range
+            def get_breakdown_for_range(range_start, range_end, threshold_value):
+                # Get all completed AS mattresses with their lengths
+                mattresses = db.session.query(MattressDetail.length_mattress).join(
+                    Mattresses, Mattresses.id == MattressDetail.mattress_id
+                ).join(
                     MattressPhase, MattressPhase.mattress_id == Mattresses.id
                 ).filter(
                     MattressPhase.active == True,
@@ -338,24 +341,64 @@ class LongMattressPercentage(Resource):
                     MattressPhase.updated_at >= range_start,
                     MattressPhase.updated_at <= range_end,
                     Mattresses.item_type == 'AS'
-                ).scalar()
+                ).all()
 
-                long = db.session.query(func.count(Mattresses.id)).join(
-                    MattressPhase, MattressPhase.mattress_id == Mattresses.id
-                ).join(
-                    MattressDetail, Mattresses.id == MattressDetail.mattress_id
-                ).filter(
-                    MattressPhase.active == True,
-                    MattressPhase.status == '5 - COMPLETED',
-                    MattressPhase.updated_at >= range_start,
-                    MattressPhase.updated_at <= range_end,
-                    Mattresses.item_type == 'AS',
-                    MattressDetail.length_mattress > threshold
-                ).scalar()
+                total = len(mattresses)
 
-                if total and total > 0:
-                    return (long / total) * 100, long, total
-                return 0, 0, 0
+                if total == 0:
+                    return {
+                        'total': 0,
+                        'ranges': [],
+                        'above_threshold_percentage': 0,
+                        'above_threshold_count': 0
+                    }
+
+                # Define ranges based on threshold
+                if threshold_value == 6:
+                    ranges = [
+                        {'label': '< 6m', 'min': 0, 'max': 6},
+                        {'label': '6-8m', 'min': 6, 'max': 8},
+                        {'label': '8-10m', 'min': 8, 'max': 10},
+                        {'label': '> 10m', 'min': 10, 'max': float('inf')}
+                    ]
+                elif threshold_value == 8:
+                    ranges = [
+                        {'label': '< 8m', 'min': 0, 'max': 8},
+                        {'label': '8-10m', 'min': 8, 'max': 10},
+                        {'label': '> 10m', 'min': 10, 'max': float('inf')}
+                    ]
+                else:  # 10m
+                    ranges = [
+                        {'label': '< 10m', 'min': 0, 'max': 10},
+                        {'label': '> 10m', 'min': 10, 'max': float('inf')}
+                    ]
+
+                # Count mattresses in each range
+                breakdown = []
+                above_threshold_count = 0
+
+                for range_def in ranges:
+                    count = sum(1 for m in mattresses if range_def['min'] < m[0] <= range_def['max'])
+                    percentage = (count / total) * 100 if total > 0 else 0
+
+                    breakdown.append({
+                        'label': range_def['label'],
+                        'count': count,
+                        'percentage': round(percentage, 1)
+                    })
+
+                    # Count mattresses above threshold
+                    if range_def['min'] >= threshold_value:
+                        above_threshold_count += count
+
+                above_threshold_percentage = (above_threshold_count / total) * 100 if total > 0 else 0
+
+                return {
+                    'total': total,
+                    'ranges': breakdown,
+                    'above_threshold_percentage': round(above_threshold_percentage, 1),
+                    'above_threshold_count': above_threshold_count
+                }
 
             # Calculate previous period dates for trend comparison
             now = datetime.now()
@@ -370,8 +413,8 @@ class LongMattressPercentage(Resource):
                     temp_end = (now - timedelta(days=days_back)).replace(hour=23, minute=59, second=59, microsecond=999999)
 
                     # Check if this day has data
-                    _, _, total = get_percentage_for_range(temp_start, temp_end)
-                    if total > 0:
+                    temp_data = get_breakdown_for_range(temp_start, temp_end, threshold)
+                    if temp_data['total'] > 0:
                         prev_start_date = temp_start
                         prev_end_date = temp_end
                         break
@@ -380,56 +423,54 @@ class LongMattressPercentage(Resource):
                 if prev_start_date is None:
                     prev_start_date = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
                     prev_end_date = (now - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
-            elif period == 'week':
+            elif period == 'last 7 days':
                 # Compare last 7 days vs previous 7 days
                 prev_start_date = now - timedelta(days=13)
                 prev_start_date = prev_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
                 prev_end_date = now - timedelta(days=7)
                 prev_end_date = prev_end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-            elif period == 'month':
+            elif period == 'last 30 days':
                 # Compare last 30 days vs previous 30 days
                 prev_start_date = now - timedelta(days=59)
                 prev_start_date = prev_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
                 prev_end_date = now - timedelta(days=30)
-                prev_end_date = prev_end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-            elif period == 'year':
-                # Compare last 365 days vs previous 365 days
-                prev_start_date = now - timedelta(days=729)
-                prev_start_date = prev_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-                prev_end_date = now - timedelta(days=365)
                 prev_end_date = prev_end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
             else:
                 prev_start_date = start_date
                 prev_end_date = end_date
 
             # Get current period data
-            percentage, long_mattresses, total_mattresses = get_percentage_for_range(start_date, end_date)
+            current_data = get_breakdown_for_range(start_date, end_date, threshold)
 
             # Get previous period data
-            prev_percentage, prev_long_mattresses, prev_total_mattresses = get_percentage_for_range(prev_start_date, prev_end_date)
+            prev_data = get_breakdown_for_range(prev_start_date, prev_end_date, threshold)
 
-            # Calculate trend
+            # Calculate trend based on above_threshold_percentage
             trend = None
             trend_value = 0
+            current_percentage = current_data['above_threshold_percentage']
+            prev_percentage = prev_data['above_threshold_percentage']
+
             if prev_percentage > 0:
-                trend_value = percentage - prev_percentage
+                trend_value = current_percentage - prev_percentage
                 if trend_value > 0:
                     trend = 'up'
                 elif trend_value < 0:
                     trend = 'down'
                 else:
                     trend = 'stable'
-            elif percentage > 0:
+            elif current_percentage > 0:
                 trend = 'up'
-                trend_value = percentage
+                trend_value = current_percentage
 
             return {
                 "success": True,
                 "data": {
-                    "percentage": percentage,
-                    "long_mattresses": long_mattresses or 0,
-                    "total_mattresses": total_mattresses or 0,
+                    "percentage": current_data['above_threshold_percentage'],
+                    "long_mattresses": current_data['above_threshold_count'],
+                    "total_mattresses": current_data['total'],
                     "threshold": threshold,
+                    "ranges": current_data['ranges'],
                     "trend": trend,
                     "trend_value": round(trend_value, 1),
                     "previous_percentage": prev_percentage

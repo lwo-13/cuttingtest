@@ -726,7 +726,9 @@ const ProductionCenterTabs = forwardRef(({
                                 ? machineSpecs.map(m => {
                                     // Only show percentage if it's not 100%
                                     const pctText = m.percentage !== 100 ? `${m.percentage}%-` : '';
-                                    return `${pctText}${m.length}m×${m.width}cm`;
+                                    // Only show width if it's not the standard 220cm
+                                    const widthText = m.width !== 220 ? `×${m.width}cm` : '';
+                                    return `${pctText}${m.length}m${widthText}`;
                                 }).join(', ')
                                 : null;
                             const isActiveTab = activeTab === index;

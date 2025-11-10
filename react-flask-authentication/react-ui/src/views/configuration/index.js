@@ -275,12 +275,11 @@ const ConfigurationManagement = () => {
             {activeTab === 5 && (
                 <CombinationTable
                     data={config.combinationKeys || {}}
-                    onAdd={() => handleOpenDialog('combination')}
+                    config={config}
                     onEdit={(combo, key) => {
                         const [cuttingRoom, destination] = combo.split('+');
                         handleOpenDialog('combination', { cuttingRoom, destination, key });
                     }}
-                    onDelete={(key) => handleDelete('combination', key)}
                 />
             )}
 
@@ -414,48 +413,83 @@ const MappingTable = ({ title, data, onAdd, onEdit, onDelete }) => (
 );
 
 // Component for combination keys table
-const CombinationTable = ({ data, onAdd, onEdit, onDelete }) => (
-    <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h4">Combination Keys</Typography>
-            <Button variant="outlined" startIcon={<Add />} onClick={onAdd} size="small">
-                Add Combination
-            </Button>
-        </Box>
-        <TableContainer component={Paper}>
-            <Table>
-                <TableHead>
-                    <TableRow>
-                        <TableCell><strong>Cutting Room</strong></TableCell>
-                        <TableCell><strong>Destination</strong></TableCell>
-                        <TableCell><strong>Key</strong></TableCell>
-                        <TableCell align="right"><strong>Actions</strong></TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {Object.entries(data).map(([combo, key]) => {
-                        const [cuttingRoom, destination] = combo.split('+');
-                        return (
-                            <TableRow key={combo}>
-                                <TableCell>{cuttingRoom}</TableCell>
-                                <TableCell>{destination}</TableCell>
-                                <TableCell><Chip label={key} color="primary" size="small" /></TableCell>
-                                <TableCell align="right">
-                                    <IconButton size="small" onClick={() => onEdit(combo, key)} color="primary">
-                                        <Edit fontSize="small" />
-                                    </IconButton>
-                                    <IconButton size="small" onClick={() => onDelete(combo)} color="error">
-                                        <Delete fontSize="small" />
-                                    </IconButton>
+const CombinationTable = ({ data, onEdit, config }) => {
+    // Generate all possible combinations from cutting room destinations mapping
+    const allCombinations = React.useMemo(() => {
+        const combinations = [];
+        const cuttingRoomDestinations = config?.cuttingRoomDestinations || {};
+
+        Object.entries(cuttingRoomDestinations).forEach(([cuttingRoomKey, destinations]) => {
+            // Extract the actual cutting room name (remove "CUTTING_ROOMS." prefix if present)
+            const cuttingRoom = cuttingRoomKey.replace('CUTTING_ROOMS.', '');
+
+            destinations.forEach(destination => {
+                const comboKey = `${cuttingRoom}+${destination}`;
+                combinations.push({
+                    cuttingRoom,
+                    destination,
+                    comboKey,
+                    key: data[comboKey] || '' // Get existing key or empty string
+                });
+            });
+        });
+
+        return combinations;
+    }, [config?.cuttingRoomDestinations, data]);
+
+    return (
+        <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h4">Combination Keys</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                    Auto-generated from Cutting Room → Destinations mapping
+                </Typography>
+            </Box>
+            <TableContainer component={Paper}>
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell><strong>Cutting Room</strong></TableCell>
+                            <TableCell><strong>Destination</strong></TableCell>
+                            <TableCell><strong>Key</strong></TableCell>
+                            <TableCell align="right"><strong>Actions</strong></TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {allCombinations.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={4} align="center">
+                                    <Typography variant="body2" color="text.secondary">
+                                        No combinations available. Please configure Cutting Room → Destinations mapping first.
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
-        </TableContainer>
-    </Box>
-);
+                        ) : (
+                            allCombinations.map(({ cuttingRoom, destination, comboKey, key }) => (
+                                <TableRow key={comboKey}>
+                                    <TableCell>{cuttingRoom}</TableCell>
+                                    <TableCell>{destination}</TableCell>
+                                    <TableCell>
+                                        {key ? (
+                                            <Chip label={key} color="primary" size="small" />
+                                        ) : (
+                                            <Chip label="Not Set" color="default" size="small" variant="outlined" />
+                                        )}
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <IconButton size="small" onClick={() => onEdit(comboKey, key)} color="primary">
+                                            <Edit fontSize="small" />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Box>
+    );
+};
 
 // Component for color configuration table
 const ColorTable = ({ data, onAdd, onEdit, onDelete }) => (
@@ -665,36 +699,32 @@ const ConfigDialog = ({ open, type, formData, setFormData, onClose, onSave, conf
 
                     {type === 'combination' && (
                         <>
-                            <FormControl fullWidth>
-                                <InputLabel>Cutting Room</InputLabel>
-                                <Select
-                                    value={formData.cuttingRoom || ''}
-                                    onChange={(e) => setFormData({ ...formData, cuttingRoom: e.target.value })}
-                                    label="Cutting Room"
-                                >
-                                    {Object.keys(config?.cuttingRooms || {}).map((cr) => (
-                                        <MenuItem key={cr} value={cr}>{cr}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>Destination</InputLabel>
-                                <Select
-                                    value={formData.destination || ''}
-                                    onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                                    label="Destination"
-                                >
-                                    {Object.keys(config?.destinations || {}).map((dest) => (
-                                        <MenuItem key={dest} value={dest}>{dest}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                            <TextField
+                                label="Cutting Room"
+                                value={formData.cuttingRoom || ''}
+                                fullWidth
+                                disabled
+                                InputProps={{
+                                    readOnly: true,
+                                }}
+                            />
+                            <TextField
+                                label="Destination"
+                                value={formData.destination || ''}
+                                fullWidth
+                                disabled
+                                InputProps={{
+                                    readOnly: true,
+                                }}
+                            />
                             <TextField
                                 label="Combination Key"
                                 value={formData.key || ''}
                                 onChange={(e) => setFormData({ ...formData, key: e.target.value })}
                                 fullWidth
                                 placeholder="e.g., Z11, VV, DD"
+                                autoFocus
+                                helperText="Enter a unique key for this cutting room + destination combination"
                             />
                         </>
                     )}
