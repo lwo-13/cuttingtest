@@ -71,7 +71,16 @@ const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operator
 const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
 
 // configuration routing
+const ConfigurationDashboard = Loadable(lazy(() => import('../views/configuration/ConfigurationDashboard')));
+
 const ConfigurationManagement = Loadable(lazy(() => import('../views/configuration')));
+
+const AppBrandingConfiguration = Loadable(lazy(() => import('../views/configuration/AppBrandingConfiguration')));
+
+const UserRolesConfiguration = Loadable(lazy(() => import('../views/configuration/UserRolesConfiguration')));
+
+const ServerSettings = Loadable(lazy(() => import('../views/configuration/ServerSettings')));
+
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
@@ -143,9 +152,14 @@ const MainRoutes = () => {
                     '/network-diagnostics',
 
                     '/operators/spreader-management',
-                    '/operators/cutter-management',
 
-                    '/configuration/production-centers'
+                    '/configuration',
+                    '/configuration/branding',
+                    '/configuration/production-centers',
+                    '/configuration/user-roles',
+                    '/configuration/server-settings',
+
+                    '/operators/cutter-management'
                 ]}
             >
                 <MainLayout>
@@ -195,9 +209,33 @@ const MainRoutes = () => {
                                 </RoleGuard>
                             </Route>
 
+                            <Route path="/configuration" exact>
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <ConfigurationDashboard />
+                                </RoleGuard>
+                            </Route>
+
                             <Route path="/configuration/production-centers">
                                 <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
                                     <ConfigurationManagement />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/branding">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <AppBrandingConfiguration />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/user-roles">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <UserRolesConfiguration />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/server-settings">
+                                <RoleGuard allowedRoles={['Administrator']}>
+                                    <ServerSettings />
                                 </RoleGuard>
                             </Route>
                         </AuthGuard>

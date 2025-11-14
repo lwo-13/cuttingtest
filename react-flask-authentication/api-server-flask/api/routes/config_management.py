@@ -1,8 +1,11 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory
 from flask_restx import Api, Resource, fields
+from werkzeug.utils import secure_filename
+
 import os
 import json
 import re
+from api.models import db, Users
 
 # Create Blueprint
 config_management_bp = Blueprint('config_management', __name__)
@@ -21,18 +24,40 @@ REACT_CONFIG_PATH = os.path.join(
     'productionCenterConfig.js'
 )
 
+# Path to the branding config file
+BRANDING_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__),
+    '..',
+    '..',
+    '..',
+    'react-ui',
+    'src',
+    'utils',
+    'appBrandingConfig.js'
+)
+
+# Folder for uploaded branding assets (logo, favicon)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+BRANDING_UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'branding')
+ALLOWED_BRANDING_IMAGE_EXTENSIONS = ('.svg', '.png', '.jpg', '.jpeg', '.ico', '.webp')
+
+# Path to server settings file
+SERVER_SETTINGS_PATH = os.path.join(BASE_DIR, 'static', 'serverSettings.json')
+
+
+
 def parse_js_object(content, object_name):
     """Parse a JavaScript object from the config file"""
     # Find the object definition
     pattern = rf'export const {object_name} = {{([^}}]+)}};'
     match = re.search(pattern, content, re.DOTALL)
-    
+
     if not match:
         return {}
-    
+
     obj_content = match.group(1)
     result = {}
-    
+
     # Parse key-value pairs
     for line in obj_content.split('\n'):
         line = line.strip()
@@ -41,14 +66,14 @@ def parse_js_object(content, object_name):
             line = re.sub(r'//.*$', '', line).strip()
             if not line:
                 continue
-            
+
             # Parse key: value
             parts = line.split(':', 1)
             if len(parts) == 2:
                 key = parts[0].strip()
                 value = parts[1].strip().rstrip(',').strip("'\"")
                 result[key] = value
-    
+
     return result
 
 def parse_js_array_object(content, object_name):
@@ -56,67 +81,67 @@ def parse_js_array_object(content, object_name):
     # Find the object definition
     pattern = rf'export const {object_name} = {{(.*?)^}};'
     match = re.search(pattern, content, re.DOTALL | re.MULTILINE)
-    
+
     if not match:
         return {}
-    
+
     obj_content = match.group(1)
     result = {}
-    
+
     # Parse each array entry
     current_key = None
     current_array = []
-    
+
     for line in obj_content.split('\n'):
         line = line.strip()
-        
+
         # Skip comments and empty lines
         if line.startswith('//') or not line:
             continue
-        
+
         # Check if this is a key line
         if line.startswith('[') and ']:' in line:
             # Save previous array if exists
             if current_key:
                 result[current_key] = current_array
-            
+
             # Extract key
             key_match = re.search(r'\[(.*?)\]:', line)
             if key_match:
                 current_key = key_match.group(1).strip()
                 current_array = []
-        
+
         # Check if this is an array value
         elif current_key and ('CUTTING_ROOMS.' in line or 'DESTINATIONS.' in line):
             # Extract value
             value_match = re.search(r'(CUTTING_ROOMS|DESTINATIONS)\.(\w+)', line)
             if value_match:
                 current_array.append(value_match.group(2))
-    
+
     # Save last array
     if current_key:
         result[current_key] = current_array
-    
+
     return result
 
 def parse_combination_keys(content):
     """Parse combination keys from the config file"""
     pattern = r'export const COMBINATION_KEYS = {(.*?)^};'
     match = re.search(pattern, content, re.DOTALL | re.MULTILINE)
-    
+
     if not match:
         return {}
-    
+
     obj_content = match.group(1)
     result = {}
-    
+
     for line in obj_content.split('\n'):
         line = line.strip()
-        
+
         # Skip comments and empty lines
         if line.startswith('//') or not line:
             continue
-        
+
         # Parse template literal keys
         if '`${' in line and '}`]:' in line:
             # Extract the combination and key
@@ -126,7 +151,7 @@ def parse_combination_keys(content):
                 destination = match.group(2)
                 key = match.group(3)
                 result[f"{cutting_room}+{destination}"] = key
-    
+
     return result
 
 def parse_cutting_room_colors(content):
@@ -207,6 +232,229 @@ def parse_machine_specifications(content):
 
     return result
 
+
+def _escape_js_single_quotes(value):
+    if not isinstance(value, str):
+        value = str(value)
+    # Escape backslashes first, then single quotes
+    return value.replace('\\', '\\\\').replace("'", "\\'")
+
+
+def _ensure_branding_folder():
+    """Ensure the upload folder for branding assets exists and return its path."""
+    os.makedirs(BRANDING_UPLOAD_FOLDER, exist_ok=True)
+    return BRANDING_UPLOAD_FOLDER
+
+
+def _allowed_branding_extension(filename):
+    _, ext = os.path.splitext(filename.lower())
+    return ext in ALLOWED_BRANDING_IMAGE_EXTENSIONS
+
+
+def read_server_settings():
+    """Read server settings from JSON file."""
+    defaults = {
+        "databaseHost": "",
+        "databasePort": "",
+        "databaseName": "",
+        "databaseUser": "",
+        "databasePassword": "",
+        "consumptionAnalyticsPowerBiUrl": ""
+    }
+
+    print(f"[SERVER_SETTINGS] Reading from: {SERVER_SETTINGS_PATH}")
+    print(f"[SERVER_SETTINGS] File exists: {os.path.exists(SERVER_SETTINGS_PATH)}")
+
+    if not os.path.exists(SERVER_SETTINGS_PATH):
+        print(f"[SERVER_SETTINGS] File not found, returning defaults")
+        return defaults
+
+    try:
+        with open(SERVER_SETTINGS_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            print(f"[SERVER_SETTINGS] Loaded data: {data}")
+            # Merge with defaults to ensure all keys exist
+            return {**defaults, **data}
+    except Exception as e:
+        print(f"[SERVER_SETTINGS] Error reading server settings: {e}")
+        return defaults
+
+
+def write_server_settings(settings):
+    """Write server settings to JSON file."""
+    try:
+        os.makedirs(os.path.dirname(SERVER_SETTINGS_PATH), exist_ok=True)
+        with open(SERVER_SETTINGS_PATH, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error writing server settings: {e}")
+        return False
+
+
+def _get_branding_asset_path(kind):
+    """Return the absolute path to the branding asset of the given kind ('logo' or 'favicon')."""
+    folder = _ensure_branding_folder()
+    basename = 'logo' if kind == 'logo' else 'favicon'
+    for ext in ALLOWED_BRANDING_IMAGE_EXTENSIONS:
+        candidate = os.path.join(folder, f"{basename}{ext}")
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _delete_branding_asset(kind):
+    """Delete all stored branding assets of the given kind ('logo' or 'favicon')."""
+    folder = _ensure_branding_folder()
+    basename = 'logo' if kind == 'logo' else 'favicon'
+    deleted = False
+    for ext in ALLOWED_BRANDING_IMAGE_EXTENSIONS:
+        candidate = os.path.join(folder, f"{basename}{ext}")
+        if os.path.exists(candidate):
+            os.remove(candidate)
+            deleted = True
+    return deleted
+
+
+
+def read_branding_config():
+    """Read branding configuration (logo, Power BI URL, languages, and assets) from JS file."""
+    defaults = {
+        "logoVariant": "default",
+        "consumptionAnalyticsPowerBiUrl": "",
+        "enabledLanguages": ["en", "bg"],
+        "customLogoUrl": "",
+        "customFaviconUrl": "",
+    }
+
+    if not os.path.exists(BRANDING_CONFIG_PATH):
+        return defaults
+
+    with open(BRANDING_CONFIG_PATH, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # LOGO_VARIANT
+    logo_match = re.search(r"export const LOGO_VARIANT\s*=\s*'([^']+)'", content)
+    # CONSUMPTION_ANALYTICS_POWER_BI_URL
+    url_match = re.search(
+        r"export const CONSUMPTION_ANALYTICS_POWER_BI_URL\s*=\s*'([^']*)'",
+        content,
+        re.DOTALL,
+    )
+    # ENABLED_LANGUAGES
+    languages_match = re.search(
+        r"export const ENABLED_LANGUAGES\s*=\s*\[([^\]]*)\]",
+        content,
+        re.DOTALL,
+    )
+    # CUSTOM_LOGO_URL
+    custom_logo_match = re.search(
+        r"export const CUSTOM_LOGO_URL\s*=\s*'([^']*)'",
+        content,
+        re.DOTALL,
+    )
+    # CUSTOM_FAVICON_URL
+    custom_favicon_match = re.search(
+        r"export const CUSTOM_FAVICON_URL\s*=\s*'([^']*)'",
+        content,
+        re.DOTALL,
+    )
+
+    logo_variant = logo_match.group(1) if logo_match else defaults["logoVariant"]
+    power_bi_url = (
+        url_match.group(1)
+        if url_match
+        else defaults["consumptionAnalyticsPowerBiUrl"]
+    )
+    enabled_languages = defaults["enabledLanguages"]
+    custom_logo_url = (
+        custom_logo_match.group(1)
+        if custom_logo_match
+        else defaults["customLogoUrl"]
+    )
+    custom_favicon_url = (
+        custom_favicon_match.group(1)
+        if custom_favicon_match
+        else defaults["customFaviconUrl"]
+    )
+
+    if languages_match:
+        inner = languages_match.group(1).strip()
+        if inner:
+            items = [item.strip() for item in inner.split(',') if item.strip()]
+            parsed = []
+            for item in items:
+                if (item[0] == item[-1]) and item[0] in ("'", '"'):
+                    item = item[1:-1]
+                item = item.strip()
+                if item:
+                    parsed.append(item)
+            if parsed:
+                enabled_languages = parsed
+
+    return {
+        "logoVariant": logo_variant,
+        "consumptionAnalyticsPowerBiUrl": power_bi_url,
+        "enabledLanguages": enabled_languages,
+        "customLogoUrl": custom_logo_url,
+        "customFaviconUrl": custom_favicon_url,
+    }
+
+
+def generate_branding_config_file_content(data):
+    """Generate the JavaScript config file content for app branding."""
+    logo_variant = data.get("logoVariant", "default") or "default"
+    power_bi_url = data.get("consumptionAnalyticsPowerBiUrl", "") or ""
+
+    enabled_languages = data.get("enabledLanguages")
+    if isinstance(enabled_languages, str):
+        enabled_languages = [enabled_languages]
+    if not isinstance(enabled_languages, list):
+        enabled_languages = []
+    enabled_languages = [str(code).strip() for code in enabled_languages if str(code).strip()]
+    if not enabled_languages:
+        enabled_languages = ["en", "bg"]
+
+    custom_logo_url = data.get("customLogoUrl", "") or ""
+    custom_favicon_url = data.get("customFaviconUrl", "") or ""
+
+    logo_variant_escaped = _escape_js_single_quotes(logo_variant)
+    power_bi_url_escaped = _escape_js_single_quotes(power_bi_url)
+    enabled_languages_js_values = ", ".join(
+        f"'{_escape_js_single_quotes(code)}'" for code in enabled_languages
+    )
+    custom_logo_url_escaped = _escape_js_single_quotes(custom_logo_url)
+    custom_favicon_url_escaped = _escape_js_single_quotes(custom_favicon_url)
+
+    lines = [
+        "/**",
+        " * Application branding & analytics configuration",
+        " * Store values here to control the logo, BI links, and language options.",
+        " */",
+        "",
+        "// Logo variant used by the <Logo /> component",
+        "// Allowed values: 'default', 'zalli', 'dark'",
+        f"export const LOGO_VARIANT = '{logo_variant_escaped}';",
+        "",
+        "// Power BI URL used on the \"Consumption Analytics\" page",
+        "export const CONSUMPTION_ANALYTICS_POWER_BI_URL =",
+        f"  '{power_bi_url_escaped}';",
+        "",
+        "// Languages enabled in the profile language selector",
+        "// Only these languages will be shown when users open the profile menu",
+        f"export const ENABLED_LANGUAGES = [{enabled_languages_js_values}];",
+        "",
+        "// Optional custom logo URL for the header logo. If empty, the variant-based logo is used.",
+        f"export const CUSTOM_LOGO_URL = '{custom_logo_url_escaped}';",
+        "",
+        "// Optional custom favicon URL for the browser tab icon.",
+        f"export const CUSTOM_FAVICON_URL = '{custom_favicon_url_escaped}';",
+        "",
+    ]
+
+    return "\n".join(lines)
+
+
 @config_management_api.route('/get')
 class GetConfiguration(Resource):
     def get(self):
@@ -251,23 +499,23 @@ class SaveConfiguration(Resource):
         """Save the production center configuration"""
         try:
             data = request.get_json()
-            
+
             # Generate the new config file content
             config_content = self.generate_config_file(data)
-            
+
             # Write to file
             with open(REACT_CONFIG_PATH, 'w', encoding='utf-8') as f:
                 f.write(config_content)
-            
+
             return {"success": True, "msg": "Configuration saved successfully"}, 200
-            
+
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
-    
+
     def generate_config_file(self, data):
         """Generate the JavaScript config file content"""
         lines = []
-        
+
         # Header
         lines.append("/**")
         lines.append(" * Production Center Configuration Dictionary")
@@ -275,7 +523,7 @@ class SaveConfiguration(Resource):
         lines.append(" * and their valid combinations with corresponding keys.")
         lines.append(" */")
         lines.append("")
-        
+
         # Production Centers
         lines.append("// Production Center Options")
         lines.append("export const PRODUCTION_CENTERS = {")
@@ -283,7 +531,7 @@ class SaveConfiguration(Resource):
             lines.append(f"  {key}: '{value}',")
         lines.append("};")
         lines.append("")
-        
+
         # Cutting Rooms
         lines.append("// Cutting Room Options")
         lines.append("export const CUTTING_ROOMS = {")
@@ -291,7 +539,7 @@ class SaveConfiguration(Resource):
             lines.append(f"  {key}: '{value}',")
         lines.append("};")
         lines.append("")
-        
+
         # Destinations
         lines.append("// Destination Options")
         lines.append("export const DESTINATIONS = {")
@@ -299,7 +547,7 @@ class SaveConfiguration(Resource):
             lines.append(f"  {key}: '{value}',")
         lines.append("};")
         lines.append("")
-        
+
         # Production Center to Cutting Room mapping
         lines.append("// Production Center to Cutting Room mapping")
         lines.append("export const PRODUCTION_CENTER_CUTTING_ROOMS = {")
@@ -310,7 +558,7 @@ class SaveConfiguration(Resource):
             lines.append("  ],")
         lines.append("};")
         lines.append("")
-        
+
         # Cutting Room to Destination mapping
         lines.append("// Cutting Room to Destination mapping")
         lines.append("export const CUTTING_ROOM_DESTINATIONS = {")
@@ -321,7 +569,7 @@ class SaveConfiguration(Resource):
             lines.append("  ],")
         lines.append("};")
         lines.append("")
-        
+
         # Combination Keys
         lines.append("// Cutting Room + Destination combination keys")
         lines.append("export const COMBINATION_KEYS = {")
@@ -331,7 +579,7 @@ class SaveConfiguration(Resource):
                 lines.append(f"  [`${{CUTTING_ROOMS.{parts[0]}}}+${{DESTINATIONS.{parts[1]}}}`]: '{key}',")
         lines.append("};")
         lines.append("")
-        
+
         # Cutting Room Colors
         lines.append("// Cutting Room Color Configuration")
         lines.append("export const CUTTING_ROOM_COLORS = {")
@@ -360,7 +608,7 @@ class SaveConfiguration(Resource):
         lines.extend(self.get_utility_functions())
 
         return '\n'.join(lines)
-    
+
     def get_utility_functions(self):
         """Return the utility functions to append to the config file"""
         return [
@@ -472,6 +720,10 @@ class SaveConfiguration(Resource):
             "/**",
             " * Get cutting room options for dropdown based on production center",
             " * @param {string} productionCenter - The selected production center",
+
+
+
+
             " * @returns {Array} Array of {value, label} objects",
             " */",
             "export const getCuttingRoomOptions = (productionCenter) => {",
@@ -552,3 +804,303 @@ class SaveConfiguration(Resource):
             ""
         ]
 
+
+
+
+
+
+@config_management_bp.route('/branding-assets/<path:filename>')
+def get_branding_asset(filename):
+    """Serve uploaded branding assets (logo, favicon) as static files."""
+    folder = _ensure_branding_folder()
+    return send_from_directory(folder, filename)
+
+
+
+@config_management_api.route('/branding/logo/upload')
+class BrandingLogoUpload(Resource):
+    """Upload a custom logo image used in the application header."""
+
+    def post(self):
+        try:
+            if 'file' not in request.files:
+                return {"success": False, "msg": "No file part in the request"}, 400
+
+            file = request.files['file']
+            if not file or file.filename == '':
+                return {"success": False, "msg": "No file selected"}, 400
+
+            if not _allowed_branding_extension(file.filename):
+                return {"success": False, "msg": "Unsupported file type"}, 400
+
+            filename = secure_filename(file.filename)
+            _, ext = os.path.splitext(filename)
+            ext = ext.lower()
+
+            # Ensure folder exists and remove previous logo files
+            _delete_branding_asset('logo')
+            folder = _ensure_branding_folder()
+
+            stored_name = f"logo{ext}"
+            file_path = os.path.join(folder, stored_name)
+            file.save(file_path)
+
+            public_url = f"/api/config/branding-assets/{stored_name}"
+
+            # Update branding config with new custom logo URL
+            current = read_branding_config()
+            current['customLogoUrl'] = public_url
+            file_content = generate_branding_config_file_content(current)
+
+            os.makedirs(os.path.dirname(BRANDING_CONFIG_PATH), exist_ok=True)
+            with open(BRANDING_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                f.write(file_content)
+
+            return {"success": True, "url": public_url}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/branding/favicon/upload')
+class BrandingFaviconUpload(Resource):
+    """Upload a custom favicon image used in the browser tab."""
+
+    def post(self):
+        try:
+            if 'file' not in request.files:
+                return {"success": False, "msg": "No file part in the request"}, 400
+
+            file = request.files['file']
+            if not file or file.filename == '':
+                return {"success": False, "msg": "No file selected"}, 400
+
+            if not _allowed_branding_extension(file.filename):
+                return {"success": False, "msg": "Unsupported file type"}, 400
+
+            filename = secure_filename(file.filename)
+            _, ext = os.path.splitext(filename)
+            ext = ext.lower()
+
+            # Ensure folder exists and remove previous favicon files
+            _delete_branding_asset('favicon')
+            folder = _ensure_branding_folder()
+
+            stored_name = f"favicon{ext}"
+            file_path = os.path.join(folder, stored_name)
+            file.save(file_path)
+
+            public_url = f"/api/config/branding-assets/{stored_name}"
+
+            # Update branding config with new custom favicon URL
+            current = read_branding_config()
+            current['customFaviconUrl'] = public_url
+            file_content = generate_branding_config_file_content(current)
+
+            os.makedirs(os.path.dirname(BRANDING_CONFIG_PATH), exist_ok=True)
+            with open(BRANDING_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                f.write(file_content)
+
+            return {"success": True, "url": public_url}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/branding/logo')
+class BrandingLogoDelete(Resource):
+    """Delete the custom logo and revert to the default one."""
+
+    def delete(self):
+        try:
+            _delete_branding_asset('logo')
+
+            current = read_branding_config()
+            current['customLogoUrl'] = ""
+            file_content = generate_branding_config_file_content(current)
+
+            os.makedirs(os.path.dirname(BRANDING_CONFIG_PATH), exist_ok=True)
+            with open(BRANDING_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                f.write(file_content)
+
+            return {"success": True, "msg": "Logo deleted successfully"}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/branding/favicon')
+class BrandingFaviconDelete(Resource):
+    """Delete the custom favicon and revert to the default one."""
+
+    def delete(self):
+        try:
+            _delete_branding_asset('favicon')
+
+            current = read_branding_config()
+            current['customFaviconUrl'] = ""
+            file_content = generate_branding_config_file_content(current)
+
+            os.makedirs(os.path.dirname(BRANDING_CONFIG_PATH), exist_ok=True)
+            with open(BRANDING_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                f.write(file_content)
+
+            return {"success": True, "msg": "Favicon deleted successfully"}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/branding')
+class BrandingConfiguration(Resource):
+    """Manage application branding configuration (logo + Power BI link)."""
+
+    def get(self):
+        """Get the current branding configuration."""
+        try:
+            data = read_branding_config()
+            return {"success": True, "data": data}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+    def post(self):
+        """Save the branding configuration."""
+        try:
+            payload = request.get_json() or {}
+
+            # Start from the current config so we preserve custom logo/favicon URLs
+            current = read_branding_config()
+
+            merged = {
+                "logoVariant": payload.get("logoVariant", current.get("logoVariant")),
+                "consumptionAnalyticsPowerBiUrl": payload.get(
+                    "consumptionAnalyticsPowerBiUrl",
+                    current.get("consumptionAnalyticsPowerBiUrl"),
+                ),
+                "enabledLanguages": payload.get("enabledLanguages", current.get("enabledLanguages")),
+                "customLogoUrl": current.get("customLogoUrl", ""),
+                "customFaviconUrl": current.get("customFaviconUrl", ""),
+            }
+
+            file_content = generate_branding_config_file_content(merged)
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(BRANDING_CONFIG_PATH), exist_ok=True)
+
+            with open(BRANDING_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                f.write(file_content)
+
+            return {"success": True, "msg": "Branding configuration saved successfully"}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+# ======================== USER ROLES MANAGEMENT ========================
+
+@config_management_api.route('/users')
+class UserRolesResource(Resource):
+    def get(self):
+        """Get all users with their roles"""
+        try:
+            users = Users.query.all()
+            users_data = [
+                {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'role': user.role or 'Planner'
+                }
+                for user in users
+            ]
+            return {"success": True, "data": users_data}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+    def post(self):
+        """Update a user's role"""
+        try:
+            payload = request.get_json() or {}
+            user_id = payload.get('id')
+            new_role = payload.get('role')
+
+            if not user_id or not new_role:
+                return {"success": False, "msg": "User ID and role are required"}, 400
+
+            user = Users.query.get(user_id)
+            if not user:
+                return {"success": False, "msg": "User not found"}, 404
+
+            user.role = new_role
+            user.save()
+
+            return {
+                "success": True,
+                "msg": f"User {user.username} role updated to {new_role}",
+                "data": {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'role': user.role
+                }
+            }, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/roles')
+class AvailableRolesResource(Resource):
+    def get(self):
+        """Get all available roles in the system"""
+        try:
+            roles = [
+                'Administrator',
+                'Project Admin',
+                'Manager',
+                'Shift Manager',
+                'Planner',
+                'Spreader',
+                'Cutter',
+                'Subcontractor',
+                'Logistic'
+            ]
+            return {"success": True, "data": roles}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+# ======================== SERVER SETTINGS MANAGEMENT ========================
+
+@config_management_api.route('/server-settings')
+class ServerSettingsResource(Resource):
+    def get(self):
+        """Get server settings (database credentials, Power BI URL, etc.)"""
+        try:
+            settings = read_server_settings()
+            return {"success": True, "data": settings}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+    def post(self):
+        """Update server settings"""
+        try:
+            payload = request.get_json() or {}
+
+            # Prepare settings object
+            settings = {
+                'databaseHost': payload.get('databaseHost', ''),
+                'databasePort': payload.get('databasePort', ''),
+                'databaseName': payload.get('databaseName', ''),
+                'databaseUser': payload.get('databaseUser', ''),
+                'databasePassword': payload.get('databasePassword', ''),
+                'consumptionAnalyticsPowerBiUrl': payload.get('consumptionAnalyticsPowerBiUrl', '')
+            }
+
+            # Write to file
+            if write_server_settings(settings):
+                return {
+                    "success": True,
+                    "msg": "Server settings updated successfully"
+                }, 200
+            else:
+                return {
+                    "success": False,
+                    "msg": "Failed to write server settings"
+                }, 500
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500

@@ -37,6 +37,9 @@ const MenuList = () => {
             case 'operators':
                 return ['Manager', 'Project Admin'].includes(userRole);
 
+            case 'configuration':
+                return ['Administrator', 'Project Admin'].includes(userRole);
+
             default:
                 // Hide everything for Spreader, Cutter, Subcontractor, and Logistic except their own group
                 if (['Spreader', 'Cutter', 'Subcontractor', 'Logistic'].includes(userRole)) return false;

@@ -1,5 +1,5 @@
 // assets
-import { IconSettings } from '@tabler/icons';
+import { IconSettings, IconUsers } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| CONFIGURATION MENU ITEMS ||-----------------------//
@@ -10,10 +10,10 @@ const configuration = {
   type: 'group',
   children: [
     {
-      id: 'production-center-config',
-      title: 'Production Centers',
+      id: 'configuration-dashboard',
+      title: 'Configuration',
       type: 'item',
-      url: '/configuration/production-centers',
+      url: '/configuration',
       icon: IconSettings,
       breadcrumbs: false
     }

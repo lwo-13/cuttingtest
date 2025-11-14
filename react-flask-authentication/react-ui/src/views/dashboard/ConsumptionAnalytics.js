@@ -17,6 +17,7 @@ import { IconExternalLink, IconChartBar } from '@tabler/icons';
 // project imports
 import MainCard from '../../ui-component/cards/MainCard';
 import AnimateButton from '../../ui-component/extended/AnimateButton';
+import { CONSUMPTION_ANALYTICS_POWER_BI_URL } from '../../utils/appBrandingConfig';
 
 //-----------------------|| CONSUMPTION ANALYTICS PAGE ||-----------------------//
 
@@ -30,7 +31,7 @@ const ConsumptionAnalytics = () => {
                     title="Cutting BI ZALLI"
                     width="100%"
                     height="100%"
-                    src="https://app.powerbi.com/view?r=eyJrIjoiOTNiMGFhNWMtMjM5MS00NmQwLTliMDYtNmVhODEyNWE5MGYwIiwidCI6IjYwNTllMzY5LTQzYzktNDM4My04ODk0LTIzYTlkNTk1N2NlYiIsImMiOjh9&pageName=ReportSection&$filter=&navContentPaneEnabled=false&filterPaneEnabled=false"
+                    src={CONSUMPTION_ANALYTICS_POWER_BI_URL}
                     frameBorder="0"
                     allowFullScreen={true}
                     style={{

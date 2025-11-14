@@ -31,6 +31,7 @@ import {
 import { Add, Delete, Edit, Save, Refresh, ColorLens } from '@mui/icons-material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
+import UserRolesConfiguration from './UserRolesConfiguration';
 
 const ConfigurationManagement = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -182,7 +183,7 @@ const ConfigurationManagement = () => {
 
     return (
         <MainCard
-            title="Production Center Configuration"
+            title="Configuration Management"
             secondary={
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
@@ -190,6 +191,7 @@ const ConfigurationManagement = () => {
                         startIcon={<Refresh />}
                         onClick={fetchConfiguration}
                         size="small"
+                        disabled={activeTab === 8}
                     >
                         Reload
                     </Button>
@@ -199,6 +201,7 @@ const ConfigurationManagement = () => {
                         onClick={saveConfiguration}
                         size="small"
                         color="primary"
+                        disabled={activeTab === 8}
                     >
                         Save Configuration
                     </Button>
@@ -214,6 +217,7 @@ const ConfigurationManagement = () => {
                 <Tab label="Combination Keys" />
                 <Tab label="Colors" />
                 <Tab label="Machine Specs" />
+                <Tab label="User Roles" />
             </Tabs>
 
             {/* Production Centers Tab */}
@@ -301,6 +305,11 @@ const ConfigurationManagement = () => {
                     onEdit={(room, machines) => handleOpenDialog('machineSpec', { cuttingRoom: room, machines })}
                     onDelete={(key) => handleDelete('machineSpec', key)}
                 />
+            )}
+
+            {/* User Roles Tab */}
+            {activeTab === 8 && (
+                <UserRolesConfiguration />
             )}
 
             {/* Dialog for adding/editing */}

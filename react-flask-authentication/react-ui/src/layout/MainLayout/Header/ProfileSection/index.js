@@ -34,6 +34,8 @@ import PerfectScrollbar from 'react-perfect-scrollbar';
 import MainCard from '../../../../ui-component/cards/MainCard';
 import Transitions from '../../../../ui-component/extended/Transitions';
 import { logoutUser } from '../../../../store/accountActions';
+import { ENABLED_LANGUAGES } from '../../../../utils/appBrandingConfig';
+import { AVAILABLE_LANGUAGES } from '../../../../utils/languageConfig';
 
 // assets
 import { IconLogout, IconSearch, IconSettings, IconUser } from '@tabler/icons';
@@ -124,6 +126,13 @@ const ProfileSection = () => {
     const account = useSelector((state) => state.account);
     const dispatcher = useDispatch();
     const { t, i18n } = useTranslation();
+
+    const availableLanguageCodes = AVAILABLE_LANGUAGES.map((lang) => lang.code);
+    const enabledLanguageCodes =
+        Array.isArray(ENABLED_LANGUAGES) && ENABLED_LANGUAGES.length
+            ? ENABLED_LANGUAGES
+            : availableLanguageCodes;
+    const visibleLanguages = AVAILABLE_LANGUAGES.filter((lang) => enabledLanguageCodes.includes(lang.code));
 
     const [sdm, setSdm] = React.useState(true);
     const [value, setValue] = React.useState('');
@@ -304,26 +313,19 @@ const ProfileSection = () => {
                                                                 </Grid>
                                                                 <Grid item>
                                                                     <ButtonGroup size="small" variant="outlined">
-                                                                        <Button
-                                                                            variant={i18n.language === 'en' ? 'contained' : 'outlined'}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleLanguageChange('en');
-                                                                            }}
-                                                                            sx={{ minWidth: '50px', fontSize: '0.75rem' }}
-                                                                        >
-                                                                            🇺🇸 EN
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant={i18n.language === 'bg' ? 'contained' : 'outlined'}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleLanguageChange('bg');
-                                                                            }}
-                                                                            sx={{ minWidth: '50px', fontSize: '0.75rem' }}
-                                                                        >
-                                                                            🇧🇬 BG
-                                                                        </Button>
+                                                                        {visibleLanguages.map((lang) => (
+                                                                            <Button
+                                                                                key={lang.code}
+                                                                                variant={i18n.language === lang.code ? 'contained' : 'outlined'}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleLanguageChange(lang.code);
+                                                                                }}
+                                                                                sx={{ minWidth: '50px', fontSize: '0.75rem' }}
+                                                                            >
+                                                                                {lang.flag ? `${lang.flag} ${lang.shortLabel}` : lang.shortLabel}
+                                                                            </Button>
+                                                                        ))}
                                                                     </ButtonGroup>
                                                                 </Grid>
                                                             </Grid>

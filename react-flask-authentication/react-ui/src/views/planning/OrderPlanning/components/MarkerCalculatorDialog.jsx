@@ -986,6 +986,11 @@ const MarkerCalculatorDialog = ({
                 {/* Baseline Selector */}
                 <Box mb={3} display="flex" flexDirection="column" alignItems="center" gap={2}>
                     <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
+                        {selectedOrder && (
+                            <Typography variant="body2" color="text.secondary">
+                                {t('common.order')}: {selectedOrder.id}
+                            </Typography>
+                        )}
                         <Typography variant="body2" fontWeight="bold">
                             {t('calculator.calculateCoverageAgainst')}
                         </Typography>

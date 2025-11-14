@@ -13,6 +13,7 @@ import theme from './themes';
 import NavigationScroll from './layout/NavigationScroll';
 import { BadgeCountProvider } from './contexts/BadgeCountContext';
 import { preloadItemDescriptions } from './hooks/useItemDescriptions';
+import { CUSTOM_FAVICON_URL } from 'utils/appBrandingConfig';
 
 //-----------------------|| APP ||-----------------------//
 
@@ -24,6 +25,22 @@ const App = () => {
         preloadItemDescriptions().catch(err => {
             console.warn('Failed to preload item descriptions:', err);
         });
+    }, []);
+
+    // Apply custom favicon from branding configuration, if provided
+    useEffect(() => {
+        if (!CUSTOM_FAVICON_URL || typeof CUSTOM_FAVICON_URL !== 'string' || !CUSTOM_FAVICON_URL.trim()) {
+            return;
+        }
+
+        const existingLink = document.querySelector("link[rel='icon']");
+        const link = existingLink || document.createElement('link');
+        link.rel = 'icon';
+        link.href = CUSTOM_FAVICON_URL;
+
+        if (!existingLink) {
+            document.head.appendChild(link);
+        }
     }, []);
 
     return (
