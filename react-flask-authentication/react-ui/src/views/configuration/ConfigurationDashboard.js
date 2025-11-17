@@ -15,7 +15,8 @@ import {
     IconPalette,
     IconUsers,
     IconDatabase,
-    IconTool
+    IconTool,
+    IconApps
 } from '@tabler/icons';
 import MainCard from 'ui-component/cards/MainCard';
 
@@ -64,6 +65,14 @@ const ConfigurationDashboard = () => {
             icon: IconTool,
             path: '/configuration/installation-settings',
             color: '#ff9800'
+        },
+        {
+            id: 'application-modules',
+            title: 'Application Modules',
+            description: 'Enable or disable specific application modules',
+            icon: IconApps,
+            path: '/configuration/application-modules',
+            color: '#00897b'
         }
     ];
 

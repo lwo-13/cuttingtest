@@ -83,6 +83,8 @@ const ServerSettings = Loadable(lazy(() => import('../views/configuration/Server
 
 const InstallationSettings = Loadable(lazy(() => import('../views/configuration/InstallationSettings')));
 
+const ApplicationModules = Loadable(lazy(() => import('../views/configuration/ApplicationModules')));
+
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
@@ -245,6 +247,12 @@ const MainRoutes = () => {
                             <Route path="/configuration/installation-settings">
                                 <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
                                     <InstallationSettings />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/application-modules">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <ApplicationModules />
                                 </RoleGuard>
                             </Route>
                         </AuthGuard>
