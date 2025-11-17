@@ -56,6 +56,14 @@ const ConfigurationDashboard = () => {
             icon: IconDatabase,
             path: '/configuration/server-settings',
             color: '#7b1fa2'
+        },
+        {
+            id: 'installation-settings',
+            title: 'Internal Installation Settings',
+            description: 'Configure cutting room, spreader/cutter lines, and assignments',
+            icon: IconTool,
+            path: '/configuration/installation-settings',
+            color: '#ff9800'
         }
     ];
 

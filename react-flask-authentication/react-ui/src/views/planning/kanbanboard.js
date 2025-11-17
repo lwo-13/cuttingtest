@@ -7,33 +7,28 @@ import ViewStreamIcon from '@mui/icons-material/ViewStream';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import WarningIcon from '@mui/icons-material/Warning';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import MainCard from "../../ui-component/cards/MainCard";
 import axios from 'utils/axiosInstance';
 import Tooltip from '@mui/material/Tooltip';
 import { useSelector } from "react-redux";
 import { useTranslation } from 'react-i18next';
+import { SPREADER_DEVICES } from 'utils/installationConfig';
 
-const devices = ["SP0", "SP1", "SP2", "SP3", "MS"];
+// Spreader devices are installation-specific and come from installationConfig.js
+// Includes SP0 (To Assign), SP1..SPN (automatic spreaders), and MS (Manual Spreading)
+const devices = SPREADER_DEVICES;
 
-const FilterBar = ({ selectedDay, setSelectedDay, refreshing, lastRefreshTime, onRefresh }) => {
+const FilterBar = ({ selectedDay, setSelectedDay, refreshing, lastRefreshTime, onRefresh, scrollHorizontally }) => {
   const { t } = useTranslation();
 
   return (
     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", bgcolor: "white", p: 2, borderRadius: 2, mb: 2, gap: 2, position: "relative" }}>
-      {/* Day selection buttons - centered */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <Button variant={selectedDay === "Today" ? "contained" : "outlined"} color="primary" onClick={() => setSelectedDay("Today")}>
-          {t('common.today', 'Today')}
-        </Button>
-        <Button variant={selectedDay === "Tomorrow" ? "contained" : "outlined"} color="secondary" onClick={() => setSelectedDay("Tomorrow")}>
-          {t('common.tomorrow', 'Tomorrow')}
-        </Button>
-      </Box>
-
-      {/* Refresh controls - positioned on the right */}
+      {/* Refresh controls - positioned on the left */}
       <Box sx={{
         position: "absolute",
-        right: 16,
+        left: 16,
         display: 'flex',
         alignItems: 'center',
         gap: 2
@@ -51,6 +46,35 @@ const FilterBar = ({ selectedDay, setSelectedDay, refreshing, lastRefreshTime, o
           {t('common.lastUpdated', 'Last updated')}: {lastRefreshTime.toLocaleTimeString()}
         </Typography>
       </Box>
+
+      {/* Day selection buttons - centered */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Button variant={selectedDay === "Today" ? "contained" : "outlined"} color="primary" onClick={() => setSelectedDay("Today")}>
+          {t('common.today', 'Today')}
+        </Button>
+        <Button variant={selectedDay === "Tomorrow" ? "contained" : "outlined"} color="secondary" onClick={() => setSelectedDay("Tomorrow")}>
+          {t('common.tomorrow', 'Tomorrow')}
+        </Button>
+      </Box>
+
+      {/* Scroll devices controls - positioned on the right */}
+      <Box sx={{
+        position: "absolute",
+        right: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1
+      }}>
+        <Typography variant="caption" color="text.secondary">
+          {t('kanban.scrollDevices', 'Scroll devices')}
+        </Typography>
+        <IconButton size="small" onClick={() => scrollHorizontally(-1)}>
+          <ChevronLeftIcon fontSize="small" />
+        </IconButton>
+        <IconButton size="small" onClick={() => scrollHorizontally(1)}>
+          <ChevronRightIcon fontSize="small" />
+        </IconButton>
+      </Box>
     </Box>
   );
 };
@@ -60,7 +84,8 @@ const KanbanBoard = () => {
   const [mattresses, setMattresses] = useState([]);
   const [selectedDay, setSelectedDay] = useState("Today");
   const username = useSelector((state) => state.account?.user?.username) || "Unknown";
-  const scrollContainerRef = useRef(null);
+  const scrollContainerRef = useRef(null); // vertical scroll container
+  const horizontalScrollRef = useRef(null); // horizontal devices container
   const scrollAnimationRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
@@ -70,6 +95,26 @@ const KanbanBoard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
+
+  const scrollHorizontally = (direction) => {
+    const container = horizontalScrollRef.current;
+    if (!container) return;
+
+    // Calculate the width of one column dynamically
+    // Each column is 300px base width + 16px gap (2 * theme spacing)
+    const columnWidth = 300 + 16; // base column width + gap
+
+    // Get the actual rendered width accounting for zoom and window size
+    const firstColumn = container.querySelector('[data-kanban-column]');
+    const actualColumnWidth = firstColumn
+      ? firstColumn.getBoundingClientRect().width + 16 // column width + gap
+      : columnWidth;
+
+    container.scrollBy({
+      left: direction * actualColumnWidth,
+      behavior: 'smooth'
+    });
+  };
 
   const handleDragScroll = (e) => {
     const container = scrollContainerRef.current;
@@ -216,8 +261,9 @@ const KanbanBoard = () => {
     const mattressToMove = mattresses.find(m => m.id === id);
     // No restriction for MS device - both AUTOMATIC and MANUAL mattresses can go there
 
-    // AS validation: Check if trying to move MS mattress to AS device
-    if (mattressToMove && ["SP1", "SP2", "SP3"].includes(targetDevice) && mattressToMove.spreading_method === "MANUAL") {
+    // AS validation: Check if trying to move MS mattress to any automatic spreader device
+    const automaticSpreaders = SPREADER_DEVICES.filter((d) => d !== "SP0" && d !== "MS");
+    if (mattressToMove && automaticSpreaders.includes(targetDevice) && mattressToMove.spreading_method === "MANUAL") {
       setTransitionMessage("ERROR: Manual Spreading (MS) mattresses cannot be assigned to automatic spreader devices. Use MS device instead.");
       setShowTransitionAlert(true);
       return;
@@ -367,59 +413,99 @@ const KanbanBoard = () => {
         refreshing={refreshing}
         lastRefreshTime={lastRefreshTime}
         onRefresh={() => fetchMattresses(false)}
+        scrollHorizontally={scrollHorizontally}
       />
       <DndProvider backend={HTML5Backend}>
+        {/* Outer container: vertical scroll (shared for all columns) */}
         <Box
           ref={scrollContainerRef}
-          display="flex"
-          gap={2}
-          p={2}
           sx={{
+            display: 'flex',
             width: '100%',
             height: 'calc(100vh - 180px)', // Adjust based on your layout
-            overflowX: 'auto',
             overflowY: 'auto',
-            alignItems: 'start',
-            scrollbarWidth: 'thin',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-              height: '8px'
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(0,0,0,0.2)',
-              borderRadius: '4px'
-            }
+            overflowX: 'hidden',
+            alignItems: 'flex-start'
           }}
         >
-          {devices.map((device) => (
+          {/* Fixed "To Assign" column (SP0) */}
+          <Box
+            sx={{
+              flex: '0 0 300px',
+              minWidth: '300px',
+              pl: 0,
+              pt: 2,
+              pr: 2
+            }}
+          >
             <KanbanColumn
-              key={device}
-              device={device}
-              mattresses={
-                device === "SP0"
-                  ? mattresses
-                      .filter((m) => m.status === "0 - NOT SET")
-                      .sort((a, b) => {
-                        // First sort by order_commessa
-                        const orderComparison = (a.order_commessa || '').localeCompare(b.order_commessa || '');
-                        if (orderComparison !== 0) return orderComparison;
+              device="SP0"
+              mattresses={mattresses
+                .filter((m) => m.status === "0 - NOT SET")
+                .sort((a, b) => {
+                  // First sort by order_commessa
+                  const orderComparison = (a.order_commessa || '').localeCompare(b.order_commessa || '');
+                  if (orderComparison !== 0) return orderComparison;
 
-                        // Then sort by bagno (dye_lot)
-                        return (a.dye_lot || '').localeCompare(b.dye_lot || '');
-                      })
-                  : mattresses
-                      .filter(
-                        (m) =>
-                          m.device === device &&
-                          (m.status === "1 - TO LOAD" || m.status === "2 - ON SPREAD" || m.status === "99 - ON HOLD" || m.status === "PENDING APPROVAL")
-                      )
-                      .sort((a, b) => (a.position || 0) - (b.position || 0)) // Sort by position for proper ordering
-              }
+                  // Then sort by bagno (dye_lot)
+                  return (a.dye_lot || '').localeCompare(b.dye_lot || '');
+                })}
               allMattresses={mattresses}
               moveMattress={moveMattress}
               selectedDay={selectedDay}
             />
-          ))}
+          </Box>
+
+          {/* Scrollable devices area (SP1+, MS, cutters, etc.) */}
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0
+            }}
+          >
+            <Box
+              ref={horizontalScrollRef}
+              display="flex"
+              gap={2}
+              p={2}
+              sx={{
+                width: '100%',
+                overflowX: 'auto',
+                overflowY: 'visible',
+                alignItems: 'flex-start',
+                // hide horizontal scrollbar but keep scroll behavior
+                scrollbarWidth: 'none', // Firefox
+                msOverflowStyle: 'none', // IE/Edge
+                '&::-webkit-scrollbar': {
+                  display: 'none'
+                }
+              }}
+            >
+              {devices
+                .filter((device) => device !== "SP0")
+                .map((device) => (
+                  <KanbanColumn
+                    key={device}
+                    device={device}
+                    mattresses={mattresses
+                      .filter(
+                        (m) =>
+                          m.device === device &&
+                          (m.status === "1 - TO LOAD" ||
+                            m.status === "2 - ON SPREAD" ||
+                            m.status === "99 - ON HOLD" ||
+                            m.status === "PENDING APPROVAL")
+                      )
+                      .sort((a, b) => (a.position || 0) - (b.position || 0))}
+                    allMattresses={mattresses}
+                    moveMattress={moveMattress}
+                    selectedDay={selectedDay}
+                  />
+                ))}
+            </Box>
+          </Box>
         </Box>
       </DndProvider>
 
@@ -591,7 +677,7 @@ const KanbanColumn = ({ device, mattresses, allMattresses, moveMattress, selecte
   });
 
   return (
-    <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px' }}>
+    <Box data-kanban-column sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', minWidth: '300px' }}>
       <Paper sx={{ p: 1, bgcolor: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: 2, mb: 2 }}>
         {device === "SP0" ? t('kanban.toAssign') : device === "MS" ? t('kanban.manualSpreading') : device}
         {device === "SP0" && (

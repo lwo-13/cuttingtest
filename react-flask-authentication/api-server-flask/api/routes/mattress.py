@@ -8,6 +8,7 @@ from datetime import datetime, date, timedelta
 from sqlalchemy.exc import OperationalError
 import jwt
 from api.config import BaseConfig
+from api.routes.config_management import read_installation_settings
 
 mattress_bp = Blueprint('mattress_bp', __name__)
 mattress_api = Namespace('mattress', description="Mattress Management")
@@ -745,6 +746,14 @@ class GetKanbanMattressesResource(Resource):
         try:
             # Base query for mattress and phase
 
+            # Installation-specific cutting room (e.g., ZALLI) controls which mattresses appear in Kanban
+            installation_settings = read_installation_settings()
+            internal_cutting_room = (
+                installation_settings.get("internalCuttingRoom")
+                or installation_settings.get("installationCuttingRoom")
+                or "ZALLI"
+            )
+
             day_filter = request.args.get('day', None)
 
             query = db.session.query(
@@ -793,7 +802,7 @@ class GetKanbanMattressesResource(Resource):
              .filter(MattressPhase.active == True) \
              .filter(MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD", "2 - ON SPREAD", "99 - ON HOLD", "3 - TO CUT", "4 - ON CUT"])) \
              .filter(MattressDetail.bagno_ready == True) \
-             .filter(MattressProductionCenter.cutting_room == 'ZALLI')  # Only show mattresses with cutting room ZALLI
+             .filter(MattressProductionCenter.cutting_room == internal_cutting_room)  # Only show mattresses for internal cutting room
 
             if day_filter:
                 if day_filter in ["today", "tomorrow"]:
@@ -909,13 +918,20 @@ class GetAllMattressesWithDetailsResource(Resource):
             skip_count = request.args.get('skip_count', 'false', type=str).lower() == 'true'  # Option to skip count for faster response
             # ✅ SUPER OPTIMIZED: Use separate simpler queries instead of complex joins
             # Step 1: Get mattress IDs that match our criteria (fastest query)
+            installation_settings = read_installation_settings()
+            internal_cutting_room = (
+                installation_settings.get("internalCuttingRoom")
+                or installation_settings.get("installationCuttingRoom")
+                or "ZALLI"
+            )
+
             mattress_ids_query = db.session.query(Mattresses.id).join(
                 MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
             ).join(
                 MattressPhase, Mattresses.id == MattressPhase.mattress_id
             ).filter(
-                # Cutting room filter
-                MattressProductionCenter.cutting_room == 'ZALLI',
+                # Cutting room filter - only mattresses assigned to the internal cutting room
+                MattressProductionCenter.cutting_room == internal_cutting_room,
                 # Phase filter
                 MattressPhase.active == True,
                 MattressPhase.status.in_(["0 - NOT SET", "1 - TO LOAD"])
@@ -1122,7 +1138,18 @@ class MoveMattressResource(Resource):
             # MS (Manual Spreading) validation rules
             # Allow both AUTOMATIC and MANUAL mattresses to go to MS device
             # No restriction needed for MS device
-            if target_device in ["SP1", "SP2", "SP3"]:
+            installation_settings = read_installation_settings()
+
+            def _to_int(value, default):
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return default
+
+            spreader_line_count = _to_int(installation_settings.get("spreaderLineCount"), 3)
+            automatic_spreaders = [f"SP{i}" for i in range(1, spreader_line_count + 1)]
+
+            if target_device in automatic_spreaders:
                 # Rule: MS mattresses cannot be placed on automatic spreaders
                 if mattress.spreading_method == "MANUAL":
                     return {"success": False, "message": "Manual Spreading (MS) mattresses cannot be assigned to automatic spreader devices. Use MS device instead."}, 400

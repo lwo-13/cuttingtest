@@ -57,9 +57,6 @@
   "cutter": {
     "title": "Cutter",
     "myAssignments": "My Assignments",
-    "assignmentInfo": "Cutter Assignment Information",
-    "assignmentCT1": "You are assigned to receive mattresses from Spreader1 (SP1).",
-    "assignmentCT2": "You are assigned to receive mattresses from Spreader2 (SP2) and Spreader3 (SP3).",
     "statusInfo": "Mattresses with status \"3 - TO CUT\" from your assigned spreader(s) will appear here.",
     "startCutting": "Start Cutting",
     "finishCutting": "Finish Cutting",

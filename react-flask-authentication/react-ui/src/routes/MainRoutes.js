@@ -81,6 +81,8 @@ const UserRolesConfiguration = Loadable(lazy(() => import('../views/configuratio
 
 const ServerSettings = Loadable(lazy(() => import('../views/configuration/ServerSettings')));
 
+const InstallationSettings = Loadable(lazy(() => import('../views/configuration/InstallationSettings')));
+
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
@@ -158,6 +160,7 @@ const MainRoutes = () => {
                     '/configuration/production-centers',
                     '/configuration/user-roles',
                     '/configuration/server-settings',
+                    '/configuration/installation-settings',
 
                     '/operators/cutter-management'
                 ]}
@@ -236,6 +239,12 @@ const MainRoutes = () => {
                             <Route path="/configuration/server-settings">
                                 <RoleGuard allowedRoles={['Administrator']}>
                                     <ServerSettings />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/installation-settings">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <InstallationSettings />
                                 </RoleGuard>
                             </Route>
                         </AuthGuard>
