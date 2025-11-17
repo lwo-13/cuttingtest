@@ -13,6 +13,7 @@ import {
   Stack,
   Divider
 } from '@mui/material';
+import { Refresh, Save } from '@mui/icons-material';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 import Logo from 'ui-component/Logo';
@@ -231,20 +232,36 @@ const AppBrandingConfiguration = () => {
       secondary={
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
-            variant="outlined"
+            variant="text"
             onClick={fetchBrandingConfig}
             size="small"
+            sx={{ minWidth: 'auto', p: 1 }}
+            title="Reload"
           >
-            Reload
+            <Refresh />
           </Button>
           <Button
             variant="contained"
+            startIcon={<Save />}
             onClick={saveBrandingConfig}
-            size="small"
-            color="primary"
             disabled={saving}
+            sx={{
+              backgroundColor: 'primary.main',
+              color: 'white',
+              fontSize: '0.875rem',
+              py: 0.75,
+              px: 2,
+              minHeight: '36px',
+              '&:hover': {
+                backgroundColor: 'primary.dark'
+              },
+              '&:disabled': {
+                backgroundColor: 'grey.300',
+                color: 'grey.500'
+              }
+            }}
           >
-            {saving ? 'Saving...' : 'Save Configuration'}
+            {saving ? 'Saving...' : 'Save'}
           </Button>
         </Box>
       }

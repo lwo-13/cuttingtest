@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import os
 import json
 import re
+import pyodbc
 from api.models import db, Users
 
 # Create Blueprint
@@ -259,6 +260,11 @@ def read_server_settings():
         "databaseName": "",
         "databaseUser": "",
         "databasePassword": "",
+        "odbcDriver": "ODBC Driver 18 for SQL Server",
+        "vpnServerHostname": "sslvpn1.calzedonia.com",
+        "vpnProxyPath": "/web_forward_CuttingApplicationAPI",
+        "vmHostname": "gab-navint01p.csg1.sys.calzedonia.com",
+        "vmIpAddress": "172.27.57.210",
         "consumptionAnalyticsPowerBiUrl": ""
     }
 
@@ -1088,6 +1094,7 @@ class ServerSettingsResource(Resource):
                 'databaseName': payload.get('databaseName', ''),
                 'databaseUser': payload.get('databaseUser', ''),
                 'databasePassword': payload.get('databasePassword', ''),
+                'odbcDriver': payload.get('odbcDriver', 'ODBC Driver 18 for SQL Server'),
                 'consumptionAnalyticsPowerBiUrl': payload.get('consumptionAnalyticsPowerBiUrl', '')
             }
 
@@ -1104,3 +1111,76 @@ class ServerSettingsResource(Resource):
                 }, 500
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/test-connection')
+class TestConnectionResource(Resource):
+    def post(self):
+        """Test database connection with provided credentials"""
+        try:
+            payload = request.get_json() or {}
+
+            host = payload.get('databaseHost', '')
+            port = payload.get('databasePort', '')
+            database = payload.get('databaseName', '')
+            user = payload.get('databaseUser', '')
+            password = payload.get('databasePassword', '')
+            odbc_driver = payload.get('odbcDriver', 'ODBC Driver 18 for SQL Server')
+
+            # Validate required fields
+            if not all([host, port, database, user]):
+                return {
+                    "success": False,
+                    "msg": "Missing required fields: host, port, database, and user are required"
+                }, 400
+
+            # Build connection string - try with TrustServerCertificate=yes first
+            # This matches the existing application connection behavior
+            connection_string = (
+                f'Driver={{{odbc_driver}}};'
+                f'Server={host},{port};'
+                f'Database={database};'
+                f'UID={user};'
+                f'PWD={password};'
+                f'Encrypt=yes;'
+                f'TrustServerCertificate=yes;'
+                f'Connection Timeout=5;'
+            )
+
+            # Attempt connection
+            conn = pyodbc.connect(connection_string)
+            conn.close()
+
+            return {
+                "success": True,
+                "msg": "Connection successful!"
+            }, 200
+
+        except pyodbc.Error as e:
+            # Extract meaningful error message from pyodbc
+            error_msg = str(e)
+            if 'Login failed' in error_msg or 'Invalid login' in error_msg:
+                return {
+                    "success": False,
+                    "msg": f"Login failed: Invalid credentials for user '{user}'"
+                }, 400
+            elif 'Cannot open database' in error_msg:
+                return {
+                    "success": False,
+                    "msg": f"Cannot open database '{database}'. Check database name."
+                }, 400
+            elif 'Connection timeout' in error_msg or 'timeout' in error_msg.lower():
+                return {
+                    "success": False,
+                    "msg": f"Connection timeout: Cannot reach server '{host}:{port}'. Check host and port."
+                }, 400
+            else:
+                return {
+                    "success": False,
+                    "msg": f"Connection failed: {error_msg}"
+                }, 400
+        except Exception as e:
+            return {
+                "success": False,
+                "msg": f"Connection test failed: {str(e)}"
+            }, 500

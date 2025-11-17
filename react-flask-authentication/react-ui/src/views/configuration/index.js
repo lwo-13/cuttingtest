@@ -187,23 +187,37 @@ const ConfigurationManagement = () => {
             secondary={
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
-                        variant="outlined"
-                        startIcon={<Refresh />}
+                        variant="text"
                         onClick={fetchConfiguration}
                         size="small"
+                        sx={{ minWidth: 'auto', p: 1 }}
+                        title="Reload"
                         disabled={activeTab === 8}
                     >
-                        Reload
+                        <Refresh />
                     </Button>
                     <Button
                         variant="contained"
                         startIcon={<Save />}
                         onClick={saveConfiguration}
-                        size="small"
-                        color="primary"
                         disabled={activeTab === 8}
+                        sx={{
+                            backgroundColor: 'primary.main',
+                            color: 'white',
+                            fontSize: '0.875rem',
+                            py: 0.75,
+                            px: 2,
+                            minHeight: '36px',
+                            '&:hover': {
+                                backgroundColor: 'primary.dark'
+                            },
+                            '&:disabled': {
+                                backgroundColor: 'grey.300',
+                                color: 'grey.500'
+                            }
+                        }}
                     >
-                        Save Configuration
+                        Save
                     </Button>
                 </Box>
             }

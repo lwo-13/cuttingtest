@@ -6,9 +6,41 @@ Copyright (c) 2019 - present AppSeed.us
 import os
 import random
 import string
+import json
 from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+
+def load_database_config():
+    """Load database configuration from serverSettings.json file"""
+    server_settings_path = os.path.join(BASE_DIR, '..', 'static', 'serverSettings.json')
+
+    # Default values (fallback)
+    defaults = {
+        'host': '172.27.57.201',
+        'port': '1433',
+        'name': 'CuttingRoom',
+        'user': 'sa',
+        'password': 'sqladmin',
+        'odbc_driver': 'ODBC Driver 18 for SQL Server'
+    }
+
+    try:
+        if os.path.exists(server_settings_path):
+            with open(server_settings_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return {
+                    'host': data.get('databaseHost', defaults['host']),
+                    'port': data.get('databasePort', defaults['port']),
+                    'name': data.get('databaseName', defaults['name']),
+                    'user': data.get('databaseUser', defaults['user']),
+                    'password': data.get('databasePassword', defaults['password']),
+                    'odbc_driver': data.get('odbcDriver', defaults['odbc_driver'])
+                }
+    except Exception as e:
+        print(f"[CONFIG] Error loading database config from file: {e}")
+
+    return defaults
 
 class BaseConfig():
 
@@ -21,16 +53,20 @@ class BaseConfig():
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # MS SQL Server Credentials
+    # Load database credentials from serverSettings.json
+    _db_config = load_database_config()
     DB_ENGINE = 'mssql+pyodbc'
-    DB_USERNAME = 'sa'
-    DB_PASS = 'sqladmin'
-    DB_HOST = '172.27.57.201'
-    DB_PORT = '1433'  # Default SQL Server port
-    DB_NAME = 'CuttingRoom'
+    DB_USERNAME = _db_config['user']
+    DB_PASS = _db_config['password']
+    DB_HOST = _db_config['host']
+    DB_PORT = _db_config['port']
+    DB_NAME = _db_config['name']
+    DB_ODBC_DRIVER = _db_config['odbc_driver']
 
-    # Build the SQLAlchemy connection string for MS SQL Server using ODBC 18
+    # Build the SQLAlchemy connection string for MS SQL Server using ODBC
+    # Replace spaces with + in driver name for URL encoding
+    driver_for_url = DB_ODBC_DRIVER.replace(' ', '+')
     SQLALCHEMY_DATABASE_URI = (
     f"mssql+pyodbc://{DB_USERNAME}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&charset=utf8"
+    f"?driver={driver_for_url}&TrustServerCertificate=yes&charset=utf8"
     )
