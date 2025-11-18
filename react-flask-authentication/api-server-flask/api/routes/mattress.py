@@ -992,15 +992,22 @@ class GetAllMattressesWithDetailsResource(Resource):
                     MattressMarker.mattress_id.in_(mattress_id_list)
                 ).all()
 
+                # ✅ Step 5: Get collaretto details for ASW/MSW/ASB/MSB mattresses
+                collaretto_data = db.session.query(CollarettoDetail).filter(
+                    CollarettoDetail.mattress_id.in_(mattress_id_list)
+                ).all()
+
                 # ✅ Create lookup dictionaries for fast access
                 details_dict = {detail.mattress_id: detail for detail in details_data}
                 markers_dict = {marker.mattress_id: marker for marker in markers_data}
+                collaretto_dict = {coll.mattress_id: coll for coll in collaretto_data}
 
                 # ✅ Build response data efficiently using lookup dictionaries
                 data = []
                 for mattress in mattresses_data:
                     detail = details_dict.get(mattress.id)
                     marker = markers_dict.get(mattress.id)
+                    collaretto = collaretto_dict.get(mattress.id)
 
                     mattress_dict = {
                         "id": mattress.id,
@@ -1025,7 +1032,8 @@ class GetAllMattressesWithDetailsResource(Resource):
                             "length_mattress": detail.length_mattress if detail else 0,
                             "cons_planned": detail.cons_planned if detail else 0,
                             "extra": detail.extra if detail else 0,
-                            "bagno_ready": detail.bagno_ready if detail else False
+                            "bagno_ready": detail.bagno_ready if detail else False,
+                            "usable_width": collaretto.usable_width if collaretto else None
                         }],
                         # Only include the marker fields that the frontend actually uses
                         "markers": [{

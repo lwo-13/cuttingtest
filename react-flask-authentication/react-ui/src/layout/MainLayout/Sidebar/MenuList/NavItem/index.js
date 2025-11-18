@@ -130,8 +130,12 @@ const NavItem = ({ item, level }) => {
                       // Handle URLs with query parameters for single items
                       const itemUrl = new URL(item.url, window.location.origin);
                       const currentUrl = new URL(location.pathname + location.search, window.location.origin);
-                      return currentUrl.pathname === itemUrl.pathname &&
-                             currentUrl.search === itemUrl.search;
+                      // Check if current path starts with item path (for parent routes like /configuration)
+                      // or exact match for other routes
+                      const isExactMatch = currentUrl.pathname === itemUrl.pathname &&
+                                          currentUrl.search === itemUrl.search;
+                      const isChildPath = currentUrl.pathname.startsWith(itemUrl.pathname + '/');
+                      return isExactMatch || isChildPath;
                     })()
               }
             onClick={() => itemHandler(item.id)}

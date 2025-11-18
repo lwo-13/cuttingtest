@@ -85,7 +85,7 @@ const MattressRowReadOnly = ({ row, orderSizes, onEditActualLayers, isClosedOrde
       {/* Marker Length */}
       <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '1px' }}>
         <Typography variant="body1" sx={{ fontWeight: 'normal', textAlign: 'center' }}>
-          {row.markerLength || '-'}
+          {row.markerLength ? parseFloat(row.markerLength).toFixed(3) : '-'}
         </Typography>
       </TableCell>
 

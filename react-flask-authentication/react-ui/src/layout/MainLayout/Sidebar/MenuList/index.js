@@ -26,7 +26,7 @@ const MenuList = () => {
                 return userRole === 'Cutter';
 
             case 'subcontractor':
-                return ['Subcontractor', 'Manager', 'Project Admin'].includes(userRole);
+                return userRole === 'Subcontractor';
 
             case 'logistic':
                 return userRole === 'Logistic';

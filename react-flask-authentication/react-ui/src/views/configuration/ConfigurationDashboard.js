@@ -16,7 +16,8 @@ import {
     IconUsers,
     IconDatabase,
     IconTool,
-    IconApps
+    IconApps,
+    IconUserCheck
 } from '@tabler/icons';
 import MainCard from 'ui-component/cards/MainCard';
 
@@ -73,6 +74,14 @@ const ConfigurationDashboard = () => {
             icon: IconApps,
             path: '/configuration/application-modules',
             color: '#00897b'
+        },
+        {
+            id: 'operators',
+            title: 'Operators',
+            description: 'Manage spreader and cutter operators',
+            icon: IconUserCheck,
+            path: '/configuration/operators',
+            color: '#f57c00'
         }
     ];
 

@@ -466,7 +466,8 @@ def read_application_modules():
         "tables": True,
         "importPrintTools": True,
         "collarettoOperations": True,
-        "operatorsManagement": True
+        "operatorsManagement": True,
+        "subcontractorManagement": True
     }
 
     if not os.path.exists(APPLICATION_MODULES_SETTINGS_PATH):

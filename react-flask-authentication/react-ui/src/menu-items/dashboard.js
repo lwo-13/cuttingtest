@@ -1,6 +1,7 @@
 // assets
-import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar, IconClipboardList, IconClipboardCheck, IconBuilding, IconBuildingFactory } from '@tabler/icons';
+import { IconDashboard, IconDeviceAnalytics, IconListCheck, IconChartBar, IconClipboardList, IconClipboardCheck, IconBuilding, IconBuildingFactory, IconBrain } from '@tabler/icons';
 import i18n from '../i18n';
+import { INTERNAL_CUTTING_ROOM } from '../utils/installationConfig';
 
 //-----------------------|| DASHBOARD MENU ITEMS ||-----------------------//
 
@@ -26,8 +27,8 @@ export const dashboard = {
                     breadcrumbs: false
                 },
                 {
-                    id: 'kpi-zalli',
-                    title: 'Zalli',
+                    id: 'kpi-internal',
+                    title: INTERNAL_CUTTING_ROOM,
                     type: 'item',
                     url: '/dashboard/zalli',
                     icon: IconBuilding,
@@ -68,6 +69,14 @@ export const dashboard = {
                     breadcrumbs: false
                 }
             ]
+        },
+        {
+            id: 'ai-analysis',
+            title: i18n.t('sidebar.aiAnalysis', 'AI Analysis'),
+            type: 'item',
+            url: '/dashboard/ai-analysis',
+            icon: IconBrain,
+            breadcrumbs: false
         }
 
     ]

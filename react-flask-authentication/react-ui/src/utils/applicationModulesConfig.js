@@ -10,4 +10,5 @@ export const TABLES_ENABLED = true;
 export const IMPORT_PRINT_TOOLS_ENABLED = true;
 export const COLLARETTO_OPERATIONS_ENABLED = true;
 export const OPERATORS_MANAGEMENT_ENABLED = true;
+export const SUBCONTRACTOR_MANAGEMENT_ENABLED = true;
 

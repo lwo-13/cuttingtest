@@ -23,7 +23,8 @@ const ApplicationModules = () => {
         tables: true,
         importPrintTools: true,
         collarettoOperations: true,
-        operatorsManagement: true
+        operatorsManagement: true,
+        subcontractorManagement: true
     });
     const [originalModules, setOriginalModules] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -111,7 +112,8 @@ const ApplicationModules = () => {
         { key: 'tables', label: 'Tables', description: 'Orders, Marker Database, and Pad Prints' },
         { key: 'importPrintTools', label: 'Import & Print Tools', description: 'Import and print functionality' },
         { key: 'collarettoOperations', label: 'Collaretto Operations', description: 'Create, Reprint, and Delete collaretto' },
-        { key: 'operatorsManagement', label: 'Operators Management', description: 'Manage spreader, cutter, collaretto, and warehouse operators' }
+        { key: 'operatorsManagement', label: 'Operators Management', description: 'Manage spreader, cutter, collaretto, and warehouse operators' },
+        { key: 'subcontractorManagement', label: 'Subcontractor Management', description: 'Subcontractor views, KPI dashboard, and order management' }
     ];
 
     return (

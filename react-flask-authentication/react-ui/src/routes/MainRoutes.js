@@ -14,8 +14,10 @@ const DashboardDefault = Loadable(lazy(() => import('../views/dashboard/Default'
 const KpiZalli = Loadable(lazy(() => import('../views/dashboard/KpiZalli')));
 const ConsumptionAnalytics = Loadable(lazy(() => import('../views/dashboard/ConsumptionAnalytics')));
 const OrderReport = Loadable(lazy(() => import('../views/dashboard/orderreport')));
+const AIAnalysis = Loadable(lazy(() => import('../views/dashboard/AIAnalysis')));
 
 // planning routing
+const Coverage = Loadable(lazy(() => import('../views/planning/Coverage')));
 const KanbanBoard = Loadable(lazy(() => import('../views/planning/kanbanboard')));
 const OrderPlanning = Loadable(lazy(() => import('../views/planning/orderplanning')));
 
@@ -66,10 +68,6 @@ const CollarettoOpsCreate = Loadable(lazy(() => import('../views/collaretto-ops/
 const CollarettoOpsReprint = Loadable(lazy(() => import('../views/collaretto-ops/reprint')));
 const CollarettoOpsDelete = Loadable(lazy(() => import('../views/collaretto-ops/delete')));
 
-// operators routing
-const SpreaderOperatorManagement = Loadable(lazy(() => import('../views/operators/spreaderOperatorManagement')));
-const CutterOperatorManagement = Loadable(lazy(() => import('../views/operators/cutterOperatorManagement')));
-
 // configuration routing
 const ConfigurationDashboard = Loadable(lazy(() => import('../views/configuration/ConfigurationDashboard')));
 
@@ -84,6 +82,8 @@ const ServerSettings = Loadable(lazy(() => import('../views/configuration/Server
 const InstallationSettings = Loadable(lazy(() => import('../views/configuration/InstallationSettings')));
 
 const ApplicationModules = Loadable(lazy(() => import('../views/configuration/ApplicationModules')));
+
+const OperatorsConfiguration = Loadable(lazy(() => import('../views/configuration/OperatorsConfiguration')));
 
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
@@ -129,7 +129,9 @@ const MainRoutes = () => {
                     '/dashboard/zalli',
                     '/dashboard/consumption-analytics',
                     '/dashboard/orderreport',
+                    '/dashboard/ai-analysis',
 
+                    '/planning/coverage',
                     '/planning/kanbanboard',
                     '/planning/orderplanning',
 
@@ -155,16 +157,14 @@ const MainRoutes = () => {
                     '/sample-page',
                     '/network-diagnostics',
 
-                    '/operators/spreader-management',
-
                     '/configuration',
                     '/configuration/branding',
                     '/configuration/production-centers',
                     '/configuration/user-roles',
                     '/configuration/server-settings',
                     '/configuration/installation-settings',
-
-                    '/operators/cutter-management'
+                    '/configuration/application-modules',
+                    '/configuration/operators'
                 ]}
             >
                 <MainLayout>
@@ -174,7 +174,9 @@ const MainRoutes = () => {
                             <Route path="/dashboard/zalli" component={KpiZalli} />
                             <Route path="/dashboard/consumption-analytics" component={ConsumptionAnalytics} />
                             <Route path="/dashboard/orderreport" component={OrderReport} />
+                            <Route path="/dashboard/ai-analysis" component={AIAnalysis} />
 
+                            <Route path="/planning/coverage" component={Coverage} />
                             <Route path="/planning/kanbanboard" component={KanbanBoard} />
                             <Route path="/planning/orderplanning" component={OrderPlanning} />
 
@@ -199,20 +201,6 @@ const MainRoutes = () => {
 
                             <Route path="/sample-page" component={SamplePage} />
                             <Route path="/network-diagnostics" component={NetworkDiagnostics} />
-
-
-
-                            <Route path="/operators/spreader-management">
-                                <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
-                                    <SpreaderOperatorManagement />
-                                </RoleGuard>
-                            </Route>
-
-                            <Route path="/operators/cutter-management">
-                                <RoleGuard allowedRoles={['Administrator', 'Manager', 'Project Admin']}>
-                                    <CutterOperatorManagement />
-                                </RoleGuard>
-                            </Route>
 
                             <Route path="/configuration" exact>
                                 <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
@@ -253,6 +241,12 @@ const MainRoutes = () => {
                             <Route path="/configuration/application-modules">
                                 <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
                                     <ApplicationModules />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/operators">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <OperatorsConfiguration />
                                 </RoleGuard>
                             </Route>
                         </AuthGuard>
