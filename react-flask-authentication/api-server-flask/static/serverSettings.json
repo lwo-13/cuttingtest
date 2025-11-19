@@ -1,0 +1,9 @@
+{
+  "databaseHost": "172.27.57.201",
+  "databasePort": "1433",
+  "databaseName": "CuttingRoom",
+  "databaseUser": "sa",
+  "databasePassword": "sqladmin",
+  "odbcDriver": "ODBC Driver 18 for SQL Server",
+  "consumptionAnalyticsPowerBiUrl": "https://app.powerbi.com/view?r=eyJrIjoiOTNiMGFhNWMtMjM5MS00NmQwLTliMDYtNmVhODEyNWE5MGYwIiwidCI6IjYwNTllMzY5LTQzYzktNDM4My04ODk0LTIzYTlkNTk1N2NlYiIsImMiOjh9&pageName=ReportSection&$filter=&navContentPaneEnabled=false&filterPaneEnabled=false"
+}

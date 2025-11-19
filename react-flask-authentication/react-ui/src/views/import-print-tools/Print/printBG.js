@@ -55,23 +55,39 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
         
             const mattressDetails = mattress.details?.[0] || {};
             const mattressMarkers = mattress.markers?.[0] || {};
-        
+
             const layers = ensureString(mattressDetails.layers);
             const consPlanned = ensureString(mattressDetails.cons_planned);
-            const extra = ensureString(mattressDetails.extra);
-            const markerName = ensureString(mattressMarkers.marker_name);
-            const markerWidth = ensureString(mattressMarkers.marker_width);
-            const markerLength = ensureString(mattressMarkers.marker_length);
+            // Set extra to "0" instead of "N/A" when not available
+            const extraValue = mattressDetails.extra || mattressDetails.allowance;
+            const extra = extraValue !== null && extraValue !== undefined ? ensureString(extraValue) : "0";
 
-            // Fetch marker lines from API
+            // Check if this is a collaretto mattress (ASW, MSW, ASB, MSB)
+            const isCollaretto = ['ASW', 'MSW', 'ASB', 'MSB'].includes(mattress.item_type);
+
+            let markerName, markerWidth, markerLength;
             let markerLines = [];
-            try {
-                const response = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
-                if (response.data.success) {
-                    markerLines = response.data.marker_lines;
+
+            if (isCollaretto) {
+                // For collaretto mattresses, use different fields
+                markerName = ""; // No marker name for collaretto
+                markerWidth = ensureString(mattressDetails.usable_width);
+                markerLength = ensureString(mattressDetails.length_mattress);
+            } else {
+                // For normal mattresses, use marker data
+                markerName = ensureString(mattressMarkers.marker_name);
+                markerWidth = ensureString(mattressMarkers.marker_width);
+                markerLength = ensureString(mattressMarkers.marker_length);
+
+                // Fetch marker lines from API (only for normal mattresses)
+                try {
+                    const response = await axios.get(`/markers/marker_pcs?marker_name=${markerName}`);
+                    if (response.data.success) {
+                        markerLines = response.data.marker_lines;
+                    }
+                } catch (error) {
+                    // Error fetching marker lines - continue without them
                 }
-            } catch (error) {
-                // Error fetching marker lines - continue without them
             }
 
             // Variables to hold season, style, and color.
@@ -91,22 +107,25 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 // Error fetching order lines - continue without them
             }
 
+            // Only fetch padprint data for non-collaretto mattresses
             let padPrintData = [];
-            try {
-            // Query the padprint endpoint using the extracted season, style, and color.
-            const padPrintResponse = await axios.get(
-                `/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
-            );
-            if (padPrintResponse.data.success) {
-                padPrintData = padPrintResponse.data.data; // Array of padprint objects.
-                if (padPrintData.length === 0) {
+            if (!isCollaretto) {
+                try {
+                // Query the padprint endpoint using the extracted season, style, and color.
+                const padPrintResponse = await axios.get(
+                    `/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
+                );
+                if (padPrintResponse.data.success) {
+                    padPrintData = padPrintResponse.data.data; // Array of padprint objects.
+                    if (padPrintData.length === 0) {
+                        padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
+                    }
+                } else {
                     padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                 }
-            } else {
-                padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
-            }
-            } catch (error) {
-                padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
+                } catch (error) {
+                    padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
+                }
             }
 
             // Padprint GetImage Helper
@@ -137,10 +156,9 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 }
             };
             
+            // Only load padprint image for non-collaretto mattresses
             let padPrintImage = null;
-
-            // Only try to load image if pattern is not "NO" and not "TRANSFER"
-            if (padPrintData.length > 0 &&
+            if (!isCollaretto && padPrintData.length > 0 &&
                 padPrintData[0].pattern !== "NO" &&
                 padPrintData[0].pattern.toUpperCase() !== "TRANSFER") {
 
@@ -170,9 +188,10 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 // Error fetching destination - continue without it
             }
 
+            // Build orderTable - exclude marker name for collaretto mattresses
             const orderTable = [
                 { label: "Капак №", value: mattressName },
-                { label: "Модел №", value: markerName },
+                ...(isCollaretto ? [] : [{ label: "Модел №", value: markerName }]),
                 { label: "Поръчка №", value: orderCommessa },
                 { label: "Сектор:", value: destination, _horizontal: true }
             ];
@@ -295,100 +314,105 @@ const printMattressBG = async (selectedMattresses, fetchMattresses) => {
                 });
             });
 
-            // Determine the starting Y position for the padprint table (positioned below the marker table).
-            const padPrintTableStartY = manualTableStartY + 2 * 40;
+            // Only render padprint table and image for non-collaretto mattresses
+            if (!isCollaretto) {
+                // Determine the starting Y position for the padprint table (positioned below the marker table).
+                const padPrintTableStartY = manualTableStartY + 2 * 40;
 
-            // Draw the header row for the padprint table.
-            padPrintHeaders.forEach((header, i) => {
-            const cellX = layersStartX + i * columnWidth;
-            doc.rect(cellX, padPrintTableStartY, columnWidth, rowHeight);
-            doc.setFont("Roboto-Bold", "bold");
-            doc.text(
-                header,
-                cellX + columnWidth / 2,
-                padPrintTableStartY + rowHeight / 2 + 2,
-                { align: "center" }
-            );
-            });
-
-            // Draw the padprint data rows.
-            padPrintData.forEach((item, index) => {
-            const yPos = padPrintTableStartY + (index + 1) * rowHeight;
-            // Extract only 'pattern' and 'padprint_color' from each padprint item.
-            const rowData = [item.pattern, item.padprint_color];
-
-            rowData.forEach((cell, i) => {
+                // Draw the header row for the padprint table.
+                padPrintHeaders.forEach((header, i) => {
                 const cellX = layersStartX + i * columnWidth;
-                doc.rect(cellX, yPos, columnWidth, rowHeight);
-                doc.setFont("Roboto-Regular", "normal");
+                doc.rect(cellX, padPrintTableStartY, columnWidth, rowHeight);
+                doc.setFont("Roboto-Bold", "bold");
                 doc.text(
-                cell.toString(),
-                cellX + columnWidth / 2,
-                yPos + rowHeight / 2 + 2,
-                { align: "center" }
+                    header,
+                    cellX + columnWidth / 2,
+                    padPrintTableStartY + rowHeight / 2 + 2,
+                    { align: "center" }
                 );
-            });
-            });
+                });
 
-            const boxWidth = columnWidth * 2;
-            const boxHeight = 40;
-            const boxX = layersStartX;
-            const boxY = padPrintTableStartY + 20;
+                // Draw the padprint data rows.
+                padPrintData.forEach((item, index) => {
+                const yPos = padPrintTableStartY + (index + 1) * rowHeight;
+                // Extract only 'pattern' and 'padprint_color' from each padprint item.
+                const rowData = [item.pattern, item.padprint_color];
 
-            if (padPrintImage) {
-                const { base64, width, height } = padPrintImage;
-            
-                // Calculate scale to fit within the box
-                const scale = Math.min(boxWidth / width, boxHeight / height);
-                const imgWidth = width * scale;
-                const imgHeight = height * scale;
-            
-                // Center image in the box
-                const offsetX = boxX + (boxWidth - imgWidth) / 2;
-                const offsetY = boxY + (boxHeight - imgHeight) / 2;
-            
-                doc.addImage(base64, 'JPEG', offsetX, offsetY, imgWidth, imgHeight);
-            }            
+                rowData.forEach((cell, i) => {
+                    const cellX = layersStartX + i * columnWidth;
+                    doc.rect(cellX, yPos, columnWidth, rowHeight);
+                    doc.setFont("Roboto-Regular", "normal");
+                    doc.text(
+                    cell.toString(),
+                    cellX + columnWidth / 2,
+                    yPos + rowHeight / 2 + 2,
+                    { align: "center" }
+                    );
+                });
+                });
 
-            if (!padPrintImage) {
-                const commentBoxStartY = padPrintTableStartY + 24;
-                const commentBoxHeight = 37;
-                const commentBoxWidth = columnWidth * 2;
+                const boxWidth = columnWidth * 2;
+                const boxHeight = 40;
+                const boxX = layersStartX;
+                const boxY = padPrintTableStartY + 20;
 
-                doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
+                if (padPrintImage) {
+                    const { base64, width, height } = padPrintImage;
 
-                doc.setFont('Roboto-Bold', 'bold');
-                doc.text("Коментар", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
+                    // Calculate scale to fit within the box
+                    const scale = Math.min(boxWidth / width, boxHeight / height);
+                    const imgWidth = width * scale;
+                    const imgHeight = height * scale;
+
+                    // Center image in the box
+                    const offsetX = boxX + (boxWidth - imgWidth) / 2;
+                    const offsetY = boxY + (boxHeight - imgHeight) / 2;
+
+                    doc.addImage(base64, 'JPEG', offsetX, offsetY, imgWidth, imgHeight);
+                }
+
+                if (!padPrintImage) {
+                    const commentBoxStartY = padPrintTableStartY + 24;
+                    const commentBoxHeight = 37;
+                    const commentBoxWidth = columnWidth * 2;
+
+                    doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
+
+                    doc.setFont('Roboto-Bold', 'bold');
+                    doc.text("Коментар", layersStartX + commentBoxWidth / 2, commentBoxStartY + 5, { align: "center" });
+                }
             }
 
-            // Marker Details Table (Bottom)
-            const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
-            const markerColumnWidth = 40;
+            // Marker Details Table (Bottom) - Only for non-collaretto mattresses
+            if (!isCollaretto) {
+                const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
+                const markerColumnWidth = 40;
 
-            doc.setFont('Roboto-Bold', 'bold');
+                doc.setFont('Roboto-Bold', 'bold');
 
-            // Header Row
-            doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
-            doc.rect(startX + markerColumnWidth, markerTableStartY, markerColumnWidth, rowHeight);
-            doc.rect(startX + markerColumnWidth * 2, markerTableStartY, markerColumnWidth, rowHeight);
+                // Header Row
+                doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
+                doc.rect(startX + markerColumnWidth, markerTableStartY, markerColumnWidth, rowHeight);
+                doc.rect(startX + markerColumnWidth * 2, markerTableStartY, markerColumnWidth, rowHeight);
 
-            doc.text("Модел", startX + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
-            doc.text("Размер", startX + markerColumnWidth + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
-            doc.text("Бройки в кат", startX + markerColumnWidth * 2 + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+                doc.text("Модел", startX + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+                doc.text("Размер", startX + markerColumnWidth + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
+                doc.text("Бройки в кат", startX + markerColumnWidth * 2 + markerColumnWidth / 2, markerTableStartY + rowHeight / 2 + 2, { align: "center" });
 
-            // Fill Data
-            markerLines.forEach((row, index) => {
-                const yPos = markerTableStartY + (index + 1) * rowHeight;
+                // Fill Data
+                markerLines.forEach((row, index) => {
+                    const yPos = markerTableStartY + (index + 1) * rowHeight;
 
-                doc.rect(startX, yPos, markerColumnWidth, rowHeight);
-                doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight);
-                doc.rect(startX + markerColumnWidth * 2, yPos, markerColumnWidth, rowHeight);
+                    doc.rect(startX, yPos, markerColumnWidth, rowHeight);
+                    doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight);
+                    doc.rect(startX + markerColumnWidth * 2, yPos, markerColumnWidth, rowHeight);
 
-                doc.setFont('Roboto-Regular', 'normal');
-                doc.text(row.style, startX + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
-                doc.text(row.size, startX + markerColumnWidth + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
-                doc.text(row.pcs_on_layer.toString(), startX + markerColumnWidth * 2 + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
-            });
+                    doc.setFont('Roboto-Regular', 'normal');
+                    doc.text(row.style, startX + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+                    doc.text(row.size, startX + markerColumnWidth + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+                    doc.text(row.pcs_on_layer.toString(), startX + markerColumnWidth * 2 + markerColumnWidth / 2, yPos + rowHeight / 2 + 2, { align: "center" });
+                });
+            }
 
             // Position for the vertical line further right
             const separatorX = layersStartX + 80;

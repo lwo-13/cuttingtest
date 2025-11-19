@@ -4,7 +4,7 @@ import axios from 'utils/axiosInstance';
 
 // material-ui
 import { makeStyles } from '@mui/styles';
-import { Avatar, List, ListItem, ListItemAvatar, ListItemText, Typography, ToggleButton, ToggleButtonGroup, Box, Chip } from '@mui/material';
+import { Avatar, List, ListItem, ListItemAvatar, ListItemText, Typography, Box, Chip } from '@mui/material';
 
 // project imports
 import MainCard from './../../../ui-component/cards/MainCard';
@@ -62,19 +62,17 @@ const useStyles = makeStyles((theme) => ({
 
 const LongMattressCard = ({ isLoading, selectedPeriod }) => {
     const classes = useStyles();
-    const [percentage, setPercentage] = useState(0);
-    const [threshold, setThreshold] = useState(8);
-    const [trend, setTrend] = useState(null);
-    const [trendValue, setTrendValue] = useState(0);
+    const [ranges, setRanges] = useState([]);
+    const [totalMattresses, setTotalMattresses] = useState(0);
 
     useEffect(() => {
         const fetchLongMattressPercentage = async () => {
             try {
-                const response = await axios.get(`/dashboard/long-mattress-percentage?period=${selectedPeriod}&threshold=${threshold}`);
+                // Always use 6m threshold to get full breakdown
+                const response = await axios.get(`/dashboard/long-mattress-percentage?period=${selectedPeriod}&threshold=6`);
                 if (response.data.success) {
-                    setPercentage(response.data.data.percentage || 0);
-                    setTrend(response.data.data.trend);
-                    setTrendValue(response.data.data.trend_value || 0);
+                    setRanges(response.data.data.ranges || []);
+                    setTotalMattresses(response.data.data.total_mattresses || 0);
                 }
             } catch (error) {
                 console.error('Error fetching long mattress percentage:', error);
@@ -82,12 +80,12 @@ const LongMattressCard = ({ isLoading, selectedPeriod }) => {
         };
 
         fetchLongMattressPercentage();
-    }, [selectedPeriod, threshold]);
+    }, [selectedPeriod]);
 
-    const handleThresholdChange = (event, newThreshold) => {
-        if (newThreshold !== null) {
-            setThreshold(newThreshold);
-        }
+    // Color palette for ranges
+    const getRangeColor = (index, total) => {
+        const colors = ['#e3f2fd', '#90caf9', '#42a5f5', '#1976d2'];
+        return colors[index % colors.length];
     };
 
     return (
@@ -97,109 +95,84 @@ const LongMattressCard = ({ isLoading, selectedPeriod }) => {
             ) : (
                 <MainCard border={false} className={classes.card} contentClass={classes.content} sx={{ height: '100%' }}>
                     <List className={classes.padding}>
-                        <ListItem alignItems="center" disableGutters className={classes.padding} sx={{ justifyContent: 'space-between' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <ListItemAvatar>
-                                    <Avatar variant="rounded" className={classes.avatar}>
-                                        <IconRuler2 fontSize="inherit" />
-                                    </Avatar>
-                                </ListItemAvatar>
-                                <ListItemText
-                                    className={classes.padding}
-                                    sx={{
-                                        mt: 0.45,
-                                        mb: 0.45
-                                    }}
-                                    primary={
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Typography variant="h4" className={classes.primary}>
-                                                {percentage.toFixed(1)}%
-                                            </Typography>
-                                            {trend && (
+                        <ListItem alignItems="center" disableGutters className={classes.padding}>
+                            <ListItemAvatar>
+                                <Avatar variant="rounded" className={classes.avatar}>
+                                    <IconRuler2 fontSize="inherit" />
+                                </Avatar>
+                            </ListItemAvatar>
+                            <Box sx={{ flex: 1, mr: 5 }}>
+                                {/* Length Range Breakdown */}
+                                {ranges.length > 0 && totalMattresses > 0 && (
+                                    <Box>
+                                        {/* Stacked Progress Bar */}
+                                        <Box sx={{
+                                            display: 'flex',
+                                            height: '24px',
+                                            borderRadius: '12px',
+                                            overflow: 'hidden',
+                                            backgroundColor: 'grey.200',
+                                            mb: 0.75,
+                                            border: '1px solid',
+                                            borderColor: 'grey.300'
+                                        }}>
+                                            {ranges.map((range, index) => (
+                                                range.percentage > 0 && (
+                                                    <Box
+                                                        key={index}
+                                                        sx={{
+                                                            width: `${range.percentage}%`,
+                                                            backgroundColor: getRangeColor(index, ranges.length),
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.3s ease',
+                                                            position: 'relative',
+                                                            borderRight: index < ranges.length - 1 ? '1px solid rgba(255,255,255,0.4)' : 'none'
+                                                        }}
+                                                        title={`${range.label}: ${range.count} mattresses (${range.percentage.toFixed(1)}%)`}
+                                                    >
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: index >= 2 ? 'white' : 'primary.dark',
+                                                                fontWeight: 600,
+                                                                fontSize: '0.6rem',
+                                                                textAlign: 'center',
+                                                                px: 0.5
+                                                            }}
+                                                        >
+                                                            {range.percentage > 12 ? `${range.percentage.toFixed(0)}%` : ''}
+                                                        </Typography>
+                                                    </Box>
+                                                )
+                                            ))}
+                                        </Box>
+
+                                        {/* Legend with Chips */}
+                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            {ranges.map((range, index) => (
                                                 <Chip
-                                                    icon={
-                                                        trend === 'up' ? (
-                                                            <IconTrendingUp size={14} />
-                                                        ) : trend === 'down' ? (
-                                                            <IconTrendingDown size={14} />
-                                                        ) : (
-                                                            <IconMinus size={14} />
-                                                        )
-                                                    }
-                                                    label={`${trendValue > 0 ? '+' : ''}${trendValue.toFixed(1)}%`}
+                                                    key={index}
+                                                    label={range.label}
                                                     size="small"
                                                     sx={{
                                                         height: '20px',
-                                                        fontSize: '0.7rem',
-                                                        fontWeight: 600,
-                                                        backgroundColor: trend === 'up' ? 'success.light' : trend === 'down' ? 'error.light' : 'grey.300',
-                                                        color: trend === 'up' ? 'success.dark' : trend === 'down' ? 'error.dark' : 'grey.700',
-                                                        '& .MuiChip-icon': {
-                                                            color: 'inherit',
-                                                            marginLeft: '4px'
+                                                        fontSize: '0.65rem',
+                                                        fontWeight: 500,
+                                                        backgroundColor: getRangeColor(index, ranges.length),
+                                                        color: index >= 2 ? 'white' : 'primary.dark',
+                                                        '& .MuiChip-label': {
+                                                            px: 1.5,
+                                                            py: 0
                                                         }
                                                     }}
                                                 />
-                                            )}
+                                            ))}
                                         </Box>
-                                    }
-                                    secondary={
-                                        <Typography variant="subtitle2" className={classes.secondary}>
-                                            AS Mattresses > {threshold}m
-                                        </Typography>
-                                    }
-                                />
+                                    </Box>
+                                )}
                             </Box>
-                            <ToggleButtonGroup
-                                value={threshold}
-                                exclusive
-                                onChange={handleThresholdChange}
-                                size="small"
-                                sx={{
-                                    height: '28px',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                    borderRadius: '6px',
-                                    padding: '2px',
-                                    mr: 4,
-                                    '& .MuiToggleButtonGroup-grouped': {
-                                        border: 0,
-                                        '&:not(:first-of-type)': {
-                                            borderRadius: '4px',
-                                            marginLeft: '2px'
-                                        },
-                                        '&:first-of-type': {
-                                            borderRadius: '4px'
-                                        }
-                                    },
-                                    '& .MuiToggleButton-root': {
-                                        px: 1.5,
-                                        py: 0.5,
-                                        fontSize: '0.875rem',
-                                        fontWeight: 600,
-                                        textTransform: 'none',
-                                        color: 'grey.500',
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        '&:hover': {
-                                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                            color: 'grey.700'
-                                        },
-                                        '&.Mui-selected': {
-                                            backgroundColor: 'primary.light',
-                                            color: 'primary.dark',
-                                            fontWeight: 700,
-                                            boxShadow: 'none',
-                                            '&:hover': {
-                                                backgroundColor: 'primary.light',
-                                            }
-                                        }
-                                    }
-                                }}
-                            >
-                                <ToggleButton value={6}>6m</ToggleButton>
-                                <ToggleButton value={8}>8m</ToggleButton>
-                                <ToggleButton value={10}>10m</ToggleButton>
-                            </ToggleButtonGroup>
                         </ListItem>
                     </List>
                 </MainCard>

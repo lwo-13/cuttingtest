@@ -1,5 +1,5 @@
 // assets
-import { IconLayoutKanban, IconTemplate  } from '@tabler/icons';
+import { IconLayoutKanban, IconTemplate, IconChartDots  } from '@tabler/icons';
 import i18n from '../i18n';
 
 //-----------------------|| PLANNING MENU ITEMS ||-----------------------//
@@ -9,6 +9,14 @@ const planning = {
   title: i18n.t('sidebar.planning'),
   type: 'group',
   children: [
+    {
+      id: 'coverage',
+      title: i18n.t('sidebar.coverage', 'Coverage'),
+      type: 'item',
+      url: '/planning/coverage',
+      icon: IconChartDots,
+      breadcrumbs: false
+    },
     {
         id: 'kanban',
         title: i18n.t('sidebar.board'),

@@ -50,22 +50,38 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
 
             const layers = ensureString(mattressDetails.layers);
             const consPlanned = ensureString(mattressDetails.cons_planned);
-            const extra = ensureString(mattressDetails.extra);
-            const markerName = ensureString(mattressMarkers.marker_name);
-            const markerWidth = ensureString(mattressMarkers.marker_width);
-            const markerLength = ensureString(mattressMarkers.marker_length);
+            // Set extra to "0" instead of "N/A" when not available
+            const extraValue = mattressDetails.extra;
+            const extra = extraValue !== null && extraValue !== undefined ? ensureString(extraValue) : "0";
 
-            // ✅ Fetch marker lines from API
+            // Check if this is a collaretto mattress (ASW, MSW, ASB, MSB)
+            const isCollaretto = ['ASW', 'MSW', 'ASB', 'MSB'].includes(mattress.item_type);
+
+            let markerName, markerWidth, markerLength;
             let markerLines = [];
-            try {
-                const response = await axios.get(
-                    `/markers/marker_pcs?marker_name=${markerName}`
-                );
-                if (response.data.success) {
-                    markerLines = response.data.marker_lines;
+
+            if (isCollaretto) {
+                // For collaretto mattresses, use different fields
+                markerName = ""; // No marker name for collaretto
+                markerWidth = ensureString(mattressDetails.usable_width);
+                markerLength = ensureString(mattressDetails.length_mattress);
+            } else {
+                // For normal mattresses, use marker data
+                markerName = ensureString(mattressMarkers.marker_name);
+                markerWidth = ensureString(mattressMarkers.marker_width);
+                markerLength = ensureString(mattressMarkers.marker_length);
+
+                // Fetch marker lines from API (only for normal mattresses)
+                try {
+                    const response = await axios.get(
+                        `/markers/marker_pcs?marker_name=${markerName}`
+                    );
+                    if (response.data.success) {
+                        markerLines = response.data.marker_lines;
+                    }
+                } catch (error) {
+                    // Error fetching marker lines - continue without them
                 }
-            } catch (error) {
-                // Error fetching marker lines - continue without them
             }
 
             // Variables to hold season, style, and color.
@@ -88,23 +104,25 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                 // Error fetching order lines - continue without them
             }
 
+            // Only fetch padprint data for non-collaretto mattresses
             let padPrintData = [];
-
-            try {
-                // Query the padprint endpoint using the extracted season, style, and color.
-                const padPrintResponse = await axios.get(
-                    `/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
-                );
-                if (padPrintResponse.data.success) {
-                    padPrintData = padPrintResponse.data.data; // Array of padprint objects.
-                    if (padPrintData.length === 0) {
+            if (!isCollaretto) {
+                try {
+                    // Query the padprint endpoint using the extracted season, style, and color.
+                    const padPrintResponse = await axios.get(
+                        `/padprint/filter?season=${encodeURIComponent(season)}&style=${encodeURIComponent(style)}&color=${encodeURIComponent(color)}`
+                    );
+                    if (padPrintResponse.data.success) {
+                        padPrintData = padPrintResponse.data.data; // Array of padprint objects.
+                        if (padPrintData.length === 0) {
+                            padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
+                        }
+                    } else {
                         padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                     }
-                } else {
+                } catch (error) {
                     padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
                 }
-            } catch (error) {
-                padPrintData = [{ pattern: "NO", padprint_color: "NO" }];
             }
 
             // Padprint GetImage Helper
@@ -135,19 +153,19 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                 }
             };
             
+            // Only load padprint image for non-collaretto mattresses
             let padPrintImage = null;
-
-            if (padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
+            if (!isCollaretto && padPrintData.length > 0 && padPrintData[0].pattern !== "NO") {
                 const pattern = padPrintData[0].pattern.toLowerCase();
                 // Use axios instance to get correct base URL (works with VPN proxy)
                 const imageUrl = `${axios.defaults.baseURL}padprint/image/${pattern}.jpg`;
                 padPrintImage = await getImageBase64WithDimensions(imageUrl);
             }
 
-            // ✅ Define order table (Left Side)
+            // ✅ Define order table (Left Side) - exclude marker for collaretto mattresses
             const orderTable = [
                 { label: "Mattress Name", value: mattressName },
-                { label: "Marker", value: markerName },
+                ...(isCollaretto ? [] : [{ label: "Marker", value: markerName }]),
                 { label: "Order Commessa", value: orderCommessa },
                 { label: "Spreader", value: "" } // ✅ Empty field
             ];
@@ -303,150 +321,155 @@ const printMattressEN = async (selectedMattresses, fetchMattresses) => {
                 });
             });
 
-            // Determine the starting Y position for the padprint table (positioned below the marker table).
-            const padPrintTableStartY = manualTableStartY + 2 * 40;
+            // Only render padprint table and image for non-collaretto mattresses
+            if (!isCollaretto) {
+                // Determine the starting Y position for the padprint table (positioned below the marker table).
+                const padPrintTableStartY = manualTableStartY + 2 * 40;
 
-            // Draw the header row for the padprint table.
-            padPrintHeaders.forEach((header, i) => {
-            const cellX = layersStartX + i * columnWidth;
-            doc.rect(cellX, padPrintTableStartY, columnWidth, rowHeight);
-            doc.setFont("helvetica", "bold");
-            doc.text(
-                header,
-                cellX + columnWidth / 2,
-                padPrintTableStartY + rowHeight / 2 + 2,
-                { align: "center" }
-            );
-            });
-
-            // Draw the padprint data rows.
-            padPrintData.forEach((item, index) => {
-            const yPos = padPrintTableStartY + (index + 1) * rowHeight;
-            // Extract only 'pattern' and 'padprint_color' from each padprint item.
-            const rowData = [item.pattern, item.padprint_color];
-
-            rowData.forEach((cell, i) => {
+                // Draw the header row for the padprint table.
+                padPrintHeaders.forEach((header, i) => {
                 const cellX = layersStartX + i * columnWidth;
-                doc.rect(cellX, yPos, columnWidth, rowHeight);
-                doc.setFont("helvetica", "normal");
-                doc.text(
-                cell.toString(),
-                cellX + columnWidth / 2,
-                yPos + rowHeight / 2 + 2,
-                { align: "center" }
-                );
-            });
-            });
-
-            const boxWidth = columnWidth * 2;
-            const boxHeight = 40;
-            const boxX = layersStartX;
-            const boxY = padPrintTableStartY + 20;
-
-            if (padPrintImage) {
-                const { base64, width, height } = padPrintImage;
-            
-                // Calculate scale to fit within the box
-                const scale = Math.min(boxWidth / width, boxHeight / height);
-                const imgWidth = width * scale;
-                const imgHeight = height * scale;
-            
-                // Center image in the box
-                const offsetX = boxX + (boxWidth - imgWidth) / 2;
-                const offsetY = boxY + (boxHeight - imgHeight) / 2;
-            
-                doc.addImage(base64, 'JPEG', offsetX, offsetY, imgWidth, imgHeight);
-            }            
-
-            if (!padPrintImage) {
-
-                // ✅ Positioning for the comment box
-                const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
-                const commentBoxHeight = 37;  // ✅ Enough height for writing
-                const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
-
-                // ✅ Draw the comment box
-                doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
-
-                // ✅ Add "Comments" title
+                doc.rect(cellX, padPrintTableStartY, columnWidth, rowHeight);
                 doc.setFont("helvetica", "bold");
                 doc.text(
-                    "Comments",
-                    layersStartX + commentBoxWidth / 2,
-                    commentBoxStartY + 5,
+                    header,
+                    cellX + columnWidth / 2,
+                    padPrintTableStartY + rowHeight / 2 + 2,
                     { align: "center" }
                 );
+                });
 
+                // Draw the padprint data rows.
+                padPrintData.forEach((item, index) => {
+                const yPos = padPrintTableStartY + (index + 1) * rowHeight;
+                // Extract only 'pattern' and 'padprint_color' from each padprint item.
+                const rowData = [item.pattern, item.padprint_color];
+
+                rowData.forEach((cell, i) => {
+                    const cellX = layersStartX + i * columnWidth;
+                    doc.rect(cellX, yPos, columnWidth, rowHeight);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(
+                    cell.toString(),
+                    cellX + columnWidth / 2,
+                    yPos + rowHeight / 2 + 2,
+                    { align: "center" }
+                    );
+                });
+                });
+
+                const boxWidth = columnWidth * 2;
+                const boxHeight = 40;
+                const boxX = layersStartX;
+                const boxY = padPrintTableStartY + 20;
+
+                if (padPrintImage) {
+                    const { base64, width, height } = padPrintImage;
+
+                    // Calculate scale to fit within the box
+                    const scale = Math.min(boxWidth / width, boxHeight / height);
+                    const imgWidth = width * scale;
+                    const imgHeight = height * scale;
+
+                    // Center image in the box
+                    const offsetX = boxX + (boxWidth - imgWidth) / 2;
+                    const offsetY = boxY + (boxHeight - imgHeight) / 2;
+
+                    doc.addImage(base64, 'JPEG', offsetX, offsetY, imgWidth, imgHeight);
+                }
+
+                if (!padPrintImage) {
+
+                    // ✅ Positioning for the comment box
+                    const commentBoxStartY = padPrintTableStartY + 24; // ✅ Adjusted Y position
+                    const commentBoxHeight = 37;  // ✅ Enough height for writing
+                    const commentBoxWidth = columnWidth * 2;  // ✅ Same width as Spreading & Cutting tables
+
+                    // ✅ Draw the comment box
+                    doc.rect(layersStartX, commentBoxStartY, commentBoxWidth, commentBoxHeight);
+
+                    // ✅ Add "Comments" title
+                    doc.setFont("helvetica", "bold");
+                    doc.text(
+                        "Comments",
+                        layersStartX + commentBoxWidth / 2,
+                        commentBoxStartY + 5,
+                        { align: "center" }
+                    );
+
+                }
             }
 
-            // ✅ Marker Details Table (Bottom)
-            const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
+            // ✅ Marker Details Table (Bottom) - Only for non-collaretto mattresses
+            if (!isCollaretto) {
+                const markerTableStartY = fabricTableStartY + fabricTable.length * rowHeight + 8;
 
-            doc.setFont("helvetica", "bold");
-            const markerColumnWidth = 40;
+                doc.setFont("helvetica", "bold");
+                const markerColumnWidth = 40;
 
-            // Header Row for Marker Table
-            doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
-            doc.rect(startX + markerColumnWidth, markerTableStartY, markerColumnWidth, rowHeight);
-            doc.rect(
-                startX + markerColumnWidth * 2,
-                markerTableStartY,
-                markerColumnWidth,
-                rowHeight
-            );
-
-            doc.text(
-                "Style",
-                startX + markerColumnWidth / 2,
-                markerTableStartY + rowHeight / 2 + 2,
-                { align: "center" }
-            );
-            doc.text(
-                "Size",
-                startX + markerColumnWidth + markerColumnWidth / 2,
-                markerTableStartY + rowHeight / 2 + 2,
-                { align: "center" }
-            );
-            doc.text(
-                "Pcs per Layer",
-                startX + markerColumnWidth * 2 + markerColumnWidth / 2,
-                markerTableStartY + rowHeight / 2 + 2,
-                { align: "center" }
-            );
-
-            // Fill Data for Marker Table
-            markerLines.forEach((row, index) => {
-                const yPos = markerTableStartY + (index + 1) * rowHeight;
-
-                doc.rect(startX, yPos, markerColumnWidth, rowHeight);
-                doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight);
+                // Header Row for Marker Table
+                doc.rect(startX, markerTableStartY, markerColumnWidth, rowHeight);
+                doc.rect(startX + markerColumnWidth, markerTableStartY, markerColumnWidth, rowHeight);
                 doc.rect(
                     startX + markerColumnWidth * 2,
-                    yPos,
+                    markerTableStartY,
                     markerColumnWidth,
                     rowHeight
                 );
 
-                doc.setFont("helvetica", "normal");
                 doc.text(
-                    row.style,
+                    "Style",
                     startX + markerColumnWidth / 2,
-                    yPos + rowHeight / 2 + 2,
+                    markerTableStartY + rowHeight / 2 + 2,
                     { align: "center" }
                 );
                 doc.text(
-                    row.size,
+                    "Size",
                     startX + markerColumnWidth + markerColumnWidth / 2,
-                    yPos + rowHeight / 2 + 2,
+                    markerTableStartY + rowHeight / 2 + 2,
                     { align: "center" }
                 );
                 doc.text(
-                    row.pcs_on_layer.toString(),
+                    "Pcs per Layer",
                     startX + markerColumnWidth * 2 + markerColumnWidth / 2,
-                    yPos + rowHeight / 2 + 2,
+                    markerTableStartY + rowHeight / 2 + 2,
                     { align: "center" }
                 );
-            });
+
+                // Fill Data for Marker Table
+                markerLines.forEach((row, index) => {
+                    const yPos = markerTableStartY + (index + 1) * rowHeight;
+
+                    doc.rect(startX, yPos, markerColumnWidth, rowHeight);
+                    doc.rect(startX + markerColumnWidth, yPos, markerColumnWidth, rowHeight);
+                    doc.rect(
+                        startX + markerColumnWidth * 2,
+                        yPos,
+                        markerColumnWidth,
+                        rowHeight
+                    );
+
+                    doc.setFont("helvetica", "normal");
+                    doc.text(
+                        row.style,
+                        startX + markerColumnWidth / 2,
+                        yPos + rowHeight / 2 + 2,
+                        { align: "center" }
+                    );
+                    doc.text(
+                        row.size,
+                        startX + markerColumnWidth + markerColumnWidth / 2,
+                        yPos + rowHeight / 2 + 2,
+                        { align: "center" }
+                    );
+                    doc.text(
+                        row.pcs_on_layer.toString(),
+                        startX + markerColumnWidth * 2 + markerColumnWidth / 2,
+                        yPos + rowHeight / 2 + 2,
+                        { align: "center" }
+                    );
+                });
+            }
 
             // ✅ Position for the vertical line further right
             const separatorX = layersStartX + 80; // Move it further to the right

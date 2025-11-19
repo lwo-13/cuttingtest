@@ -8,6 +8,7 @@ import TopOrdersCard from '../Default/TopOrdersCard';
 import TotalMetersSpreadedChart from '../Default/TotalMetersSpreadedChart';
 import TotalPiecesSpreadedChart from '../Default/TotalPiecesSpreadedChart';
 import { gridSpacing } from '../../../store/constant';
+import { INTERNAL_CUTTING_ROOM } from '../../../utils/installationConfig';
 
 // dashboard components
 import DateFilter from '../Default/components/DateFilter';
@@ -18,8 +19,8 @@ import StatisticsCards from '../Default/components/StatisticsCards';
 const KpiZalli = () => {
     const [isLoading, setLoading] = useState(true);
     const [selectedPeriod, setSelectedPeriod] = useState('today');
-    // Hardcode cutting room to ZALLI for this dashboard
-    const selectedCuttingRoom = 'ZALLI';
+    // Use the internal cutting room from installation settings
+    const selectedCuttingRoom = INTERNAL_CUTTING_ROOM;
     const [totalMetersCompleted, setTotalMetersCompleted] = useState(0);
     const [selectedBreakdown, setSelectedBreakdown] = useState('none'); // Shared breakdown state
 

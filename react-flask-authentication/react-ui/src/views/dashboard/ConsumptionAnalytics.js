@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // material-ui
@@ -10,18 +10,49 @@ import {
     Alert,
     Card,
     CardContent,
-    Grid
+    Grid,
+    CircularProgress
 } from '@mui/material';
 import { IconExternalLink, IconChartBar } from '@tabler/icons';
 
 // project imports
 import MainCard from '../../ui-component/cards/MainCard';
 import AnimateButton from '../../ui-component/extended/AnimateButton';
+import { getPowerBiUrl } from '../../utils/databaseConfig';
 
 //-----------------------|| CONSUMPTION ANALYTICS PAGE ||-----------------------//
 
 const ConsumptionAnalytics = () => {
     const { t } = useTranslation();
+    const [powerBiUrl, setPowerBiUrl] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Get the Power BI URL from server config
+        const url = getPowerBiUrl();
+        setPowerBiUrl(url);
+        setLoading(false);
+    }, []);
+
+    if (loading) {
+        return (
+            <MainCard>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+                    <CircularProgress />
+                </Box>
+            </MainCard>
+        );
+    }
+
+    if (!powerBiUrl) {
+        return (
+            <MainCard>
+                <Alert severity="warning">
+                    Power BI URL is not configured. Please go to Server Settings to configure it.
+                </Alert>
+            </MainCard>
+        );
+    }
 
     return (
         <MainCard>
@@ -30,7 +61,7 @@ const ConsumptionAnalytics = () => {
                     title="Cutting BI ZALLI"
                     width="100%"
                     height="100%"
-                    src="https://app.powerbi.com/view?r=eyJrIjoiOTNiMGFhNWMtMjM5MS00NmQwLTliMDYtNmVhODEyNWE5MGYwIiwidCI6IjYwNTllMzY5LTQzYzktNDM4My04ODk0LTIzYTlkNTk1N2NlYiIsImMiOjh9&pageName=ReportSection&$filter=&navContentPaneEnabled=false&filterPaneEnabled=false"
+                    src={powerBiUrl}
                     frameBorder="0"
                     allowFullScreen={true}
                     style={{

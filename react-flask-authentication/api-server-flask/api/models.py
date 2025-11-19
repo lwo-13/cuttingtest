@@ -19,7 +19,7 @@ class Users(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(32, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=True)
-    email = db.Column(db.String(64, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False, unique=False)
+    email = db.Column(db.String(64, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True, unique=False)
     password = db.Column(db.String(512, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
     jwt_auth_active = db.Column(db.Boolean, nullable=True)
     date_joined = db.Column(db.DateTime, nullable=True)

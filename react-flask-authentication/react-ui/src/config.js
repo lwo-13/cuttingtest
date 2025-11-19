@@ -32,7 +32,7 @@ export const getDefaultPathByRole = (role) => {
         case 'Cutter':
             return '/cutter/view';
         case 'Subcontractor':
-            return '/subcontractor/view';
+            return '/subcontractor/view?type=open';
         case 'Logistic':
             return '/logistic/view';
         case 'Administrator':

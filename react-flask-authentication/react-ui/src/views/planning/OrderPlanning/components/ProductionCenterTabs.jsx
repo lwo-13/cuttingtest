@@ -20,6 +20,7 @@ import { Add, Edit, Delete, Save, Cancel } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
 import MainCard from 'ui-component/cards/MainCard';
 import CumulativeQuantities from './CumulativeQuantities';
+import { getMachineSpecs } from 'utils/productionCenterConfig';
 
 const ProductionCenterTabs = forwardRef(({
     selectedOrder,
@@ -720,16 +721,42 @@ const ProductionCenterTabs = forwardRef(({
                     >
                         {combinations.map((combination, index) => {
                             const percentage = calculateCombinationPercentage(combination);
+                            const machineSpecs = getMachineSpecs(combination.cutting_room);
+                            const machineInfo = machineSpecs && machineSpecs.length > 0
+                                ? machineSpecs.map(m => {
+                                    // Only show percentage if it's not 100%
+                                    const pctText = m.percentage !== 100 ? `${m.percentage}%-` : '';
+                                    // Only show width if it's not the standard 220cm
+                                    const widthText = m.width !== 220 ? `×${m.width}cm` : '';
+                                    return `${pctText}${m.length}m${widthText}`;
+                                }).join(', ')
+                                : null;
+                            const isActiveTab = activeTab === index;
+
                             return (
                                 <Tab
                                     key={combination.combination_id}
                                     label={
                                         <Box display="flex" alignItems="center" gap={1}>
-                                            <span>
-                                                {combination.production_center} - {combination.cutting_room}
-                                                {combination.destination && combination.destination !== combination.cutting_room && ` - ${combination.destination}`}
-                                                {percentage > 0 && ` (${percentage}%)`}
-                                            </span>
+                                            <Box display="flex" flexDirection="column" alignItems="center">
+                                                <span>
+                                                    {combination.production_center} - {combination.cutting_room}
+                                                    {combination.destination && combination.destination !== combination.cutting_room && ` - ${combination.destination}`}
+                                                    {percentage > 0 && ` (${percentage}%)`}
+                                                </span>
+                                                {machineInfo && isActiveTab && (
+                                                    <Typography
+                                                        variant="caption"
+                                                        sx={{
+                                                            color: 'grey.500',
+                                                            fontSize: '0.7rem',
+                                                            mt: 0.25
+                                                        }}
+                                                    >
+                                                        {machineInfo}
+                                                    </Typography>
+                                                )}
+                                            </Box>
                                             <Edit
                                                 fontSize="small"
                                                 onClick={(e) => {

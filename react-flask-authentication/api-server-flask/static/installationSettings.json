@@ -1,0 +1,16 @@
+{
+  "internalCuttingRoom": "ZALLI",
+  "spreaderLineCount": 3,
+  "cutterLineCount": 2,
+  "cutterAssignments": {
+    "CT1": [
+      "SP1",
+      "SP2"
+    ],
+    "CT2": [
+      "SP2",
+      "SP3",
+      "SP1"
+    ]
+  }
+}
