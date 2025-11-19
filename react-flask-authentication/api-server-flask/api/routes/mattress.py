@@ -72,40 +72,21 @@ class MattressResource(Resource):
 
                 # ✅ Update mattress sizes if provided (for existing mattress)
                 if "sizes" in data:
+                    # 🔥 FIX: Delete all existing sizes first to prevent orphaned records from old markers
+                    # This ensures that when a marker changes, we don't keep sizes from the previous marker
+                    MattressSize.query.filter_by(mattress_id=mattress_id).delete()
+
+                    # Insert all new sizes fresh
                     for size_data in data["sizes"]:
-                        retry_attempts = 3
-                        for attempt in range(retry_attempts):
-                            try:
-                                mattress_size = MattressSize.query.filter_by(
-                                    mattress_id=mattress_id,
-                                    size=size_data["size"]
-                                ).first()
-
-                                if mattress_size:
-                                    mattress_size.pcs_layer = size_data["pcs_layer"]
-                                    mattress_size.pcs_planned = size_data["pcs_planned"]
-                                    mattress_size.pcs_actual = None
-                                else:
-                                    new_mattress_size = MattressSize(
-                                        mattress_id=mattress_id,
-                                        style=size_data["style"],
-                                        size=size_data["size"],
-                                        pcs_layer=size_data["pcs_layer"],
-                                        pcs_planned=size_data["pcs_planned"],
-                                        pcs_actual=None
-                                    )
-                                    db.session.add(new_mattress_size)
-
-                                break  # ✅ Success — exit retry loop
-
-                            except OperationalError as e:
-                                if "deadlock victim" in str(e).lower():
-
-                                    time.sleep(0.3)
-                                else:
-                                    raise
-                        else:
-                            raise Exception(f"❌ Failed to process mattress size {size_data['size']} after retries")
+                        new_mattress_size = MattressSize(
+                            mattress_id=mattress_id,
+                            style=size_data["style"],
+                            size=size_data["size"],
+                            pcs_layer=size_data["pcs_layer"],
+                            pcs_planned=size_data["pcs_planned"],
+                            pcs_actual=None
+                        )
+                        db.session.add(new_mattress_size)
 
             else:
                 # ✅ Insert new mattress
