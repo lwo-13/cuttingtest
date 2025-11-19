@@ -916,17 +916,35 @@ class GetBiasByOrder(Resource):
 @collaretto_api.route('/logistic/orders_by_production_center/<string:production_center>', methods=['GET'])
 class GetOrdersByProductionCenter(Resource):
     def get(self, production_center):
-        """Get all order IDs that have collaretto tables assigned to a specific production center (PXE3)"""
+        """Get all order IDs that have tables assigned to a specific production center (e.g. PXE3).
+
+        This includes:
+        - Collaretto tables (ALONG, WEFT, BIAS)
+        - Mattress tables (MATTRESS, ADHESIVE)
+        """
         try:
-            # Query distinct order IDs that have collaretto tables assigned to this production center
-            orders = db.session.query(
-                Collaretto.order_commessa
+            # Orders that have collaretto tables assigned to this production center
+            collaretto_orders = db.session.query(
+                Collaretto.order_commessa.label('order_commessa')
             ).join(
                 MattressProductionCenter, Collaretto.table_id == MattressProductionCenter.table_id
             ).filter(
                 MattressProductionCenter.production_center == production_center,
                 MattressProductionCenter.table_type.in_(['ALONG', 'WEFT', 'BIAS'])
-            ).distinct().all()
+            )
+
+            # Orders that have mattress/adhesive tables assigned to this production center
+            mattress_orders = db.session.query(
+                Mattresses.order_commessa.label('order_commessa')
+            ).join(
+                MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id
+            ).filter(
+                MattressProductionCenter.production_center == production_center,
+                MattressProductionCenter.table_type.in_(['MATTRESS', 'ADHESIVE'])
+            )
+
+            # UNION the two queries and return distinct order IDs
+            orders = collaretto_orders.union(mattress_orders).distinct().all()
 
             result = [{"order_commessa": order.order_commessa} for order in orders]
 

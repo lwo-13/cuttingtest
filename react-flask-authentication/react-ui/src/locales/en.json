@@ -490,5 +490,11 @@
       "errorFetchingDetails": "Error fetching collaretto details:",
       "collaretos": "collaretos"
     }
+  },
+  "logistic": {
+    "mattresses": "Mattresses",
+    "adhesives": "Adhesives",
+    "plannedQuantities": "Planned Quantities",
+    "actualQuantities": "Actual Quantities"
   }
 }

@@ -478,5 +478,11 @@
       "errorFetchingDetails": "Грешка при зареждане на детайли за биета:",
       "collaretos": "биета"
     }
+  },
+  "logistic": {
+    "mattresses": "Настили",
+    "adhesives": "Подплепващи",
+    "plannedQuantities": "Планирани количества",
+    "actualQuantities": "Действителни количества"
   }
 }

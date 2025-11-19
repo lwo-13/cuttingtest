@@ -11,6 +11,7 @@ const handleOrderChange = async (newValue, {
   setSelectedCuttingRoom,
   setSelectedDestination,
   setProductionCenterCombinations,
+  setSelectedCombination,
   setShowProductionCenterTabs,
   setFilteredCuttingRoom,
   setFilteredDestination,
@@ -21,6 +22,9 @@ const handleOrderChange = async (newValue, {
   setWeftTables,
   setBiasTables,
   setCollarettoLoading,
+  setMattressTables,
+  setAdhesiveTables,
+  setMattressLoading,
   sortSizes,
   clearBrand
 }) => {
@@ -35,6 +39,7 @@ const handleOrderChange = async (newValue, {
     setSelectedCuttingRoom('');
     setSelectedDestination('');
     setProductionCenterCombinations([]);
+    setSelectedCombination(null);
     setShowProductionCenterTabs(false);
     setFilteredCuttingRoom('');
     setFilteredDestination('');
@@ -42,6 +47,9 @@ const handleOrderChange = async (newValue, {
     setWeftTables([]);
     setBiasTables([]);
     setCollarettoLoading(false);
+    setMattressTables([]);
+    setAdhesiveTables([]);
+    setMattressLoading(false);
     clearBrand();
     return;
   }
@@ -51,9 +59,12 @@ const handleOrderChange = async (newValue, {
 
   // Set loading state immediately when order is selected and clear previous data
   setCollarettoLoading(true);
+  setMattressLoading(true);
   setAlongTables([]);
   setWeftTables([]);
   setBiasTables([]);
+  setMattressTables([]);
+  setAdhesiveTables([]);
 
   // First, fetch the order details from order_lines to get style, season, colorCode, and sizes
   try {
@@ -108,7 +119,8 @@ const handleOrderChange = async (newValue, {
     await fetchProductionCenterCombinations(newValue.id, {
       setProductionCenterCombinations,
       setShowProductionCenterTabs,
-      setProductionCenterLoading
+      setProductionCenterLoading,
+      setSelectedCombination
     });
 
     // Fetch collaretto data for PXE3 production center
@@ -119,12 +131,22 @@ const handleOrderChange = async (newValue, {
       setCollarettoLoading
     });
 
+    // Fetch mattress and adhesive data for PXE3 production center
+    await fetchLogisticMattressData(newValue.id, {
+      setMattressTables,
+      setAdhesiveTables,
+      setMattressLoading
+    });
+
   } catch (error) {
     console.error("❌ Error fetching logistic order data:", error);
     setAlongTables([]);
     setWeftTables([]);
     setBiasTables([]);
     setCollarettoLoading(false);
+    setMattressTables([]);
+    setAdhesiveTables([]);
+    setMattressLoading(false);
   }
 };
 
@@ -170,10 +192,136 @@ const fetchLogisticCollarettoData = async (orderCommessa, {
   }
 };
 
+const fetchLogisticMattressData = async (orderCommessa, {
+  setMattressTables,
+  setAdhesiveTables,
+  setMattressLoading
+}) => {
+  try {
+    console.log("📊 Fetching mattress data for PXE3 production center...");
+
+    // Fetch mattresses and adhesives in parallel
+    const [mattressRes, adhesiveRes] = await Promise.all([
+      axios.get(`/mattress/get_by_order/${orderCommessa}`),
+      axios.get(`/mattress/get_adhesive_by_order/${orderCommessa}`)
+    ]);
+
+    // Build mattress tables grouped by table_id, filtered to PXE3
+    const tablesById = {};
+    for (const mattress of mattressRes.data?.data || []) {
+      if (mattress.production_center !== 'PXE3') continue;
+
+      const tableId = mattress.table_id;
+      if (!tablesById[tableId]) {
+        tablesById[tableId] = {
+          id: tableId,
+          productionCenter: mattress.production_center || "",
+          cuttingRoom: mattress.cutting_room || "",
+          destination: mattress.destination || "",
+          fabricType: mattress.fabric_type,
+          fabricCode: mattress.fabric_code,
+          fabricColor: mattress.fabric_color,
+          spreadingMethod: mattress.spreading_method,
+          allowance: parseFloat(mattress.allowance) || 0,
+          spreading: mattress.item_type === "MS" ? "MANUAL" : "AUTOMATIC",
+          rows: []
+        };
+      }
+
+      tablesById[tableId].rows.push({
+        id: mattress.row_id,
+        mattressName: mattress.mattress,
+        width: mattress.marker_width || "",
+        markerName: mattress.marker_name,
+        markerLength: mattress.marker_length || "",
+        efficiency: mattress.efficiency || "",
+        piecesPerSize: mattress.size_quantities || {},
+        layers: mattress.layers || "",
+        cons_planned: mattress.cons_planned || "",
+        layers_a: mattress.layers_a || "",
+        cons_actual: mattress.cons_actual || "",
+        cons_real: mattress.cons_real || "",
+        bagno: mattress.dye_lot,
+        bagno_ready: mattress.bagno_ready || false,
+        phase_status: mattress.phase_status || "0 - NOT SET",
+        phase_operator: mattress.phase_operator || "",
+        has_pending_width_change: mattress.has_pending_width_change || false,
+        sequenceNumber: mattress.sequence_number || 0
+      });
+    }
+
+    Object.values(tablesById).forEach(table =>
+      table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+    );
+
+    const mattressTables = Object.values(tablesById);
+
+    // Build adhesive tables grouped by table_id, filtered to PXE3
+    const adhesiveTablesById = {};
+    for (const adhesive of adhesiveRes.data?.data || []) {
+      if (adhesive.production_center !== 'PXE3') continue;
+
+      const tableId = adhesive.table_id;
+      if (!adhesiveTablesById[tableId]) {
+        adhesiveTablesById[tableId] = {
+          id: tableId,
+          productionCenter: adhesive.production_center || "",
+          cuttingRoom: adhesive.cutting_room || "",
+          destination: adhesive.destination || "",
+          fabricType: adhesive.fabric_type,
+          fabricCode: adhesive.fabric_code,
+          fabricColor: adhesive.fabric_color,
+          spreadingMethod: adhesive.spreading_method,
+          allowance: parseFloat(adhesive.allowance) || 0,
+          spreading: adhesive.item_type === "MSA" ? "MANUAL" : "AUTOMATIC",
+          rows: []
+        };
+      }
+
+      adhesiveTablesById[tableId].rows.push({
+        id: adhesive.row_id,
+        mattressName: adhesive.mattress,
+        width: adhesive.marker_width || "",
+        markerName: adhesive.marker_name,
+        markerLength: adhesive.marker_length || "",
+        efficiency: adhesive.efficiency || "",
+        piecesPerSize: adhesive.size_quantities || {},
+        layers: adhesive.layers || "",
+        cons_planned: adhesive.cons_planned || "",
+        layers_a: adhesive.layers_a || "",
+        cons_actual: adhesive.cons_actual || "",
+        cons_real: adhesive.cons_real || "",
+        bagno: adhesive.dye_lot,
+        bagno_ready: adhesive.bagno_ready || false,
+        phase_status: adhesive.phase_status || "0 - NOT SET",
+        phase_operator: adhesive.phase_operator || "",
+        has_pending_width_change: adhesive.has_pending_width_change || false,
+        sequenceNumber: adhesive.sequence_number || 0
+      });
+    }
+
+    Object.values(adhesiveTablesById).forEach(table =>
+      table.rows.sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+    );
+
+    const adhesiveTables = Object.values(adhesiveTablesById);
+
+    setMattressTables(mattressTables);
+    setAdhesiveTables(adhesiveTables);
+  } catch (error) {
+    console.error("❌ Error fetching mattress data:", error);
+    setMattressTables([]);
+    setAdhesiveTables([]);
+  } finally {
+    setMattressLoading(false);
+  }
+};
+
 const fetchProductionCenterCombinations = async (orderCommessa, {
   setProductionCenterCombinations,
   setShowProductionCenterTabs,
-  setProductionCenterLoading
+  setProductionCenterLoading,
+  setSelectedCombination
 }) => {
   try {
     setProductionCenterLoading(true);
@@ -195,18 +343,24 @@ const fetchProductionCenterCombinations = async (orderCommessa, {
       // Show tabs if there are PXE3 combinations available
       if (pxe3Combinations.length > 0) {
         setShowProductionCenterTabs(true);
+        // Auto-select the first combination immediately
+        setSelectedCombination(pxe3Combinations[0]);
+        console.log("📊 Auto-selected first combination:", pxe3Combinations[0]);
       } else {
         setShowProductionCenterTabs(false);
+        setSelectedCombination(null);
       }
     } else {
       console.warn("Failed to fetch production center combinations");
       setProductionCenterCombinations([]);
       setShowProductionCenterTabs(false);
+      setSelectedCombination(null);
     }
   } catch (error) {
     console.error("❌ Error fetching production center combinations:", error);
     setProductionCenterCombinations([]);
     setShowProductionCenterTabs(false);
+    setSelectedCombination(null);
   } finally {
     setProductionCenterLoading(false);
   }

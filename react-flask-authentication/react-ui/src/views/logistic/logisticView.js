@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Collapse, Table, TableBody, TableContainer, Paper, Typography, CircularProgress } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, Typography, CircularProgress, Grid, TableHead, TableRow, TableCell, Divider, Button } from '@mui/material';
 import axios from 'utils/axiosInstance';
+import { useTranslation } from 'react-i18next';
+import { Print } from '@mui/icons-material';
 
 // UI Components
 import MainCard from 'ui-component/cards/MainCard';
@@ -26,11 +28,24 @@ import BiasTableHeaderReadOnly from 'views/dashboard/OrderReport/BiasTableHeader
 import BiasRowReadOnly from 'views/dashboard/OrderReport/BiasRowReadOnly';
 import BiasActionRowReadOnly from 'views/dashboard/OrderReport/BiasActionRowReadOnly';
 
+// Comments & Summary Components
+import OrderCommentCardReadOnly from 'views/dashboard/OrderReport/components/OrderCommentCardReadOnly';
+import StyleCommentCardReadOnly from 'views/subcontractor/components/StyleCommentCardReadOnly';
+import { getTablePlannedByBagno, getMetersByBagno } from 'views/dashboard/OrderReport/plannedQuantities';
+
 // Hooks
 import useLogisticOrderChange from './hooks/useLogisticOrderChange';
 import useBrandInfo from 'views/planning/OrderPlanning/hooks/useBrandInfo';
 
+// Print utilities
+import { useLogisticPrintStyles, handleLogisticPrint } from './utils/printUtils';
+
 const LogisticView = () => {
+    const { t } = useTranslation();
+
+    // Initialize print styles
+    useLogisticPrintStyles();
+
     // Order State
     const [orders, setOrders] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -56,6 +71,11 @@ const LogisticView = () => {
     const [weftTables, setWeftTables] = useState([]);
     const [biasTables, setBiasTables] = useState([]);
     const [collarettoLoading, setCollarettoLoading] = useState(false);
+
+    // Mattress Tables State
+    const [mattressTables, setMattressTables] = useState([]);
+    const [adhesiveTables, setAdhesiveTables] = useState([]);
+    const [mattressLoading, setMattressLoading] = useState(false);
 
     // Hooks
     const { brand, fetchBrandForStyle, clearBrand } = useBrandInfo();
@@ -148,6 +168,7 @@ const LogisticView = () => {
         setSelectedCuttingRoom,
         setSelectedDestination,
         setProductionCenterCombinations,
+        setSelectedCombination,
         setShowProductionCenterTabs,
         setFilteredCuttingRoom,
         setFilteredDestination,
@@ -158,6 +179,9 @@ const LogisticView = () => {
         setWeftTables,
         setBiasTables,
         setCollarettoLoading,
+        setMattressTables,
+        setAdhesiveTables,
+        setMattressLoading,
         sortSizes,
         clearBrand
     });
@@ -166,7 +190,7 @@ const LogisticView = () => {
     useEffect(() => {
         console.log("📊 Fetching orders for PXE3 production center...");
 
-        // Get orders assigned to PXE3 production center via collaretto tables
+        // Get orders assigned to PXE3 production center (collaretto + mattress tables)
         axios.get('/collaretto/logistic/orders_by_production_center/PXE3')
             .then(ordersRes => {
                 console.log("📊 Orders for PXE3 response:", ordersRes.data);
@@ -194,10 +218,244 @@ const LogisticView = () => {
             });
     }, []);
 
+    // Helper function to render bagno summary tables
+    const renderBagnoSummaryTables = (table) => {
+        const { bagnoMap: plannedByBagno, bagnoOrder } = getTablePlannedByBagno(table);
+        const { bagnoMeters: metersByBagno } = getMetersByBagno(table);
+
+        // Calculate actual quantities by bagno
+        const actualByBagno = {};
+        const actualBagnoOrder = [];
+
+        if (table.rows) {
+            table.rows.forEach(row => {
+                const bagno = row.bagno || 'Unknown';
+
+                if (!actualByBagno[bagno]) {
+                    actualByBagno[bagno] = {};
+                    actualBagnoOrder.push(bagno);
+
+                    orderSizes.forEach(sizeObj => {
+                        actualByBagno[bagno][sizeObj.size] = 0;
+                    });
+                }
+
+                if (row.piecesPerSize) {
+                    Object.entries(row.piecesPerSize).forEach(([size, quantity]) => {
+                        const numQuantity = parseInt(quantity) || 0;
+                        const actualLayers = parseFloat(row.layers_a) || 0;
+                        const actualPieces = numQuantity * actualLayers;
+
+                        if (actualByBagno[bagno].hasOwnProperty(size)) {
+                            actualByBagno[bagno][size] += actualPieces;
+                        }
+                    });
+                }
+            });
+        }
+
+        const uniqueSizes = orderSizes.map(s => s.size);
+
+        // Render Planned Quantities Table
+        const renderPlannedTable = () => {
+            const totalPerSize = {};
+
+            if (plannedByBagno && typeof plannedByBagno === 'object') {
+                Object.values(plannedByBagno).forEach(sizeMap => {
+                    if (sizeMap && typeof sizeMap === 'object') {
+                        Object.entries(sizeMap).forEach(([size, qty]) => {
+                            totalPerSize[size] = (totalPerSize[size] || 0) + qty;
+                        });
+                    }
+                });
+            }
+
+            const totalMeters = (metersByBagno && typeof metersByBagno === 'object')
+                ? Object.values(metersByBagno).reduce((sum, val) => sum + val, 0)
+                : 0;
+
+            return (
+                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Table size="small" sx={{ width: 'auto' }}>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
+                                {uniqueSizes.map(size => (
+                                    <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
+                                ))}
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
+                            </TableRow>
+                        </TableHead>
+                    <TableBody>
+                        {bagnoOrder.map(bagno => {
+                            const sizeMap = plannedByBagno[bagno] || {};
+                            const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
+                            const consumption = metersByBagno[bagno] || 0;
+
+                            return (
+                                <TableRow key={bagno}>
+                                    <TableCell align="center" sx={{ fontWeight: 500 }}>{bagno}</TableCell>
+                                    {uniqueSizes.map(size => (
+                                        <TableCell key={size} align="center">{sizeMap[size] || 0}</TableCell>
+                                    ))}
+                                    <TableCell align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 500 }}>{consumption.toFixed(0)}</TableCell>
+                                </TableRow>
+                            );
+                        })}
+                        <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                            {uniqueSizes.map(size => {
+                                const orderedQty = orderSizes.find(s => s.size === size)?.qty || 0;
+                                const percentage = orderedQty > 0 ? ((totalPerSize[size] || 0) / orderedQty * 100).toFixed(1) : '0.0';
+                                return (
+                                    <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
+                                        {totalPerSize[size] || 0} ({percentage}%)
+                                    </TableCell>
+                                );
+                            })}
+                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                                {Object.values(totalPerSize).reduce((sum, qty) => sum + qty, 0)}
+                            </TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>{totalMeters.toFixed(0)}</TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+                </Box>
+            );
+        };
+
+        // Render Actual Quantities Table
+        const renderActualTable = () => {
+            const totalPerSize = {};
+
+            if (actualByBagno && typeof actualByBagno === 'object') {
+                Object.values(actualByBagno).forEach(sizeMap => {
+                    if (sizeMap && typeof sizeMap === 'object') {
+                        Object.entries(sizeMap).forEach(([size, qty]) => {
+                            totalPerSize[size] = (totalPerSize[size] || 0) + qty;
+                        });
+                    }
+                });
+            }
+
+            const totalActualMeters = table.rows
+                ? table.rows.reduce((sum, row) => sum + (parseFloat(row.cons_actual) || 0), 0)
+                : 0;
+
+            return (
+                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Table size="small" sx={{ width: 'auto' }}>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Bagno</TableCell>
+                                {uniqueSizes.map(size => (
+                                    <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
+                                ))}
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total Pcs</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cons [m]</TableCell>
+                            </TableRow>
+                        </TableHead>
+                    <TableBody>
+                        {actualBagnoOrder.map(bagno => {
+                            const sizeMap = actualByBagno[bagno] || {};
+                            const total = Object.values(sizeMap).reduce((sum, qty) => sum + qty, 0);
+                            const consumption = table.rows
+                                .filter(row => (row.bagno || 'Unknown') === bagno)
+                                .reduce((sum, row) => sum + (parseFloat(row.cons_actual) || 0), 0);
+
+                            return (
+                                <TableRow key={bagno}>
+                                    <TableCell align="center" sx={{ fontWeight: 500 }}>{bagno}</TableCell>
+                                    {uniqueSizes.map(size => (
+                                        <TableCell key={size} align="center">{sizeMap[size] || 0}</TableCell>
+                                    ))}
+                                    <TableCell align="center" sx={{ fontWeight: 500 }}>{total}</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 500 }}>{consumption.toFixed(0)}</TableCell>
+                                </TableRow>
+                            );
+                        })}
+                        <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                            {uniqueSizes.map(size => (
+                                <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
+                                    {totalPerSize[size] || 0} (0.0%)
+                                </TableCell>
+                            ))}
+                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                                {Object.values(totalPerSize).reduce((sum, qty) => sum + qty, 0)} (0.0%)
+                            </TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>{totalActualMeters.toFixed(0)}</TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+                </Box>
+            );
+        };
+
+        return (
+            <Box sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                        {t('logistic.plannedQuantities', 'Planned Quantities')}
+                    </Typography>
+                </Box>
+                {renderPlannedTable()}
+
+                <Box mt={3}>
+                    <Divider />
+                </Box>
+
+                <Box mt={3}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                            {t('logistic.actualQuantities', 'Actual Quantities')}
+                        </Typography>
+                    </Box>
+                    {renderActualTable()}
+                </Box>
+            </Box>
+        );
+    };
+
+    // Handle print
+    const handlePrint = () => {
+        handleLogisticPrint(
+            mattressTables,
+            adhesiveTables,
+            alongTables,
+            weftTables,
+            biasTables
+        );
+    };
+
     return (
         <>
             {/* Order Selection */}
-            <MainCard title="Order Details" sx={{ mb: 2 }}>
+            <MainCard
+                title="Order Details"
+                sx={{ mb: 2 }}
+                secondary={
+                    selectedOrder && (
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handlePrint}
+                            startIcon={<Print />}
+                            className="print-hidden"
+                            sx={{
+                                fontSize: '0.875rem',
+                                py: 0.75,
+                                px: 2,
+                                minHeight: '36px'
+                            }}
+                        >
+                            {t('common.print', 'Печат')}
+                        </Button>
+                    )
+                }
+            >
 
                 {/* Order Toolbar - Direct order selection */}
                 <LogisticOrderToolbar
@@ -214,18 +472,40 @@ const LogisticView = () => {
                 <OrderQuantities orderSizes={orderSizes} italianRatios={{}} />
             </MainCard>
 
+            {/* Comments Section - Side by Side Layout */}
+            {(selectedOrder || selectedStyle) && (
+                <Box sx={{ mt: 2, mb: 2 }}>
+                    <Grid container spacing={2}>
+                        {/* Order Comment - Left Side */}
+                        <Grid item xs={12} md={6}>
+                            {selectedOrder && selectedCombination && (
+                                <OrderCommentCardReadOnly
+                                    selectedOrder={selectedOrder}
+                                    selectedCombination={selectedCombination}
+                                />
+                            )}
+                        </Grid>
+
+                        {/* Style Comment - Right Side */}
+                        <Grid item xs={12} md={6}>
+                            {selectedStyle && (
+                                <StyleCommentCardReadOnly selectedStyle={selectedStyle} />
+                            )}
+                        </Grid>
+                    </Grid>
+                </Box>
+            )}
+
             {/* Production Center Configuration */}
             {selectedOrder && showProductionCenterTabs && (
-                <>
+                <Box sx={{ mb: 2 }}>
                     <ProductionCenterTabs
                         combinations={productionCenterCombinations}
                         selectedCombination={selectedCombination}
                         onCombinationChange={handleCombinationChange}
                         loading={productionCenterLoading}
                     />
-
-                    <Box mt={2} />
-                </>
+                </Box>
             )}
 
             {/* Along Collaretto Tables */}
@@ -234,6 +514,7 @@ const LogisticView = () => {
                     <MainCard
                         title="Collaretto Along the Grain"
                         sx={{ mb: 2 }}
+                        data-table-id={table.id}
                     >
                         <AlongGroupCardReadOnly table={table} />
 
@@ -264,6 +545,7 @@ const LogisticView = () => {
                     <MainCard
                         title="Collaretto Weft"
                         sx={{ mb: 2 }}
+                        data-table-id={table.id}
                     >
                         <WeftGroupCardReadOnly table={table} />
 
@@ -294,6 +576,7 @@ const LogisticView = () => {
                     <MainCard
                         title="Collaretto Bias"
                         sx={{ mb: 2 }}
+                        data-table-id={table.id}
                     >
                         <BiasGroupCardReadOnly table={table} />
 
@@ -318,13 +601,50 @@ const LogisticView = () => {
                 </React.Fragment>
             ))}
 
-            {/* Show loading indicator while fetching collaretto data */}
+            {/* Mattress Summary Tables */}
+            {getFilteredTables(mattressTables, selectedCombination).map((table, index) => (
+                <React.Fragment key={`mattress-${table.id}-${index}`}>
+                    <MainCard
+                        sx={{ mb: 2 }}
+                        title={t('logistic.mattresses', 'Mattresses')}
+                        data-table-id={table.id}
+                    >
+                        {renderBagnoSummaryTables(table)}
+                    </MainCard>
+                </React.Fragment>
+            ))}
+
+            {/* Adhesive Summary Tables */}
+            {getFilteredTables(adhesiveTables, selectedCombination).map((table, index) => (
+                <React.Fragment key={`adhesive-${table.id}-${index}`}>
+                    <MainCard
+                        sx={{ mb: 2 }}
+                        title={t('logistic.adhesives', 'Adhesives')}
+                        data-table-id={table.id}
+                    >
+                        {renderBagnoSummaryTables(table)}
+                    </MainCard>
+                </React.Fragment>
+            ))}
+
+            {/* Show loading indicators while fetching data */}
             {selectedOrder && collarettoLoading && (
                 <MainCard sx={{ mb: 2 }}>
                     <Box display="flex" justifyContent="center" alignItems="center" py={4}>
                         <CircularProgress size={24} sx={{ mr: 2 }} />
                         <Typography variant="body1" color="textSecondary">
                             Loading collaretto data...
+                        </Typography>
+                    </Box>
+                </MainCard>
+            )}
+
+            {selectedOrder && mattressLoading && (
+                <MainCard sx={{ mb: 2 }}>
+                    <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+                        <CircularProgress size={24} sx={{ mr: 2 }} />
+                        <Typography variant="body1" color="textSecondary">
+                            Loading mattress data...
                         </Typography>
                     </Box>
                 </MainCard>

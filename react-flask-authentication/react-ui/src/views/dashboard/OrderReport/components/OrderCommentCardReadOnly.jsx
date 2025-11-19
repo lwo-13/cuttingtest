@@ -38,13 +38,17 @@ const OrderCommentCardReadOnly = ({ selectedOrder, selectedCombination }) => {
     }
   };
 
-  // Only render if there's actual comment content
-  if (!selectedOrder || !selectedCombination || (!comment?.trim() && !loading)) {
+  // Don't render if no order or combination is selected
+  if (!selectedOrder || !selectedCombination) {
     return null;
   }
 
   return (
-    <MainCard title={t('orderPlanning.orderComment', 'Order Comment')}>
+    <MainCard
+      title={t('orderPlanning.orderComment', 'Order Comment')}
+      sx={{ width: '100%', height: '100%' }}
+      className="order-comment-card"
+    >
       {loading ? (
         <Box display="flex" justifyContent="center" py={4}>
           <CircularProgress size={32} />
@@ -61,6 +65,9 @@ const OrderCommentCardReadOnly = ({ selectedOrder, selectedCombination }) => {
           InputProps={{
             readOnly: true,
           }}
+          InputLabelProps={{
+            style: { fontWeight: 'normal' }
+          }}
           sx={{
             '& .MuiInputBase-root': {
               minHeight: '120px',
@@ -71,7 +78,7 @@ const OrderCommentCardReadOnly = ({ selectedOrder, selectedCombination }) => {
               fontWeight: 'normal'
             }
           }}
-          placeholder={comment ? '' : `${t('orderPlanning.noOrderCommentAvailable', 'No order comment available for combination')} ${selectedCombination?.combination_id}`}
+          placeholder={comment ? '' : t('orderPlanning.noOrderCommentAvailable', 'No order comment available')}
         />
       )}
     </MainCard>

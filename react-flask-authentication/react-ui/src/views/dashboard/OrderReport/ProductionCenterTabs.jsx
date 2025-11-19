@@ -56,7 +56,7 @@ const ProductionCenterTabs = ({
             title={t('dashboard.productionCenter', 'Production Center')}
             sx={{ mb: 3 }}
             data-testid="production-center-card"
-            className="production-center-card"
+            className="production-center-card production-center-card-print"
         >
             <Box>
                 {/* Interactive tabs - hidden when printing */}
