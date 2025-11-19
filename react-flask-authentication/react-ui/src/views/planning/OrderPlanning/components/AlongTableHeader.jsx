@@ -13,9 +13,11 @@ const AlongTableHeader = () => {
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.grossLength')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.collarettoWidth')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.scrapRolls')}</TableCell>
-        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.numberOfRolls')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.rollsPlanned')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.rollsActual')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.totalCollaretto', 'Total Collaretto [m]')}</TableCell>
-        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.consumption')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.plannedConsShort')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.actualConsShort')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.sizes')}</TableCell>
         <TableCell></TableCell>

@@ -310,10 +310,12 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         collarettoWidth: along.details.roll_width,
         scrapRoll: along.details.scrap_rolls,
         rolls: along.details.rolls_planned,
+        rollsActual: along.details.rolls_actual || "",
         actualRolls: along.details.rolls_actual || "", // Add actual rolls field
         totalCollaretto: along.details.total_collaretto, // Map to expected field name
         metersCollaretto: along.details.total_collaretto,
         consPlanned: along.details.cons_planned, // Map to expected field name
+        consActual: along.details.cons_actual || "",
         consumption: along.details.cons_planned,
         bagno: along.dye_lot,
         sizes: along.details.applicable_sizes || "ALL", // Add sizes field
@@ -364,9 +366,11 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         collarettoWidth: weft.details.roll_width,
         scrapRoll: weft.details.scrap_rolls,
         rolls: weft.details.rolls_planned,
+        rollsActual: weft.details.rolls_actual || "",
         actualRolls: weft.details.rolls_actual || "", // Add actual rolls field
         panels: weft.details.panels_planned,
         consPlanned: weft.details.cons_planned, // Map to expected field name
+        consActual: weft.details.cons_actual || "",
         consumption: weft.details.cons_planned,
         bagno: weft.dye_lot,
         sizes: weft.details.applicable_sizes || "ALL"  // ✅ Load applicable_sizes
@@ -416,13 +420,15 @@ const fetchAllMattressData = async (order, sizesSorted, context, signal) => {
         scrapRolls: bias.details.scrap_rolls, // Map to expected field name
         scrapRoll: bias.details.scrap_rolls, // Keep both for compatibility
         rolls: bias.details.rolls_planned,
+        rollsActual: bias.details.rolls_actual || "",
         panels: bias.details.panels_planned, // Add panels field for N° Panels column
-        rollsPlanned: bias.details.rolls_actual || "", // Map to expected field name
+        rollsPlanned: bias.details.rolls_planned, // Map to expected field name
         actualRolls: bias.details.rolls_actual || "", // Keep both for compatibility
         panelLength: bias.details.panel_length, // Panel length for bias
         totalCollaretto: bias.details.total_collaretto, // Map to expected field name
         metersCollaretto: bias.details.total_collaretto,
         consPlanned: bias.details.cons_planned, // Map to expected field name
+        consActual: bias.details.cons_actual || "",
         consumption: bias.details.cons_planned,
         bagno: bias.dye_lot,
         sizes: bias.details.applicable_sizes || "ALL", // Add sizes field

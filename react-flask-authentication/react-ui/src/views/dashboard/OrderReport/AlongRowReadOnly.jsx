@@ -64,9 +64,25 @@ const AlongRowReadOnly = ({ row }) => {
         <Typography sx={{ fontWeight: 'normal' }}>{row.scrapRoll || ""}</Typography>
       </TableCell>
 
-      {/* N° Rolls */}
+      {/* Rolls Planned */}
       <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.rolls || ""}</Typography>
+      </TableCell>
+
+      {/* Rolls Actual */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <TextField
+          variant="outlined"
+          value={row.rollsActual || ''}
+          InputProps={{ readOnly: true }}
+          sx={{
+            width: '100%',
+            minWidth: '65px',
+            maxWidth: '80px',
+            textAlign: 'center',
+            "& input": { textAlign: 'center', fontWeight: 'normal' }
+          }}
+        />
       </TableCell>
 
       {/* Total Collaretto */}
@@ -74,9 +90,25 @@ const AlongRowReadOnly = ({ row }) => {
         <Typography sx={{ fontWeight: 'normal' }}>{row.totalCollaretto || ""}</Typography>
       </TableCell>
 
-      {/* Cons */}
+      {/* Cons Planned */}
       <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
         <Typography sx={{ fontWeight: 'normal' }}>{row.consPlanned || ""}</Typography>
+      </TableCell>
+
+      {/* Cons Actual */}
+      <TableCell sx={{ minWidth: '65px', maxWidth: '80px', textAlign: 'center', padding: '4px' }}>
+        <TextField
+          variant="outlined"
+          value={row.consActual ? parseFloat(row.consActual).toFixed(2) : ''}
+          InputProps={{ readOnly: true }}
+          sx={{
+            width: '100%',
+            minWidth: '65px',
+            maxWidth: '80px',
+            textAlign: 'center',
+            "& input": { textAlign: 'center', fontWeight: 'normal' }
+          }}
+        />
       </TableCell>
 
       {/* Bagno */}

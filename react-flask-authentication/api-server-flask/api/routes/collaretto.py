@@ -242,8 +242,10 @@ class GetCollarettoByOrder(Resource):
                         "roll_width": detail.roll_width,
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
+                        "rolls_actual": detail.rolls_actual,
                         "total_collaretto": detail.total_collaretto,
                         "cons_planned": detail.cons_planned,
+                        "cons_actual": detail.cons_actual,
                         "extra": detail.extra,  # ✅ Moved inside details
                         "applicable_sizes": detail.applicable_sizes  # ✅ Return applicable_sizes
                     }
@@ -611,7 +613,9 @@ class GetWeftByOrder(Resource):
                         "roll_width": detail.roll_width,
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
+                        "rolls_actual": detail.rolls_actual,
                         "cons_planned": detail.cons_planned,
+                        "cons_actual": detail.cons_actual,
                         "extra": detail.extra,
                         "applicable_sizes": detail.applicable_sizes,  # ✅ Return applicable_sizes
                         "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
@@ -888,7 +892,9 @@ class GetBiasByOrder(Resource):
                         "roll_width": detail.roll_width,
                         "scrap_rolls": detail.scrap_rolls,
                         "rolls_planned": detail.rolls_planned,
+                        "rolls_actual": detail.rolls_actual,
                         "cons_planned": detail.cons_planned,
+                        "cons_actual": detail.cons_actual,
                         "extra": detail.extra if detail.extra is not None else 0,  # ✅ Add extra field, default to 0 if null
                         "applicable_sizes": detail.applicable_sizes,  # ✅ Return applicable_sizes
                         "bagno_ready": mattress_detail.bagno_ready if mattress_detail else False,
@@ -1004,9 +1010,11 @@ class GetLogisticAlongByOrder(Resource):
                         "collarettoWidth": detail.roll_width,
                         "scrapRoll": detail.scrap_rolls,
                         "rolls": detail.rolls_planned,
+                        "rollsActual": detail.rolls_actual or "",
                         "actualRolls": detail.rolls_actual or "",  # New field for actual rolls
                         "totalCollaretto": detail.total_collaretto,
                         "consPlanned": detail.cons_planned,
+                        "consActual": detail.cons_actual or "",
                         "bagno": bagno,
                         "sizes": detail.applicable_sizes
                     })
@@ -1102,9 +1110,11 @@ class GetLogisticWeftByOrder(Resource):
                         "collarettoWidth": detail.roll_width,  # Use roll_width as collaretto width
                         "scrapRoll": detail.scrap_rolls,
                         "rolls": detail.rolls_planned,
+                        "rollsActual": detail.rolls_actual or "",
                         "actualRolls": detail.rolls_actual or "",  # New field for actual rolls
                         "panels": panels,  # Use mattress_details.layers if available
                         "consPlanned": detail.cons_planned,
+                        "consActual": detail.cons_actual or "",
                         "bagno": bagno,
                         "sizes": detail.applicable_sizes
                     })
@@ -1192,7 +1202,9 @@ class GetLogisticBiasByOrder(Resource):
                         "scrapRolls": detail.scrap_rolls,
                         "rolls": detail.rolls_planned,
                         "rollsPlanned": detail.rolls_planned,
+                        "rollsActual": detail.rolls_actual or "",
                         "consPlanned": detail.cons_planned,
+                        "consActual": detail.cons_actual or "",
                         "bagno": bagno,
                         "sizes": detail.applicable_sizes
                     })
@@ -1203,5 +1215,493 @@ class GetLogisticBiasByOrder(Resource):
 
         except Exception as e:
             print(f"❌ Error fetching logistic bias by order: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/collaretos_by_order/<string:order_commessa>', methods=['GET'])
+class GetCollarettosByOrder(Resource):
+    def get(self, order_commessa):
+        """Get all collaretos (CA, CW, CB) for an order filtered by PXE3 production center, grouped by destination"""
+        try:
+            print(f"🔍 Fetching collaretos for order: {order_commessa}")
+
+            # Query all collaretos for this order with item_type CA, CW, or CB
+            collaretos = Collaretto.query.filter(
+                Collaretto.order_commessa == order_commessa,
+                Collaretto.item_type.in_(['CA', 'CW', 'CB'])
+            ).all()
+
+            print(f"🔍 Found {len(collaretos)} total collaretos")
+
+            if not collaretos:
+                return {"success": True, "data": []}, 200
+
+            # Group by destination
+            destination_groups = {}
+
+            for collaretto in collaretos:
+                # Check if this collaretto is assigned to PXE3
+                prod_center = MattressProductionCenter.query.filter_by(
+                    table_id=collaretto.table_id
+                ).first()
+
+                if prod_center and prod_center.production_center == 'PXE3':
+                    destination = prod_center.destination or 'N/A'
+
+                    if destination not in destination_groups:
+                        # Determine the type label
+                        type_label = 'Along'
+                        if collaretto.item_type == 'CW':
+                            type_label = 'Weft'
+                        elif collaretto.item_type == 'CB':
+                            type_label = 'Bias'
+
+                        destination_groups[destination] = {
+                            "destination": destination,
+                            "fabricType": collaretto.fabric_type,
+                            "fabricCode": collaretto.fabric_code,
+                            "fabricColor": collaretto.fabric_color,
+                            "dyeLot": collaretto.dye_lot,
+                            "productionCenter": prod_center.production_center,
+                            "cuttingRoom": prod_center.cutting_room,
+                            "itemType": collaretto.item_type,
+                            "typeLabel": type_label,
+                            "tableIds": [collaretto.table_id],
+                            "count": 1
+                        }
+                    else:
+                        # Increment count and add table_id if not already present
+                        destination_groups[destination]["count"] += 1
+                        if collaretto.table_id not in destination_groups[destination]["tableIds"]:
+                            destination_groups[destination]["tableIds"].append(collaretto.table_id)
+
+            # Convert to list
+            result = list(destination_groups.values())
+
+            print(f"🔍 Found {len(result)} destinations with collaretos for PXE3")
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching collaretos by order: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/batches_by_destination/<string:order_commessa>/<string:destination>', methods=['GET'])
+class GetBatchesByDestination(Resource):
+    def get(self, order_commessa, destination):
+        """Get batches (bagno) grouped for a specific order and destination"""
+        try:
+            print(f"🔍 Fetching batches for order: {order_commessa}, destination: {destination}")
+
+            # Get all collaretos for this order and destination
+            collaretos = db.session.query(Collaretto).join(
+                MattressProductionCenter,
+                Collaretto.table_id == MattressProductionCenter.table_id
+            ).filter(
+                Collaretto.order_commessa == order_commessa,
+                MattressProductionCenter.destination == destination,
+                MattressProductionCenter.production_center == 'PXE3'
+            ).all()
+
+            if not collaretos:
+                return {"success": True, "data": []}, 200
+
+            # Group by bagno (dye_lot)
+            batches = {}
+            for collaretto in collaretos:
+                bagno = collaretto.dye_lot or "NO_BAGNO"
+
+                if bagno not in batches:
+                    # Get production center info
+                    prod_center = MattressProductionCenter.query.filter_by(
+                        table_id=collaretto.table_id
+                    ).first()
+
+                    batches[bagno] = {
+                        "bagno": bagno,
+                        "count": 0,
+                        "tableIds": [],
+                        "itemType": collaretto.item_type,
+                        "fabricType": collaretto.fabric_type,
+                        "fabricCode": collaretto.fabric_code,
+                        "fabricColor": collaretto.fabric_color,
+                        "destination": prod_center.destination if prod_center else "",
+                        "productionCenter": prod_center.production_center if prod_center else "",
+                        "cuttingRoom": prod_center.cutting_room if prod_center else ""
+                    }
+
+                batches[bagno]["count"] += 1
+                if collaretto.table_id not in batches[bagno]["tableIds"]:
+                    batches[bagno]["tableIds"].append(collaretto.table_id)
+
+            # Convert to list and add type labels
+            type_labels = {
+                'CA': 'Along',
+                'CW': 'Weft',
+                'CB': 'Bias'
+            }
+
+            result = []
+            for batch in batches.values():
+                batch['typeLabel'] = type_labels.get(batch['itemType'], batch['itemType'])
+                result.append(batch)
+
+            # Sort by bagno
+            result.sort(key=lambda x: x['bagno'])
+
+            print(f"🔍 Found {len(result)} batches for destination {destination}")
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching batches by destination: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/collaretto_details_by_batch/<string:order_commessa>/<string:destination>/<string:bagno>', methods=['GET'])
+class GetCollarettoDetailsByBatch(Resource):
+    def get(self, order_commessa, destination, bagno):
+        """Get detailed collaretto information filtered by order, destination, and bagno"""
+        try:
+            print(f"🔍 Fetching collaretto details for order={order_commessa}, destination={destination}, bagno={bagno}")
+
+            # First, get all collaretos for this order and bagno
+            collaretos_for_order = Collaretto.query.filter_by(
+                order_commessa=order_commessa,
+                dye_lot=bagno
+            ).all()
+
+            if not collaretos_for_order:
+                return {"success": False, "msg": "No collaretos found for this order and bagno"}, 404
+
+            # Get table_ids from these collaretos
+            table_ids_from_collaretos = [c.table_id for c in collaretos_for_order]
+
+            # Filter by production center and destination
+            prod_centers = MattressProductionCenter.query.filter(
+                MattressProductionCenter.table_id.in_(table_ids_from_collaretos),
+                MattressProductionCenter.production_center == 'PXE3',
+                MattressProductionCenter.destination == destination
+            ).all()
+
+            if not prod_centers:
+                return {"success": False, "msg": "No production centers found for this destination"}, 404
+
+            table_ids = [pc.table_id for pc in prod_centers]
+
+            # Get all collaretos for these filtered table_ids
+            collaretos = Collaretto.query.filter(
+                Collaretto.table_id.in_(table_ids),
+                Collaretto.order_commessa == order_commessa,
+                Collaretto.dye_lot == bagno
+            ).order_by(Collaretto.sequence_number).all()
+
+            if not collaretos:
+                return {"success": False, "msg": "No collaretos found for this batch"}, 404
+
+            # Get the first collaretto to extract common info
+            first_collaretto = collaretos[0]
+
+            # Get production center info from the first collaretto
+            prod_center = MattressProductionCenter.query.filter_by(table_id=first_collaretto.table_id).first()
+
+            # Get the style name from the order
+            order_style = None
+            order_line = OrderLinesView.query.filter_by(order_commessa=order_commessa).first()
+            if order_line:
+                order_style = order_line.style
+
+            # Build rows data
+            rows = []
+            for collaretto in collaretos:
+                # Get detail for this collaretto
+                detail = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).first()
+
+                if not detail:
+                    continue
+
+                # Get mattress info - all collaretos should have a linked mattress
+                mattress_info = None
+                mattress = None
+
+                if detail.mattress_id:
+                    mattress = Mattresses.query.filter_by(id=detail.mattress_id).first()
+
+                # If no mattress_id, try to find mattress by matching table_id and order
+                if not mattress:
+                    mattress = Mattresses.query.filter_by(
+                        table_id=collaretto.table_id,
+                        order_commessa=collaretto.order_commessa
+                    ).first()
+
+                if mattress:
+                    mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress.id).first()
+                    mattress_info = {
+                        "mattressName": mattress.mattress,
+                        "panels": mattress_detail.layers if mattress_detail else None
+                    }
+
+                row_data = {
+                    "rowId": collaretto.row_id,
+                    "collarettoId": collaretto.collaretto,
+                    "sequenceNumber": collaretto.sequence_number,
+                    "pieces": detail.pieces,
+                    "usableWidth": detail.usable_width,
+                    "grossLength": detail.gross_length,
+                    "rollWidth": detail.roll_width,
+                    "pcsSeam": detail.pcs_seam,
+                    "scrapRolls": detail.scrap_rolls,
+                    "rollsPlanned": detail.rolls_planned,
+                    "rollsActual": detail.rolls_actual,
+                    "consPlanned": detail.cons_planned,
+                    "consActual": detail.cons_actual,
+                    "extra": detail.extra,
+                    "totalCollaretto": detail.total_collaretto,
+                    "applicableSizes": detail.applicable_sizes,
+                    "mattressInfo": mattress_info
+                }
+
+                rows.append(row_data)
+
+            # Determine type label
+            type_label = 'Along'
+            if first_collaretto.item_type == 'CW':
+                type_label = 'Weft'
+            elif first_collaretto.item_type == 'CB':
+                type_label = 'Bias'
+
+            result = {
+                "orderCommessa": first_collaretto.order_commessa,
+                "style": order_style,
+                "itemType": first_collaretto.item_type,
+                "typeLabel": type_label,
+                "fabricType": first_collaretto.fabric_type,
+                "fabricCode": first_collaretto.fabric_code,
+                "fabricColor": first_collaretto.fabric_color,
+                "dyeLot": first_collaretto.dye_lot,
+                "productionCenter": prod_center.production_center if prod_center else None,
+                "cuttingRoom": prod_center.cutting_room if prod_center else None,
+                "destination": prod_center.destination if prod_center else None,
+                "rows": rows
+            }
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching collaretto details by batch: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/collaretto_details/<string:table_id>', methods=['GET'])
+class GetCollarettoDetails(Resource):
+    def get(self, table_id):
+        """Get detailed collaretto information for editing and printing"""
+        try:
+            print(f"🔍 Fetching collaretto details for table_id: {table_id}")
+
+            # Get all collaretos for this table_id
+            collaretos = Collaretto.query.filter_by(table_id=table_id).order_by(Collaretto.sequence_number).all()
+
+            if not collaretos:
+                return {"success": False, "msg": "No collaretos found for this table"}, 404
+
+            # Get production center info
+            prod_center = MattressProductionCenter.query.filter_by(table_id=table_id).first()
+
+            # Get the first collaretto to extract common info
+            first_collaretto = collaretos[0]
+
+            # Build rows data
+            rows = []
+            for collaretto in collaretos:
+                # Get detail for this collaretto
+                detail = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).first()
+
+                if not detail:
+                    continue
+
+                # Get mattress info if this is a weft or bias collaretto
+                mattress_info = None
+                if detail.mattress_id:
+                    mattress = Mattresses.query.filter_by(id=detail.mattress_id).first()
+                    if mattress:
+                        mattress_detail = MattressDetail.query.filter_by(mattress_id=mattress.id).first()
+                        mattress_info = {
+                            "mattressName": mattress.mattress,
+                            "panels": mattress_detail.layers if mattress_detail else None
+                        }
+
+                row_data = {
+                    "rowId": collaretto.row_id,
+                    "collarettoId": collaretto.collaretto,
+                    "sequenceNumber": collaretto.sequence_number,
+                    "pieces": detail.pieces,
+                    "usableWidth": detail.usable_width,
+                    "grossLength": detail.gross_length,
+                    "rollWidth": detail.roll_width,
+                    "pcsSeam": detail.pcs_seam,
+                    "scrapRolls": detail.scrap_rolls,
+                    "rollsPlanned": detail.rolls_planned,
+                    "rollsActual": detail.rolls_actual,
+                    "consPlanned": detail.cons_planned,
+                    "consActual": detail.cons_actual,
+                    "extra": detail.extra,
+                    "totalCollaretto": detail.total_collaretto,
+                    "applicableSizes": detail.applicable_sizes,
+                    "mattressInfo": mattress_info
+                }
+
+                rows.append(row_data)
+
+            # Determine type label
+            type_label = 'Along'
+            if first_collaretto.item_type == 'CW':
+                type_label = 'Weft'
+            elif first_collaretto.item_type == 'CB':
+                type_label = 'Bias'
+
+            result = {
+                "tableId": table_id,
+                "orderCommessa": first_collaretto.order_commessa,
+                "itemType": first_collaretto.item_type,
+                "typeLabel": type_label,
+                "fabricType": first_collaretto.fabric_type,
+                "fabricCode": first_collaretto.fabric_code,
+                "fabricColor": first_collaretto.fabric_color,
+                "dyeLot": first_collaretto.dye_lot,
+                "productionCenter": prod_center.production_center if prod_center else None,
+                "cuttingRoom": prod_center.cutting_room if prod_center else None,
+                "destination": prod_center.destination if prod_center else None,
+                "rows": rows
+            }
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            print(f"❌ Error fetching collaretto details: {e}")
+            return {"success": False, "msg": str(e)}, 500
+
+
+@collaretto_api.route('/logistic/update_collaretto_details', methods=['PUT'])
+class UpdateCollarettoDetails(Resource):
+    def put(self):
+        """Update collaretto details from the configuration screen"""
+        try:
+            data = request.get_json()
+            rows = data.get('rows', [])
+
+            print(f"🔄 Updating {len(rows)} collaretto rows")
+
+            for row in rows:
+                row_id = row.get('rowId')
+
+                # Find the collaretto by row_id
+                collaretto = Collaretto.query.filter_by(row_id=row_id).first()
+
+                if not collaretto:
+                    print(f"⚠️ Collaretto not found for row_id: {row_id}")
+                    continue
+
+                # Get the detail
+                detail = CollarettoDetail.query.filter_by(collaretto_id=collaretto.id).first()
+
+                if not detail:
+                    print(f"⚠️ Detail not found for collaretto_id: {collaretto.id}")
+                    continue
+
+                # Update detail fields
+                detail.pieces = row.get('pieces', detail.pieces)
+                detail.usable_width = row.get('usableWidth', detail.usable_width)
+                detail.gross_length = row.get('grossLength', detail.gross_length)
+                detail.roll_width = row.get('rollWidth', detail.roll_width)
+                detail.pcs_seam = row.get('pcsSeam', detail.pcs_seam)
+                detail.scrap_rolls = row.get('scrapRolls', detail.scrap_rolls)
+                detail.rolls_planned = row.get('rollsPlanned', detail.rolls_planned)
+
+                # Convert rolls_actual to float if it's a string
+                rolls_actual_value = row.get('rollsActual', detail.rolls_actual)
+                if rolls_actual_value == '' or rolls_actual_value is None:
+                    detail.rolls_actual = None
+                else:
+                    detail.rolls_actual = float(rolls_actual_value) if isinstance(rolls_actual_value, str) else rolls_actual_value
+
+                detail.cons_planned = row.get('consPlanned', detail.cons_planned)
+                detail.extra = row.get('extra', detail.extra)
+                detail.applicable_sizes = row.get('applicableSizes', detail.applicable_sizes)
+
+                # Calculate total_collaretto if not provided or if it's null
+                # Formula: total_collaretto = pieces * gross_length
+                total_collaretto_from_request = row.get('totalCollaretto')
+                if total_collaretto_from_request is not None and total_collaretto_from_request != '':
+                    detail.total_collaretto = total_collaretto_from_request
+                elif detail.pieces and detail.gross_length:
+                    detail.total_collaretto = detail.pieces * detail.gross_length
+                    print(f"📐 Calculated total_collaretto: {detail.pieces} * {detail.gross_length} = {detail.total_collaretto}")
+                else:
+                    detail.total_collaretto = None
+
+                # Calculate cons_actual based on item type
+                # Get the collaretto to check item_type
+                item_type = collaretto.item_type if collaretto else None
+
+                print(f"🔍 Calculating cons_actual for item_type={item_type}")
+                print(f"   rolls_actual={detail.rolls_actual}, pieces={detail.pieces}, pcs_seam={detail.pcs_seam}")
+                print(f"   gross_length={detail.gross_length}, extra={detail.extra}")
+
+                if detail.rolls_actual and detail.rolls_actual > 0:
+                    if item_type == 'CA':
+                        # Along: cons_actual = total_collaretto / rolls_actual
+                        if detail.total_collaretto and detail.total_collaretto > 0:
+                            detail.cons_actual = round(detail.total_collaretto / detail.rolls_actual, 2)
+                            print(f"✅ Along cons_actual = {detail.total_collaretto} / {detail.rolls_actual} = {detail.cons_actual}")
+                        else:
+                            detail.cons_actual = None
+                            print(f"⚠️ cons_actual set to None (missing total_collaretto)")
+                    elif item_type in ['CW', 'CB']:
+                        # Weft/Bias: cons_actual = panels_actual * rewoundWidth
+                        # panels_actual = (pieces * (1 + extra/100)) / (rolls_actual * pcs_seam)
+                        # rewoundWidth is stored in MattressDetail.length_mattress
+
+                        # Fetch rewoundWidth from MattressDetail
+                        rewound_width = None
+                        if detail.mattress_id:
+                            mattress_detail = MattressDetail.query.filter_by(mattress_id=detail.mattress_id).first()
+                            if mattress_detail:
+                                rewound_width = mattress_detail.length_mattress
+
+                        print(f"   rewound_width from mattress={rewound_width}")
+
+                        if detail.pieces and detail.pcs_seam and rewound_width:
+                            extra_percent = (detail.extra or 0) / 100
+                            panels_calculation = (detail.pieces * (1 + extra_percent)) / (detail.rolls_actual * detail.pcs_seam)
+
+                            # Apply rounding logic: if decimal > 0.15, ceil, else floor
+                            decimal_part = panels_calculation - int(panels_calculation)
+                            panels_actual = int(panels_calculation) + 1 if decimal_part > 0.15 else int(panels_calculation)
+
+                            # Use rewoundWidth from MattressDetail and round to 2 decimals
+                            detail.cons_actual = round(panels_actual * rewound_width, 2)
+                            print(f"✅ Weft/Bias panels_actual = {panels_actual}, cons_actual = {panels_actual} * {rewound_width} = {detail.cons_actual}")
+                        else:
+                            detail.cons_actual = None
+                            print(f"⚠️ cons_actual set to None (missing pieces, pcs_seam, or rewound_width)")
+                    else:
+                        detail.cons_actual = None
+                        print(f"⚠️ Unknown item_type: {item_type}")
+                else:
+                    detail.cons_actual = None
+                    print(f"⚠️ cons_actual set to None (missing or zero rolls_actual)")
+
+                detail.updated_at = datetime.now()
+
+            db.session.commit()
+            print("✅ Collaretto details updated successfully")
+
+            return {"success": True, "message": "Collaretto details updated successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error updating collaretto details: {e}")
             return {"success": False, "msg": str(e)}, 500
 

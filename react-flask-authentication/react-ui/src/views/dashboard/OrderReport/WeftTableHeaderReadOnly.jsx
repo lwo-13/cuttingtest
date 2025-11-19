@@ -15,9 +15,11 @@ const WeftTableHeaderReadOnly = () => {
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.panelLength')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.collarettoWidth')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.scrapRolls')}</TableCell>
-        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.numberOfRollsShort')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.rollsPlanned')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.rollsActual')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.panels')}</TableCell>
-        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.cons')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.plannedConsShort')}</TableCell>
+        <TableCell align="center" sx={{ minWidth: '80px' }}>{t('table.actualConsShort')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ minWidth: '100px' }}>{t('table.sizes')}</TableCell>
       </TableRow>

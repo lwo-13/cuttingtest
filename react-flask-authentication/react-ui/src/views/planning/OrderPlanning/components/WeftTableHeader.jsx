@@ -15,9 +15,11 @@ const WeftTableHeader = () => {
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.rewoundWidth')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.collarettoWidth')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.scrapRolls')}</TableCell>
-        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.numberOfRolls')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.rollsPlanned')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.rollsActual')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.numberOfPanels', 'N° Panels')}</TableCell>
-        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.consumption')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.plannedConsShort')}</TableCell>
+        <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.actualConsShort')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.bagno')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.sizes')}</TableCell>
         <TableCell align="center" sx={{ padding: "2px 6px" }}>{t('table.status', 'Status')}</TableCell>
