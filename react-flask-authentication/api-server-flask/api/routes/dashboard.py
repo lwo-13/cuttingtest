@@ -4,7 +4,7 @@ from sqlalchemy import func, and_, or_
 from datetime import datetime, timedelta
 from api.models import (
     db, Mattresses, MarkerHeader, MattressProductionCenter,
-    OrderLinesView, MattressDetail, MattressMarker, MattressPhase, MattressSize, ZalliItemsView
+    OrderLinesView, MattressDetail, MattressMarker, MattressPhase, MattressSize, ZalliItemsView, WipMasterReport, NavRoutingSewingSMV
 )
 
 # Create Blueprint and API instance
@@ -1598,3 +1598,88 @@ class TopOrdersDebug(Resource):
             return {"success": False, "message": str(e)}, 500
 
 
+@dashboard_api.route('/coverage')
+class CoverageAnalysis(Resource):
+    def get(self):
+        """Get WIP Master Report data for coverage analysis with routing SMV data"""
+        try:
+            # Create a subquery to get only one version per routing_no
+            # Priority order: BG3 > BG2 > BG1 > BG > IT
+            # Use CASE statement to assign priority, then pick the highest priority (lowest number)
+            # Version codes are like "MODP1287-BG", so we check if they end with the suffix
+            routing_subquery = db.session.query(
+                NavRoutingSewingSMV.routing_no,
+                NavRoutingSewingSMV.version_code,
+                NavRoutingSewingSMV.sewing_smv,
+                func.row_number().over(
+                    partition_by=NavRoutingSewingSMV.routing_no,
+                    order_by=[
+                        db.case(
+                            (NavRoutingSewingSMV.version_code.like('%-BG3'), 1),
+                            (NavRoutingSewingSMV.version_code.like('%-BG2'), 2),
+                            (NavRoutingSewingSMV.version_code.like('%-BG1'), 3),
+                            (NavRoutingSewingSMV.version_code.like('%-BG'), 4),
+                            (NavRoutingSewingSMV.version_code.like('%-IT'), 5),
+                            else_=6  # Any other version gets lowest priority
+                        ),
+                        NavRoutingSewingSMV.version_code  # Secondary sort for deterministic ordering
+                    ]
+                ).label('rn')
+            ).subquery()
+
+            # Query wip_master_report with left join to the subquery (only rn = 1)
+            # Use COLLATE to resolve collation conflict between tables
+            query = db.session.query(
+                WipMasterReport,
+                routing_subquery.c.version_code,
+                routing_subquery.c.sewing_smv
+            ).outerjoin(
+                routing_subquery,
+                and_(
+                    WipMasterReport.article.collate('SQL_Latin1_General_CP1_CI_AS') == routing_subquery.c.routing_no,
+                    routing_subquery.c.rn == 1
+                )
+            ).filter(
+                WipMasterReport.is_active == True
+            ).all()
+
+            # Convert to dict format and add routing data
+            data = []
+            for wip_record, version_code, sewing_smv in query:
+                record_dict = wip_record.to_dict()
+                record_dict['version_code'] = version_code
+                record_dict['sewing_smv'] = sewing_smv
+
+                # Calculate Target Pcs: (450 * Operators) / SMV
+                target_pcs = None
+                if sewing_smv and sewing_smv > 0 and wip_record.operators:
+                    target_pcs = (450 * wip_record.operators) / sewing_smv
+                record_dict['target_pcs'] = target_pcs
+
+                # Calculate Coverage: (WH Pcs + Queue Pcs) / Target Pcs
+                if target_pcs and target_pcs > 0:
+                    wh_pcs = wip_record.wh_pcs or 0
+                    queue_pcs = wip_record.queue_pcs or 0
+                    record_dict['coverage'] = (wh_pcs + queue_pcs) / target_pcs
+                else:
+                    record_dict['coverage'] = None
+
+                data.append(record_dict)
+
+            # Get the last_updated timestamp from the first record (they're all the same)
+            last_updated = None
+            if query:
+                last_updated = query[0][0].last_updated.strftime('%Y-%m-%d %H:%M:%S') if query[0][0].last_updated else None
+
+            return {
+                "success": True,
+                "data": data,
+                "count": len(data),
+                "last_updated": last_updated
+            }, 200
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error in coverage endpoint: {error_details}")
+            return {"success": False, "message": str(e), "details": error_details}, 500

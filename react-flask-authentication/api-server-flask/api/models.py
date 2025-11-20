@@ -972,3 +972,63 @@ class NavBom(db.Model):
     def __repr__(self):
         return f"<NavBom {self.shortcut_dimension_2_code}, Item {self.item_no}>"
 
+
+class WipMasterReport(db.Model):
+    __tablename__ = 'wip_master_report'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    check = db.Column(db.Boolean, nullable=True)
+    sector = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    line = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    order = db.Column(db.String(100, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    article = db.Column(db.String(100, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)
+    plan_pcs = db.Column(db.Integer, nullable=True)
+    cut_pcs = db.Column(db.Integer, nullable=True)
+    stilltocut_pcs = db.Column(db.Integer, nullable=True)
+    fraction_cut = db.Column(db.Float, nullable=True)
+    wh_pcs = db.Column(db.Integer, nullable=True)
+    queue_pcs = db.Column(db.Integer, nullable=True)
+    operators = db.Column(db.Integer, nullable=True)
+    inline_date_1 = db.Column(db.Date, nullable=True)
+    inline_date_2 = db.Column(db.Date, nullable=True)
+    inline_date_3 = db.Column(db.Date, nullable=True)
+    last_updated = db.Column(db.DateTime, nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False)
+
+    def to_dict(self):
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            if isinstance(value, datetime):
+                result[column.name] = value.strftime('%Y-%m-%d %H:%M:%S')
+            elif hasattr(value, 'isoformat'):  # For date objects
+                result[column.name] = value.isoformat()
+            else:
+                result[column.name] = value
+        return result
+
+    def __repr__(self):
+        return f"<WipMasterReport {self.id}, Order {self.order}>"
+
+
+class NavRoutingSewingSMV(db.Model):
+    __tablename__ = 'nav_routing_sewingSMV'
+    __table_args__ = {'info': {'read_only': True}}  # Read-only view
+
+    # Composite primary key
+    routing_no = db.Column('Routing No_', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)
+    version_code = db.Column('Version Code', db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), primary_key=True, nullable=False)
+
+    # Aggregated column
+    sewing_smv = db.Column('Sewing SMV', db.Float, nullable=True)
+
+    def to_dict(self):
+        return {
+            'routing_no': self.routing_no,
+            'version_code': self.version_code,
+            'sewing_smv': self.sewing_smv
+        }
+
+    def __repr__(self):
+        return f"<NavRoutingSewingSMV Routing={self.routing_no}, Version={self.version_code}, SMV={self.sewing_smv}>"
+

@@ -176,7 +176,11 @@ const MainRoutes = () => {
                             <Route path="/dashboard/orderreport" component={OrderReport} />
                             <Route path="/dashboard/ai-analysis" component={AIAnalysis} />
 
-                            <Route path="/planning/coverage" component={Coverage} />
+                            <Route path="/planning/coverage">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin', 'Manager', 'Shift Manager', 'Planner', 'Warehouse']}>
+                                    <Coverage />
+                                </RoleGuard>
+                            </Route>
                             <Route path="/planning/kanbanboard" component={KanbanBoard} />
                             <Route path="/planning/orderplanning" component={OrderPlanning} />
 
