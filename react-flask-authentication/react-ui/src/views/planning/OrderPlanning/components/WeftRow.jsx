@@ -118,9 +118,14 @@ const WeftRow = ({
         />
       </TableCell>
 
-      {/* N° Rolls */}
+      {/* N° Rolls (Planned) */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>{row.rolls || ""}</Typography>
+      </TableCell>
+
+      {/* N° Rolls (Actual) */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>{row.rollsActual || ""}</Typography>
       </TableCell>
 
       {/* N° Panels */}
@@ -128,11 +133,20 @@ const WeftRow = ({
         <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
       </TableCell>
 
-      {/* Consumption */}
+      {/* Consumption (Planned) */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>
           {row.consumption && row.consumption !== "0.00"
             ? parseFloat(row.consumption).toFixed(1)
+            : ""}
+        </Typography>
+      </TableCell>
+
+      {/* Consumption (Actual) */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>
+          {row.consActual && row.consActual !== "0.00"
+            ? parseFloat(row.consActual).toFixed(1)
             : ""}
         </Typography>
       </TableCell>

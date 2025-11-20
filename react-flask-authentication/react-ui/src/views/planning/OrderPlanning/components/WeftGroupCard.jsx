@@ -33,11 +33,21 @@ const WeftGroupCard = ({
     fetchBomFabrics
   } = useBomFabrics(selectedOrder);
 
-  // Check if there's a matching destination, fabric code and color in mattress tables
+  // Helper to safely get Part index (frontend-only, defaults to 1)
+  const getSafePartIndex = (tbl) => {
+    if (!tbl || tbl.partIndex === undefined || tbl.partIndex === null) return 1;
+    const parsed = parseInt(tbl.partIndex, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  };
+
+  const currentPartIndex = getSafePartIndex(table);
+
+  // Check if there's a matching destination, fabric code, color and Part in mattress tables
   const hasMatchingFabric = mattressTables.some(mattressTable =>
     mattressTable.destination === table.destination &&
     mattressTable.fabricCode === table.fabricCode &&
-    mattressTable.fabricColor === table.fabricColor
+    mattressTable.fabricColor === table.fabricColor &&
+    getSafePartIndex(mattressTable) === currentPartIndex
   );
 
   // Calculate automatic fields (rolls, panels, consumption) for a weft row
@@ -126,11 +136,12 @@ const WeftGroupCard = ({
       }
     }));
 
-    // Find matching mattress tables with same destination, fabric code and color
+    // Find matching mattress tables with same destination, fabric code, color and Part
     const matchingMattressTables = mattressTables.filter(mattressTable =>
       mattressTable.destination === table.destination &&
       mattressTable.fabricCode === table.fabricCode &&
-      mattressTable.fabricColor === table.fabricColor
+      mattressTable.fabricColor === table.fabricColor &&
+      getSafePartIndex(mattressTable) === currentPartIndex
     );
 
     console.log('Matching criteria:', {
@@ -260,7 +271,7 @@ const WeftGroupCard = ({
   return (
     <Box p={1}>
       {/* Fabric Information */}
-      <Grid container spacing={2}>
+      <Grid container spacing={2} alignItems="flex-end">
         {/* Fabric Type */}
         <Grid item xs={3} sm={2} md={1}>
           <Autocomplete
@@ -373,8 +384,7 @@ const WeftGroupCard = ({
               disabled={!isTableEditable(table)}
               sx={{
                 color: 'primary.main',
-                '&:hover': { backgroundColor: 'primary.light', color: 'white' },
-                mt: 1
+                '&:hover': { backgroundColor: 'primary.light', color: 'white' }
               }}
             >
               <AutoFixHighIcon fontSize="small" />

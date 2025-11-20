@@ -28,7 +28,7 @@ const BiasGroupCard = ({
   return (
     <Box p={1}>
       {/* Fabric Information */}
-      <Grid container spacing={2}>
+      <Grid container spacing={2} alignItems="flex-end">
         {/* Fabric Type */}
         <Grid item xs={3} sm={2} md={1}>
           <Autocomplete

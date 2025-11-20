@@ -119,12 +119,28 @@ const useHandleSave = ({
       let hasDuplicateCombinations = false;
 
       // Check mattress tables (within mattress tables only)
+      // Now allow the same Production Center combination to be reused across DIFFERENT Parts.
+      // We only treat it as a duplicate if the combination AND Part are the same.
+      const getSafePartIndex = (table) => {
+        if (!table || table.partIndex === undefined || table.partIndex === null) {
+          return 1;
+        }
+        const parsed = parseInt(table.partIndex, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+      };
+
+      const getPartSuffix = (table) => {
+        const partIndex = getSafePartIndex(table);
+        return partIndex > 1 ? `-P${partIndex}` : '';
+      };
+
       const mattressCombinations = new Set();
       hasDuplicateCombinations = tables.some((table, tableIndex) => {
-        const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+        const partIndex = getSafePartIndex(table);
+        const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}+part=${partIndex}`;
 
         if (mattressCombinations.has(combinationKey)) {
-          invalidRow = `Mattress Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within mattress tables.`;
+          invalidRow = `Mattress Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}) in Part ${partIndex}. Each combination can only be used once within the same Part.`;
           return true;
         }
         mattressCombinations.add(combinationKey);
@@ -348,11 +364,12 @@ const useHandleSave = ({
           const itemTypeCode = table.spreading === "MANUAL" ? "MS" : "AS";
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
           const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const partSuffix = getPartSuffix(table);
 
-          // Build mattress name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
+          // Build mattress name: KEY-ORDER[-P#]-ITEMTYPE-FABRICTYPE-SEQUENCE
           const mattressName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
 
           newMattressNames.add(mattressName); // ✅ Track UI rows
 
@@ -421,11 +438,12 @@ const useHandleSave = ({
           const itemTypeCode = table.spreading === "MANUAL" ? "MSA" : "ASA"; // Use ASA for adhesive instead of AS
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
           const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const partSuffix = getPartSuffix(table);
 
-          // Build adhesive name: KEY-ORDER-ITEMTYPE-FABRICTYPE-SEQUENCE
+          // Build adhesive name: KEY-ORDER[-P#]-ITEMTYPE-FABRICTYPE-SEQUENCE
           const adhesiveName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback if no combination key
 
           newAdhesiveNames.add(adhesiveName); // ✅ Track UI rows
 
@@ -482,12 +500,13 @@ const useHandleSave = ({
 
       alongTables.forEach((table) => {
         table.rows.forEach((row) => {
-          // ✅ Build unique collaretto (along) name WITH combination key and padded index
+          // ✅ Build unique collaretto (along) name WITH combination key, Part (if > 1), and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
           const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const partSuffix = getPartSuffix(table);
           const collarettoName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-CA-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newAlongNames.add(collarettoName);
 
           // ✅ Build the payload for this row
@@ -530,19 +549,20 @@ const useHandleSave = ({
 
       weftTables.forEach((table) => {
         table.rows.forEach((row) => {
-          // ✅ Build unique collaretto (weft) name WITH combination key and padded index
+          // ✅ Build unique collaretto (weft) name WITH combination key, Part (if > 1), and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
           const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const partSuffix = getPartSuffix(table);
           const collarettoWeftName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-CW-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newWeftNames.add(collarettoWeftName);
 
           // ✅ Use spreading value to determine item type code: ASW for automatic, MSW for manual
           const itemTypeCode = table.spreading === "MANUAL" ? "MSW" : "ASW";
           const mattressName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-${itemTypeCode}-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
 
           // ✅ Build the payload for this weft row
           const payload = {
@@ -588,17 +608,18 @@ const useHandleSave = ({
 
       biasTables.forEach((table) => {
         table.rows.forEach((row) => {
-          // ✅ Build unique collaretto (bias) name WITH combination key and padded index
+          // ✅ Build unique collaretto (bias) name WITH combination key, Part (if > 1), and padded index
           const combinationKey = getCombinationKey(table.cuttingRoom, table.destination);
           const orderSuffix = getOrderSuffix(selectedOrder.id);
+          const partSuffix = getPartSuffix(table);
           const collarettoBiasName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-CB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
           newBiasNames.add(collarettoBiasName);
 
           const mattressName = combinationKey
-            ? `${combinationKey}-${orderSuffix}-MSB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
-            : `${orderSuffix}-MSB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
+            ? `${combinationKey}-${orderSuffix}${partSuffix}-MSB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`
+            : `${orderSuffix}${partSuffix}-MSB-${table.fabricType}-${String(row.sequenceNumber).padStart(3, '0')}`; // Fallback
 
           const payload = {
             collaretto: collarettoBiasName,
@@ -786,13 +807,13 @@ const useHandleSave = ({
 
       // ✅ Save production center data for all table types using unified endpoint
       const saveAllProductionCenters = () => {
-        // Combine all tables with their respective table types
+        // Combine all tables with their respective table types.
         const allTables = [
-          ...tables.map(table => ({ ...table, tableType: 'MATTRESS' })),
-          ...adhesiveTables.map(table => ({ ...table, tableType: 'ADHESIVE' })),
-          ...alongTables.map(table => ({ ...table, tableType: 'ALONG' })),
-          ...weftTables.map(table => ({ ...table, tableType: 'WEFT' })),
-          ...biasTables.map(table => ({ ...table, tableType: 'BIAS' }))
+          ...tables.map((table) => ({ ...table, tableType: 'MATTRESS' })),
+          ...adhesiveTables.map((table) => ({ ...table, tableType: 'ADHESIVE' })),
+          ...alongTables.map((table) => ({ ...table, tableType: 'ALONG' })),
+          ...weftTables.map((table) => ({ ...table, tableType: 'WEFT' })),
+          ...biasTables.map((table) => ({ ...table, tableType: 'BIAS' }))
         ];
 
         return Promise.all(allTables.map(table =>

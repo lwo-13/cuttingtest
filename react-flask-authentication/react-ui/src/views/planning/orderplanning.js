@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop, Typography } from '@mui/material';
+import { Box, Table, TableBody, TableContainer, Paper, IconButton, Button, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Collapse, CircularProgress, Backdrop, Typography, Select, MenuItem } from '@mui/material';
 import { AddCircleOutline, Calculate, Summarize } from '@mui/icons-material';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons';
 
@@ -386,6 +386,172 @@ const OrderPlanning = () => {
     const avgConsumption = useAvgConsumption(tables, getTablePlannedQuantities);
     const avgAdhesiveConsumption = useAvgConsumption(adhesiveTables, getTablePlannedQuantities);
 
+    // Frontend-only state for visual Parts per production center combination
+    const [combinationParts, setCombinationParts] = useState({});
+
+    const getActivePartForCombination = (combinationId) => {
+        if (!combinationId) {
+            return 1;
+        }
+
+        const entry = combinationParts[combinationId];
+        if (!entry || entry.active === undefined || entry.active === null) {
+            return 1;
+        }
+
+        const parsed = parseInt(entry.active, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    };
+
+    const handleChangeCombinationPart = (combinationId, value) => {
+        if (!combinationId) {
+            return;
+        }
+
+        const safeValue = parseInt(value, 10);
+        const nextPart = Number.isFinite(safeValue) && safeValue > 0 ? safeValue : 1;
+
+        setCombinationParts((prev) => {
+            const currentEntry = prev[combinationId] || {};
+
+            if (currentEntry.active === nextPart) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                [combinationId]: {
+                    ...currentEntry,
+                    active: nextPart
+                }
+            };
+        });
+    };
+
+    const getMaxPartIndexForCombination = (combination) => {
+        if (!combination || !combination.combination_id) {
+            return 1;
+        }
+
+        const {
+            combination_id,
+            production_center,
+            cutting_room,
+            destination
+        } = combination;
+
+        const activePart = getActivePartForCombination(combination_id);
+        let maxFromTables = 1;
+
+        const allTables = [
+            ...(tables || []),
+            ...(adhesiveTables || []),
+            ...(alongTables || []),
+            ...(weftTables || []),
+            ...(biasTables || [])
+        ];
+
+        allTables.forEach((table) => {
+            if (
+                table.productionCenter === production_center &&
+                table.cuttingRoom === cutting_room &&
+                table.destination === destination
+            ) {
+                let partIndex = 1;
+
+                if (table.partIndex !== undefined && table.partIndex !== null) {
+                    const parsed = parseInt(table.partIndex, 10);
+                    partIndex = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+                }
+
+                if (partIndex > maxFromTables) {
+                    maxFromTables = partIndex;
+                }
+            }
+        });
+
+        return Math.max(1, activePart || 1, maxFromTables);
+    };
+
+    const handleDeleteCombinationPart = (combination) => {
+        if (!combination || !combination.combination_id) {
+            return;
+        }
+
+        const {
+            combination_id,
+            production_center,
+            cutting_room,
+            destination
+        } = combination;
+
+        const activePart = getActivePartForCombination(combination_id);
+
+        // Do not allow deleting Part 1  there must always be at least one Part.
+        if (!activePart || activePart <= 1) {
+            setErrorMessage('Cannot delete Part 1. At least one Part must remain for each production center.');
+            setOpenError(true);
+            return;
+        }
+
+        const allTables = [
+            ...(tables || []),
+            ...(adhesiveTables || []),
+            ...(alongTables || []),
+            ...(weftTables || []),
+            ...(biasTables || [])
+        ];
+
+        const hasTablesInPart = allTables.some((table) => {
+            if (
+                table.productionCenter !== production_center ||
+                table.cuttingRoom !== cutting_room ||
+                table.destination !== destination
+            ) {
+                return false;
+            }
+
+            let partIndex = 1;
+
+            if (table.partIndex !== undefined && table.partIndex !== null) {
+                const parsed = parseInt(table.partIndex, 10);
+                partIndex = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+            }
+
+            return partIndex === activePart;
+        });
+
+        if (hasTablesInPart) {
+            setErrorMessage(`Cannot delete Part ${activePart} because it contains tables. Delete or move the tables first.`);
+            setOpenError(true);
+            return;
+        }
+
+        // Safe to delete  just move the active Part pointer back one step.
+        setCombinationParts((prev) => {
+            const currentEntry = prev[combination_id] || {};
+
+            if (!currentEntry || currentEntry.active === undefined || currentEntry.active === null) {
+                return prev;
+            }
+
+            const nextActive = Math.max(1, activePart - 1);
+
+            return {
+                ...prev,
+                [combination_id]: {
+                    ...currentEntry,
+                    active: nextActive
+                }
+            };
+        });
+    };
+
+    useEffect(() => {
+        // Reset Parts when switching orders to avoid leaking state between orders
+        setCombinationParts({});
+    }, [selectedOrder]);
+
     // Production Center Tabs Management
     const {
         selectedCombination,
@@ -409,7 +575,8 @@ const OrderPlanning = () => {
         setUnsavedChanges: (value) => {
             console.log('🔍 useProductionCenterTabs calling setUnsavedChanges with:', value);
             setUnsavedChanges(value);
-        }
+        },
+        getActivePartForCombination
     });
 
     // Helper function to get last 6 digits of order ID (same as in useHandleSave)
@@ -417,6 +584,17 @@ const OrderPlanning = () => {
         const orderStr = String(orderId);
         return orderStr.length > 6 ? orderStr.slice(-6) : orderStr;
     };
+
+
+
+    // Helper to safely get Part index (frontend-only, defaults to 1)
+    const getSafePartIndex = (tbl) => {
+        if (!tbl || tbl.partIndex === undefined || tbl.partIndex === null) return 1;
+        const parsed = parseInt(tbl.partIndex, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    };
+
+
 
     // Wrapper function for handleBulkAddRows that generates mattress names
     const handleBulkAddRowsWithNames = (tableId, bulkAddData) => {
@@ -494,32 +672,43 @@ const OrderPlanning = () => {
             return;
         }
 
-        // Check for tables and assign/update the selected combination
+        // Check for tables and assign/update the selected combination and Part index
         const updateTablesWithCombination = (currentTables, setTablesFunction) => {
             if (!currentTables || currentTables.length === 0) return;
 
-            const updatedTables = currentTables.map(table => {
-                // Case 1: Table doesn't have production center data - assign the selected combination
-                if (!table.productionCenter && !table.cuttingRoom && !table.destination) {
-                    return assignCombinationToNewTable(table);
-                }
+            const updatedTables = currentTables.map((table) => {
+                const hasNoProductionCenter =
+                    !table.productionCenter && !table.cuttingRoom && !table.destination;
 
-                // Case 2: Table has production center data that matches the selected combination ID
-                // This handles the case where a combination was edited and we need to update existing tables
-                if (selectedCombination.combination_id &&
-                    table.combinationId === selectedCombination.combination_id) {
+                // Tables that are already tied to this combination via production center fields
+                const matchesSelectedCombination =
+                    table.productionCenter === selectedCombination.production_center &&
+                    table.cuttingRoom === selectedCombination.cutting_room &&
+                    table.destination === selectedCombination.destination;
+
+                // Tables that explicitly reference this combination by ID (if present)
+                const matchesCombinationId =
+                    selectedCombination.combination_id &&
+                    table.combinationId === selectedCombination.combination_id;
+
+                if (hasNoProductionCenter || matchesSelectedCombination || matchesCombinationId) {
                     return assignCombinationToNewTable(table);
                 }
 
                 return table;
             });
 
-            // Only update if there are actual changes
-            const hasChanges = updatedTables.some((table, index) =>
-                table.productionCenter !== currentTables[index].productionCenter ||
-                table.cuttingRoom !== currentTables[index].cuttingRoom ||
-                table.destination !== currentTables[index].destination
-            );
+            // Only update if there are actual persistent changes (production center or combination link)
+            const hasChanges = updatedTables.some((updatedTable, index) => {
+                const originalTable = currentTables[index];
+
+                return (
+                    updatedTable.productionCenter !== originalTable.productionCenter ||
+                    updatedTable.cuttingRoom !== originalTable.cuttingRoom ||
+                    updatedTable.destination !== originalTable.destination ||
+                    updatedTable.combinationId !== originalTable.combinationId
+                );
+            });
 
             if (hasChanges) {
                 setTablesFunction(updatedTables);
@@ -540,23 +729,45 @@ const OrderPlanning = () => {
 
     // Ref for ProductionCenterTabs to access switchToDestinationTab function (declared earlier)
 
-    // Enhanced Print Handler
+    // Enhanced Print Handler (Part-aware)
     const handleEnhancedPrint = () => {
         // Try to get destinations in tab order first
         const combinations = productionCenterTabsRef.current?.getCombinations?.();
         let destinations;
 
         if (combinations && combinations.length > 0) {
-            // Use tab order if combinations are available
-            destinations = getDestinationsInTabOrder(combinations);
+            // Use tab order if combinations are available, but only keep destinations
+            // that actually have tables in the currently active Part
+            const destinationsInTabOrder = getDestinationsInTabOrder(combinations);
+            destinations = destinationsInTabOrder.filter((destination) =>
+                filteredTables.some((t) => t.destination === destination) ||
+                filteredAdhesiveTables.some((t) => t.destination === destination) ||
+                filteredAlongTables.some((t) => t.destination === destination) ||
+                filteredWeftTables.some((t) => t.destination === destination) ||
+                filteredBiasTables.some((t) => t.destination === destination)
+            );
         } else {
-            // Fallback to alphabetical order
-            destinations = getAllDestinations(tables, adhesiveTables, alongTables, weftTables, biasTables);
+            // Fallback to alphabetical order, based only on the current Part's tables
+            destinations = getAllDestinations(
+                filteredTables,
+                filteredAdhesiveTables,
+                filteredAlongTables,
+                filteredWeftTables,
+                filteredBiasTables
+            );
         }
 
         if (destinations.length <= 1) {
-            // Single or no destination - print normally
-            handlePrint(tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+            // Single or no destination - print the currently active Part
+            handlePrint(
+                filteredTables,
+                filteredAdhesiveTables,
+                filteredAlongTables,
+                filteredWeftTables,
+                filteredBiasTables,
+                collapsedCards,
+                setCollapsedCards
+            );
         } else {
             // Multiple destinations - show selection dialog
             setAvailableDestinations(destinations);
@@ -564,7 +775,7 @@ const OrderPlanning = () => {
         }
     };
 
-    // Handle destination-specific printing
+    // Handle destination-specific printing (Part-aware)
     const handlePrintDestination = (selectedDestination) => {
         setOpenDestinationPrintDialog(false);
 
@@ -573,21 +784,29 @@ const OrderPlanning = () => {
 
         handleDestinationPrint(
             selectedDestination,
-            tables,
-            adhesiveTables,
-            alongTables,
-            weftTables,
-            biasTables,
+            filteredTables,
+            filteredAdhesiveTables,
+            filteredAlongTables,
+            filteredWeftTables,
+            filteredBiasTables,
             collapsedCards,
             setCollapsedCards,
             switchToDestinationTab
         );
     };
 
-    // Handle print all destinations
+    // Handle print all destinations (Part-aware)
     const handlePrintAll = () => {
         setOpenDestinationPrintDialog(false);
-        handlePrint(tables, adhesiveTables, alongTables, weftTables, biasTables, collapsedCards, setCollapsedCards);
+        handlePrint(
+            filteredTables,
+            filteredAdhesiveTables,
+            filteredAlongTables,
+            filteredWeftTables,
+            filteredBiasTables,
+            collapsedCards,
+            setCollapsedCards
+        );
     };
 
     // Close destination print dialog
@@ -916,18 +1135,20 @@ const OrderPlanning = () => {
             const mattressCuttingRoom = changedTable.cuttingRoom;
             const mattressFabricCode = changedTable.fabricCode;
             const mattressFabricColor = changedTable.fabricColor;
+            const mattressPartIndex = getSafePartIndex(changedTable);
 
-            // ✅ Calculate total pieces for this bagno ONLY from mattress tables with matching configuration
+            // ✅ Calculate total pieces for this bagno ONLY from mattress tables with matching configuration AND Part
             let totalPiecesForBagno = 0;
             let piecesPerSizeForBagno = {};
 
             tables.forEach(table => {
-                // ✅ Only include mattress tables with exact matching configuration
+                // ✅ Only include mattress tables with exact matching configuration and Part
                 const hasMatchingConfig = table.destination === mattressDestination &&
                                         table.productionCenter === mattressProductionCenter &&
                                         table.cuttingRoom === mattressCuttingRoom &&
                                         table.fabricCode === mattressFabricCode &&
-                                        table.fabricColor === mattressFabricColor;
+                                        table.fabricColor === mattressFabricColor &&
+                                        getSafePartIndex(table) === mattressPartIndex;
 
                 if (hasMatchingConfig) {
                     table.rows.forEach(row => {
@@ -958,7 +1179,8 @@ const OrderPlanning = () => {
                                        table.productionCenter === mattressProductionCenter &&
                                        table.cuttingRoom === mattressCuttingRoom &&
                                        table.fabricCode === mattressFabricCode &&
-                                       table.fabricColor === mattressFabricColor;
+                                       table.fabricColor === mattressFabricColor &&
+                                       getSafePartIndex(table) === mattressPartIndex;
                 return hasMatchingBagno && hasMatchingConfig;
             });
 
@@ -969,7 +1191,8 @@ const OrderPlanning = () => {
                                        table.productionCenter === mattressProductionCenter &&
                                        table.cuttingRoom === mattressCuttingRoom &&
                                        table.fabricCode === mattressFabricCode &&
-                                       table.fabricColor === mattressFabricColor;
+                                       table.fabricColor === mattressFabricColor &&
+                                       getSafePartIndex(table) === mattressPartIndex;
                 return hasMatchingBagno && hasMatchingConfig;
             });
 
@@ -980,7 +1203,8 @@ const OrderPlanning = () => {
                                        table.productionCenter === mattressProductionCenter &&
                                        table.cuttingRoom === mattressCuttingRoom &&
                                        table.fabricCode === mattressFabricCode &&
-                                       table.fabricColor === mattressFabricColor;
+                                       table.fabricColor === mattressFabricColor &&
+                                       getSafePartIndex(table) === mattressPartIndex;
                 return hasMatchingBagno && hasMatchingConfig;
             });
 
@@ -997,7 +1221,7 @@ const OrderPlanning = () => {
                 }, 2000);
             }
 
-            // Update weft tables that match both bagno AND configuration AND fabric
+            // Update weft tables that match both bagno AND configuration AND fabric AND Part
             setWeftTables(prevTables => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
@@ -1005,7 +1229,8 @@ const OrderPlanning = () => {
                                            table.productionCenter === mattressProductionCenter &&
                                            table.cuttingRoom === mattressCuttingRoom &&
                                            table.fabricCode === mattressFabricCode &&
-                                           table.fabricColor === mattressFabricColor;
+                                           table.fabricColor === mattressFabricColor &&
+                                           getSafePartIndex(table) === mattressPartIndex;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -1067,7 +1292,7 @@ const OrderPlanning = () => {
                 });
             });
 
-            // Update bias tables that match both bagno AND configuration AND fabric
+            // Update bias tables that match both bagno AND configuration AND fabric AND Part
             setBiasTables(prevTables => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
@@ -1075,7 +1300,8 @@ const OrderPlanning = () => {
                                            table.productionCenter === mattressProductionCenter &&
                                            table.cuttingRoom === mattressCuttingRoom &&
                                            table.fabricCode === mattressFabricCode &&
-                                           table.fabricColor === mattressFabricColor;
+                                           table.fabricColor === mattressFabricColor &&
+                                           getSafePartIndex(table) === mattressPartIndex;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -1137,7 +1363,7 @@ const OrderPlanning = () => {
                 });
             });
 
-            // Update along tables that match both bagno AND configuration AND fabric
+            // Update along tables that match both bagno AND configuration AND fabric AND Part
             setAlongTables(prevTables => {
                 return prevTables.map(table => {
                     const hasMatchingBagno = table.rows.some(row => row.bagno === bagno);
@@ -1145,7 +1371,8 @@ const OrderPlanning = () => {
                                            table.productionCenter === mattressProductionCenter &&
                                            table.cuttingRoom === mattressCuttingRoom &&
                                            table.fabricCode === mattressFabricCode &&
-                                           table.fabricColor === mattressFabricColor;
+                                           table.fabricColor === mattressFabricColor &&
+                                           getSafePartIndex(table) === mattressPartIndex;
 
                     if (!hasMatchingBagno || !hasMatchingConfig) return table;
 
@@ -1213,6 +1440,7 @@ const OrderPlanning = () => {
             let mattressCuttingRoom = null;
             let mattressFabricCode = null;
             let mattressFabricColor = null;
+            let mattressPartIndex = 1;
 
             if (tableId) {
                 // ✅ Use the specific table that triggered the event
@@ -1223,6 +1451,7 @@ const OrderPlanning = () => {
                     mattressCuttingRoom = changedTable.cuttingRoom;
                     mattressFabricCode = changedTable.fabricCode;
                     mattressFabricColor = changedTable.fabricColor;
+                    mattressPartIndex = getSafePartIndex(changedTable);
                 }
             } else {
                 // ✅ Fallback: find from any mattress table with this bagno (for backward compatibility)
@@ -1234,22 +1463,24 @@ const OrderPlanning = () => {
                             mattressCuttingRoom = table.cuttingRoom;
                             mattressFabricCode = table.fabricCode;
                             mattressFabricColor = table.fabricColor;
+                            mattressPartIndex = getSafePartIndex(table);
                         }
                     });
                 });
             }
 
-            // ✅ Calculate total pieces for this bagno ONLY from mattress tables with matching configuration
+            // ✅ Calculate total pieces for this bagno ONLY from mattress tables with matching configuration AND Part
             let totalPiecesForBagno = 0;
             let piecesPerSizeForBagno = {};
 
             tables.forEach(table => {
-                // ✅ Only include mattress tables with exact matching configuration
+                // ✅ Only include mattress tables with exact matching configuration and Part
                 const hasMatchingConfig = table.destination === mattressDestination &&
                                         table.productionCenter === mattressProductionCenter &&
                                         table.cuttingRoom === mattressCuttingRoom &&
                                         table.fabricCode === mattressFabricCode &&
-                                        table.fabricColor === mattressFabricColor;
+                                        table.fabricColor === mattressFabricColor &&
+                                        getSafePartIndex(table) === mattressPartIndex;
 
                 if (hasMatchingConfig) {
                     table.rows.forEach(row => {
@@ -1341,7 +1572,8 @@ const OrderPlanning = () => {
                                            table.productionCenter === mattressProductionCenter &&
                                            table.cuttingRoom === mattressCuttingRoom &&
                                            table.fabricCode === mattressFabricCode &&
-                                           table.fabricColor === mattressFabricColor;
+                                           table.fabricColor === mattressFabricColor &&
+                                               getSafePartIndex(table) === mattressPartIndex;
 
                     if (!hasMatchingConfig) return table;
 
@@ -1444,7 +1676,8 @@ const OrderPlanning = () => {
                                            table.productionCenter === mattressProductionCenter &&
                                            table.cuttingRoom === mattressCuttingRoom &&
                                            table.fabricCode === mattressFabricCode &&
-                                           table.fabricColor === mattressFabricColor;
+                                           table.fabricColor === mattressFabricColor &&
+                                           getSafePartIndex(table) === mattressPartIndex;
 
                     if (!hasMatchingConfig) return table;
 
@@ -1533,7 +1766,8 @@ const OrderPlanning = () => {
                                            table.productionCenter === mattressProductionCenter &&
                                            table.cuttingRoom === mattressCuttingRoom &&
                                            table.fabricCode === mattressFabricCode &&
-                                           table.fabricColor === mattressFabricColor;
+                                           table.fabricColor === mattressFabricColor &&
+                                           getSafePartIndex(table) === mattressPartIndex;
 
                     if (!hasMatchingConfig) return table;
 
@@ -1602,6 +1836,7 @@ const OrderPlanning = () => {
             let collarettoCuttingRoom = null;
             let collarettoFabricCode = null;
             let collarettoFabricColor = null;
+            let collarettoPartIndex = 1;
 
             if (tableType === 'weft') {
                 const weftTable = weftTables.find(t => t.id === tableId);
@@ -1610,6 +1845,9 @@ const OrderPlanning = () => {
                 collarettoCuttingRoom = weftTable?.cuttingRoom;
                 collarettoFabricCode = weftTable?.fabricCode;
                 collarettoFabricColor = weftTable?.fabricColor;
+                if (weftTable) {
+                    collarettoPartIndex = getSafePartIndex(weftTable);
+                }
             } else if (tableType === 'bias') {
                 const biasTable = biasTables.find(t => t.id === tableId);
                 collarettoDestination = biasTable?.destination;
@@ -1617,6 +1855,9 @@ const OrderPlanning = () => {
                 collarettoCuttingRoom = biasTable?.cuttingRoom;
                 collarettoFabricCode = biasTable?.fabricCode;
                 collarettoFabricColor = biasTable?.fabricColor;
+                if (biasTable) {
+                    collarettoPartIndex = getSafePartIndex(biasTable);
+                }
             } else if (tableType === 'along') {
                 const alongTable = alongTables.find(t => t.id === tableId);
                 collarettoDestination = alongTable?.destination;
@@ -1624,6 +1865,9 @@ const OrderPlanning = () => {
                 collarettoCuttingRoom = alongTable?.cuttingRoom;
                 collarettoFabricCode = alongTable?.fabricCode;
                 collarettoFabricColor = alongTable?.fabricColor;
+                if (alongTable) {
+                    collarettoPartIndex = getSafePartIndex(alongTable);
+                }
             }
 
 
@@ -1653,12 +1897,13 @@ const OrderPlanning = () => {
             let piecesPerSizeForBagno = {};
 
             tables.forEach(table => {
-                // Only consider mattress tables with matching configuration AND fabric code/color
+                // Only consider mattress tables with matching configuration, fabric code/color AND Part
                 const hasMatchingConfig = table.destination === collarettoDestination &&
                                         table.productionCenter === collarettoProductionCenter &&
                                         table.cuttingRoom === collarettoCuttingRoom &&
                                         table.fabricCode === collarettoFabricCode &&
-                                        table.fabricColor === collarettoFabricColor;
+                                        table.fabricColor === collarettoFabricColor &&
+                                        getSafePartIndex(table) === collarettoPartIndex;
 
 
 
@@ -2210,6 +2455,11 @@ const OrderPlanning = () => {
                     setDeletedBias={setDeletedBias}
                     setDeletedTableIds={setDeletedTableIds}
                     setDeletedCombinations={setDeletedCombinations}
+                    // Visual Parts per combination (frontend-only)
+                    getActivePartForCombination={getActivePartForCombination}
+                    handleChangeCombinationPart={handleChangeCombinationPart}
+                    getMaxPartIndexForCombination={getMaxPartIndexForCombination}
+                    handleDeleteCombinationPart={handleDeleteCombinationPart}
                 />
             )}
 

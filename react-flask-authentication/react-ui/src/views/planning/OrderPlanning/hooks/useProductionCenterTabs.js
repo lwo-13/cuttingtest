@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'utils/axiosInstance';
 
-const useProductionCenterTabs = ({ 
-    selectedOrder, 
-    tables, 
-    adhesiveTables, 
-    alongTables, 
-    weftTables, 
+const useProductionCenterTabs = ({
+    selectedOrder,
+    tables,
+    adhesiveTables,
+    alongTables,
+    weftTables,
     biasTables,
-    setUnsavedChanges 
+    setUnsavedChanges,
+    getActivePartForCombination
 }) => {
     const [selectedCombination, setSelectedCombination] = useState(null);
     const [productionCenterOptions, setProductionCenterOptions] = useState([]);
@@ -51,14 +52,27 @@ const useProductionCenterTabs = ({
         setSelectedCombination(combination);
     }, []);
 
-    // Filter tables based on selected combination
+    // Filter tables based on selected combination and active Part (frontend-only)
     const getFilteredTables = useCallback((allTables, tableType) => {
         if (!selectedCombination || !allTables) {
             return allTables || [];
         }
 
+        const activePartIndex = (getActivePartForCombination && selectedCombination?.combination_id)
+            ? getActivePartForCombination(selectedCombination.combination_id)
+            : 1;
+
+        const getSafePartIndex = (table) => {
+            if (!table || table.partIndex === undefined || table.partIndex === null) {
+                return 1;
+            }
+
+            const parsed = parseInt(table.partIndex, 10);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+        };
+
         // Filter tables that either:
-        // 1. Match the selected production center combination, OR
+        // 1. Match the selected production center combination AND belong to the active Part, OR
         // 2. Don't have production center data assigned yet (so they can be assigned to current combination)
         return allTables.filter(table => {
             // Show tables that match the selected combination
@@ -75,9 +89,18 @@ const useProductionCenterTabs = ({
                 !table.destination
             );
 
-            return matchesSelectedCombination || hasNoProductionCenter;
+            if (matchesSelectedCombination) {
+                if (!getActivePartForCombination) {
+                    return true;
+                }
+
+                const tablePartIndex = getSafePartIndex(table);
+                return tablePartIndex === activePartIndex;
+            }
+
+            return hasNoProductionCenter;
         });
-    }, [selectedCombination]);
+    }, [selectedCombination, getActivePartForCombination]);
 
     // Get filtered tables for each type
     const filteredTables = getFilteredTables(tables, 'MATTRESS');
@@ -105,13 +128,32 @@ const useProductionCenterTabs = ({
     const assignCombinationToNewTable = useCallback((table) => {
         if (!selectedCombination) return table;
 
-        return {
+        const baseTable = {
             ...table,
             productionCenter: selectedCombination.production_center || '',
             cuttingRoom: selectedCombination.cutting_room || '',
             destination: selectedCombination.destination || ''
         };
-    }, [selectedCombination]);
+
+        // Assign Part Index based on the active Part for this combination
+        const hasPartIndex = baseTable.partIndex !== undefined && baseTable.partIndex !== null;
+        if (!hasPartIndex) {
+            let partFromState = 1;
+
+            if (getActivePartForCombination && selectedCombination.combination_id) {
+                const activePart = getActivePartForCombination(selectedCombination.combination_id);
+                const parsed = parseInt(activePart, 10);
+                partFromState = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+            }
+
+            return {
+                ...baseTable,
+                partIndex: partFromState
+            };
+        }
+
+        return baseTable;
+    }, [selectedCombination, getActivePartForCombination]);
 
     // Function to update tables when a combination is modified
     const updateTablesWithCombination = useCallback((oldCombination, newCombination, allTables, setTablesFunction) => {

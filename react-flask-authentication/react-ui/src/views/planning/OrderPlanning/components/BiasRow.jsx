@@ -104,9 +104,14 @@ const BiasRow = ({
         />
       </TableCell>
 
-      {/* N° Rolls */}
+      {/* N° Rolls (Planned) */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>{row.rolls || ""}</Typography>
+      </TableCell>
+
+      {/* N° Rolls (Actual) */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>{row.rollsActual || ""}</Typography>
       </TableCell>
 
       {/* N° Panels */}
@@ -114,11 +119,20 @@ const BiasRow = ({
         <Typography sx={{ fontWeight: 'normal' }}>{row.panels || ""}</Typography>
       </TableCell>
 
-      {/* Consumption */}
+      {/* Consumption (Planned) */}
       <TableCell align="center">
         <Typography sx={{ fontWeight: 'normal' }}>
           {row.consumption && parseFloat(row.consumption) !== 0
             ? parseFloat(row.consumption).toFixed(1)
+            : ""}
+        </Typography>
+      </TableCell>
+
+      {/* Consumption (Actual) */}
+      <TableCell align="center">
+        <Typography sx={{ fontWeight: 'normal' }}>
+          {row.consActual && parseFloat(row.consActual) !== 0
+            ? parseFloat(row.consActual).toFixed(1)
             : ""}
         </Typography>
       </TableCell>
