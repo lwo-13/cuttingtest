@@ -1,5 +1,18 @@
 import axios from 'utils/axiosInstance';
 
+const parsePartIndexFromName = (name) => {
+  if (!name || typeof name !== 'string') return 1;
+
+  const tokens = name.split('-');
+  const partToken = tokens.find((token) => /^P[0-9]+$/.test(token));
+
+  if (!partToken) return 1;
+
+  const numeric = parseInt(partToken.slice(1), 10);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
+};
+
+
 const handleOrderChange = async (newValue, context) => {
   const {
     setSelectedOrder,
@@ -135,6 +148,13 @@ const handleOrderChange = async (newValue, context) => {
           rows: []
         };
       }
+
+      const partIndex = parsePartIndexFromName(mattress.mattress);
+      if (tablesById[tableId].partIndex === undefined || tablesById[tableId].partIndex === null) {
+        tablesById[tableId].partIndex = partIndex;
+      }
+
+
       // Use marker data from mattress_markers table and size quantities from mattress_sizes table
       tablesById[tableId].rows.push({
         id: mattress.row_id,
@@ -178,6 +198,13 @@ const handleOrderChange = async (newValue, context) => {
           rows: []
         };
       }
+
+      const adhesivePartIndex = parsePartIndexFromName(adhesive.mattress);
+      if (adhesiveTablesById[tableId].partIndex === undefined || adhesiveTablesById[tableId].partIndex === null) {
+        adhesiveTablesById[tableId].partIndex = adhesivePartIndex;
+      }
+
+
       // Use marker data directly from mattress_markers and mattress_sizes tables
       adhesiveTablesById[tableId].rows.push({
         id: adhesive.row_id,
@@ -222,6 +249,13 @@ const handleOrderChange = async (newValue, context) => {
           rows: []
         };
       }
+
+      const alongPartIndex = parsePartIndexFromName(along.collaretto);
+      if (alongTablesById[tableId].partIndex === undefined || alongTablesById[tableId].partIndex === null) {
+        alongTablesById[tableId].partIndex = alongPartIndex;
+      }
+
+
       alongTablesById[tableId].rows.push({
         id: along.row_id,
         collarettoName: along.collaretto,
@@ -257,6 +291,13 @@ const handleOrderChange = async (newValue, context) => {
           spreading: weft.spreading || "AUTOMATIC",  // ✅ Load spreading information
           rows: []
         };
+
+      const weftPartIndex = parsePartIndexFromName(weft.collaretto);
+      if (weftTablesById[tableId].partIndex === undefined || weftTablesById[tableId].partIndex === null) {
+        weftTablesById[tableId].partIndex = weftPartIndex;
+      }
+
+
       }
       weftTablesById[tableId].rows.push({
         id: weft.row_id,
@@ -297,6 +338,13 @@ const handleOrderChange = async (newValue, context) => {
           rows: []
         };
       }
+
+      const biasPartIndex = parsePartIndexFromName(bias.collaretto);
+      if (biasTablesById[tableId].partIndex === undefined || biasTablesById[tableId].partIndex === null) {
+        biasTablesById[tableId].partIndex = biasPartIndex;
+      }
+
+
 
       // Calculate panel length from usable width: same as usable width but in meters
       const usableWidthCM = bias.details.total_width || 0;

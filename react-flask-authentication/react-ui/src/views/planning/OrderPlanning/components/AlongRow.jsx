@@ -82,12 +82,21 @@ const AlongRow = ({
         />
       </TableCell>
 
+      {/* Rolls Planned */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.rolls || ""}
         </Typography>
       </TableCell>
 
+      {/* Rolls Actual */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.rollsActual || ""}
+        </Typography>
+      </TableCell>
+
+      {/* Total Collaretto */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.metersCollaretto && !isNaN(row.metersCollaretto)
@@ -96,10 +105,20 @@ const AlongRow = ({
         </Typography>
       </TableCell>
 
+      {/* Planned Cons */}
       <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
         <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
           {row.consumption && !isNaN(row.consumption) && parseFloat(row.consumption) !== 0
             ? parseFloat(row.consumption).toFixed(1)
+            : ""}
+        </Typography>
+      </TableCell>
+
+      {/* Actual Cons */}
+      <TableCell sx={{ padding: '4px', textAlign: 'center' }}>
+        <Typography sx={{ fontWeight: 'normal', textAlign: 'center' }}>
+          {row.consActual && !isNaN(row.consActual) && parseFloat(row.consActual) !== 0
+            ? parseFloat(row.consActual).toFixed(1)
             : ""}
         </Typography>
       </TableCell>

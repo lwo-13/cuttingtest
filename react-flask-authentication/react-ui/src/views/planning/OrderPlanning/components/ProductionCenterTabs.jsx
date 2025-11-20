@@ -14,9 +14,11 @@ import {
     Autocomplete,
     Typography,
     Alert,
-    Tooltip
+    Tooltip,
+    Select,
+    MenuItem
 } from '@mui/material';
-import { Add, Edit, Delete, Save, Cancel } from '@mui/icons-material';
+import { Add, Edit, Delete, Save, Cancel, DeleteOutline, KeyboardArrowDown } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
 import MainCard from 'ui-component/cards/MainCard';
 import CumulativeQuantities from './CumulativeQuantities';
@@ -50,7 +52,12 @@ const ProductionCenterTabs = forwardRef(({
     setDeletedTableIds,
     setDeletedCombinations,
     // Print-specific props
-    printSelectedDestination = null
+    printSelectedDestination = null,
+    // Frontend-only: visual Parts per production center combination
+    getActivePartForCombination,
+    handleChangeCombinationPart,
+    getMaxPartIndexForCombination,
+    handleDeleteCombinationPart
 }, ref) => {
     const [combinations, setCombinations] = useState([]);
     const [activeTab, setActiveTab] = useState(0);
@@ -732,66 +739,207 @@ const ProductionCenterTabs = forwardRef(({
                                 }).join(', ')
                                 : null;
                             const isActiveTab = activeTab === index;
+                            const activePartIndex = getActivePartForCombination
+                                ? getActivePartForCombination(combination.combination_id)
+                                : 1;
 
                             return (
                                 <Tab
                                     key={combination.combination_id}
                                     label={
-                                        <Box display="flex" alignItems="center" gap={1}>
-                                            <Box display="flex" flexDirection="column" alignItems="center">
-                                                <span>
+                                        <Box
+                                            display="flex"
+                                            alignItems="center"
+                                            justifyContent="space-between"
+                                            gap={1.5}
+                                            sx={{ minWidth: 0 }}
+                                        >
+                                            <Box display="flex" flexDirection="column" alignItems="flex-start" sx={{ minWidth: 0 }}>
+                                                {/* Header: production center / cutting room / destination */}
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    sx={{
+                                                        fontWeight: isActiveTab ? 600 : 500,
+                                                        whiteSpace: 'nowrap',
+                                                        textOverflow: 'ellipsis',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                >
                                                     {combination.production_center} - {combination.cutting_room}
                                                     {combination.destination && combination.destination !== combination.cutting_room && ` - ${combination.destination}`}
-                                                    {percentage > 0 && ` (${percentage}%)`}
-                                                </span>
-                                                {machineInfo && isActiveTab && (
-                                                    <Typography
-                                                        variant="caption"
-                                                        sx={{
-                                                            color: 'grey.500',
-                                                            fontSize: '0.7rem',
-                                                            mt: 0.25
-                                                        }}
+                                                </Typography>
+
+                                                {/* Body: percentage + machine info + Part selector (only on active tab) */}
+                                                {isActiveTab && (percentage > 0 || machineInfo || (getActivePartForCombination && handleChangeCombinationPart && getMaxPartIndexForCombination)) && (
+                                                    <Box
+                                                        display="flex"
+                                                        alignItems="center"
+                                                        gap={1}
+                                                        sx={{ mt: 0.25, flexWrap: 'nowrap', minWidth: 0 }}
                                                     >
-                                                        {machineInfo}
-                                                    </Typography>
+                                                        {percentage > 0 && (
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                ({percentage}%)
+                                                            </Typography>
+                                                        )}
+                                                        {machineInfo && (
+                                                            <Typography
+                                                                variant="caption"
+                                                                color="text.secondary"
+                                                                sx={{
+                                                                    fontSize: '0.7rem',
+                                                                    whiteSpace: 'nowrap',
+                                                                    textOverflow: 'ellipsis',
+                                                                    overflow: 'hidden',
+                                                                    maxWidth: '16rem',
+                                                                    flexShrink: 1
+                                                                }}
+                                                            >
+                                                                {machineInfo}
+                                                            </Typography>
+                                                        )}
+                                                        {getActivePartForCombination && handleChangeCombinationPart && getMaxPartIndexForCombination && (
+                                                            <Box
+                                                                display="flex"
+                                                                alignItems="center"
+                                                                gap={0.5}
+                                                                sx={{
+                                                                    px: 0.75,
+                                                                    py: 0.3,
+                                                                    borderRadius: 999,
+                                                                    bgcolor:
+                                                                        activePartIndex === 1
+                                                                            ? 'grey.100'
+                                                                            : activePartIndex === 2
+                                                                            ? 'primary.light'
+                                                                            : 'secondary.light',
+                                                                    border: '1px solid',
+                                                                    borderColor:
+                                                                        activePartIndex === 1
+                                                                            ? 'grey.300'
+                                                                            : activePartIndex === 2
+                                                                            ? 'primary.main'
+                                                                            : 'secondary.main',
+                                                                    boxShadow:
+                                                                        activePartIndex > 1
+                                                                            ? '0 0 0 1px rgba(0,0,0,0.02)'
+                                                                            : 'none',
+                                                                }}
+                                                            >
+                                                                <Select
+                                                                    size="small"
+                                                                    variant="standard"
+                                                                    disableUnderline
+                                                                    IconComponent={KeyboardArrowDown}
+                                                                    value={activePartIndex}
+                                                                    onChange={(event) => {
+                                                                        event.stopPropagation();
+                                                                        handleChangeCombinationPart(
+                                                                            combination.combination_id,
+                                                                            event.target.value
+                                                                        );
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    sx={{
+                                                                        fontSize: '0.8rem',
+                                                                        fontWeight: 600,
+                                                                        textTransform: 'uppercase',
+                                                                        ml: 0.25,
+                                                                        color:
+                                                                            activePartIndex === 1
+                                                                                ? 'text.primary'
+                                                                                : activePartIndex === 2
+                                                                                ? 'primary.dark'
+                                                                                : 'secondary.dark',
+                                                                        '& .MuiSelect-select': {
+                                                                            py: 0,
+                                                                            px: 0.5,
+                                                                        },
+                                                                    }}
+                                                                >
+                                                                    {(() => {
+                                                                        const maxPart = getMaxPartIndexForCombination(combination);
+                                                                        const items = [];
+                                                                        for (let value = 1; value <= maxPart + 1; value += 1) {
+                                                                            const isNew = value === maxPart + 1;
+                                                                            items.push(
+                                                                                <MenuItem key={value} value={value}>
+                                                                                    {isNew ? `New Part ${value}` : `Part ${value}`}
+                                                                                </MenuItem>
+                                                                            );
+                                                                        }
+                                                                        return items;
+                                                                    })()}
+                                                                </Select>
+                                                                {handleDeleteCombinationPart && activePartIndex > 1 && (
+                                                                    <Tooltip title={`Delete Part ${activePartIndex}`}>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDeleteCombinationPart(combination);
+                                                                            }}
+                                                                            sx={{
+                                                                                p: 0,
+                                                                                ml: 0.25,
+                                                                                color:
+                                                                                    activePartIndex === 1
+                                                                                        ? 'text.secondary'
+                                                                                        : activePartIndex === 2
+                                                                                        ? 'primary.dark'
+                                                                                        : 'secondary.dark',
+                                                                                '&:hover': {
+                                                                                    color: 'error.main',
+                                                                                    backgroundColor: 'transparent',
+                                                                                },
+                                                                            }}
+                                                                        >
+                                                                            <DeleteOutline fontSize="inherit" />
+                                                                        </IconButton>
+                                                                    </Tooltip>
+                                                                )}
+                                                            </Box>
+                                                        )}
+                                                    </Box>
                                                 )}
                                             </Box>
-                                            <Edit
-                                                fontSize="small"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditCombination(combination);
-                                                }}
-                                                sx={{
-                                                    ml: 1,
-                                                    cursor: 'pointer',
-                                                    '&:hover': { color: 'primary.main' }
-                                                }}
-                                            />
-                                            <Tooltip
-                                                title={hasLockedRows(combination)
-                                                    ? "Cannot delete: contains locked mattresses in production"
-                                                    : "Delete production center configuration"
-                                                }
-                                                arrow
-                                            >
-                                                <Delete
+                                            <Box display="flex" alignItems="center" gap={0.5}>
+                                                <Edit
                                                     fontSize="small"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleDeleteCombination(combination);
+                                                        handleEditCombination(combination);
                                                     }}
                                                     sx={{
-                                                        cursor: hasLockedRows(combination) ? 'not-allowed' : 'pointer',
-                                                        color: hasLockedRows(combination) ? 'grey.400' : 'inherit',
-                                                        opacity: hasLockedRows(combination) ? 0.5 : 1,
-                                                        '&:hover': {
-                                                            color: hasLockedRows(combination) ? 'grey.400' : 'error.main'
-                                                        }
+                                                        cursor: 'pointer',
+                                                        '&:hover': { color: 'primary.main' },
                                                     }}
                                                 />
-                                            </Tooltip>
+                                                <Tooltip
+                                                    title={hasLockedRows(combination)
+                                                        ? 'Cannot delete: contains locked mattresses in production'
+                                                        : 'Delete production center configuration'}
+                                                    arrow
+                                                >
+                                                    <Delete
+                                                        fontSize="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteCombination(combination);
+                                                        }}
+                                                        sx={{
+                                                            cursor: hasLockedRows(combination) ? 'not-allowed' : 'pointer',
+                                                            color: hasLockedRows(combination) ? 'grey.400' : 'inherit',
+                                                            opacity: hasLockedRows(combination) ? 0.5 : 1,
+                                                            '&:hover': {
+                                                                color: hasLockedRows(combination)
+                                                                    ? 'grey.400'
+                                                                    : 'error.main',
+                                                            },
+                                                        }}
+                                                    />
+                                                </Tooltip>
+                                            </Box>
                                         </Box>
                                     }
                                 />
@@ -832,7 +980,18 @@ const ProductionCenterTabs = forwardRef(({
                                 if (selectedCombination) {
                                     const percentage = calculateCombinationPercentage(selectedCombination);
                                     const combinationText = `${selectedCombination.production_center} - ${selectedCombination.cutting_room}${selectedCombination.destination && selectedCombination.destination !== selectedCombination.cutting_room ? ` - ${selectedCombination.destination}` : ''}`;
-                                    return percentage > 0 ? `${combinationText} (${percentage}%)` : combinationText;
+
+                                    // Determine the active Part for this combination (defaults to Part 1)
+                                    const activePartIndex = typeof getActivePartForCombination === 'function'
+                                        ? getActivePartForCombination(selectedCombination.combination_id)
+                                        : 1;
+                                    const safePartIndex = Number.isFinite(activePartIndex) && activePartIndex > 0
+                                        ? activePartIndex
+                                        : 1;
+                                    const partLabel = `Part ${safePartIndex}`;
+
+                                    const baseText = `${combinationText} - ${partLabel}`;
+                                    return percentage > 0 ? `${baseText} (${percentage}%)` : baseText;
                                 }
 
                                 return '';
