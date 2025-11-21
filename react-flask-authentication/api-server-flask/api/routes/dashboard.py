@@ -1598,11 +1598,106 @@ class TopOrdersDebug(Resource):
             return {"success": False, "message": str(e)}, 500
 
 
+@dashboard_api.route('/coverage/timestamps')
+class CoverageTimestamps(Resource):
+    def get(self):
+        """Get list of available timestamps from the last 2 days"""
+        try:
+            from datetime import datetime, timedelta
+
+            # Calculate the date 2 days ago
+            two_days_ago = datetime.now() - timedelta(days=2)
+
+            # Get the current active timestamp
+            current_timestamp = db.session.query(
+                WipMasterReport.last_updated
+            ).filter(
+                WipMasterReport.is_active == True
+            ).first()
+
+            current_ts = current_timestamp[0] if current_timestamp else None
+
+            # Query distinct timestamps from the last 2 days, ordered by most recent first
+            # Exclude the current active timestamp
+            query = db.session.query(
+                WipMasterReport.last_updated
+            ).filter(
+                WipMasterReport.last_updated >= two_days_ago
+            )
+
+            if current_ts:
+                query = query.filter(WipMasterReport.last_updated != current_ts)
+
+            timestamps = query.distinct().order_by(
+                WipMasterReport.last_updated.desc()
+            ).all()
+
+            # Format timestamps
+            timestamp_list = []
+            for ts in timestamps:
+                if ts[0]:
+                    timestamp_list.append({
+                        'value': ts[0].strftime('%Y-%m-%d %H:%M:%S'),
+                        'label': ts[0].strftime('%d %b %H:%M')
+                    })
+
+            return {
+                "success": True,
+                "timestamps": timestamp_list
+            }, 200
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}, 500
+
+
+@dashboard_api.route('/coverage/update-check/<int:record_id>')
+class UpdateCoverageCheck(Resource):
+    def put(self, record_id):
+        """Update the check status of a WIP Master Report record"""
+        try:
+            data = request.get_json()
+            check_value = data.get('check')
+
+            if check_value is None:
+                return {"success": False, "message": "check value is required"}, 400
+
+            # Find the record
+            record = WipMasterReport.query.filter_by(id=record_id).first()
+
+            if not record:
+                return {"success": False, "message": "Record not found"}, 404
+
+            # Update the check field
+            record.check = check_value
+            db.session.commit()
+
+            return {
+                "success": True,
+                "message": "Check status updated successfully",
+                "data": {
+                    "id": record.id,
+                    "check": record.check
+                }
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error updating check status: {error_details}")
+            return {"success": False, "message": str(e), "details": error_details}, 500
+
+
 @dashboard_api.route('/coverage')
 class CoverageAnalysis(Resource):
     def get(self):
         """Get WIP Master Report data for coverage analysis with routing SMV data"""
         try:
+            from datetime import datetime
+
+            # Get timestamp parameter (optional)
+            timestamp_param = request.args.get('timestamp', None)
+
             # Create a subquery to get only one version per routing_no
             # Priority order: BG3 > BG2 > BG1 > BG > IT
             # Use CASE statement to assign priority, then pick the highest priority (lowest number)
@@ -1629,7 +1724,7 @@ class CoverageAnalysis(Resource):
 
             # Query wip_master_report with left join to the subquery (only rn = 1)
             # Use COLLATE to resolve collation conflict between tables
-            query = db.session.query(
+            base_query = db.session.query(
                 WipMasterReport,
                 routing_subquery.c.version_code,
                 routing_subquery.c.sewing_smv
@@ -1639,9 +1734,21 @@ class CoverageAnalysis(Resource):
                     WipMasterReport.article.collate('SQL_Latin1_General_CP1_CI_AS') == routing_subquery.c.routing_no,
                     routing_subquery.c.rn == 1
                 )
-            ).filter(
-                WipMasterReport.is_active == True
-            ).all()
+            )
+
+            if timestamp_param:
+                # Fetch specific timestamp version (can be active or inactive)
+                # Compare using formatted string to avoid microsecond precision issues
+                # Use text() to write raw SQL for CONVERT function
+                from sqlalchemy import text
+                query = base_query.filter(
+                    text("CONVERT(VARCHAR, wip_master_report.last_updated, 120) = :timestamp")
+                ).params(timestamp=timestamp_param).all()
+            else:
+                # Fetch only active records (current version)
+                query = base_query.filter(
+                    WipMasterReport.is_active == True
+                ).all()
 
             # Convert to dict format and add routing data
             data = []
