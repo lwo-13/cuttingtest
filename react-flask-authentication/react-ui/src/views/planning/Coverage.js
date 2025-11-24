@@ -26,8 +26,10 @@ const Coverage = () => {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [currentTimestamp, setCurrentTimestamp] = useState(null); // Store the actual current timestamp
     const [availableTimestamps, setAvailableTimestamps] = useState([]);
     const [selectedTimestamp, setSelectedTimestamp] = useState('current');
+    const [toLoadCutData, setToLoadCutData] = useState([]);
 
     // Summary dialog state
     const [summaryOpen, setSummaryOpen] = useState(false);
@@ -62,6 +64,11 @@ const Coverage = () => {
                 if (response.data.success) {
                     setRows(response.data.data);
                     setLastUpdated(response.data.last_updated);
+
+                    // Only update currentTimestamp when viewing the current version
+                    if (selectedTimestamp === 'current') {
+                        setCurrentTimestamp(response.data.last_updated);
+                    }
                 } else {
                     console.error('Failed to fetch coverage data:', response.data.message);
                     console.error('Error details:', response.data.details);
@@ -79,6 +86,22 @@ const Coverage = () => {
 
         fetchCoverageData();
     }, [selectedTimestamp]);
+
+    // Fetch to-load-cut data
+    useEffect(() => {
+        const fetchToLoadCutData = async () => {
+            try {
+                const response = await axios.get('/dashboard/coverage/to-load-cut');
+                if (response.data.success) {
+                    setToLoadCutData(response.data.data);
+                }
+            } catch (error) {
+                console.error('Error fetching to-load-cut data:', error);
+            }
+        };
+
+        fetchToLoadCutData();
+    }, []);
 
     // Filter and sort rows based on selected filters
     const filteredRows = useMemo(() => {
@@ -521,8 +544,70 @@ const Coverage = () => {
                     </Tooltip>
                 );
             }
+        },
+        {
+            field: 'to_load_cut',
+            headerName: 'To Load + To Cut',
+            width: 180,
+            align: 'left',
+            headerAlign: 'left',
+            renderCell: (params) => {
+                const sector = params.row.sector || '';
+                const order = params.row.order;
+
+                // Map sector to cutting_room and destination
+                // Mapping rules:
+                // Z1_S1 -> ZALLI, "ZALLI 1 - SECTOR 1"
+                // Z1_S2 -> ZALLI, "ZALLI 1 - SECTOR 2"
+                // Z1_S3 -> ZALLI, "ZALLI 1 - SECTOR 3"
+                // Z2_SS -> ZALLI, "ZALLI 2"
+                // Z3_SS -> ZALLI, "ZALLI 3"
+
+                let cuttingRoom = null;
+                let expectedDestination = null;
+
+                if (sector.startsWith('Z')) {
+                    cuttingRoom = 'ZALLI';
+
+                    // Parse sector format - check _SS first before _S
+                    if (sector.includes('_SS')) {
+                        // Format: Z2_SS, Z3_SS
+                        const zalliNumber = sector.substring(1, 2); // "2" from "Z2_SS"
+                        expectedDestination = `ZALLI ${zalliNumber}`;
+                    } else if (sector.includes('_S')) {
+                        // Format: Z1_S1, Z1_S2, Z1_S3
+                        const parts = sector.split('_S');
+                        const zalliNumber = parts[0].substring(1); // "1" from "Z1"
+                        const sectorNumber = parts[1]; // "1", "2", or "3"
+                        expectedDestination = `ZALLI ${zalliNumber} - SECTOR ${sectorNumber}`;
+                    }
+                }
+
+                if (!cuttingRoom) return '';
+
+                // Find matching data by order, cutting_room, and destination
+                const matchingData = toLoadCutData.find(item => {
+                    if (item.order !== order) return false;
+                    if (item.cutting_room !== cuttingRoom) return false;
+                    if (expectedDestination && item.destination !== expectedDestination) return false;
+
+                    return true;
+                });
+
+                if (!matchingData) return '';
+
+                const tooltipContent = `Mattresses: ${matchingData.total_mattresses}\nPcs: ${matchingData.total_pcs}`;
+
+                return (
+                    <Tooltip title={<div style={{ whiteSpace: 'pre-line' }}>{tooltipContent}</div>} arrow>
+                        <span>
+                            {matchingData.total_mattresses} / {matchingData.total_pcs} pcs
+                        </span>
+                    </Tooltip>
+                );
+            }
         }
-    ], [handleCheckChange]);
+    ], [handleCheckChange, toLoadCutData]);
 
     // Helper function to format timestamp
     const formatTimestamp = (timestamp) => {
@@ -584,9 +669,9 @@ const Coverage = () => {
                             }}
                         >
                             <MenuItem value="current" sx={{ fontWeight: 'normal' }}>
-                                Current {lastUpdated && `(${formatTimestamp(lastUpdated)})`}
+                                Current {currentTimestamp && `(${formatTimestamp(currentTimestamp)})`}
                             </MenuItem>
-                            {availableTimestamps.map((ts, index) => (
+                            {availableTimestamps.slice(0, 5).map((ts, index) => (
                                 <MenuItem key={index} value={ts.value} sx={{ fontWeight: 'normal' }}>
                                     {ts.label}
                                 </MenuItem>
@@ -648,7 +733,12 @@ const Coverage = () => {
                         placeholder="Filter..."
                         value={filterText}
                         onChange={(e) => setFilterText(e.target.value)}
-                        sx={{ width: 200 }}
+                        sx={{
+                            width: 200,
+                            '& .MuiInputBase-input': {
+                                fontWeight: 'normal'
+                            }
+                        }}
                     />
                 </Box>
             }

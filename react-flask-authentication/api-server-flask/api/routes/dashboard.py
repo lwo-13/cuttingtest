@@ -1601,13 +1601,8 @@ class TopOrdersDebug(Resource):
 @dashboard_api.route('/coverage/timestamps')
 class CoverageTimestamps(Resource):
     def get(self):
-        """Get list of available timestamps from the last 2 days"""
+        """Get list of available timestamps"""
         try:
-            from datetime import datetime, timedelta
-
-            # Calculate the date 2 days ago
-            two_days_ago = datetime.now() - timedelta(days=2)
-
             # Get the current active timestamp
             current_timestamp = db.session.query(
                 WipMasterReport.last_updated
@@ -1617,18 +1612,12 @@ class CoverageTimestamps(Resource):
 
             current_ts = current_timestamp[0] if current_timestamp else None
 
-            # Query distinct timestamps from the last 2 days, ordered by most recent first
-            # Exclude the current active timestamp
-            query = db.session.query(
+            # Query distinct timestamps from inactive records only, ordered by most recent first
+            timestamps = db.session.query(
                 WipMasterReport.last_updated
             ).filter(
-                WipMasterReport.last_updated >= two_days_ago
-            )
-
-            if current_ts:
-                query = query.filter(WipMasterReport.last_updated != current_ts)
-
-            timestamps = query.distinct().order_by(
+                WipMasterReport.is_active == False
+            ).distinct().order_by(
                 WipMasterReport.last_updated.desc()
             ).all()
 
@@ -1789,4 +1778,88 @@ class CoverageAnalysis(Resource):
             import traceback
             error_details = traceback.format_exc()
             print(f"Error in coverage endpoint: {error_details}")
+            return {"success": False, "message": str(e), "details": error_details}, 500
+
+
+@dashboard_api.route('/coverage/to-load-cut')
+class CoverageToLoadCut(Resource):
+    def get(self):
+        """Get mattresses in TO SPREAD, ON SPREAD, TO CUT, ON CUT statuses grouped by order, cutting_room, and destination"""
+        try:
+            # Query mattresses with active phases in the specified statuses
+            query = db.session.query(
+                Mattresses.order_commessa,
+                MattressProductionCenter.cutting_room,
+                MattressProductionCenter.destination,
+                Mattresses.id.label('mattress_id'),
+                MattressDetail.layers,
+                MattressPhase.status
+            ).select_from(Mattresses) \
+             .join(MattressPhase, and_(
+                 Mattresses.id == MattressPhase.mattress_id,
+                 MattressPhase.active == True
+             )) \
+             .join(MattressDetail, Mattresses.id == MattressDetail.mattress_id) \
+             .join(MattressProductionCenter, Mattresses.table_id == MattressProductionCenter.table_id) \
+             .filter(MattressPhase.status.in_([
+                 "1 - TO LOAD",
+                 "2 - ON SPREAD",
+                 "3 - TO CUT",
+                 "4 - ON CUT"
+             ]))
+
+            results = query.all()
+
+            # Group by order, cutting_room, and destination
+            grouped_data = {}
+            for row in results:
+                order = row.order_commessa
+                cutting_room = row.cutting_room or ''
+                destination = row.destination or ''
+
+                key = f"{order}|{cutting_room}|{destination}"
+                if key not in grouped_data:
+                    grouped_data[key] = {
+                        'order': order,
+                        'cutting_room': cutting_room,
+                        'destination': destination,
+                        'styles': set(),
+                        'mattress_ids': set(),
+                        'total_pcs': 0
+                    }
+
+                grouped_data[key]['mattress_ids'].add(row.mattress_id)
+
+                # Calculate pieces for this mattress
+                sizes = MattressSize.query.filter_by(mattress_id=row.mattress_id).all()
+                total_pcs_per_layer = sum(size.pcs_layer for size in sizes)
+                mattress_pcs = row.layers * total_pcs_per_layer
+                grouped_data[key]['total_pcs'] += mattress_pcs
+
+                # Collect unique styles from sizes
+                for size in sizes:
+                    grouped_data[key]['styles'].add(size.style)
+
+            # Convert to list format and clean up
+            data = []
+            for key, value in grouped_data.items():
+                data.append({
+                    'order': value['order'],
+                    'cutting_room': value['cutting_room'],
+                    'destination': value['destination'],
+                    'styles': sorted(list(value['styles'])),
+                    'total_mattresses': len(value['mattress_ids']),
+                    'total_pcs': int(value['total_pcs'])
+                })
+
+            return {
+                "success": True,
+                "data": data,
+                "count": len(data)
+            }, 200
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error in to-load-cut endpoint: {error_details}")
             return {"success": False, "message": str(e), "details": error_details}, 500

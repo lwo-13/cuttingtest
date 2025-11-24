@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 
 // material-ui
 import {
@@ -18,7 +19,7 @@ import { IconExternalLink, IconChartBar } from '@tabler/icons';
 // project imports
 import MainCard from '../../ui-component/cards/MainCard';
 import AnimateButton from '../../ui-component/extended/AnimateButton';
-import { getPowerBiUrl } from '../../utils/databaseConfig';
+import { updateDatabaseConfig } from '../../utils/databaseConfig';
 
 //-----------------------|| CONSUMPTION ANALYTICS PAGE ||-----------------------//
 
@@ -26,13 +27,38 @@ const ConsumptionAnalytics = () => {
     const { t } = useTranslation();
     const [powerBiUrl, setPowerBiUrl] = useState('');
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Get the Power BI URL from server config
-        const url = getPowerBiUrl();
-        setPowerBiUrl(url);
-        setLoading(false);
+        fetchPowerBiUrl();
     }, []);
+
+    const fetchPowerBiUrl = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Fetch server settings from the API
+            const response = await axios.get('/config/server-settings');
+
+            if (response.data.success) {
+                const settings = response.data.data || {};
+
+                // Update the global database config so other parts of the app can use it
+                updateDatabaseConfig(settings);
+
+                // Set the Power BI URL
+                setPowerBiUrl(settings.consumptionAnalyticsPowerBiUrl || '');
+            } else {
+                setError(response.data.msg || 'Failed to load server settings');
+            }
+        } catch (err) {
+            console.error('Error fetching Power BI URL:', err);
+            setError('Failed to load Power BI configuration');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -40,6 +66,16 @@ const ConsumptionAnalytics = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
                     <CircularProgress />
                 </Box>
+            </MainCard>
+        );
+    }
+
+    if (error) {
+        return (
+            <MainCard>
+                <Alert severity="error">
+                    {error}
+                </Alert>
             </MainCard>
         );
     }
