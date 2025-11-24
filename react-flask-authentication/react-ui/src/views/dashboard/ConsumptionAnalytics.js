@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import axios from '../../utils/axiosInstance';
 
 // material-ui
 import {
@@ -53,8 +53,15 @@ const ConsumptionAnalytics = () => {
                 setError(response.data.msg || 'Failed to load server settings');
             }
         } catch (err) {
-            console.error('Error fetching Power BI URL:', err);
-            setError('Failed to load Power BI configuration');
+            // More detailed error message
+            let errorMessage = 'Failed to load Power BI configuration';
+            if (err.response) {
+                errorMessage = `Server error: ${err.response.status} - ${err.response.data?.msg || err.response.statusText}`;
+            } else if (err.request) {
+                errorMessage = 'Network error: Unable to reach server';
+            }
+
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
