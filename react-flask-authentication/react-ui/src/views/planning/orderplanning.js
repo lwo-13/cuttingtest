@@ -3204,6 +3204,7 @@ const OrderPlanning = () => {
                     table={selectedTableForSummary}
                     fabricType={selectedTableForSummary.fabricType}
                     orderNumber={selectedOrder?.id}
+                    style={selectedStyle}
                     productionCenter={selectedTableForSummary.productionCenter}
                     cuttingRoom={selectedTableForSummary.cuttingRoom}
                     destination={selectedTableForSummary.destination}

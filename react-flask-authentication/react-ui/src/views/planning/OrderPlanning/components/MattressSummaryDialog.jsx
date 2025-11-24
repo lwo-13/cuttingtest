@@ -22,7 +22,7 @@ import {
 import { Email } from '@mui/icons-material';
 import axios from 'utils/axiosInstance';
 
-const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, productionCenter, cuttingRoom, destination }) => {
+const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, style, productionCenter, cuttingRoom, destination }) => {
     if (!table || !table.rows) {
         return null;
     }
@@ -62,9 +62,6 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, 
 
     // Function to handle email composition
     const handleEmailSummary = async () => {
-        // Prepare email subject - only the order number
-        const subject = orderNumber || 'Marker Usage Summary';
-
         // Prepare email recipients
         const recipients = [];
 
@@ -120,6 +117,12 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, 
                 body += `${marker.markerName} (${width}cm) - x${marker.occurrences}\n`;
             });
         }
+
+        // Add the required line at the end of the email body
+        body += '\nПоръчката е изготвена в апликацията.';
+
+        // Prepare email subject - order number and item style
+        const subject = style ? `${orderNumber} - ${style}` : orderNumber || 'Marker Usage Summary';
 
         // Create mailto link with recipients
         const mailtoLink = `mailto:${toField}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
