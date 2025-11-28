@@ -114,8 +114,8 @@ const useHandleSave = ({
         });
       });
 
-      // ✅ Check for duplicate production center combinations within the same table type
-      // Combination key includes: cutting room + destination + fabric type
+	      // ✅ Check for duplicate production center combinations within the same table type
+	      // Combination key includes: cutting room + destination + fabric type (+ Part where applicable)
       let hasDuplicateCombinations = false;
 
       // Check mattress tables (within mattress tables only)
@@ -147,65 +147,75 @@ const useHandleSave = ({
         return false;
       });
 
-      // Check adhesive tables (within adhesive tables only)
-      if (!hasDuplicateCombinations) {
-        const adhesiveCombinations = new Set();
-        hasDuplicateCombinations = adhesiveTables.some((table, tableIndex) => {
-          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+	      // Check adhesive tables (within adhesive tables only)
+	      // Allow the same Production Center combination to be reused across DIFFERENT Parts.
+	      // Treat as duplicate only if the combination AND Part are the same.
+	      if (!hasDuplicateCombinations) {
+	        const adhesiveCombinations = new Set();
+	        hasDuplicateCombinations = adhesiveTables.some((table, tableIndex) => {
+	          const partIndex = getSafePartIndex(table);
+	          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}+part=${partIndex}`;
+	
+	          if (adhesiveCombinations.has(combinationKey)) {
+	            invalidAdhesiveRow = `Adhesive Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}) in Part ${partIndex}. Each combination can only be used once within the same Part.`;
+	            return true;
+	          }
+	          adhesiveCombinations.add(combinationKey);
+	          return false;
+	        });
+	      }
 
-          if (adhesiveCombinations.has(combinationKey)) {
-            invalidAdhesiveRow = `Adhesive Group ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within adhesive tables.`;
-            return true;
-          }
-          adhesiveCombinations.add(combinationKey);
-          return false;
-        });
-      }
+	      // Check along tables (within along tables only)
+	      // Allow the same Production Center combination to be reused across DIFFERENT Parts for collaretto.
+	      // Treat as duplicate only if the combination AND Part are the same.
+	      if (!hasDuplicateCombinations) {
+	        const alongCombinations = new Set();
+	        hasDuplicateCombinations = alongTables.some((table, tableIndex) => {
+	          const partIndex = getSafePartIndex(table);
+	          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}+part=${partIndex}`;
 
-      // Check along tables (within along tables only)
-      if (!hasDuplicateCombinations) {
-        const alongCombinations = new Set();
-        hasDuplicateCombinations = alongTables.some((table, tableIndex) => {
-          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+	          if (alongCombinations.has(combinationKey)) {
+	            invalidAlongRow = `Collaretto Along ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}) in Part ${partIndex}. Each combination can only be used once within the same Part.`;
+	            return true;
+	          }
+	          alongCombinations.add(combinationKey);
+	          return false;
+	        });
+	      }
 
-          if (alongCombinations.has(combinationKey)) {
-            invalidAlongRow = `Collaretto Along ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within along tables.`;
-            return true;
-          }
-          alongCombinations.add(combinationKey);
-          return false;
-        });
-      }
+	      // Check weft tables (within weft tables only)
+	      // Allow the same Production Center combination to be reused across DIFFERENT Parts for collaretto.
+	      if (!hasDuplicateCombinations) {
+	        const weftCombinations = new Set();
+	        hasDuplicateCombinations = weftTables.some((table, tableIndex) => {
+	          const partIndex = getSafePartIndex(table);
+	          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}+part=${partIndex}`;
 
-      // Check weft tables (within weft tables only)
-      if (!hasDuplicateCombinations) {
-        const weftCombinations = new Set();
-        hasDuplicateCombinations = weftTables.some((table, tableIndex) => {
-          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
+	          if (weftCombinations.has(combinationKey)) {
+	            invalidWeftRow = `Collaretto Weft ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}) in Part ${partIndex}. Each combination can only be used once within the same Part.`;
+	            return true;
+	          }
+	          weftCombinations.add(combinationKey);
+	          return false;
+	        });
+	      }
 
-          if (weftCombinations.has(combinationKey)) {
-            invalidWeftRow = `Collaretto Weft ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within weft tables.`;
-            return true;
-          }
-          weftCombinations.add(combinationKey);
-          return false;
-        });
-      }
+	      // Check bias tables (within bias tables only)
+	      // Allow the same Production Center combination to be reused across DIFFERENT Parts for collaretto.
+	      if (!hasDuplicateCombinations) {
+	        const biasCombinations = new Set();
+	        hasDuplicateCombinations = biasTables.some((table, tableIndex) => {
+	          const partIndex = getSafePartIndex(table);
+	          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}+part=${partIndex}`;
 
-      // Check bias tables (within bias tables only)
-      if (!hasDuplicateCombinations) {
-        const biasCombinations = new Set();
-        hasDuplicateCombinations = biasTables.some((table, tableIndex) => {
-          const combinationKey = `${table.cuttingRoom}+${table.destination}+${table.fabricType}`;
-
-          if (biasCombinations.has(combinationKey)) {
-            invalidBiasRow = `Collaretto Bias ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}). Each combination can only be used once within bias tables.`;
-            return true;
-          }
-          biasCombinations.add(combinationKey);
-          return false;
-        });
-      }
+	          if (biasCombinations.has(combinationKey)) {
+	            invalidBiasRow = `Collaretto Bias ${tableIndex + 1} has a duplicate Production Center combination (${table.cuttingRoom} + ${table.destination} + ${table.fabricType}) in Part ${partIndex}. Each combination can only be used once within the same Part.`;
+	            return true;
+	          }
+	          biasCombinations.add(combinationKey);
+	          return false;
+	        });
+	      }
 
       // 🚨 Show Error Message If Validation Fails
       if (hasInvalidData || hasDuplicateCombinations) {
