@@ -187,8 +187,7 @@ export const CUTTING_ROOM_MACHINES = {
     { percentage: 100, length: 12, width: 220 },
   ],
   [CUTTING_ROOMS.DELICIA]: [
-    { percentage: 70, length: 10.5, width: 170 },
-    { percentage: 30, length: 7.7, width: 200 },
+    { percentage: 100, length: 10.5, width: 170 },
   ],
   [CUTTING_ROOMS.HADJIOLI]: [
     { percentage: 100, length: 6, width: 220 },
