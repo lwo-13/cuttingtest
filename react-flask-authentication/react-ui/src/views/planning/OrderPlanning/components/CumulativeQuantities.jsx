@@ -183,6 +183,11 @@ const CumulativeQuantities = ({
     }, {})
   );
 
+  // Check if there are any parts > 1 across all groups (show Part label only if there are multiple parts)
+  const hasMultipleParts = segmentGroups.some(group =>
+    group.parts.some(part => part.partIndex > 1) || group.parts.length > 1
+  );
+
   if (!cumulativeQuantities.length) {
     return null;
   }
@@ -338,10 +343,16 @@ const CumulativeQuantities = ({
                   color="text.secondary"
                   sx={{ mb: 0.5 }}
                 >
-                  {t(
-                    'orderPlanning.plannedBySegmentTitle',
-                    'Distribution by Production Center / Cutting room / Part'
-                  )}
+                  {hasMultipleParts
+                    ? t(
+                        'orderPlanning.plannedBySegmentTitle',
+                        'Distribution by Production Center / Cutting room / Part'
+                      )
+                    : t(
+                        'orderPlanning.plannedBySegmentTitleNoPart',
+                        'Distribution by Production Center / Cutting room'
+                      )
+                  }
                 </Typography>
                 <Grid container spacing={0.75}>
                   {segmentGroups.map((group) => (
@@ -386,14 +397,23 @@ const CumulativeQuantities = ({
                                   fontWeight: 500,
                                 },
                               }}
-                              label={t(
-                                'orderPlanning.plannedBySegmentPartChip',
-                                'Part {{part}} · {{qty}} pcs',
-                                {
-                                  part: part.partIndex,
-                                  qty: part.totalPlanned,
-                                }
-                              )}
+                              label={hasMultipleParts
+                                ? t(
+                                    'orderPlanning.plannedBySegmentPartChip',
+                                    'Part {{part}} · {{qty}} pcs',
+                                    {
+                                      part: part.partIndex,
+                                      qty: part.totalPlanned,
+                                    }
+                                  )
+                                : t(
+                                    'orderPlanning.plannedBySegmentQtyChip',
+                                    '{{qty}} pcs',
+                                    {
+                                      qty: part.totalPlanned,
+                                    }
+                                  )
+                              }
                             />
                           ))}
                         </Box>

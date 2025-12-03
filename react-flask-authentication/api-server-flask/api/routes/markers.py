@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource
-from api.models import db, MarkerHeader, MarkerLine, MarkerLineRotation, MattressMarker
+from api.models import db, MarkerHeader, MarkerLine, MarkerLineRotation, MattressMarker, Mattresses
 from sqlalchemy import func
 import json
 import xml.etree.ElementTree as ET
@@ -1134,3 +1134,44 @@ class DeleteMarkers(Resource):
         except Exception as e:
             db.session.rollback()
             return {"success": False, "message": f"Error deleting markers: {str(e)}"}, 500
+
+# ===================== Get Marker Usage Orders ==========================
+@markers_api.route('/marker_usage_orders/<int:marker_id>', methods=['GET'])
+class MarkerUsageOrders(Resource):
+    def get(self, marker_id):
+        """Get all orders that use a specific marker"""
+        try:
+            # Query mattress_markers to find all mattresses using this marker
+            mattress_markers = db.session.query(MattressMarker).filter(
+                MattressMarker.marker_id == marker_id
+            ).all()
+
+            if not mattress_markers:
+                return {"success": True, "orders": []}, 200
+
+            # Get unique mattress IDs
+            mattress_ids = list(set([mm.mattress_id for mm in mattress_markers]))
+
+            # Get the order_commessa from mattresses table
+            mattresses = db.session.query(Mattresses).filter(
+                Mattresses.id.in_(mattress_ids)
+            ).all()
+
+            # Build unique orders with their details
+            orders_dict = {}
+            for mattress in mattresses:
+                order = mattress.order_commessa
+                if order not in orders_dict:
+                    orders_dict[order] = {
+                        "order_commessa": order,
+                        "mattress_count": 0
+                    }
+                orders_dict[order]["mattress_count"] += 1
+
+            orders = list(orders_dict.values())
+
+            return {"success": True, "orders": orders}, 200
+
+        except Exception as e:
+            print(f"Error fetching marker usage orders: {str(e)}")
+            return {"success": False, "msg": f"Error: {str(e)}"}, 500

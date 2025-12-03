@@ -24,6 +24,8 @@ const WeftRow = ({
     "& input": { textAlign: "center", fontWeight: "normal" }
   };
 
+  const handleFocus = (e) => e.target.select();
+
   const handleChange = (field, pattern, maxLength) => (e) => {
     let value = e.target.value.replace(pattern, '').slice(0, maxLength);
     if (field === "rewoundWidth") {
@@ -41,6 +43,7 @@ const WeftRow = ({
           variant="standard"
           value={row.pieces || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("pieces", /\D/g, 7)}
           sx={inputSx}
         />
@@ -52,6 +55,7 @@ const WeftRow = ({
           variant="outlined"
           value={row.usableWidth || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("usableWidth", /\D/g, 3)}
           sx={inputSx}
         />
@@ -63,6 +67,7 @@ const WeftRow = ({
           variant="standard"
           value={row.grossLength || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("grossLength", /[^0-9.,]/g, 6)}
           sx={inputSx}
         />
@@ -74,6 +79,7 @@ const WeftRow = ({
           variant="standard"
           value={row.pcsSeamtoSeam || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("pcsSeamtoSeam", /[^0-9.]/g, 4)}
           sx={{
             ...inputSx,
@@ -91,6 +97,7 @@ const WeftRow = ({
           variant="outlined"
           value={row.rewoundWidth || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("rewoundWidth")}
           sx={inputSx}
         />
@@ -102,6 +109,7 @@ const WeftRow = ({
           variant="outlined"
           value={row.collarettoWidth || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("collarettoWidth", /\D/g, 4)}
           sx={inputSx}
         />
@@ -113,6 +121,7 @@ const WeftRow = ({
           variant="outlined"
           value={row.scrapRoll ?? ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={handleChange("scrapRoll", /\D/g, 1)}
           sx={inputSx}
         />
@@ -157,6 +166,7 @@ const WeftRow = ({
           variant="outlined"
           value={row.bagno || ""}
           disabled={!editable}
+          onFocus={handleFocus}
           onChange={(e) => {
             handleInputChange(tableId, rowId, "bagno", e.target.value);
             setUnsavedChanges(true);

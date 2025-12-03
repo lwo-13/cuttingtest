@@ -7,7 +7,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
 import { useSelector } from "react-redux";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 
 // Order Planning Components
@@ -107,6 +107,7 @@ const spreadingMethods = ["FACE UP", "FACE DOWN", "FACE TO FACE"];
 const OrderPlanning = () => {
     const { t } = useTranslation();
     const history = useHistory();
+    const location = useLocation();
 
     const [orderOptions, setOrderOptions] = useState([]);
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -2164,6 +2165,19 @@ const OrderPlanning = () => {
                     ...new Set(sortedOrders.map(order => order.style).filter(Boolean))
                   ];
                   setStyleOptions(uniqueStyles);
+
+                // Check for order query parameter in URL and auto-select
+                const searchParams = new URLSearchParams(location.search);
+                const orderParam = searchParams.get('order');
+                if (orderParam && sortedOrders.length > 0) {
+                    const matchedOrder = sortedOrders.find(order => order.id === orderParam);
+                    if (matchedOrder) {
+                        // Auto-select the order from URL parameter
+                        onOrderChange(matchedOrder);
+                        // Clear the URL parameter after selection
+                        history.replace('/planning/orderplanning');
+                    }
+                }
             })
             .catch((error) => {
                 console.error("Error fetching order data:", error);

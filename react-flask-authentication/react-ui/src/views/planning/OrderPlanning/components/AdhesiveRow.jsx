@@ -26,17 +26,19 @@ const AdhesiveRow = ({
   const editable = row.isEditable !== false;
 
   // Helper function to create tooltip content showing size breakdown
-  const createSizeBreakdownTooltip = (piecesPerSize, layers) => {
+  const createSizeBreakdownTooltip = (piecesPerSize, layers, layers_a, isLocked) => {
     if (!piecesPerSize || !layers) return null;
 
-    const layerCount = parseInt(layers) || 0;
-    if (layerCount === 0) return null;
+    // Use actual layers if available and row is locked
+    const hasActualLayers = layers_a && String(layers_a) !== String(layers);
+    const effectiveLayers = (isLocked && hasActualLayers) ? parseInt(layers_a) || 0 : parseInt(layers) || 0;
+    if (effectiveLayers === 0) return null;
 
     const sizeEntries = Object.entries(piecesPerSize)
       .filter(([, pieces]) => (parseInt(pieces) || 0) > 0)
       .map(([size, pieces]) => {
         const piecesPerLayer = parseInt(pieces) || 0;
-        const totalPieces = piecesPerLayer * layerCount;
+        const totalPieces = piecesPerLayer * effectiveLayers;
         return `${size}: ${totalPieces}`;
       });
 
@@ -53,6 +55,7 @@ const AdhesiveRow = ({
           variant="outlined"
           value={row.width || ""}
           disabled={!editable}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, '').slice(0, 3);
             handleInputChange(tableId, rowId, "width", value);
@@ -171,6 +174,7 @@ const AdhesiveRow = ({
           variant="outlined"
           value={row.layers || ""}
           disabled={!editable}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => {
             const value = e.target.value.replace(/\D/g, '').slice(0, 4);
             handleInputChange(tableId, rowId, "layers", value);
@@ -190,9 +194,12 @@ const AdhesiveRow = ({
         {row.mattressName && row.piecesPerSize && row.layers ? (
           (() => {
             const totalPieces = Object.values(row.piecesPerSize).reduce((sum, pieces) => sum + (parseInt(pieces) || 0), 0);
-            const layers = parseInt(row.layers) || 0;
-            const totalPcs = totalPieces * layers;
-            const tooltipContent = createSizeBreakdownTooltip(row.piecesPerSize, row.layers);
+            // Use actual layers (layers_a) if available and different from planned layers for locked rows
+            const isLocked = !editable;
+            const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+            const effectiveLayers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) || 0 : parseInt(row.layers) || 0;
+            const totalPcs = totalPieces * effectiveLayers;
+            const tooltipContent = createSizeBreakdownTooltip(row.piecesPerSize, row.layers, row.layers_a, isLocked);
 
             return (
               <Tooltip
@@ -204,7 +211,9 @@ const AdhesiveRow = ({
               >
                 <Typography sx={{
                   fontWeight: 'normal',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  // Apply light red color when showing actual pieces different from planned
+                  color: isLocked && hasActualLayers ? '#d32f2f' : 'inherit'
                 }}>
                   {totalPcs}
                 </Typography>
@@ -231,6 +240,7 @@ const AdhesiveRow = ({
           variant="outlined"
           value={row.bagno || ""}
           disabled={!editable}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => handleInputChange(tableId, rowId, "bagno", e.target.value)}
           sx={{
             width: '100%',

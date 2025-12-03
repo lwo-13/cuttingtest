@@ -20,10 +20,15 @@ import {
     Snackbar,
     Alert,
     Badge,
-    TextField
+    TextField,
+    IconButton,
+    Tooltip,
+    Link
   } from '@mui/material';
-import { Block, Delete } from '@mui/icons-material';
+import { Block, Delete, OpenInNew } from '@mui/icons-material';
 import { IconTarget } from '@tabler/icons';
+import { useSelector } from 'react-redux';
+import { useHistory } from 'react-router-dom';
 import MainCard from '../../ui-component/cards/MainCard';
 
 
@@ -69,6 +74,15 @@ const CustomPagination = (props) => {
 */
 
 const MarkerDB = () => {
+    const history = useHistory();
+
+    // Get user role from Redux state
+    const account = useSelector((state) => state.account);
+    const userRole = account?.user?.role || '';
+
+    // Check if user can view usage orders (Planner role and above)
+    const canViewUsageOrders = ['Planner', 'Administrator', 'Project Admin', 'Manager', 'Shift Manager'].includes(userRole);
+
     const [markers, setMarkers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tableHeight, setTableHeight] = useState(window.innerHeight - 260);
@@ -76,6 +90,12 @@ const MarkerDB = () => {
     const [pcsDialogOpen, setPcsDialogOpen] = useState(false);
     const [markerLines, setMarkerLines] = useState([]);
     const [selectedMarkerName, setSelectedMarkerName] = useState('');
+
+    // Usage orders dialog state
+    const [usageDialogOpen, setUsageDialogOpen] = useState(false);
+    const [usageOrders, setUsageOrders] = useState([]);
+    const [usageDialogLoading, setUsageDialogLoading] = useState(false);
+    const [selectedMarkerForUsage, setSelectedMarkerForUsage] = useState(null);
 
     // Search state
     const [searchTerm, setSearchTerm] = useState("");
@@ -157,6 +177,35 @@ const MarkerDB = () => {
           console.error("Failed to fetch marker lines:", err);
         }
       };
+
+    // Handle usage icon click - show orders using this marker
+    const handleUsageClick = async (markerId, markerName) => {
+        if (!canViewUsageOrders) return;
+
+        setUsageDialogLoading(true);
+        setSelectedMarkerForUsage({ id: markerId, name: markerName });
+        setUsageDialogOpen(true);
+
+        try {
+            const res = await axios.get(`/markers/marker_usage_orders/${markerId}`);
+            if (res.data.success) {
+                setUsageOrders(res.data.orders);
+            } else {
+                console.warn(res.data.msg);
+                setUsageOrders([]);
+            }
+        } catch (err) {
+            console.error("Failed to fetch marker usage orders:", err);
+            setUsageOrders([]);
+        } finally {
+            setUsageDialogLoading(false);
+        }
+    };
+
+    // Navigate to Order Planning with selected order
+    const handleNavigateToOrder = (orderCommessa) => {
+        history.push(`/planning/orderplanning?order=${orderCommessa}`);
+    };
 
     const handleSetNotActive = async () => {
         if (!selectedMarkers.length) return;
@@ -296,20 +345,44 @@ const MarkerDB = () => {
             align: 'center',
             headerAlign: 'center',
             filterable: false, // Disable filtering for this column
-            renderCell: (params) => (
-                <div style={{
-                    textDecoration: params.row.status === 'NOT ACTIVE' ? 'line-through' : 'none',
-                    opacity: params.row.status === 'NOT ACTIVE' ? 0.6 : 1
-                }}>
+            renderCell: (params) => {
+                const usageCount = params.row.usage_count;
+                const isClickable = canViewUsageOrders && usageCount > 0;
+
+                const badgeContent = (
                     <Badge
-                        badgeContent={params.row.usage_count}
-                        color={params.row.usage_count > 0 ? 'success' : 'default'}
+                        badgeContent={usageCount}
+                        color={usageCount > 0 ? 'success' : 'default'}
                         showZero
                     >
                         <IconTarget size={20} />
                     </Badge>
-                </div>
-            )
+                );
+
+                return (
+                    <div style={{
+                        textDecoration: params.row.status === 'NOT ACTIVE' ? 'line-through' : 'none',
+                        opacity: params.row.status === 'NOT ACTIVE' ? 0.6 : 1
+                    }}>
+                        {isClickable ? (
+                            <Tooltip title="View orders using this marker">
+                                <IconButton
+                                    size="small"
+                                    onClick={() => handleUsageClick(params.row.id, params.row.marker_name)}
+                                    sx={{
+                                        padding: '4px',
+                                        '&:hover': { backgroundColor: 'rgba(46, 125, 50, 0.1)' }
+                                    }}
+                                >
+                                    {badgeContent}
+                                </IconButton>
+                            </Tooltip>
+                        ) : (
+                            badgeContent
+                        )}
+                    </div>
+                );
+            }
         },
         {
             field: 'check_pcs',
@@ -436,6 +509,81 @@ const MarkerDB = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setPcsDialogOpen(false)} variant="outlined">
+                        Close
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Usage Orders Dialog */}
+            <Dialog
+                open={usageDialogOpen}
+                onClose={() => setUsageDialogOpen(false)}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    Orders Using Marker
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {selectedMarkerForUsage?.name}
+                    </Typography>
+                </DialogTitle>
+                <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {usageDialogLoading ? (
+                        <Box display="flex" justifyContent="center" alignItems="center" height="100px">
+                            <CircularProgress size={30} />
+                        </Box>
+                    ) : usageOrders.length > 0 ? (
+                        <TableContainer component={Paper} sx={{ width: '100%' }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell><strong>Order</strong></TableCell>
+                                        <TableCell align="center"><strong>Mattresses</strong></TableCell>
+                                        <TableCell align="center"><strong>Action</strong></TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {usageOrders.map((order, index) => (
+                                        <TableRow key={index} hover>
+                                            <TableCell>
+                                                <Link
+                                                    component="button"
+                                                    variant="body2"
+                                                    onClick={() => handleNavigateToOrder(order.order_commessa)}
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        textDecoration: 'none',
+                                                        '&:hover': { textDecoration: 'underline' }
+                                                    }}
+                                                >
+                                                    {order.order_commessa}
+                                                </Link>
+                                            </TableCell>
+                                            <TableCell align="center">{order.mattress_count}</TableCell>
+                                            <TableCell align="center">
+                                                <Tooltip title="Open in Order Planning">
+                                                    <IconButton
+                                                        size="small"
+                                                        color="primary"
+                                                        onClick={() => handleNavigateToOrder(order.order_commessa)}
+                                                    >
+                                                        <OpenInNew fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    ) : (
+                        <Typography sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>
+                            No orders found using this marker.
+                        </Typography>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setUsageDialogOpen(false)} variant="outlined">
                         Close
                     </Button>
                 </DialogActions>

@@ -164,7 +164,10 @@ const ProductionCenterTabs = forwardRef(({
             if (table.rows && table.rows.length > 0) {
                 table.rows.forEach(row => {
                     if (row.piecesPerSize && typeof row.piecesPerSize === 'object') {
-                        const layers = parseInt(row.layers) || 1;
+                        // Use actual layers (layers_a) if available and different from planned layers for locked rows
+                        const isLocked = row.isEditable === false;
+                        const hasActualLayers = row.layers_a && String(row.layers_a) !== String(row.layers);
+                        const layers = (isLocked && hasActualLayers) ? parseInt(row.layers_a) || 0 : parseInt(row.layers) || 1;
                         orderSizes.forEach(size => {
                             const piecesForSize = parseInt(row.piecesPerSize[size.size]) || 0;
                             totalPlannedQty += piecesForSize * layers;
@@ -864,7 +867,7 @@ const ProductionCenterTabs = forwardRef(({
                                                                             const isNew = value === maxPart + 1;
                                                                             items.push(
                                                                                 <MenuItem key={value} value={value}>
-                                                                                    {isNew ? `New Part ${value}` : `Part ${value}`}
+                                                                                    {isNew ? `+ New Part` : `Part ${value}`}
                                                                                 </MenuItem>
                                                                             );
                                                                         }
@@ -988,9 +991,14 @@ const ProductionCenterTabs = forwardRef(({
                                     const safePartIndex = Number.isFinite(activePartIndex) && activePartIndex > 0
                                         ? activePartIndex
                                         : 1;
-                                    const partLabel = `Part ${safePartIndex}`;
 
-                                    const baseText = `${combinationText} - ${partLabel}`;
+                                    // Only show Part label if there are multiple parts
+                                    const maxPartIndex = typeof getMaxPartIndexForCombination === 'function'
+                                        ? getMaxPartIndexForCombination(selectedCombination)
+                                        : 1;
+                                    const partLabel = maxPartIndex > 1 ? ` - Part ${safePartIndex}` : '';
+
+                                    const baseText = `${combinationText}${partLabel}`;
                                     return percentage > 0 ? `${baseText} (${percentage}%)` : baseText;
                                 }
 

@@ -137,6 +137,46 @@ const PlannedQuantityBar = ({
     return { bagnoMeters, bagnoOrder };
   };
 
+  // Calculate cut vs not cut summary by size
+  const getCutVsNotCutSummary = () => {
+    const summary = {
+      cut: {},      // Actual quantities (layers_a)
+      notCut: {},   // Planned - Actual
+      planned: {}   // Total planned quantities
+    };
+
+    // Initialize for each size
+    orderSizes.forEach(sizeObj => {
+      summary.cut[sizeObj.size] = 0;
+      summary.notCut[sizeObj.size] = 0;
+      summary.planned[sizeObj.size] = 0;
+    });
+
+    if (!table.rows) return summary;
+
+    table.rows.forEach(row => {
+      if (!row.piecesPerSize) return;
+
+      Object.entries(row.piecesPerSize).forEach(([size, quantity]) => {
+        const pcsPerLayer = parseInt(quantity) || 0;
+        const plannedLayers = parseInt(row.layers) || 0;
+        const actualLayers = parseFloat(row.layers_a) || 0;
+
+        const plannedPcs = pcsPerLayer * plannedLayers;
+        const actualPcs = pcsPerLayer * actualLayers;
+        const notCutPcs = plannedPcs - actualPcs;
+
+        if (summary.planned.hasOwnProperty(size)) {
+          summary.planned[size] += plannedPcs;
+          summary.cut[size] += actualPcs;
+          summary.notCut[size] += notCutPcs > 0 ? notCutPcs : 0;
+        }
+      });
+    });
+
+    return summary;
+  };
+
   // Calculate actual widths by bagno
   const getTableActualWidthsByBagno = (table) => {
     const bagnoWidths = {};
@@ -934,6 +974,70 @@ const PlannedQuantityBar = ({
     );
   };
 
+  // Render cut vs not cut summary table
+  const renderCutVsNotCutSummary = () => {
+    const summary = getCutVsNotCutSummary();
+
+    const totalPlanned = Object.values(summary.planned).reduce((sum, val) => sum + val, 0);
+    const totalCut = Object.values(summary.cut).reduce((sum, val) => sum + val, 0);
+    const totalNotCut = Object.values(summary.notCut).reduce((sum, val) => sum + val, 0);
+
+    // Only show if there are some actual quantities (something has been cut)
+    if (totalCut === 0 && totalNotCut === 0) return null;
+
+    return (
+      <Table size="small" sx={{ mt: 2 }}>
+        <TableHead>
+          <TableRow>
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {/* Cut (Actual) Row - Primary Blue */}
+          <TableRow sx={{ backgroundColor: '#e3f2fd' }}>
+            <TableCell align="center" sx={{ fontWeight: 500, color: '#1565c0' }}>Cut</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ color: '#1565c0' }}>
+                {summary.cut[size] || 0}
+              </TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold', color: '#1565c0' }}>
+              {totalCut}
+            </TableCell>
+          </TableRow>
+          {/* Not Cut (Remaining) Row - Secondary Purple */}
+          <TableRow sx={{ backgroundColor: '#ede7f6' }}>
+            <TableCell align="center" sx={{ fontWeight: 500, color: '#5e35b1' }}>Not Cut</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ color: '#5e35b1' }}>
+                {summary.notCut[size] || 0}
+              </TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold', color: '#5e35b1' }}>
+              {totalNotCut}
+            </TableCell>
+          </TableRow>
+          {/* Total Planned Row - Grey */}
+          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Total Planned</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
+                {summary.planned[size] || 0}
+              </TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+              {totalPlanned}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+  };
+
   return (
     <>
       <Box
@@ -1149,6 +1253,24 @@ const PlannedQuantityBar = ({
                 </Box>
               </Box>
 
+              {/* Cut vs Not Cut Summary - Below Helpers */}
+              {(() => {
+                const cutSummary = renderCutVsNotCutSummary();
+                if (!cutSummary) return null;
+                return (
+                  <>
+                    <Box mt={3}>
+                      <Divider />
+                    </Box>
+                    <Box mt={3}>
+                      <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2 }}>
+                        Cut vs Not Cut Summary
+                      </Typography>
+                      {cutSummary}
+                    </Box>
+                  </>
+                );
+              })()}
 
             </>
           )}

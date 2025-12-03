@@ -124,6 +124,46 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
     return { bagnoWidths, bagnoOrder };
   };
 
+  // Calculate cut vs not cut summary by size
+  const getCutVsNotCutSummary = () => {
+    const summary = {
+      cut: {},      // Actual quantities (layers_a)
+      notCut: {},   // Planned - Actual
+      planned: {}   // Total planned quantities
+    };
+
+    // Initialize for each size
+    orderSizes.forEach(sizeObj => {
+      summary.cut[sizeObj.size] = 0;
+      summary.notCut[sizeObj.size] = 0;
+      summary.planned[sizeObj.size] = 0;
+    });
+
+    if (!table.rows) return summary;
+
+    table.rows.forEach(row => {
+      if (!row.piecesPerSize) return;
+
+      Object.entries(row.piecesPerSize).forEach(([size, quantity]) => {
+        const pcsPerLayer = parseInt(quantity) || 0;
+        const plannedLayers = parseInt(row.layers) || 0;
+        const actualLayers = parseFloat(row.layers_a) || 0;
+
+        const plannedPcs = pcsPerLayer * plannedLayers;
+        const actualPcs = pcsPerLayer * actualLayers;
+        const notCutPcs = plannedPcs - actualPcs;
+
+        if (summary.planned.hasOwnProperty(size)) {
+          summary.planned[size] += plannedPcs;
+          summary.cut[size] += actualPcs;
+          summary.notCut[size] += notCutPcs > 0 ? notCutPcs : 0;
+        }
+      });
+    });
+
+    return summary;
+  };
+
   const actualQuantities = getTableActualQuantities(table);
   const actualByBagno = getTableActualByBagno(table);
   const actualWidthsByBagno = getTableActualWidthsByBagno(table);
@@ -498,6 +538,70 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
     );
   };
 
+  // Render cut vs not cut summary table
+  const renderCutVsNotCutSummary = () => {
+    const summary = getCutVsNotCutSummary();
+
+    const totalPlanned = Object.values(summary.planned).reduce((sum, val) => sum + val, 0);
+    const totalCut = Object.values(summary.cut).reduce((sum, val) => sum + val, 0);
+    const totalNotCut = Object.values(summary.notCut).reduce((sum, val) => sum + val, 0);
+
+    // Only show if there are some actual quantities (something has been cut)
+    if (totalCut === 0 && totalNotCut === 0) return null;
+
+    return (
+      <Table size="small" sx={{ mt: 2 }}>
+        <TableHead>
+          <TableRow>
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>{t('common.status', 'Status')}</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>{size}</TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>{t('common.total', 'Total')}</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {/* Cut (Actual) Row - Primary Blue */}
+          <TableRow sx={{ backgroundColor: '#e3f2fd' }}>
+            <TableCell align="center" sx={{ fontWeight: 500, color: '#1565c0' }}>{t('common.cut', 'Cut')}</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ color: '#1565c0' }}>
+                {summary.cut[size] || 0}
+              </TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold', color: '#1565c0' }}>
+              {totalCut}
+            </TableCell>
+          </TableRow>
+          {/* Not Cut (Remaining) Row - Secondary Purple */}
+          <TableRow sx={{ backgroundColor: '#ede7f6' }}>
+            <TableCell align="center" sx={{ fontWeight: 500, color: '#5e35b1' }}>{t('common.notCut', 'Not Cut')}</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ color: '#5e35b1' }}>
+                {summary.notCut[size] || 0}
+              </TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold', color: '#5e35b1' }}>
+              {totalNotCut}
+            </TableCell>
+          </TableRow>
+          {/* Total Planned Row - Grey */}
+          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>{t('common.totalPlanned', 'Total Planned')}</TableCell>
+            {uniqueSizes.map(size => (
+              <TableCell key={size} align="center" sx={{ fontWeight: 'bold' }}>
+                {summary.planned[size] || 0}
+              </TableCell>
+            ))}
+            <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+              {totalPlanned}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+  };
+
   // Create display elements (actual vs planned) - same format as original
   const renderActualDetails = () => {
     const uniqueSizes = orderSizes.map(s => s.size);
@@ -592,6 +696,17 @@ const SubcontractorPlannedQuantityBar = ({ table, orderSizes, getTablePlannedQua
               {t('subcontractor.actualQuantities', 'Actual Quantities')}
             </Typography>
             {renderActualBagnoTable()}
+          </Box>
+
+          {/* Cut vs Not Cut Summary */}
+          <Box mt={3}>
+            <Divider />
+          </Box>
+          <Box mt={3}>
+            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2 }}>
+              {t('common.cutVsNotCutSummary', 'Cut vs Not Cut Summary')}
+            </Typography>
+            {renderCutVsNotCutSummary()}
           </Box>
         </DialogContent>
         <DialogActions>
