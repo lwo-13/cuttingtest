@@ -819,3 +819,145 @@ class OrderBom(Resource):
             import traceback
             traceback.print_exc()
             return {"success": False, "msg": str(e)}, 500
+
+
+@orders_api.route('/ratios/auto_populate/<string:order_commessa>')
+class AutoPopulateRatios(Resource):
+    def post(self, order_commessa):
+        """
+        Auto-populate Italian ratios for an order based on matching criteria:
+        1. Same style
+        2. Same sizes (exact match)
+        3. Same fabric bill of materials
+        """
+        try:
+            print(f"🔍 Auto-populating ratios for order: {order_commessa}")
+
+            # Step 1: Get the style for the target order
+            target_order_lines = OrderLinesView.query.filter_by(order_commessa=order_commessa).all()
+
+            if not target_order_lines:
+                return {
+                    "success": False,
+                    "msg": f"No order lines found for order {order_commessa}"
+                }, 404
+
+            target_style = target_order_lines[0].style
+
+            print(f"📋 Target order - Style: {target_style}")
+
+            # Step 2: Get the fabric BOM for the target order (only FABRIC items)
+            target_bom = NavBom.query.filter_by(
+                shortcut_dimension_2_code=order_commessa,
+                source='FABRIC'
+            ).all()
+
+            # Create a normalized BOM signature (sorted list of item-quantity tuples)
+            # The quantity represents the consumption which indicates the size ratio distribution
+            # We don't care about color (pf_vertical_component), only item and quantity
+            target_bom_signature = sorted([
+                (bom.item_no, bom.quantity)
+                for bom in target_bom
+            ])
+
+            print(f"📋 Target BOM signature: {len(target_bom_signature)} fabric items with consumption values")
+
+            # Step 3: Find all orders with the same style
+            candidate_orders = db.session.query(OrderLinesView.order_commessa, OrderLinesView.style)\
+                .filter(OrderLinesView.style == target_style)\
+                .filter(OrderLinesView.order_commessa != order_commessa)\
+                .distinct().all()
+
+            print(f"🔍 Found {len(candidate_orders)} candidate orders with same style")
+
+            # Step 4: Filter candidates by matching BOM signature (fabric + consumption)
+            # Collect all matching orders with their creation dates
+            matching_orders = []
+
+            for candidate_order_commessa, _ in candidate_orders:
+                # Check if this candidate has ratios
+                existing_ratios = OrderRatio.query.filter_by(order_commessa=candidate_order_commessa).all()
+                if not existing_ratios:
+                    continue  # Skip orders without ratios
+
+                # Check BOM match (item and consumption quantity) - only FABRIC items
+                # We don't care about color (pf_vertical_component)
+                candidate_bom = NavBom.query.filter_by(
+                    shortcut_dimension_2_code=candidate_order_commessa,
+                    source='FABRIC'
+                ).all()
+                candidate_bom_signature = sorted([
+                    (bom.item_no, bom.quantity)
+                    for bom in candidate_bom
+                ])
+
+                if candidate_bom_signature != target_bom_signature:
+                    continue  # BOM doesn't match
+
+                # Found a match! Get the creation date of the ratios
+                # Use the most recent created_at from all ratio entries for this order
+                most_recent_ratio = max(existing_ratios, key=lambda r: r.created_at)
+                matching_orders.append({
+                    'order_commessa': candidate_order_commessa,
+                    'created_at': most_recent_ratio.created_at
+                })
+                print(f"✅ Found matching order: {candidate_order_commessa} (created: {most_recent_ratio.created_at})")
+
+            # Step 5: Select the most recent matching order
+            matching_order = None
+            if matching_orders:
+                # Sort by created_at descending and take the first (most recent)
+                matching_orders.sort(key=lambda x: x['created_at'], reverse=True)
+                matching_order = matching_orders[0]['order_commessa']
+                print(f"🎯 Selected most recent order: {matching_order} from {len(matching_orders)} matches")
+                print(f"   BOM signature matches: {len(target_bom_signature)} items with same consumption values")
+
+            if not matching_order:
+                return {
+                    "success": False,
+                    "msg": "No matching order found with same style, sizes, and fabric BOM"
+                }, 404
+
+            # Step 5: Get ratios from matching order (don't save yet - let user review first)
+            source_ratios = OrderRatio.query.filter_by(order_commessa=matching_order).all()
+
+            ratios_data = []
+            for source_ratio in source_ratios:
+                ratios_data.append({
+                    "size": source_ratio.size,
+                    "theoretical_ratio": source_ratio.theoretical_ratio
+                })
+
+            print(f"✅ Successfully found {len(ratios_data)} ratio entries from matching order")
+
+            # Get matching order details for display
+            matching_order_lines = OrderLinesView.query.filter_by(order_commessa=matching_order).first()
+            matching_bom = NavBom.query.filter_by(
+                shortcut_dimension_2_code=matching_order,
+                source='FABRIC'
+            ).all()
+
+            return {
+                "success": True,
+                "msg": f"Found matching order {matching_order}. Review and save the ratios below.",
+                "source_order": matching_order,
+                "ratios": ratios_data,
+                "match_details": {
+                    "target_order": order_commessa,
+                    "target_style": target_style,
+                    "target_bom_count": len(target_bom_signature),
+                    "target_bom_items": [f"{item} (qty: {qty})" for item, qty in target_bom_signature[:10]],  # First 10 fabric items with consumption
+                    "matched_order": matching_order,
+                    "matched_style": matching_order_lines.style if matching_order_lines else None,
+                    "matched_bom_count": len(matching_bom),
+                    "matched_bom_items": [f"{bom.item_no} (qty: {bom.quantity})" for bom in matching_bom[:10]]  # First 10 fabric items with consumption
+                }
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error auto-populating ratios: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "msg": str(e)}, 500
+

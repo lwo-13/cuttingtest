@@ -4,7 +4,7 @@ from sqlalchemy import func, and_, or_
 from datetime import datetime, timedelta
 from api.models import (
     db, Mattresses, MarkerHeader, MattressProductionCenter,
-    OrderLinesView, MattressDetail, MattressMarker, MattressPhase, MattressSize, ZalliItemsView, WipMasterReport, NavRoutingSewingSMV
+    OrderLinesView, MattressDetail, MattressMarker, MattressPhase, MattressSize, ZalliItemsView, WipMasterReport, NavRoutingSewingSMV, OrderRatio
 )
 
 # Create Blueprint and API instance
@@ -1862,4 +1862,245 @@ class CoverageToLoadCut(Resource):
             import traceback
             error_details = traceback.format_exc()
             print(f"Error in to-load-cut endpoint: {error_details}")
+            return {"success": False, "message": str(e), "details": error_details}, 500
+
+
+@dashboard_api.route('/italian-ratio-analysis')
+class ItalianRatioAnalysis(Resource):
+    def get(self):
+        """
+        Analyze Italian ratio distribution for orders completed in a specific month.
+        Returns percentage of orders in disadvantage, balanced, and advantage.
+        """
+        try:
+            # Get year and month from query parameters
+            year = request.args.get('year', type=int)
+            month = request.args.get('month', type=int)
+
+            if not year or not month:
+                return {"success": False, "message": "Year and month parameters are required"}, 400
+
+            # Calculate date range for the specified month
+            from calendar import monthrange
+            start_date = datetime(year, month, 1, 0, 0, 0)
+            last_day = monthrange(year, month)[1]
+            end_date = datetime(year, month, last_day, 23, 59, 59)
+
+            print(f"🔍 Analyzing Italian ratios for {year}-{month:02d}")
+            print(f"📅 Date range: {start_date} to {end_date}")
+
+            # Get all orders that were completed in this month
+            # An order is considered completed when it has mattresses with status "5 - COMPLETED"
+            completed_orders = db.session.query(
+                Mattresses.order_commessa
+            ).join(
+                MattressPhase, MattressPhase.mattress_id == Mattresses.id
+            ).filter(
+                MattressPhase.active == True,
+                MattressPhase.status == '5 - COMPLETED',
+                MattressPhase.updated_at >= start_date,
+                MattressPhase.updated_at <= end_date
+            ).distinct().all()
+
+            order_list = [order.order_commessa for order in completed_orders]
+            print(f"📊 Found {len(order_list)} completed orders in this period")
+
+            if not order_list:
+                return {
+                    "success": True,
+                    "data": {
+                        "total_orders": 0,
+                        "orders_with_ratios": 0,
+                        "orders_without_ratios": 0,
+                        "disadvantage_count": 0,
+                        "balanced_count": 0,
+                        "advantage_count": 0,
+                        "disadvantage_percentage": 0,
+                        "balanced_percentage": 0,
+                        "advantage_percentage": 0,
+                        "orders_analyzed": []
+                    }
+                }, 200
+
+            # For each order, check if it has Italian ratios and calculate the status
+            orders_analyzed = []
+            disadvantage_count = 0
+            balanced_count = 0
+            advantage_count = 0
+            orders_without_ratios = 0
+
+            for order_commessa in order_list:
+                # Get Italian ratios for this order
+                italian_ratios = OrderRatio.query.filter_by(order_commessa=order_commessa).all()
+
+                if not italian_ratios:
+                    orders_without_ratios += 1
+                    continue
+
+                # Get order sizes from OrderLinesView
+                order_lines = OrderLinesView.query.filter_by(order_commessa=order_commessa).all()
+                if not order_lines:
+                    orders_without_ratios += 1
+                    continue
+
+                # Get actual production ratios from mattress_sizes
+                actual_sizes = db.session.query(
+                    MattressSize.size,
+                    func.sum(MattressSize.pcs_actual).label('total_pcs')
+                ).join(
+                    Mattresses, Mattresses.id == MattressSize.mattress_id
+                ).filter(
+                    Mattresses.order_commessa == order_commessa,
+                    MattressSize.pcs_actual.isnot(None),
+                    MattressSize.pcs_actual > 0
+                ).group_by(MattressSize.size).all()
+
+                if not actual_sizes:
+                    orders_without_ratios += 1
+                    continue
+
+                # Calculate actual ratios as percentages
+                total_actual_pcs = sum(size.total_pcs for size in actual_sizes)
+                actual_ratios = {
+                    size.size: (size.total_pcs / total_actual_pcs * 100) if total_actual_pcs > 0 else 0
+                    for size in actual_sizes
+                }
+
+                # Convert Italian ratios to dict
+                italian_ratios_dict = {ratio.size: ratio.theoretical_ratio for ratio in italian_ratios}
+
+                # Get ordered sizes from order lines
+                ordered_sizes = sorted(set([line.size for line in order_lines]))
+
+                # Calculate weighted averages using the same logic as OrderQuantities.jsx
+                size_weights = {size: index + 1 for index, size in enumerate(ordered_sizes)}
+
+                # Normalize both ratios to include all sizes
+                normalized_italian = {size: italian_ratios_dict.get(size, 0) for size in ordered_sizes}
+                normalized_actual = {size: actual_ratios.get(size, 0) for size in ordered_sizes}
+
+                # Calculate weighted averages
+                italian_weighted_avg = sum(
+                    normalized_italian[size] * size_weights[size] for size in ordered_sizes
+                ) / 100 if ordered_sizes else 0
+
+                actual_weighted_avg = sum(
+                    normalized_actual[size] * size_weights[size] for size in ordered_sizes
+                ) / 100 if ordered_sizes else 0
+
+                diff = actual_weighted_avg - italian_weighted_avg
+
+                # Determine status based on diff
+                if diff > 0.2:
+                    status = 'Disadvantage'
+                    disadvantage_count += 1
+                elif diff < -0.2:
+                    status = 'Advantage'
+                    advantage_count += 1
+                else:
+                    status = 'Balanced'
+                    balanced_count += 1
+
+                # Get order details
+                order_info = order_lines[0] if order_lines else None
+
+                orders_analyzed.append({
+                    "order_commessa": order_commessa,
+                    "style": order_info.style if order_info else None,
+                    "season": order_info.season if order_info else None,
+                    "color_code": order_info.color_code if order_info else None,
+                    "status": status,
+                    "italian_weighted_avg": round(italian_weighted_avg, 2),
+                    "actual_weighted_avg": round(actual_weighted_avg, 2),
+                    "diff": round(diff, 2),
+                    "italian_ratios": normalized_italian,
+                    "actual_ratios": {k: round(v, 2) for k, v in normalized_actual.items()}
+                })
+
+            total_analyzed = disadvantage_count + balanced_count + advantage_count
+
+            # Calculate trend analysis by style
+            style_trends = {}
+            for order in orders_analyzed:
+                style = order['style']
+                if not style:
+                    continue
+
+                if style not in style_trends:
+                    style_trends[style] = {
+                        'total': 0,
+                        'disadvantage': 0,
+                        'balanced': 0,
+                        'advantage': 0,
+                        'total_diff': 0
+                    }
+
+                style_trends[style]['total'] += 1
+                style_trends[style]['total_diff'] += order['diff']
+
+                if order['status'] == 'Disadvantage':
+                    style_trends[style]['disadvantage'] += 1
+                elif order['status'] == 'Balanced':
+                    style_trends[style]['balanced'] += 1
+                elif order['status'] == 'Advantage':
+                    style_trends[style]['advantage'] += 1
+
+            # Get top 5 styles with most disadvantage orders
+            disadvantage_styles = sorted(
+                [{'style': style, **data} for style, data in style_trends.items()],
+                key=lambda x: x['disadvantage'],
+                reverse=True
+            )[:5]
+
+            # Get top 5 styles with most advantage orders
+            advantage_styles = sorted(
+                [{'style': style, **data} for style, data in style_trends.items()],
+                key=lambda x: x['advantage'],
+                reverse=True
+            )[:5]
+
+            # Calculate deviation coefficient
+            # This measures the imbalance between advantage and disadvantage
+            # Formula: (|Disadvantage% - Advantage%|) / (Disadvantage% + Advantage%)
+            # Result ranges from 0 (perfectly balanced) to 1 (completely one-sided)
+            total_non_balanced = disadvantage_count + advantage_count
+            if total_non_balanced > 0:
+                disadvantage_pct = (disadvantage_count / total_non_balanced) * 100
+                advantage_pct = (advantage_count / total_non_balanced) * 100
+                deviation_coefficient = abs(disadvantage_pct - advantage_pct) / 100
+            else:
+                deviation_coefficient = 0
+
+            # Calculate average deviation (mean of absolute diff values)
+            avg_deviation = sum(abs(order['diff']) for order in orders_analyzed) / total_analyzed if total_analyzed > 0 else 0
+
+            result = {
+                "total_orders": len(order_list),
+                "orders_with_ratios": total_analyzed,
+                "orders_without_ratios": orders_without_ratios,
+                "disadvantage_count": disadvantage_count,
+                "balanced_count": balanced_count,
+                "advantage_count": advantage_count,
+                "disadvantage_percentage": round((disadvantage_count / total_analyzed * 100) if total_analyzed > 0 else 0, 1),
+                "balanced_percentage": round((balanced_count / total_analyzed * 100) if total_analyzed > 0 else 0, 1),
+                "advantage_percentage": round((advantage_count / total_analyzed * 100) if total_analyzed > 0 else 0, 1),
+                "orders_analyzed": orders_analyzed,
+                "disadvantage_styles": disadvantage_styles,
+                "advantage_styles": advantage_styles,
+                "deviation_coefficient": round(deviation_coefficient, 3),
+                "avg_deviation": round(avg_deviation, 3)
+            }
+
+            print(f"✅ Analysis complete: {total_analyzed} orders analyzed")
+            print(f"   Disadvantage: {disadvantage_count} ({result['disadvantage_percentage']}%)")
+            print(f"   Balanced: {balanced_count} ({result['balanced_percentage']}%)")
+            print(f"   Advantage: {advantage_count} ({result['advantage_percentage']}%)")
+            print(f"   Deviation Coefficient: {deviation_coefficient}")
+
+            return {"success": True, "data": result}, 200
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error in italian-ratio-analysis endpoint: {error_details}")
             return {"success": False, "message": str(e), "details": error_details}, 500
