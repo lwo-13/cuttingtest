@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Typography, Autocomplete, TextField, Grid, Button, Box, IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  Snackbar, Alert
+  Snackbar, Alert, CircularProgress
  } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import MainCard from 'ui-component/cards/MainCard';
 import axios from 'utils/axiosInstance';
 
@@ -78,6 +79,16 @@ const ItalianRatio = () => {
   const [openSuccess, setOpenSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Auto-populate loading state
+  const [autoPopulateLoading, setAutoPopulateLoading] = useState(false);
+
+  // Match details dialog
+  const [matchDetailsOpen, setMatchDetailsOpen] = useState(false);
+  const [matchDetails, setMatchDetails] = useState(null);
+
+  // Auto-save trigger
+  const [shouldAutoSave, setShouldAutoSave] = useState(false);
+
   const { orderRatioPendingCount, refreshOrderRatioCount } = useBadgeCount();
 
   useEffect(() => {
@@ -124,6 +135,56 @@ const ItalianRatio = () => {
     setRatios([{ size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }, { size: '', theoretical_ratio: '' }]);
   }, [selectedOrder?.id]); // 👈 track the ID
 
+  // Auto-save effect - triggers a few seconds after dialog is closed
+  useEffect(() => {
+    if (!shouldAutoSave) return;
+
+    const timer = setTimeout(() => {
+      // Validate ratios before auto-saving
+      if (!selectedOrder?.id) {
+        setShouldAutoSave(false);
+        return;
+      }
+
+      const totalRatio = ratios.reduce((sum, row) => sum + parseFloat(row.theoretical_ratio || 0), 0);
+
+      if (totalRatio !== 100) {
+        setErrorMessage(`Total percentage must be 100%. Currently: ${totalRatio}%`);
+        setOpenError(true);
+        setShouldAutoSave(false);
+        return;
+      }
+
+      const dataToSend = ratios.map((row) => ({
+        order_commessa: selectedOrder?.id,
+        size: row.size,
+        theoretical_ratio: parseFloat(row.theoretical_ratio || 0)
+      }));
+
+      axios
+        .patch('/orders/ratios/update', { data: dataToSend })
+        .then(() => {
+          setSuccessMessage('Ratios auto-saved!');
+          setOpenSuccess(true);
+          refreshOrderRatioCount();
+          setSelectedOrder(null);
+          setRatios([]);
+
+          // 🔁 Trigger full page reload
+          window.location.reload();
+        })
+        .catch(() => {
+          setErrorMessage('Error auto-saving ratios');
+          setOpenError(true);
+        })
+        .finally(() => {
+          setShouldAutoSave(false);
+        });
+    }, 500); // 0.5 seconds delay
+
+    return () => clearTimeout(timer);
+  }, [shouldAutoSave, selectedOrder, ratios, refreshOrderRatioCount]);
+
   useEffect(() => {
     if (!fetchedSizes.length) return;
 
@@ -141,37 +202,66 @@ const ItalianRatio = () => {
     setAvailableSizes(matchedGroup ? matchedGroup[1] : []);
   }, [brand, fetchedSizes]);
 
-  const handleRatioChange = (index, value) => {
-    const updated = [...ratios];
-    updated[index].theoretical_ratio = value;
-    setRatios(updated);
+  // Auto-populate function
+  const handleAutoPopulate = async () => {
+    if (!selectedOrder?.id) {
+      setErrorMessage('Please select an order first');
+      setOpenError(true);
+      return;
+    }
+
+    setAutoPopulateLoading(true);
+    try {
+      const response = await axios.post(`/orders/ratios/auto_populate/${selectedOrder.id}`);
+
+      if (response.data.success) {
+        // Update the ratios state with the auto-populated data
+        const autoPopulatedRatios = response.data.ratios.map(r => ({
+          size: r.size,
+          theoretical_ratio: r.theoretical_ratio
+        }));
+        setRatios(autoPopulatedRatios);
+
+        // Store match details and show dialog
+        setMatchDetails(response.data.match_details);
+        setMatchDetailsOpen(true);
+
+        // Keep the order selected so user can review and save manually
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.msg || 'Failed to auto-populate ratios';
+      setErrorMessage(errorMsg);
+      setOpenError(true);
+    } finally {
+      setAutoPopulateLoading(false);
+    }
   };
 
   const handleSave = () => {
     const isValid = ratios.every(
       (row) => row.size && row.theoretical_ratio && !isNaN(Number(row.theoretical_ratio))
     );
-  
+
     if (!isValid) {
       setErrorMessage('Please fill out all sizes and valid ratios before saving.');
       setOpenError(true);
       return;
     }
-  
+
     const totalRatio = ratios.reduce((sum, row) => sum + parseFloat(row.theoretical_ratio || 0), 0);
-  
+
     if (totalRatio !== 100) {
       setErrorMessage(`Total percentage must be 100%. Currently: ${totalRatio}%`);
       setOpenError(true);
       return;
     }
-  
+
     const dataToSend = ratios.map((row) => ({
       order_commessa: selectedOrder?.id,
       size: row.size,
       theoretical_ratio: parseFloat(row.theoretical_ratio || 0)
     }));
-  
+
     axios
       .patch('/orders/ratios/update', { data: dataToSend })
       .then(() => {
@@ -180,7 +270,7 @@ const ItalianRatio = () => {
         refreshOrderRatioCount();
         setSelectedOrder(null);
         setRatios([]);
-        
+
         // 🔁 Trigger full page reload
         window.location.reload();
       })
@@ -198,6 +288,18 @@ const ItalianRatio = () => {
   const handleCloseError = () => setOpenError(false);
   const handleCloseSuccess = () => setOpenSuccess(false);
 
+  const handleRatioChange = (index, value) => {
+    const updated = [...ratios];
+    updated[index].theoretical_ratio = value;
+    setRatios(updated);
+  };
+
+  // Handle match details dialog close - trigger auto-save
+  const handleCloseMatchDetails = () => {
+    setMatchDetailsOpen(false);
+    setShouldAutoSave(true); // Trigger auto-save after a few seconds
+  };
+
   return (
     <>
       {/* Card 1 - Order Selection with Details */}
@@ -213,7 +315,7 @@ const ItalianRatio = () => {
               setStyleTouched(true);
               setSelectedStyle(newStyle);
 
-              // Clear order if it doesn’t match new style
+              // Clear order if it doesn't match new style
               const matchingOrders = orderOptions.filter(order => order.style === newStyle);
               if (!matchingOrders.some(order => order.id === selectedOrder?.id)) {
                 setSelectedOrder(null);
@@ -234,6 +336,37 @@ const ItalianRatio = () => {
       </MainCard>
 
       <Box mt={2} />
+
+      {/* Auto-Populate Card */}
+      {selectedOrder && (
+        <>
+          <MainCard>
+            <Grid container direction="column" spacing={2}>
+              <Grid item>
+                <Typography variant="h4" gutterBottom>
+                  Auto-Populate from Similar Order
+                </Typography>
+                <Typography variant="body2" color="textSecondary" gutterBottom>
+                  Automatically populate ratios by finding an existing order with the same style, sizes, and fabric BOM.
+                </Typography>
+              </Grid>
+              <Grid item>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={autoPopulateLoading ? <CircularProgress size={20} color="inherit" /> : <AutoFixHighIcon />}
+                  onClick={handleAutoPopulate}
+                  disabled={autoPopulateLoading}
+                >
+                  {autoPopulateLoading ? 'Searching...' : 'Auto-Populate Ratios'}
+                </Button>
+              </Grid>
+            </Grid>
+          </MainCard>
+
+          <Box mt={2} />
+        </>
+      )}
 
       {/* Card 2 - Theoretical Ratio Entry */}
       {selectedOrder && (
@@ -329,10 +462,107 @@ const ItalianRatio = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar 
-        open={openError} 
-        autoHideDuration={5000} 
-        onClose={handleCloseError} 
+      {/* Match Details Dialog */}
+      <Dialog
+        open={matchDetailsOpen}
+        onClose={handleCloseMatchDetails}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h3" color="secondary">
+            ✅ Match Found!
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {matchDetails && (
+            <Grid container spacing={3}>
+              {/* Target Order Section */}
+              <Grid item xs={12}>
+                <Typography variant="h4" gutterBottom sx={{ color: 'primary.main' }}>
+                  Your Order: {matchDetails.target_order}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary">Style:</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{matchDetails.target_style}</Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary">
+                  Fabric BOM with Consumption ({matchDetails.target_bom_count} items):
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                  {matchDetails.target_bom_items.join(', ')}
+                  {matchDetails.target_bom_count > 10 && '...'}
+                </Typography>
+              </Grid>
+
+              {/* Divider */}
+              <Grid item xs={12}>
+                <Box sx={{ borderTop: '2px solid', borderColor: 'secondary.main', my: 1 }} />
+              </Grid>
+
+              {/* Matched Order Section */}
+              <Grid item xs={12}>
+                <Typography variant="h4" gutterBottom sx={{ color: 'secondary.main' }}>
+                  Matched Order: {matchDetails.matched_order}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary">Style:</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{matchDetails.matched_style}</Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary">
+                  Fabric BOM with Consumption ({matchDetails.matched_bom_count} items):
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                  {matchDetails.matched_bom_items.join(', ')}
+                  {matchDetails.matched_bom_count > 10 && '...'}
+                </Typography>
+              </Grid>
+
+              {/* Comparison Summary */}
+              <Grid item xs={12}>
+                <Box sx={{ borderTop: '2px solid', borderColor: 'success.main', my: 1 }} />
+                <Typography variant="h5" gutterBottom sx={{ color: 'success.main' }}>
+                  ✓ Match Criteria
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="body2">
+                  ✓ Same Style: <strong>{matchDetails.target_style}</strong>
+                </Typography>
+                <Typography variant="body2">
+                  ✓ Same Fabric BOM with Consumption: <strong>{matchDetails.target_bom_count} items with identical quantities</strong>
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                  Note: Matching fabric consumption values indicates the same size ratio distribution used for costing.
+                </Typography>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleCloseMatchDetails}
+            color="primary"
+            variant="contained"
+          >
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={openError}
+        autoHideDuration={5000}
+        onClose={handleCloseError}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
@@ -340,15 +570,15 @@ const ItalianRatio = () => {
         </Alert>
       </Snackbar>
 
-      <Snackbar 
-        open={openSuccess} 
-        autoHideDuration={5000} 
-        onClose={handleCloseSuccess} 
+      <Snackbar
+        open={openSuccess}
+        autoHideDuration={5000}
+        onClose={handleCloseSuccess}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseSuccess} 
-          severity="success" 
+        <Alert
+          onClose={handleCloseSuccess}
+          severity="success"
           sx={{ width: '100%', padding: "12px 16px", fontSize: "1.1rem", lineHeight: "1.5", borderRadius: "8px" }}
         >
           {successMessage}
@@ -359,3 +589,4 @@ const ItalianRatio = () => {
 };
 
 export default ItalianRatio;
+
