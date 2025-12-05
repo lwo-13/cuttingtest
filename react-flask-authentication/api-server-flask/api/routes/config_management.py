@@ -6,7 +6,7 @@ import os
 import json
 import re
 import pyodbc
-from api.models import db, Users
+from api.models import db, Users, EmailSettings
 
 # Create Blueprint
 config_management_bp = Blueprint('config_management', __name__)
@@ -1530,5 +1530,148 @@ class ApplicationModulesResource(Resource):
                     "success": False,
                     "msg": "Failed to write application modules"
                 }, 500
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+# ===================== Email Settings =====================
+@config_management_api.route('/email-settings')
+class EmailSettingsResource(Resource):
+    """Manage email settings for notifications"""
+
+    def get(self):
+        """Get all email settings. If no settings exist, pre-populate from users table."""
+        try:
+            settings = EmailSettings.query.filter_by(is_active=True).all()
+
+            # Separate main recipients and subcontractor emails
+            main_recipients = []
+            subcontractor_emails = {}
+
+            for setting in settings:
+                if setting.setting_type == 'MAIN':
+                    main_recipients.append({
+                        'id': setting.id,
+                        'email': setting.email,
+                        'description': setting.description
+                    })
+                elif setting.setting_type == 'SUBCONTRACTOR':
+                    if setting.cutting_room:
+                        subcontractor_emails[setting.cutting_room] = {
+                            'id': setting.id,
+                            'email': setting.email,
+                            'description': setting.description
+                        }
+
+            # If no subcontractor emails configured yet, pre-populate from users table
+            if not subcontractor_emails:
+                subcontractor_users = Users.query.filter_by(role='Subcontractor').all()
+                for user in subcontractor_users:
+                    if user.username and user.email:
+                        subcontractor_emails[user.username] = {
+                            'id': None,  # Not yet saved to email_settings
+                            'email': user.email,
+                            'description': f'From users table ({user.username})'
+                        }
+
+            return {
+                "success": True,
+                "data": {
+                    "mainRecipients": main_recipients,
+                    "subcontractorEmails": subcontractor_emails
+                }
+            }, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+    def post(self):
+        """Update email settings"""
+        try:
+            payload = request.get_json() or {}
+            main_recipients = payload.get('mainRecipients', [])
+            subcontractor_emails = payload.get('subcontractorEmails', {})
+
+            # Deactivate all existing settings (soft delete)
+            EmailSettings.query.update({EmailSettings.is_active: False})
+
+            # Add/update main recipients
+            for recipient in main_recipients:
+                email = recipient.get('email', '').strip()
+                if email:
+                    setting = EmailSettings(
+                        setting_type='MAIN',
+                        email=email,
+                        description=recipient.get('description', '').strip() or None,
+                        is_active=True
+                    )
+                    db.session.add(setting)
+
+            # Add/update subcontractor emails
+            for cutting_room, email_data in subcontractor_emails.items():
+                email = email_data.get('email', '').strip() if isinstance(email_data, dict) else email_data.strip()
+                if email:
+                    description = email_data.get('description', '').strip() if isinstance(email_data, dict) else None
+                    setting = EmailSettings(
+                        setting_type='SUBCONTRACTOR',
+                        cutting_room=cutting_room,
+                        email=email,
+                        description=description,
+                        is_active=True
+                    )
+                    db.session.add(setting)
+
+            db.session.commit()
+
+            return {
+                "success": True,
+                "msg": "Email settings saved successfully"
+            }, 200
+        except Exception as e:
+            db.session.rollback()
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/email-settings/subcontractor/<string:cutting_room>')
+class SubcontractorEmailResource(Resource):
+    """Get email for a specific subcontractor cutting room"""
+
+    def get(self, cutting_room):
+        """Get email for a subcontractor by cutting room name. Falls back to users table if not configured."""
+        try:
+            # First check email_settings table
+            setting = EmailSettings.query.filter_by(
+                setting_type='SUBCONTRACTOR',
+                cutting_room=cutting_room,
+                is_active=True
+            ).first()
+
+            if setting:
+                return {"success": True, "email": setting.email}, 200
+
+            # Fallback to users table for subcontractor email
+            user = Users.query.filter_by(username=cutting_room, role='Subcontractor').first()
+            if user and user.email:
+                return {"success": True, "email": user.email}, 200
+
+            return {"success": True, "email": None}, 200
+        except Exception as e:
+            return {"success": False, "msg": str(e)}, 500
+
+
+@config_management_api.route('/email-settings/main-recipients')
+class MainRecipientsResource(Resource):
+    """Get all main email recipients"""
+
+    def get(self):
+        """Get all active main email recipients"""
+        try:
+            settings = EmailSettings.query.filter_by(
+                setting_type='MAIN',
+                is_active=True
+            ).all()
+
+            emails = [setting.email for setting in settings]
+
+            return {"success": True, "emails": emails}, 200
         except Exception as e:
             return {"success": False, "msg": str(e)}, 500

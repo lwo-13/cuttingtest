@@ -1034,3 +1034,35 @@ class NavRoutingSewingSMV(db.Model):
     def __repr__(self):
         return f"<NavRoutingSewingSMV Routing={self.routing_no}, Version={self.version_code}, SMV={self.sewing_smv}>"
 
+
+class EmailSettings(db.Model):
+    """Store email configuration for notifications.
+
+    Two types of entries:
+    - Main recipients: setting_type='MAIN', email stores the address, cutting_room is NULL
+    - Subcontractor emails: setting_type='SUBCONTRACTOR', email stores address, cutting_room identifies the subcontractor
+    """
+    __tablename__ = 'email_settings'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    setting_type = db.Column(db.String(20, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)  # 'MAIN' or 'SUBCONTRACTOR'
+    cutting_room = db.Column(db.String(50, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Only for SUBCONTRACTOR type
+    email = db.Column(db.String(100, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=False)
+    description = db.Column(db.String(255, collation='SQL_Latin1_General_CP1_CI_AS'), nullable=True)  # Optional description/name
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'setting_type': self.setting_type,
+            'cutting_room': self.cutting_room,
+            'email': self.email,
+            'description': self.description,
+            'is_active': self.is_active
+        }
+
+    def __repr__(self):
+        return f"<EmailSettings {self.setting_type}: {self.email}>"
+

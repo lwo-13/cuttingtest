@@ -85,6 +85,8 @@ const ApplicationModules = Loadable(lazy(() => import('../views/configuration/Ap
 
 const OperatorsConfiguration = Loadable(lazy(() => import('../views/configuration/OperatorsConfiguration')));
 
+const EmailSettings = Loadable(lazy(() => import('../views/configuration/EmailSettings')));
+
 
 //-----------------------|| MAIN ROUTING ||-----------------------//
 
@@ -164,7 +166,8 @@ const MainRoutes = () => {
                     '/configuration/server-settings',
                     '/configuration/installation-settings',
                     '/configuration/application-modules',
-                    '/configuration/operators'
+                    '/configuration/operators',
+                    '/configuration/email-settings'
                 ]}
             >
                 <MainLayout>
@@ -251,6 +254,12 @@ const MainRoutes = () => {
                             <Route path="/configuration/operators">
                                 <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
                                     <OperatorsConfiguration />
+                                </RoleGuard>
+                            </Route>
+
+                            <Route path="/configuration/email-settings">
+                                <RoleGuard allowedRoles={['Administrator', 'Project Admin']}>
+                                    <EmailSettings />
                                 </RoleGuard>
                             </Route>
                         </AuthGuard>

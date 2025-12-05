@@ -17,7 +17,8 @@ import {
     IconDatabase,
     IconTool,
     IconApps,
-    IconUserCheck
+    IconUserCheck,
+    IconMail
 } from '@tabler/icons';
 import MainCard from 'ui-component/cards/MainCard';
 
@@ -82,6 +83,14 @@ const ConfigurationDashboard = () => {
             icon: IconUserCheck,
             path: '/configuration/operators',
             color: '#f57c00'
+        },
+        {
+            id: 'email-settings',
+            title: 'Email Settings',
+            description: 'Configure email recipients for order notifications',
+            icon: IconMail,
+            path: '/configuration/email-settings',
+            color: '#5c6bc0'
         }
     ];
 

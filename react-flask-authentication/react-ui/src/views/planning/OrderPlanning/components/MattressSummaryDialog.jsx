@@ -65,10 +65,10 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, 
         // Prepare email recipients
         const recipients = [];
 
-        // Fetch subcontractor email if cutting room is a subcontractor
+        // Fetch subcontractor email from configurable email settings
         if (cuttingRoom) {
             try {
-                const response = await axios.get(`/users/email_by_cutting_room/${cuttingRoom}`);
+                const response = await axios.get(`/config/email-settings/subcontractor/${encodeURIComponent(cuttingRoom)}`);
                 if (response.data.success && response.data.email) {
                     recipients.push(response.data.email);
                 }
@@ -78,9 +78,20 @@ const MattressSummaryDialog = ({ open, onClose, table, fabricType, orderNumber, 
             }
         }
 
-        // Add fixed email addresses
-        recipients.push('boykov@pirintex.com');
-        recipients.push('georgieva@pirintex.com');
+        // Fetch main recipients from configurable email settings
+        try {
+            const mainResponse = await axios.get('/config/email-settings/main-recipients');
+            if (mainResponse.data.success && mainResponse.data.emails) {
+                mainResponse.data.emails.forEach(email => {
+                    if (email && !recipients.includes(email)) {
+                        recipients.push(email);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching main email recipients:', error);
+            // Continue without main recipients if fetch fails
+        }
 
         // Join recipients with semicolon (correct mailto format)
         const toField = recipients.join(';');
