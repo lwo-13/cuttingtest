@@ -48,7 +48,15 @@ const StyleCommentCardReadOnly = ({ selectedStyle }) => {
     <MainCard
       data-testid="style-comment-card"
       className="style-comment-card"
-      sx={{ width: '100%', height: '100%' }}
+      sx={{
+        width: '100%',
+        height: '100%',
+        '@media print': {
+          height: 'auto !important',
+          overflow: 'visible !important',
+          pageBreakInside: 'avoid'
+        }
+      }}
       title={
         <Box display="flex" alignItems="center" gap={1}>
           {t('orderPlanning.styleComment', 'Style Comment')}
@@ -67,38 +75,55 @@ const StyleCommentCardReadOnly = ({ selectedStyle }) => {
       ) : (
         <Box>
           <Grid container spacing={2}>
-            {/* Style Comment - 3/4 width */}
+            {/* Style Comment - Full width in print */}
             <Grid item xs={12} md={9}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                maxRows={15}
-                variant="outlined"
-                label={t('orderPlanning.styleComment', 'Style Comment')}
-                value={comment || ''}
-                InputProps={{
-                  readOnly: true,
-                }}
-                InputLabelProps={{
-                  style: { fontWeight: 'normal' }
-                }}
+              {/* Regular TextField for screen */}
+              <Box sx={{ '@media print': { display: 'none' } }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  variant="outlined"
+                  label={t('orderPlanning.styleComment', 'Style Comment')}
+                  value={comment || ''}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  InputLabelProps={{
+                    style: { fontWeight: 'normal' }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      minHeight: '120px',
+                      backgroundColor: '#f5f5f5'
+                    },
+                    '& .MuiInputBase-input': {
+                      cursor: 'default'
+                    }
+                  }}
+                  placeholder={comment ? '' : t('subcontractor.noStyleComment', 'No style comment available')}
+                />
+              </Box>
+              {/* Plain text for print - shows all content */}
+              <Box
                 sx={{
-                  '& .MuiInputBase-root': {
-                    minHeight: '120px',
-                    backgroundColor: '#f5f5f5'
-                  },
-                  '& .MuiInputBase-input': {
-                    cursor: 'default'
+                  display: 'none',
+                  '@media print': {
+                    display: 'block',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
                   }
                 }}
-                placeholder={comment ? '' : t('subcontractor.noStyleComment', 'No style comment available')}
-              />
+              >
+                <Typography variant="body2" sx={{ fontSize: '12px' }}>
+                  {comment || ''}
+                </Typography>
+              </Box>
             </Grid>
 
             {/* Max Pieces in Package - 1/4 width */}
             <Grid item xs={12} md={3}>
-              <Box display="flex" flexDirection="column" height="100%">
+              <Box display="flex" flexDirection="column">
                 <TextField
                   fullWidth
                   variant="outlined"
@@ -108,7 +133,8 @@ const StyleCommentCardReadOnly = ({ selectedStyle }) => {
                     readOnly: true,
                   }}
                   InputLabelProps={{
-                    style: { fontWeight: 'normal' }
+                    style: { fontWeight: 'normal' },
+                    shrink: true
                   }}
                   sx={{
                     '& .MuiInputBase-root': {

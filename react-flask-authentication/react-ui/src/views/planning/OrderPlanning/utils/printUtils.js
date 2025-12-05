@@ -513,6 +513,27 @@ export const usePrintStyles = () => {
           color: black !important;
         }
 
+        /* Style Comment Card - Allow full text to show when printing */
+        .MuiCard-root.style-comment-card .MuiInputBase-root,
+        .MuiCard-root.style-comment-card textarea,
+        .style-comment-card .MuiInputBase-root,
+        .style-comment-card textarea {
+          max-height: none !important;
+          height: auto !important;
+          overflow: visible !important;
+          overflow-y: hidden !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .MuiCard-root.style-comment-card .MuiInputBase-root::-webkit-scrollbar,
+        .MuiCard-root.style-comment-card textarea::-webkit-scrollbar,
+        .style-comment-card .MuiInputBase-root::-webkit-scrollbar,
+        .style-comment-card textarea::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+
         /* AGGRESSIVE: Remove ALL grey backgrounds from ALL form elements */
         input, select, textarea,
         .MuiInputBase-root, .MuiOutlinedInput-root, .MuiTextField-root,

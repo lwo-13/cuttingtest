@@ -148,6 +148,41 @@ export const useOrderReportPrintStyles = () => {
           print-color-adjust: exact !important;
         }
 
+        /* Style Comment Card - Allow full text to show when printing */
+        .style-comment-card-print .MuiInputBase-root,
+        .style-comment-card-print textarea,
+        .style-comment-card .MuiInputBase-root,
+        .style-comment-card textarea,
+        [data-testid="style-comment-card"] .MuiInputBase-root,
+        [data-testid="style-comment-card"] textarea {
+          max-height: none !important;
+          height: auto !important;
+          overflow: hidden !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .style-comment-card-print .MuiInputBase-root::-webkit-scrollbar,
+        .style-comment-card-print textarea::-webkit-scrollbar,
+        .style-comment-card .MuiInputBase-root::-webkit-scrollbar,
+        .style-comment-card textarea::-webkit-scrollbar,
+        [data-testid="style-comment-card"] .MuiInputBase-root::-webkit-scrollbar,
+        [data-testid="style-comment-card"] textarea::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+
+        /* Hide all scrollbars in print */
+        *::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+        * {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+
         .print-hidden, .cumulative-quantities-section {
           display: none !important;
         }
