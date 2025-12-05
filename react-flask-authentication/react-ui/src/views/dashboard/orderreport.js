@@ -573,6 +573,26 @@ const OrderReport = () => {
                 </Box>
             )}
 
+            {/* Order Comment Section - Moved up to be with comments */}
+            {selectedOrder && showProductionCenterTabs && selectedCombination && (
+                <Box mt={2}>
+                    <OrderCommentCardReadOnly
+                        selectedOrder={selectedOrder}
+                        selectedCombination={selectedCombination}
+                    />
+                </Box>
+            )}
+
+            {/* Order Comment for orders without production centers (backward compatibility) */}
+            {selectedOrder && !showProductionCenterTabs && (
+                <Box mt={2}>
+                    <OrderCommentCardReadOnly
+                        selectedOrder={selectedOrder}
+                        selectedCombination={null}
+                    />
+                </Box>
+            )}
+
             <Box mt={2} />
 
             {/* Production Center Configuration */}
@@ -938,26 +958,6 @@ const OrderReport = () => {
                     </MainCard>
                 </React.Fragment>
             ))}
-
-            {/* Order Comment Section - Display at the end */}
-            {selectedOrder && showProductionCenterTabs && selectedCombination && (
-                <Box mt={3}>
-                    <OrderCommentCardReadOnly
-                        selectedOrder={selectedOrder}
-                        selectedCombination={selectedCombination}
-                    />
-                </Box>
-            )}
-
-            {/* Order Comment for orders without production centers (backward compatibility) */}
-            {selectedOrder && !showProductionCenterTabs && (
-                <Box mt={3}>
-                    <OrderCommentCardReadOnly
-                        selectedOrder={selectedOrder}
-                        selectedCombination={null}
-                    />
-                </Box>
-            )}
 
             {/* Error Snackbar
             <Snackbar

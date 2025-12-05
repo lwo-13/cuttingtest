@@ -2437,6 +2437,20 @@ const OrderPlanning = () => {
                 </Box>
             )}
 
+            {/* Production Center Comment Card Section - Moved up to be with comments */}
+            {selectedOrder && selectedCombination && shouldShowCommentCard && (
+                <Box mt={2}>
+                    <CommentCard
+                        selectedOrder={selectedOrder}
+                        selectedCombination={selectedCombination}
+                        onRemove={handleRemoveComment}
+                        setUnsavedChanges={setUnsavedChanges}
+                        onCommentChange={handleCommentChange}
+                        onCommentExists={handleCommentExists}
+                    />
+                </Box>
+            )}
+
             <Box mt={2} />
 
             {/* Production Center Configuration Section */}
@@ -2976,20 +2990,6 @@ const OrderPlanning = () => {
                     </MainCard>
                 </React.Fragment>
             ))}
-
-            {/* Production Center Comment Card Section */}
-            {selectedOrder && selectedCombination && shouldShowCommentCard && (
-                <Box mt={3}>
-                    <CommentCard
-                        selectedOrder={selectedOrder}
-                        selectedCombination={selectedCombination}
-                        onRemove={handleRemoveComment}
-                        setUnsavedChanges={setUnsavedChanges}
-                        onCommentChange={handleCommentChange}
-                        onCommentExists={handleCommentExists}
-                    />
-                </Box>
-            )}
 
 
             {selectedOrder && selectedCombinationId && (
